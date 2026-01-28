@@ -6,7 +6,6 @@ import {
   WorkspaceFolderInfo,
   FileMetadata,
   AuthorData,
-  CommitData,
   BranchName,
   CommitHash,
   CommitAuthor,
@@ -294,6 +293,25 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       parts.push(`${this.excludedCommits.size} commit(s) hidden`);
     }
     return parts.join(", ");
+  }
+
+  /** Get all visible file paths (excluding deleted files) for search operations */
+  getVisibleFilePaths(): AbsolutePath[] {
+    const files: AbsolutePath[] = [];
+    for (const [filePath, metadata] of this.freshFiles.entries()) {
+      // Skip deleted files and apply current filters
+      if (metadata.isDeleted) {
+        continue;
+      }
+      if (this.excludedAuthors.has(metadata.author || "(unknown)")) {
+        continue;
+      }
+      if (metadata.commitHash && this.excludedCommits.has(metadata.commitHash)) {
+        continue;
+      }
+      files.push(filePath);
+    }
+    return files;
   }
 
   /** Check if we have any Git repositories */

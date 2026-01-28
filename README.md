@@ -97,6 +97,21 @@ Both options can be individually disabled.
 
 > **Note:** The extension tracks the _most recent_ commit per file only. If a file was modified by both a filtered author and a non-filtered author within the time window, the file will be hidden entirely (because the most recent commit is what's filtered). This is a deliberate simplification - for deeper history analysis, consider using something like GitLens or learning more than 5 git commands.
 
+### Search in Fresh Files
+
+Click the search icon in the Fresh Files toolbar to open VS Code's search view with all currently visible files pre-filled in the "files to include" pattern. This lets you search only within the files you're actively working on, respecting your current filters and time window. This searches file *contents*. To search the tree, use `CTRL+ALT+F`
+
+**Features:**
+- Respects author and commit filters
+- Excludes deleted files or lines (they're not on disk to search)
+- Uses brace expansion to optimize pattern length (e.g., `src/{a.ts,b.ts}` instead of `src/a.ts,src/b.ts`)
+- Automatically truncates the file list if command-line limits would be exceeded and warns you. 
+- You will probably be fine with <100 files, but ultimately this depends on how long the paths are in your workspace, and how vscode does the search internally. The length of the include pattern does not necessarily match the length of the command vscode will execute. I can't work around this limitation, but the maximum length is configurable.
+- If you exceed the limit, vscode will simply refuse to search (`spawn ENAMETOOLONG` error will be shown in the search view). This means you need to lower the limit in the settings.
+
+**Configuration:**
+- `freshFileExplorer.searchPatternMaxLength`: Maximum pattern length before truncation (default: 4000 chars, tries to account for VS Code's expansion when calling ripgrep).
+
 ### Context Menu Actions
 
 - Open / Open to Side - you can toggle whether clicking a file opens the file or a diff

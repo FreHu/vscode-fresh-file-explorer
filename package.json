@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.106.1"
@@ -110,6 +110,11 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "freshFileExplorer.searchInFreshFiles",
+        "title": "Search in Fresh Files",
+        "icon": "$(search)"
+      },
+      {
         "command": "freshFileExplorer.initializeRepo",
         "title": "Initialize Repository"
       }
@@ -145,6 +150,11 @@
           "command": "freshFileExplorer.clearFilters",
           "when": "view == freshFileExplorer && freshFileExplorer.hasFilters",
           "group": "navigation@5"
+        },
+        {
+          "command": "freshFileExplorer.searchInFreshFiles",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@5.5"
         },
         {
           "command": "freshFileExplorer.expandAll",
@@ -314,6 +324,13 @@
           "type": "boolean",
           "default": true,
           "description": "Show warnings when base branch has commits not in current branch (indicating you need to merge)"
+        },
+        "freshFileExplorer.searchPatternMaxLength": {
+          "type": "number",
+          "default": 4000,
+          "minimum": 1000,
+          "maximum": 500000,
+          "description": "Maximum length for search include pattern before truncation."
         }
       }
     }

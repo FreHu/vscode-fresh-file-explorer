@@ -1,9 +1,8 @@
 # Change Log
+## [1.0.1]
 
-All notable changes to the "fresh-file-explorer" extension will be documented in this file.
+- Added an action to launch a fulltext search across fresh files. This has some limitations (see readme)
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
-## [Unreleased]
+## [1.0.0]
 
 - Initial release

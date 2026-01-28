@@ -15,4 +15,5 @@ export const ConfigKeys = {
   GIT_TIMEOUT: "freshFileExplorer.gitTimeout",
   SHOW_CURRENT_BRANCH_SYNC: "freshFileExplorer.showCurrentBranchSync",
   SHOW_BASE_BRANCH_SYNC: "freshFileExplorer.showBaseBranchSync",
+  SEARCH_PATTERN_MAX_LENGTH: "freshFileExplorer.searchPatternMaxLength",
 } as const;

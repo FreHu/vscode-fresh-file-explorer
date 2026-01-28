@@ -15,6 +15,9 @@ export const Commands = {
   FILTER_BY_COMMIT: "freshFileExplorer.filterByCommit",
   CLEAR_FILTERS: "freshFileExplorer.clearFilters",
 
+  // Search command
+  SEARCH_IN_FRESH_FILES: "freshFileExplorer.searchInFreshFiles",
+
   // Deleted file commands
   EXHUME: "freshFileExplorer.exhume",
   RESURRECT: "freshFileExplorer.resurrect",

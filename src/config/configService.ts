@@ -55,4 +55,11 @@ export class ConfigService {
   static getShowBaseBranchSync(): boolean {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.SHOW_BASE_BRANCH_SYNC, true);
   }
+
+  /**
+   * Get the maximum length for search include patterns
+   */
+  static getSearchPatternMaxLength(): number {
+    return vscode.workspace.getConfiguration().get<number>(ConfigKeys.SEARCH_PATTERN_MAX_LENGTH, 4000);
+  }
 }

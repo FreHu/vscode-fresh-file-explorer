@@ -21,6 +21,7 @@ import { FreshFileProvider } from "./freshFileProvider";
 import { setupGitExtensionListener } from "./gitExecutionListener";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
+import { registerSearchInFreshFilesCommand } from "./commands/searchCommand";
 import { Commands } from "./commands/constants";
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -91,6 +92,8 @@ function registerCommands(
   register(Commands.FILTER_BY_COMMIT, () => handleFilterByCommit(freshFileProvider));
 
   register(Commands.CLEAR_FILTERS, () => handleClearFilters(freshFileProvider));
+
+  registerSearchInFreshFilesCommand(context, freshFileProvider);
 
   register(Commands.EXHUME, (item: FreshFileItem) => handleExhume(item, freshFileProvider));
 
