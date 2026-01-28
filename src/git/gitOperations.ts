@@ -1,0 +1,517 @@
+import * as cp from "child_process";
+import * as path from "path";
+import * as fs from "fs";
+import * as vscode from "vscode";
+
+import { log } from "../utils/logger";
+import { CommitData, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage, findRepoForFile } from "../types";
+import { AbsolutePath, asAbsolutePath } from "../pathTypes";
+import { normalizePath } from "../utils";
+import { FreshFileProvider } from "../freshFileProvider";
+import { FreshFileItem } from "../treeItems";
+import { ConfigService } from "../config/configService";
+
+/**
+ * Validate that a file path is safely within the expected root directory.
+ * Prevents path traversal attacks (e.g., ../../etc/passwd).
+ * @param filePath The absolute file path to validate
+ * @param rootPath The root directory the file must be within
+ * @returns true if the file is safely within the root, false otherwise
+ */
+export function isPathWithinRoot(filePath: AbsolutePath, rootPath: AbsolutePath): boolean {
+  // Resolve both paths to absolute, normalized form
+  const resolvedFile = path.resolve(filePath);
+  const resolvedRoot = path.resolve(rootPath);
+
+  // Ensure root path ends with separator for proper prefix matching
+  const rootWithSep = resolvedRoot.endsWith(path.sep) ? resolvedRoot : resolvedRoot + path.sep;
+
+  // File must start with root path (or be exactly the root)
+  return resolvedFile === resolvedRoot || resolvedFile.startsWith(rootWithSep);
+}
+
+/**
+ * Execute a git command with arguments safely (no shell interpolation).
+ * This is CRITICAL for security - avoids shell injection from filenames.
+ * @param args Array of git arguments (e.g., ['show', 'HEAD:file.txt'])
+ * @param cwd The working directory
+ * @param options Optional settings: timeout (ms)
+ * @returns The command output as a string
+ */
+export function execGitWithArgs(args: string[], cwd: string, options: { timeout?: number } = {}): Promise<string> {
+  const { timeout } = options;
+  return new Promise((resolve, reject) => {
+    const child = cp.spawn("git", args, { cwd, timeout });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", data => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", data => {
+      stderr += data.toString();
+    });
+
+    child.on("error", error => {
+      reject(error.message);
+    });
+
+    child.on("close", code => {
+      if (code !== 0) {
+        reject(stderr || `git exited with code ${code}`);
+      } else {
+        resolve(stdout);
+      }
+    });
+  });
+}
+
+/**
+ * Execute a git command with arguments safely, returning Buffer (for binary files).
+ * This is CRITICAL for security - avoids shell injection from filenames.
+ * @param args Array of git arguments
+ * @param cwd The working directory
+ * @param options Optional settings: timeout (ms)
+ * @returns The command output as a Buffer
+ */
+export function execGitWithArgsBuffer(
+  args: string[],
+  cwd: string,
+  options: { timeout?: number } = {},
+): Promise<Buffer> {
+  const { timeout } = options;
+  return new Promise((resolve, reject) => {
+    const child = cp.spawn("git", args, { cwd, timeout });
+    const chunks: Buffer[] = [];
+    let stderr = "";
+
+    child.stdout.on("data", data => {
+      chunks.push(Buffer.from(data));
+    });
+
+    child.stderr.on("data", data => {
+      stderr += data.toString();
+    });
+
+    child.on("error", error => {
+      reject(error.message);
+    });
+
+    child.on("close", code => {
+      if (code !== 0) {
+        reject(stderr || `git exited with code ${code}`);
+      } else {
+        resolve(Buffer.concat(chunks));
+      }
+    });
+  });
+}
+
+/**
+ * Decode a git path that may be quoted and contain octal escape sequences.
+ * Git quotes paths with special characters and escapes unicode as octal (e.g., \303\261 for ñ).
+ * @param gitPath The path from git output
+ * @returns The decoded path
+ */
+export function decodeGitPath(gitPath: string): string {
+  // Remove surrounding quotes if present
+  if (gitPath.startsWith('"') && gitPath.endsWith('"')) {
+    gitPath = gitPath.slice(1, -1);
+  }
+
+  // Decode octal escape sequences (e.g., \303\261 -> bytes -> UTF-8 string)
+  // Git escapes non-ASCII bytes as \NNN octal sequences
+  const bytes: number[] = [];
+  let i = 0;
+  while (i < gitPath.length) {
+    if (gitPath[i] === "\\" && i + 3 < gitPath.length) {
+      // Check if this is an octal escape (\NNN where N is 0-7)
+      const octal = gitPath.substring(i + 1, i + 4);
+      if (/^[0-7]{3}$/.test(octal)) {
+        bytes.push(parseInt(octal, 8));
+        i += 4;
+        continue;
+      }
+    }
+    // Regular character - convert to byte(s)
+    const char = gitPath.charCodeAt(i);
+    if (char < 128) {
+      bytes.push(char);
+    } else {
+      // Multi-byte UTF-8 character that wasn't escaped (shouldn't happen, but handle it)
+      const encoded = new TextEncoder().encode(gitPath[i]);
+      bytes.push(...encoded);
+    }
+    i++;
+  }
+
+  // Decode the bytes as UTF-8
+  return new TextDecoder("utf-8").decode(new Uint8Array(bytes));
+}
+
+/**
+ * Execute a git command in a specific directory
+ * @param command The git command to execute
+ * @param cwd The working directory
+ * @param options Optional settings: maxBuffer, timeout (ms), signal for cancellation
+ */
+export function execGitInDir(
+  command: string,
+  cwd: string,
+  options: { maxBuffer?: number; timeout?: number; signal?: AbortSignal } = {},
+): Promise<string> {
+  const { maxBuffer = 50 * 1024 * 1024, timeout, signal } = options;
+  return new Promise((resolve, reject) => {
+    const child = cp.exec(command, { cwd, maxBuffer, timeout }, (error, stdout, stderr) => {
+      if (error) {
+        if (error.killed) {
+          reject("Git operation timed out");
+        } else {
+          const errorMsg = stderr || error.message;
+          reject(errorMsg);
+        }
+        return;
+      }
+      resolve(stdout);
+    });
+
+    // Support cancellation via AbortSignal
+    if (signal) {
+      signal.addEventListener("abort", () => {
+        child.kill();
+        reject("Git operation cancelled");
+      });
+    }
+  });
+}
+
+/**
+ * Execute a git command and return raw buffer (for binary files)
+ * @param command The git command to execute
+ * @param cwd The working directory
+ * @param options Optional settings: maxBuffer, timeout (ms), signal for cancellation
+ */
+export function execGitInDirBuffer(
+  command: string,
+  cwd: string,
+  options: { maxBuffer?: number; timeout?: number; signal?: AbortSignal } = {},
+): Promise<Buffer> {
+  const { maxBuffer = 50 * 1024 * 1024, timeout, signal } = options;
+  return new Promise((resolve, reject) => {
+    const child = cp.exec(command, { cwd, maxBuffer, timeout, encoding: "buffer" }, (error, stdout, stderr) => {
+      if (error) {
+        if (error.killed) {
+          reject("Git operation timed out");
+        } else {
+          const errorMsg = stderr?.toString() || error.message;
+          reject(errorMsg);
+        }
+        return;
+      }
+      resolve(stdout as Buffer);
+    });
+
+    // Support cancellation via AbortSignal
+    if (signal) {
+      signal.addEventListener("abort", () => {
+        child.kill();
+        reject("Git operation cancelled");
+      });
+    }
+  });
+}
+
+/**
+ * Check if a directory is a git repository
+ */
+export async function isGitRepository(dirPath: string): Promise<boolean> {
+  try {
+    await execGitInDir("git rev-parse --git-dir", dirPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a file exists on disk
+ */
+export function fileExists(filePath: string): Promise<boolean> {
+  return new Promise(resolve => {
+    fs.access(filePath, fs.constants.F_OK, err => {
+      resolve(!err);
+    });
+  });
+}
+
+/**
+ * Discover git repositories in immediate subdirectories of a path
+ */
+export async function discoverGitReposInSubdirs(rootPath: string): Promise<string[]> {
+  const repos: string[] = [];
+
+  try {
+    const entries = await fs.promises.readdir(rootPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isDirectory() && !entry.name.startsWith(".")) {
+        const subDirPath = path.join(rootPath, entry.name);
+        const isGit = await isGitRepository(subDirPath);
+
+        if (isGit) {
+          log(`Found Git repository in subdirectory: ${entry.name}`);
+          repos.push(entry.name);
+        }
+      }
+    }
+  } catch (error) {
+    log(`Error scanning subdirectories: ${error}`, "error");
+  }
+
+  return repos;
+}
+
+/**
+ * Collect pending (uncommitted) changes from a git repository
+ * @param repoRelativePath Path relative to workspace root (empty string for root)
+ * @param repoFullPath Full filesystem path to the repository
+ * @param workspaceRoot The workspace root path
+ * @returns Map of file paths (relative to workspace) to file metadata
+ */
+export async function collectPendingChanges(
+  repoRelativePath: string,
+  repoFullPath: string,
+  workspaceRoot: string,
+): Promise<Map<string, FileMetadata>> {
+  const files = new Map<string, FileMetadata>();
+
+  // Get all modified, added, deleted, and untracked files using git status
+  // --porcelain gives machine-readable output
+  // -uall shows individual untracked files (not just directories)
+  const gitCommand = "git status --porcelain -uall";
+  log(`Executing git status in ${repoRelativePath || "root"}`);
+
+  const output = await execGitInDir(gitCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+  const lines = output.split("\n").filter(line => line.length > 0);
+  const now = new Date();
+
+  for (const line of lines) {
+    // Format: XY filename (where XY is the status code)
+    // Examples: " M file.txt", "?? newfile.txt", "A  staged.txt", "MM both.txt", " D deleted.txt"
+    if (line.length < 4) {
+      continue;
+    }
+
+    const statusCode = line.substring(0, 2);
+    let filePath = decodeGitPath(line.substring(3));
+
+    // Handle renamed files: "R  old -> new"
+    if (statusCode.startsWith("R")) {
+      const arrowIndex = filePath.indexOf(" -> ");
+      if (arrowIndex !== -1) {
+        filePath = filePath.substring(arrowIndex + 4);
+      }
+    }
+
+    // Build full path relative to workspace root
+    const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + filePath : filePath;
+
+    // Check if this is a deletion
+    const isDeleted = statusCode.includes("D");
+
+    if (!files.has(fileRelativePath)) {
+      if (isDeleted) {
+        // For deleted files, we don't check if file exists (it won't!)
+        files.set(fileRelativePath, {
+          date: now,
+          status: statusCode.trim() || "D",
+          isDeleted: true,
+          isPending: true,
+        });
+      } else {
+        // For non-deleted files, verify they exist
+        const fullPath = path.join(workspaceRoot, fileRelativePath);
+        if (await fileExists(fullPath)) {
+          files.set(fileRelativePath, {
+            date: now,
+            status: statusCode.trim() || "??",
+            isDeleted: false,
+            isPending: true,
+          });
+        }
+      }
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Collect historical changes from git log within a time window
+ * @param repoRelativePath Path relative to workspace root (empty string for root)
+ * @param repoFullPath Full filesystem path to the repository
+ * @param workspaceRoot The workspace root path
+ * @param days Number of days to look back
+ * @returns Map of file paths (relative to workspace) to file metadata including commit info
+ */
+export async function collectHistoricalChanges(
+  repoRelativePath: string,
+  repoFullPath: string,
+  workspaceRoot: string,
+  days: number,
+): Promise<Map<string, FileMetadata>> {
+  const files = new Map<string, FileMetadata>();
+
+  const sinceDate = `${days}.days.ago`;
+
+  // Use git log with custom format to get date, author, hash, and message
+  // Format: __COMMIT__<hash>|<author>|<date>|<subject>
+  // Files follow on subsequent lines until next __COMMIT__ or empty
+  // Note: We now include deletions (removed --diff-filter=d)
+  const gitCommand = `git log --since="${sinceDate}" --name-status --pretty=format:"__COMMIT__%h|%an|%aI|%s"`;
+  log(`Executing git command in ${repoRelativePath || "root"}: ${gitCommand}`);
+
+  const output = await execGitInDir(gitCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+
+  // Parse the output - commits are prefixed with __COMMIT__, files follow with status prefix
+  const lines = output.split("\n").map(line => line.trim());
+  let currentCommit: CommitData | null = null;
+
+  for (const line of lines) {
+    if (line.startsWith("__COMMIT__")) {
+      const commitData = line.substring("__COMMIT__".length);
+      const parts = commitData.split("|");
+      if (parts.length >= 4) {
+        currentCommit = {
+          hash: asCommitHash(parts[0]),
+          author: asCommitAuthor(parts[1]),
+          date: new Date(parts[2]),
+          message: asCommitMessage(parts.slice(3).join("|")), // In case message contains |
+        };
+      }
+    } else if (line.length > 0 && currentCommit) {
+      // Format is: <status>\t<filename> (e.g., "M\tfile.txt", "D\tdeleted.txt")
+      // For renames: R100\t<old_path>\t<new_path>
+      // For copies: C100\t<source_path>\t<dest_path>
+      const tabIndex = line.indexOf("\t");
+      if (tabIndex === -1) {
+        continue;
+      }
+
+      const status = line.substring(0, tabIndex);
+      let fileName: string;
+
+      // Handle renames and copies - they have two tab-separated paths
+      if (status.startsWith("R") || status.startsWith("C")) {
+        const restOfLine = line.substring(tabIndex + 1);
+        const secondTabIndex = restOfLine.indexOf("\t");
+        if (secondTabIndex !== -1) {
+          // Use the NEW path (destination) for renames/copies
+          fileName = decodeGitPath(restOfLine.substring(secondTabIndex + 1));
+        } else {
+          fileName = decodeGitPath(restOfLine);
+        }
+      } else {
+        fileName = decodeGitPath(line.substring(tabIndex + 1));
+      }
+
+      // Build full path relative to workspace root
+      const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + fileName : fileName;
+
+      // Only store the most recent commit info for each file
+      if (!files.has(fileRelativePath)) {
+        const isDeleted = status === "D";
+        const fullPath = path.join(workspaceRoot, fileRelativePath);
+        const existsOnDisk = await fileExists(fullPath);
+
+        // Include the file if:
+        // 1. It exists on disk (normal case)
+        // 2. It was deleted in this commit and still doesn't exist (historical deletion)
+        if (existsOnDisk || isDeleted) {
+          files.set(fileRelativePath, {
+            date: currentCommit.date,
+            author: currentCommit.author,
+            commitHash: currentCommit.hash,
+            commitMessage: currentCommit.message,
+            status: status,
+            isDeleted: !existsOnDisk, // Mark as deleted if it doesn't exist now
+            isPending: false,
+          });
+        }
+      }
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Get the content of a file from git history
+ * @param repoFullPath Full filesystem path to the repository
+ * @param filePath Path to the file relative to the repository
+ * @param commitHash Optional commit hash (defaults to HEAD)
+ * @returns The file content as a string
+ */
+export async function getFileFromHistory(repoFullPath: string, filePath: string, commitHash?: string): Promise<string> {
+  const ref = commitHash || "HEAD";
+  // Use execGitWithArgs to safely handle filenames with special characters
+  const args = ["show", `${ref}:${filePath}`];
+  log(`Exhuming file from history: git ${args.join(" ")}`);
+
+  return await execGitWithArgs(args, repoFullPath);
+}
+
+/**
+ * Get the content of a file from git history as a Buffer (for binary/non-UTF8 files)
+ * @param repoFullPath Full filesystem path to the repository
+ * @param filePath Path to the file relative to the repository
+ * @param commitHash Optional commit hash (defaults to HEAD)
+ * @returns The file content as a Buffer
+ */
+export async function getFileFromHistoryAsBuffer(
+  repoFullPath: string,
+  filePath: string,
+  commitHash?: string,
+): Promise<Buffer> {
+  const ref = commitHash || "HEAD";
+  // Use execGitWithArgsBuffer to safely handle filenames with special characters
+  const args = ["show", `${ref}:${filePath}`];
+  log(`Exhuming file from history (binary): git ${args.join(" ")}`);
+
+  return await execGitWithArgsBuffer(args, repoFullPath);
+}
+
+/**
+ * Discard changes to a file (git checkout -- <file> for tracked, rm for untracked)
+ * @param repoFullPath Full path to the git repository
+ * @param filePath Relative path to the file within the repo
+ * @param isUntracked Whether the file is untracked (needs rm instead of checkout)
+ */
+export async function discardFileChanges(
+  repoFullPath: string,
+  filePath: string,
+  isUntracked: boolean = false,
+): Promise<void> {
+  if (isUntracked) {
+    // For untracked files, use git clean
+    const args = ["clean", "-f", "--", filePath];
+    log(`Discarding untracked file: git ${args.join(" ")}`);
+    await execGitWithArgs(args, repoFullPath);
+  } else {
+    // For tracked files, use git checkout
+    const args = ["checkout", "-q", "--", filePath];
+    log(`Discarding changes: git ${args.join(" ")}`);
+    await execGitWithArgs(args, repoFullPath);
+  }
+}
+
+/**
+ * Create git URIs using the same format as VS Code's git extension
+ */
+export function gitUri(uri: vscode.Uri, ref: string) {
+  return uri.with({
+    scheme: "git",
+    query: JSON.stringify({ path: uri.fsPath, ref: ref }),
+  });
+}

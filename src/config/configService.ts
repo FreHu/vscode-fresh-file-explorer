@@ -1,0 +1,58 @@
+import * as vscode from "vscode";
+import { DescriptionFormat, DEFAULT_DESCRIPTION_FORMAT } from "../types";
+import { DEFAULT_TIME_WINDOW_DAYS } from "../timeWindowUtils";
+import { ConfigKeys } from "./constants";
+
+/**
+ * Centralized configuration service for Fresh File Explorer settings
+ */
+export class ConfigService {
+  /**
+   * Get the description format configuration
+   */
+  static getDescriptionFormat(): DescriptionFormat {
+    return {
+      showDate: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_DATE, DEFAULT_DESCRIPTION_FORMAT.showDate),
+      showAuthor: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_AUTHOR, DEFAULT_DESCRIPTION_FORMAT.showAuthor),
+      showCommitHash: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_COMMIT_HASH, DEFAULT_DESCRIPTION_FORMAT.showCommitHash),
+      showCommitMessage: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_COMMIT_MESSAGE, DEFAULT_DESCRIPTION_FORMAT.showCommitMessage),
+      showStatus: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_STATUS, DEFAULT_DESCRIPTION_FORMAT.showStatus),
+    };
+  }
+
+  /**
+   * Get the auto-expand depth setting
+   */
+  static getAutoExpandDepth(): number {
+    return vscode.workspace.getConfiguration().get<number>(ConfigKeys.AUTO_EXPAND_DEPTH, 2);
+  }
+
+  /**
+   * Get the git timeout in milliseconds
+   */
+  static getGitTimeoutMs(): number {
+    const timeoutSeconds = vscode.workspace.getConfiguration().get<number>(ConfigKeys.GIT_TIMEOUT, 30);
+    return timeoutSeconds * 1000; // Convert to milliseconds
+  }
+
+  /**
+   * Get the time window day values
+   */
+  static getTimeWindowDays(): number[] {
+    return vscode.workspace.getConfiguration().get<number[]>(ConfigKeys.TIME_WINDOWS, DEFAULT_TIME_WINDOW_DAYS);
+  }
+
+  /**
+   * Get whether to show current branch sync status
+   */
+  static getShowCurrentBranchSync(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.SHOW_CURRENT_BRANCH_SYNC, true);
+  }
+
+  /**
+   * Get whether to show base branch sync status
+   */
+  static getShowBaseBranchSync(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.SHOW_BASE_BRANCH_SYNC, true);
+  }
+}

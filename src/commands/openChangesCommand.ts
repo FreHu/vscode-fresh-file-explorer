@@ -1,0 +1,67 @@
+import * as vscode from "vscode";
+import * as path from "path";
+
+import { FreshFileItem } from "../treeItems";
+import { log } from "../utils/logger";
+import { gitUri } from "../git/gitOperations";
+
+/**
+ * Handler for opening files in diff/changes mode
+ * Shows committed files as diff between commit and parent
+ * Shows pending files as diff against HEAD
+ */
+export async function handleOpenChanges(
+  item: FreshFileItem,
+  selectedItems?: FreshFileItem[],
+  options?: { preserveFocus?: boolean },
+): Promise<void> {
+  log(`OPEN_CHANGES command triggered`);
+  const items = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
+  const preserveFocus = options?.preserveFocus ?? false;
+  log(`Processing ${items.length} items, preserveFocus: ${preserveFocus}`);
+
+  for (const fileItem of items) {
+    if (fileItem && fileItem.resourceUri && !fileItem.isDirectory) {
+      const fileName = path.basename(fileItem.resourceUri.fsPath);
+      try {
+        if (fileItem.commitHash) {
+          // For committed files, show diff between commit and its parent
+          const leftRef = `${fileItem.commitHash}~1`;
+          const rightRef = fileItem.commitHash;
+
+          const leftUri = gitUri(fileItem.resourceUri, leftRef);
+          const rightUri = gitUri(fileItem.resourceUri, rightRef);
+          const title = `${fileName} (${commitHashPart(fileItem.commitHash)}^ ↔ ${commitHashPart(
+            fileItem.commitHash,
+          )})`;
+
+          const diffOptions = { preserveFocus, preview: preserveFocus };
+          await vscode.commands.executeCommand("vscode.diff", leftUri, rightUri, title, diffOptions);
+        } else if (fileItem.isPending) {
+          // For pending changes (no commit hash), show diff against HEAD
+          // git.openChange doesn't support preserveFocus directly, but we can refocus the tree after
+          await vscode.commands.executeCommand("git.openChange", fileItem.resourceUri);
+          if (preserveFocus) {
+            // Refocus the tree view
+            await vscode.commands.executeCommand("freshFileExplorer.focus");
+          }
+        } else {
+          // No commit info, just open the file
+          log(`No commit hash or pending status for ${fileItem.resourceUri.fsPath}, opening file instead`, "warn");
+          await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, {
+            preserveFocus,
+            preview: preserveFocus,
+          });
+        }
+      } catch (error) {
+        log(`Failed to open changes for ${fileItem.resourceUri.fsPath}: ${error}`, "error");
+        // Fallback to just opening the file
+        await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri);
+      }
+    }
+  }
+}
+
+function commitHashPart(commitHash: string) {
+  return commitHash.substring(0, 7);
+}

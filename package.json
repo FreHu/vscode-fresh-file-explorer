@@ -1,0 +1,345 @@
+{
+  "name": "fresh-file-explorer",
+  "displayName": "Fresh File Explorer",
+  "description": "A vscode file explorer which shows only recently modified files based on a combination of Git history and your pending changes",
+  "license": "MIT",
+  "pricing": "Free",
+  "publisher": "frehu",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
+  },
+  "version": "1.0.0",
+  "icon": "icons/extension.png",
+  "engines": {
+    "vscode": "^1.106.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "freshFileExplorer",
+          "name": "Fresh Files",
+          "type": "tree",
+          "icon": "icons/fresh-files.svg",
+          "contextualTitle": "Fresh File Explorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "freshFileExplorer.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "freshFileExplorer.setTimeWindow",
+        "title": "Set Time Window",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "freshFileExplorer.showOutput",
+        "title": "Fresh Files: Show Output Log"
+      },
+      {
+        "command": "freshFileExplorer.expandAll",
+        "title": "Expand All",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "freshFileExplorer.expandSubtree",
+        "title": "Expand Subtree"
+      },
+      {
+        "command": "freshFileExplorer.revealInExplorer",
+        "title": "Reveal in Explorer View"
+      },
+      {
+        "command": "freshFileExplorer.openFile",
+        "title": "Open"
+      },
+      {
+        "command": "freshFileExplorer.openChanges",
+        "title": "Open Changes"
+      },
+      {
+        "command": "freshFileExplorer.openToSide",
+        "title": "Open to the Side"
+      },
+      {
+        "command": "freshFileExplorer.toggleOpenMode",
+        "title": "Toggle left click action between Open File / Compare with previous",
+        "icon": "$(file)"
+      },
+      {
+        "command": "freshFileExplorer.exhume",
+        "title": "View Deleted File",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "freshFileExplorer.resurrect",
+        "title": "Resurrect Deleted File",
+        "icon": "$(history)"
+      },
+      {
+        "command": "freshFileExplorer.discardChanges",
+        "title": "Discard Changes",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "freshFileExplorer.revealInSourceControl",
+        "title": "Reveal in Source Control View"
+      },
+      {
+        "command": "freshFileExplorer.filterByAuthor",
+        "title": "Filter by Author",
+        "icon": "$(person)"
+      },
+      {
+        "command": "freshFileExplorer.filterByCommit",
+        "title": "Filter by Commit",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "freshFileExplorer.clearFilters",
+        "title": "Clear Filters",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "freshFileExplorer.initializeRepo",
+        "title": "Initialize Repository"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "freshFileExplorer.toggleOpenMode",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@0"
+        },
+        {
+          "command": "freshFileExplorer.refresh",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "freshFileExplorer.setTimeWindow",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "freshFileExplorer.filterByAuthor",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "freshFileExplorer.filterByCommit",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@4"
+        },
+        {
+          "command": "freshFileExplorer.clearFilters",
+          "when": "view == freshFileExplorer && freshFileExplorer.hasFilters",
+          "group": "navigation@5"
+        },
+        {
+          "command": "freshFileExplorer.expandAll",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@6"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "freshFileExplorer.openFile",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
+          "group": "navigation@1"
+        },
+        {
+          "command": "freshFileExplorer.openChanges",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
+          "group": "navigation@1.5"
+        },
+        {
+          "command": "freshFileExplorer.openToSide",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "freshFileExplorer.expandSubtree",
+          "when": "view == freshFileExplorer && viewItem == folder",
+          "group": "1_expand@1"
+        },
+        {
+          "command": "freshFileExplorer.revealInExplorer",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder|deletedFile)$/",
+          "group": "navigation@3"
+        },
+        {
+          "command": "freshFileExplorer.revealInSourceControl",
+          "when": "view == freshFileExplorer && viewItem == pendingFile",
+          "group": "navigation@4"
+        },
+        {
+          "command": "freshFileExplorer.discardChanges",
+          "when": "view == freshFileExplorer && viewItem == pendingFile",
+          "group": "2_modification@1"
+        },
+        {
+          "command": "freshFileExplorer.resurrect",
+          "when": "view == freshFileExplorer && viewItem == deletedFile",
+          "group": "navigation@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "freshFileExplorer.refresh",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.expandAll",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.revealInExplorer",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openFile",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openToSide",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.exhume",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.resurrect",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.discardChanges",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.revealInSourceControl",
+          "when": "false"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "freshFileExplorer",
+        "contents": "No Git repositories found in workspace.\n[Initialize Repository](command:freshFileExplorer.initializeRepo)",
+        "when": "!freshFileExplorer.hasRepos && !freshFileExplorer.loading"
+      },
+      {
+        "view": "freshFileExplorer",
+        "contents": "Loading fresh files...",
+        "when": "freshFileExplorer.loading"
+      }
+    ],
+    "configuration": {
+      "title": "Fresh File Explorer",
+      "properties": {
+        "freshFileExplorer.description.showDate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show relative date in file description"
+        },
+        "freshFileExplorer.description.showAuthor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show commit author in file description"
+        },
+        "freshFileExplorer.description.showCommitHash": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show commit hash in file description"
+        },
+        "freshFileExplorer.description.showCommitMessage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show commit message in file description"
+        },
+        "freshFileExplorer.description.showStatus": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show file status (modified, added, etc.)"
+        },
+        "freshFileExplorer.autoExpandDepth": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Number of directory levels to automatically expand when the tree is loaded (0 = collapsed, 1 = root expanded, etc.)"
+        },
+        "freshFileExplorer.timeWindows": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 1
+          },
+          "default": [
+            1,
+            3,
+            7,
+            14,
+            30,
+            60,
+            90,
+            180
+          ],
+          "description": "List of day values for time window options. 'Pending changes' is always available."
+        },
+        "freshFileExplorer.gitTimeout": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 300,
+          "description": "Timeout in seconds for git operations. I consider it suspicious if you ever need to increase this number. Please open an issue."
+        },
+        "freshFileExplorer.showCurrentBranchSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show sync status warnings for current branch (indicating you need to push/pull)"
+        },
+        "freshFileExplorer.showBaseBranchSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show warnings when base branch has commits not in current branch (indicating you need to merge)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "test:unit": "mocha",
+    "test:all": "npm run test:unit && npm run test"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.106.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "chai": "^6.2.2",
+    "eslint": "^9.39.1",
+    "mocha": "^11.7.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3"
+  }
+}
