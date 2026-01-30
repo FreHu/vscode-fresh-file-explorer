@@ -7,7 +7,7 @@ export function formatRepoDescription(branchName: string | undefined, fileCount:
   if (fileCount === 0) {
     return branchName ? `🔀 ${branchName} (no fresh files)` : "(no fresh files)";
   } else {
-    return branchName ? `🔀 ${branchName}` : `(${fileCount})`;
+    return branchName ? `(${fileCount}) 🔀 ${branchName} ` : `(${fileCount})`;
   }
 }
 

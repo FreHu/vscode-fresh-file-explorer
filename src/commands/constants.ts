@@ -18,6 +18,9 @@ export const Commands = {
   // Search command
   SEARCH_IN_FRESH_FILES: "freshFileExplorer.searchInFreshFiles",
 
+  // Quick pick command
+  QUICK_PICK_FILE: "freshFileExplorer.quickPickFile",
+
   // Deleted file commands
   EXHUME: "freshFileExplorer.exhume",
   RESURRECT: "freshFileExplorer.resurrect",
@@ -29,5 +32,5 @@ export const Commands = {
   OPEN_TO_SIDE: "freshFileExplorer.openToSide",
   DISCARD_CHANGES: "freshFileExplorer.discardChanges",
   REVEAL_IN_SOURCE_CONTROL: "freshFileExplorer.revealInSourceControl",
-  TOGGLE_OPEN_MODE: "freshFileExplorer.toggleOpenMode",
+  TOGGLE_OPEN_MODE: "freshFileExplorer.toggleOpenMode",  
 } as const;

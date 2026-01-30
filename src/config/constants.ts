@@ -16,4 +16,5 @@ export const ConfigKeys = {
   SHOW_CURRENT_BRANCH_SYNC: "freshFileExplorer.showCurrentBranchSync",
   SHOW_BASE_BRANCH_SYNC: "freshFileExplorer.showBaseBranchSync",
   SEARCH_PATTERN_MAX_LENGTH: "freshFileExplorer.searchPatternMaxLength",
+  OPEN_SEARCH_IN_EDITOR: "freshFileExplorer.openSearchInEditor",
 } as const;

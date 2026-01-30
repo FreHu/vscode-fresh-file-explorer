@@ -62,4 +62,11 @@ export class ConfigService {
   static getSearchPatternMaxLength(): number {
     return vscode.workspace.getConfiguration().get<number>(ConfigKeys.SEARCH_PATTERN_MAX_LENGTH, 4000);
   }
+
+  /**
+   * Get whether to open search in editor instead of view
+   */
+  static getOpenSearchInEditor(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.OPEN_SEARCH_IN_EDITOR, false);
+  }
 }

@@ -30,6 +30,9 @@ export function createCommitQuickPick(
   quickPick.placeholder = "Select commits to show (uncheck to hide)";
   quickPick.title = "Filter by Commit";
 
+  quickPick.onDidHide(() => {
+    quickPick.dispose();
+  });
   return quickPick;
 }
 
@@ -57,6 +60,10 @@ export function createAuthorQuickPick(
   quickPick.canSelectMany = true;
   quickPick.placeholder = "Select authors to show (uncheck to hide)";
   quickPick.title = "Filter by Author";
+
+  quickPick.onDidHide(() => {
+    quickPick.dispose();
+  });
 
   return quickPick;
 }

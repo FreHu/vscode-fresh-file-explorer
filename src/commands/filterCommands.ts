@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { log } from "../utils/logger";
 import { createAuthorQuickPick, createCommitQuickPick } from "../utils/quickPick";
 import { setDifference } from "../utils";
-import { asCommitHash, AuthorData, CommitDataWithFileCount, CommitHash } from "../types";
+import { AuthorData, CommitDataWithFileCount, CommitHash } from "../types";
 
 /**
  * Interface for a provider that can filter files by author or commit

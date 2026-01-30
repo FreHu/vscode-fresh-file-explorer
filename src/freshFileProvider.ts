@@ -314,9 +314,57 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return files;
   }
 
+  /** Get all visible files with their metadata (excluding deleted files) */
+  getVisibleFilesWithMetadata(): Map<AbsolutePath, FileMetadata> {
+    const files = new Map<AbsolutePath, FileMetadata>();
+    for (const [filePath, metadata] of this.freshFiles.entries()) {
+      // Skip deleted files and apply current filters
+      if (metadata.isDeleted) {
+        continue;
+      }
+      if (this.excludedAuthors.has(metadata.author || "(unknown)")) {
+        continue;
+      }
+      if (metadata.commitHash && this.excludedCommits.has(metadata.commitHash)) {
+        continue;
+      }
+      files.set(filePath, metadata);
+    }
+    return files;
+  }
+
   /** Check if we have any Git repositories */
   hasGitRepositories(): boolean {
     return this.workspaceFolders.some(folder => folder.gitRepos.length > 0);
+  }
+
+  /** Ensure data is loaded, triggering a load if necessary. Returns true if data is available. */
+  async ensureDataLoaded(): Promise<boolean> {
+    // Initialize workspace folders if not done
+    if (this.workspaceFolders.length === 0) {
+      this.initializeWorkspaceFolders();
+    }
+
+    // No workspace folders means no data possible
+    if (this.workspaceFolders.length === 0) {
+      return false;
+    }
+
+    // Load data if not already loaded
+    // Note: Git repos are discovered during updateFreshFiles(), so we can't check
+    // hasGitRepositories() before loading - it would always be false on first run
+    if (!this.dataLoaded) {
+      if (!this.refreshPromise) {
+        log("ensureDataLoaded: Loading files from Git repositories...");
+        this.refreshPromise = this.updateFreshFiles().finally(() => {
+          this.refreshPromise = undefined;
+        });
+      }
+      await this.refreshPromise;
+    }
+
+    // After loading, check if we found any repos
+    return this.dataLoaded && this.hasGitRepositories();
   }
 
   /** Update sync warnings from git extension */

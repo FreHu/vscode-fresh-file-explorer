@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.106.1"
@@ -111,14 +111,23 @@
       },
       {
         "command": "freshFileExplorer.searchInFreshFiles",
-        "title": "Search in Fresh Files",
+        "title": "Fresh Files: Search in Fresh Files",
         "icon": "$(search)"
+      },
+      {
+        "command": "freshFileExplorer.quickPickFile",
+        "title": "Fresh Files: Quick Open",
+        "icon": "$(list-selection)"
       },
       {
         "command": "freshFileExplorer.initializeRepo",
         "title": "Initialize Repository"
       }
     ],
+    "keybindings":{
+      "command": "freshFileExplorer.quickPickFile",
+      "key": "ctrl+q f"
+    },
     "menus": {
       "view/title": [
         {
@@ -331,6 +340,11 @@
           "minimum": 1000,
           "maximum": 500000,
           "description": "Maximum length for search include pattern before truncation."
+        },
+        "freshFileExplorer.openSearchInEditor": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open searches in a Search Editor tab instead of the Search view"
         }
       }
     }

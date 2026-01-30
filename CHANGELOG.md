@@ -1,7 +1,15 @@
 # Change Log
+
+## [1.0.2]
+
+- `[NEW]` Open files or search via new quick pick (`CTRL+Q F`)
+- `[NEW]` Setting to toggle where search opens (view/editor)
+- `[FIX]` Repo root now shows total file count
+- `[DOCS]` Readme improved, added pictures
+
 ## [1.0.1]
 
-- Added an action to launch a fulltext search across fresh files. This has some limitations (see readme)
+- `[NEW]` Added an action to launch a fulltext search across fresh files. This has some limitations (see readme)
 
 ## [1.0.0]
 
