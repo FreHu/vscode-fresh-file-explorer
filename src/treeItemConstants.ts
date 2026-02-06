@@ -13,6 +13,9 @@ export const TreeItemContextValues = {
   PINNED_FOLDER: "pinnedFolder",
   PINNED_NOTE: "pinnedNote",
   AUTHOR_GROUP: "authorGroup",
+  COMMIT_HASH_GROUP: "commitHashGroup",
+  MOON_PHASE_GROUP: "moonPhaseGroup",
+  RETROGRADE_GROUP: "retrogradeGroup",
 } as const;
 
 /**

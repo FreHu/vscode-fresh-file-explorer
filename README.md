@@ -1,9 +1,29 @@
 # Fresh File Explorer
 
 A Visual Studio Code extension which provides a tree view showing only recently modified files based on recent Git history and your pending changes.
-
+## Table of Contents
+- [Has this ever happened to you?](#has-this-ever-happened-to-you)
+- [Likely hasn't happened to you](#likely-hasnt-happened-to-you)
+- [Features](#features)
+  - [Time Window Selection](#time-window-selection)
+  - [Smart File Tree](#smart-file-tree)
+  - [Grouping Modes](#grouping-modes)
+  - [Deleted File Support](#deleted-file-support)
+  - [Heatmap Coloring](#heatmap-coloring)
+  - [Pinned section](#pinned-section)
+  - [Sync Status Notifications](#sync-status-notifications)
+  - [Filtering](#filtering)
+  - [Search](#search)
+  - [Quick Open](#quick-open)
+  - [Context Menu Actions](#context-menu-actions)
+  - [Multi-Repository Support](#multi-repository-support)
+- [Extension Settings](#extension-settings)
+- [Comparison with GitLens](#comparison-with-gitlens)
+- [Testimonials](#testimonials)
+----
 ![view](/img/view.png)
 
+----
 ## Has this ever happened to you?
 
 ### "I just cloned a large repo and don't know where to start"
@@ -62,8 +82,11 @@ You make a commit but now your "pending changes" view is empty. You've lost the 
 | [Fresh File Explorer](#filtering) | Filter out the person doing the formatting, or (it was _you_, wasn't it?) the commit where it was done | Low - visual multi-select, instant feedback |
 
 ---
+## Likely hasn't happened to you
+
 
 ### "Cool extension but I was looking for a todo list app"
+
 **Pain Point:** There just aren't enough todo list apps out there.
 
 | Approach  | How it works  | Friction  |
@@ -71,6 +94,12 @@ You make a commit but now your "pending changes" view is empty. You've lost the 
 | **Default VS Code**     | Is not a todo list | High - must vibe-code your own todo list |
 | **GitLens**             | Is probably not a todo list | Medium - I don't know, maybe it even has a todo list  |
 | [Fresh File Explorer](#pinned-section) | Is *also* a todo list | Low - Can't miss it |
+---
+
+### "Cool extension but can it group my files by moon phase"
+
+[Yes.](#grouping-modes) It might even be the *only* piece of software that does that.
+
 ---
 
 ## Features
@@ -86,6 +115,23 @@ Pending Changes mode shows uncommitted changes (esentially what the Source Contr
 
 Files are grouped by directory structure, with file counts on folders. Auto-expands to configurable depth.
 
+### Grouping Modes
+
+Organize your files in different ways beyond the standard folder structure:
+
+![grouping modes](img/grouping-modes.png)
+
+- **File Structure** - Traditional folder hierarchy
+
+- **Author** - Files grouped by who last modified them
+
+- **Commit Hash** - One group per commit
+
+As well as two additional groupings for advanced git blame use cases.
+
+- **Moon Phase** (`git blame moon`)
+- **Planetary Retrograde** (`git blame universe`)
+  
 ### Deleted File Support
 - Deleted files appear in the tree, clearly indicated
 - **Exhume**: Open deleted file content in a read-only temp file (default action on clicking a deleted file)
@@ -93,6 +139,13 @@ Files are grouped by directory structure, with file counts on folders. Auto-expa
 
 ![resurrect](img/resurrect.png)
 
+### Heatmap Coloring
+
+Toggle heatmap coloring to give files distinct colors based on their most recent edit. Brighter colors = more recent.
+
+![heatmap](img/heatmap.png)
+
+This coloring is toggled in the Fresh Files view, but will also apply to the File Explorer.
 ### Pinned section
 
 At the top the tree, there is a special "pinned items" section. This is for files you want to keep handy independent of whatever the fresh file explorer is showing you. You can pin items with drag&drop or through the right click menu in the file explorer. 

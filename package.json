@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.0.3",
+  "version": "1.0.4",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.106.1"
@@ -113,11 +113,13 @@
         "command": "freshFileExplorer.clearFilters",
         "title": "Clear Filters",
         "icon": "$(clear-all)"
-      },      {
+      },
+      {
         "command": "freshFileExplorer.toggleHeatmap",
         "title": "Toggle Heatmap Coloring",
         "icon": "$(color-mode)"
-      },      {
+      },
+      {
         "command": "freshFileExplorer.searchInFreshFiles",
         "title": "Fresh Files: Search in Fresh Files",
         "icon": "$(search)"
@@ -172,7 +174,7 @@
         "icon": "$(checklist)"
       }
     ],
-    "keybindings":{
+    "keybindings": {
       "command": "freshFileExplorer.quickPickFile",
       "key": "ctrl+q f"
     },
@@ -596,5 +598,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.3"
+  },
+  "dependencies": {
+    "astronomy-engine": "^2.1.19"
   }
 }

@@ -1,7 +1,7 @@
 /**
  * Grouping modes for organizing files in the tree view
  */
-export type GroupingMode = "fileStructure" | "author";
+export type GroupingMode = "fileStructure" | "author" | "commitHash" | "moonPhase" | "retrograde";
 
 export interface GroupingModeOption {
   mode: GroupingMode;
@@ -14,7 +14,7 @@ export const GROUPING_MODE_OPTIONS: GroupingModeOption[] = [
   {
     mode: "fileStructure",
     label: "File Structure",
-    description: "Group by directory hierarchy",
+    description: `Also known as "no grouping"`,
     icon: "$(folder-opened)",
   },
   {
@@ -22,6 +22,24 @@ export const GROUPING_MODE_OPTIONS: GroupingModeOption[] = [
     label: "Author",
     description: "Group by commit author",
     icon: "$(person)",
+  },
+  {
+    mode: "commitHash",
+    label: "Commit Hash",
+    description: "Group by commit",
+    icon: "$(git-commit)",
+  },
+  {
+    mode: "moonPhase",
+    label: "Moon Phase",
+    description: "Group by lunar phase at commit time",
+    icon: "$(circle-filled)",
+  },
+  {
+    mode: "retrograde",
+    label: "Planetary Retrograde",
+    description: "Group by which planets were retrograde",
+    icon: "$(globe)",
   },
 ];
 

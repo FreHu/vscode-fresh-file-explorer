@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.0.4]
+- `[NEW]` Grouping options
+- `[NEW]` Heatmap
+
 ## [1.0.3]
 - `[NEW]` Pin items to the top of the view or use the section as a todo list
 

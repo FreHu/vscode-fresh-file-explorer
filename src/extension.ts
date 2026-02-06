@@ -39,6 +39,7 @@ export async function activate(context: vscode.ExtensionContext) {
   freshFileProvider.initialize(context);
 
   const treeView = createFreshFileTreeView(freshFileProvider, context);
+  freshFileProvider.setTreeView(treeView);
 
   // Create and register heatmap decoration provider
   const heatmapProvider = new HeatmapDecorationProvider(freshFileProvider);
