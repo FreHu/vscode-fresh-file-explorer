@@ -3,12 +3,13 @@ import * as path from "path";
 import { Commands } from "./commands/constants";
 import { formatRepoDescription, formatRepoTooltip } from "./utils/formatUtils";
 import { CommitHash } from "./types";
+import { TreeItemContextValues, createNoteId } from "./treeItemConstants";
 
 /**
  * Tree item representing a file or directory in the Fresh File Explorer
  */
 export class FreshFileItem extends vscode.TreeItem {
-  constructor(
+constructor(
     public readonly resourceUri: vscode.Uri,
     public readonly isDirectory: boolean,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
@@ -25,7 +26,7 @@ export class FreshFileItem extends vscode.TreeItem {
     this.id = resourceUri.fsPath;
 
     if (isDeleted) {
-      this.contextValue = "deletedFile";
+      this.contextValue = TreeItemContextValues.DELETED_FILE;
       // Use a custom label with trash icon
       const fileName = path.basename(resourceUri.fsPath);
       this.label = `${fileName}`;
@@ -40,11 +41,11 @@ export class FreshFileItem extends vscode.TreeItem {
     } else {
       // Set context value based on type and pending status
       if (isDirectory) {
-        this.contextValue = "folder";
+        this.contextValue = TreeItemContextValues.FOLDER;
       } else if (isPending) {
-        this.contextValue = "pendingFile";
+        this.contextValue = TreeItemContextValues.PENDING_FILE;
       } else {
-        this.contextValue = "file";
+        this.contextValue = TreeItemContextValues.FILE;
       }
 
       if (!isDirectory) {
@@ -124,6 +125,36 @@ export class FreshFileItem extends vscode.TreeItem {
   }
 
   /**
+   * Create a FreshFileItem representing the pinned items folder
+   */
+  static forPinnedFolder(
+    uri: vscode.Uri,
+    openChangesMode: boolean,
+    fileCount: number,
+    expanded: boolean = true,
+  ): FreshFileItem {
+    const item = new FreshFileItem(
+      uri,
+      true,
+      fileCount > 0
+        ? expanded
+          ? vscode.TreeItemCollapsibleState.Expanded
+          : vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.None,
+      openChangesMode,
+      fileCount,
+    );
+
+    item.label = "Pinned Items";
+    item.description = fileCount > 0 ? `(${fileCount})` : undefined;
+    item.contextValue = TreeItemContextValues.PINNED_FOLDER;
+    item.iconPath = new vscode.ThemeIcon("pinned");
+    item.tooltip = `Pinned items (${fileCount})`;
+
+    return item;
+  }
+
+  /**
    * Create a FreshFileItem representing a file with git metadata
    */
   static forFile(
@@ -168,4 +199,21 @@ export class MessageTreeItem extends vscode.TreeItem {
   }
 }
 
-export type FreshFilesTreeItem = FreshFileItem | MessageTreeItem;
+/**
+ * Tree item for displaying pinned notes (optionally as todo items with completed state)
+ */
+export class NoteTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly noteId: string,
+    public readonly noteText: string,
+    public readonly completed: boolean = false,
+  ) {
+    super(noteText, vscode.TreeItemCollapsibleState.None);
+    this.id = createNoteId(noteId);
+    this.contextValue = TreeItemContextValues.PINNED_NOTE;
+    this.iconPath = new vscode.ThemeIcon(completed ? "pass" : "circle-outline");
+    this.tooltip = noteText;
+  }
+}
+
+export type FreshFilesTreeItem = FreshFileItem | MessageTreeItem | NoteTreeItem;

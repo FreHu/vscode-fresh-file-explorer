@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.106.1"
@@ -122,6 +122,46 @@
       {
         "command": "freshFileExplorer.initializeRepo",
         "title": "Initialize Repository"
+      },
+      {
+        "command": "freshFileExplorer.pinFile",
+        "title": "Pin File",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "freshFileExplorer.unpinFile",
+        "title": "Unpin File",
+        "icon": "$(pinned)"
+      },
+      {
+        "command": "freshFileExplorer.addNote",
+        "title": "Add Note",
+        "icon": "$(add)"
+      },
+      {
+        "command": "freshFileExplorer.editNote",
+        "title": "Edit Note",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "freshFileExplorer.toggleNoteCompleted",
+        "title": "Toggle Complete",
+        "icon": "$(check)"
+      },
+      {
+        "command": "freshFileExplorer.deleteNote",
+        "title": "Delete Note",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "freshFileExplorer.clearAllPinned",
+        "title": "Clear All Pinned Items",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "freshFileExplorer.clearCompleted",
+        "title": "Clear Completed",
+        "icon": "$(checklist)"
       }
     ],
     "keybindings":{
@@ -129,6 +169,13 @@
       "key": "ctrl+q f"
     },
     "menus": {
+      "explorer/context": [
+        {
+          "command": "freshFileExplorer.pinFile",
+          "when": "!explorerResourceIsFolder",
+          "group": "2_workspace@100"
+        }
+      ],
       "view/title": [
         {
           "command": "freshFileExplorer.toggleOpenMode",
@@ -211,6 +258,46 @@
           "command": "freshFileExplorer.resurrect",
           "when": "view == freshFileExplorer && viewItem == deletedFile",
           "group": "navigation@1"
+        },
+        {
+          "command": "freshFileExplorer.pinFile",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile)$/",
+          "group": "9_pin@1"
+        },
+        {
+          "command": "freshFileExplorer.unpinFile",
+          "when": "view == freshFileExplorer && viewItem == pinnedFile",
+          "group": "9_pin@1"
+        },
+        {
+          "command": "freshFileExplorer.toggleNoteCompleted",
+          "when": "view == freshFileExplorer && viewItem == pinnedNote",
+          "group": "inline@1"
+        },
+        {
+          "command": "freshFileExplorer.editNote",
+          "when": "view == freshFileExplorer && viewItem == pinnedNote",
+          "group": "inline@2"
+        },
+        {
+          "command": "freshFileExplorer.deleteNote",
+          "when": "view == freshFileExplorer && viewItem == pinnedNote",
+          "group": "1_note@1"
+        },
+        {
+          "command": "freshFileExplorer.addNote",
+          "when": "view == freshFileExplorer && viewItem == pinnedFolder",
+          "group": "inline@1"
+        },
+        {
+          "command": "freshFileExplorer.clearCompleted",
+          "when": "view == freshFileExplorer && viewItem == pinnedFolder",
+          "group": "inline@2"
+        },
+        {
+          "command": "freshFileExplorer.clearAllPinned",
+          "when": "view == freshFileExplorer && viewItem == pinnedFolder",
+          "group": "inline@3"
         }
       ],
       "commandPalette": [
@@ -248,6 +335,38 @@
         },
         {
           "command": "freshFileExplorer.revealInSourceControl",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.pinFile",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.unpinFile",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.addNote",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.editNote",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.toggleNoteCompleted",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.deleteNote",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.clearAllPinned",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.clearCompleted",
           "when": "false"
         }
       ]

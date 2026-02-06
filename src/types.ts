@@ -50,6 +50,20 @@ export function asCommitAuthor(value: string) {
 }
 
 /**
+ * Types for pinned items
+ */
+export type PinnedItemType = "note" | "file";
+
+export interface PinnedItem {
+  type: PinnedItemType;
+  id: string; // noteId for notes, file path for files
+  data: string; // note text for notes, empty for files
+  /** For notes only: whether the note is marked completed (todo done) */
+  completed?: boolean;
+}
+
+
+/**
  * Metadata about a file's last modification
  */
 export interface FileMetadata {

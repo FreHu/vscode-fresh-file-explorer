@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.3]
+- `[NEW]` Pin items to the top of the view or use the section as a todo list
+
 ## [1.0.2]
 
 - `[NEW]` Open files or search via new quick pick (`CTRL+Q F`)

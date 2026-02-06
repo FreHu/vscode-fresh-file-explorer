@@ -12,12 +12,13 @@ import {
   asCommitAuthor,
   CommitDataWithFileCount,
   asCommitMessage,
+  PinnedItem,
 } from "./types";
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip } from "./utils/formatUtils";
 import { log } from "./utils/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem } from "./treeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem } from "./treeItems";
 import { normalizePath } from "./utils";
 import {
   collectHistoricalChanges,
@@ -25,6 +26,7 @@ import {
   discoverGitReposInSubdirs,
   isGitRepository,
 } from "./git/gitOperations";
+import { TreeItemContextValues, createPinnedFileId, normalizeItemId, getItemIdWithNormalizedPath } from "./treeItemConstants";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -53,6 +55,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   // Open mode toggle - persisted
   openChangesMode: boolean = false;
+
+  // Pinned items (notes and files) - persisted per workspace, ordered
+  private pinnedItems: PinnedItem[] = [];
 
   constructor() {
     this.initializeWorkspaceFolders();
@@ -93,6 +98,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Load persisted time window selection
     const persistedDays = context.workspaceState.get<number>("selectedTimeWindowDays");
     this.openChangesMode = context.workspaceState.get<boolean>("openChangesMode", false);
+    // Load persisted pinned items
+    const persistedItems = context.workspaceState.get<PinnedItem[]>("pinnedItems", []);
+    this.pinnedItems = persistedItems;
     // Set initial context for when clause
     vscode.commands.executeCommand("setContext", "freshFileExplorer.openChangesMode", this.openChangesMode);
 
@@ -295,6 +303,276 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return parts.join(", ");
   }
 
+  /** Add file(s) to pinned items */
+  pinFiles(filePaths: AbsolutePath[]): void {
+    for (const filePath of filePaths) {
+      // Check if not already pinned
+      if (!this.pinnedItems.some(item => item.type === "file" && item.id === filePath)) {
+        this.pinnedItems.push({ type: "file", id: filePath, data: "" });
+      }
+    }
+    this.persistPinnedItems();
+    log(`Pinned ${filePaths.length} file(s)`);
+    this.refreshTreeOnly();
+  }
+
+  /** Remove file(s) from pinned items */
+  unpinFiles(filePaths: AbsolutePath[]): void {
+    this.pinnedItems = this.pinnedItems.filter(
+      item => !(item.type === "file" && filePaths.includes(item.id as AbsolutePath))
+    );
+    this.persistPinnedItems();
+    log(`Unpinned ${filePaths.length} file(s)`);
+    this.refreshTreeOnly();
+  }
+
+  /** Check if a file is pinned */
+  isPinned(filePath: AbsolutePath): boolean {
+    return this.pinnedItems.some(item => item.type === "file" && item.id === filePath);
+  }
+
+  /** Get all pinned files */
+  getPinnedFiles(): AbsolutePath[] {
+    return this.pinnedItems
+      .filter(item => item.type === "file")
+      .map(item => item.id as AbsolutePath);
+  }
+
+  /** Add a note to pinned items */
+  addNote(noteText: string): void {
+    const noteId = Date.now().toString();
+    this.pinnedItems.push({ type: "note", id: noteId, data: noteText });
+    this.persistPinnedItems();
+    log(`Added note: ${noteText}`);
+    this.refreshTreeOnly();
+  }
+
+  /** Remove a note from pinned items */
+  removeNote(noteId: string): void {
+    this.pinnedItems = this.pinnedItems.filter(
+      item => !(item.type === "note" && item.id === noteId)
+    );
+    this.persistPinnedItems();
+    log(`Removed note: ${noteId}`);
+    this.refreshTreeOnly();
+  }
+
+  /** Update a note's text */
+  updateNote(noteId: string, noteText: string): void {
+    const item = this.pinnedItems.find(item => item.type === "note" && item.id === noteId);
+    if (item) {
+      item.data = noteText;
+      this.persistPinnedItems();
+      log(`Updated note: ${noteId}`);
+      this.refreshTreeOnly();
+    }
+  }
+
+  /** Toggle a note's completed state (for todo-style notes) */
+  toggleNoteCompleted(noteId: string): void {
+    const item = this.pinnedItems.find(item => item.type === "note" && item.id === noteId);
+    if (item) {
+      item.completed = !(item.completed ?? false);
+      this.persistPinnedItems();
+      log(`Note ${noteId} completed: ${item.completed}`);
+      this.refreshTreeOnly();
+    }
+  }
+
+  /** Clear all pinned items (files and notes) */
+  clearAllPinned(): void {
+    this.pinnedItems = [];
+    this.persistPinnedItems();
+    log("Cleared all pinned items");
+    this.refreshTreeOnly();
+  }
+
+  /** Clear only completed notes */
+  clearCompleted(): void {
+    this.pinnedItems = this.pinnedItems.filter(
+      item => item.type !== "note" || !item.completed
+    );
+    this.persistPinnedItems();
+    log("Cleared completed notes");
+    this.refreshTreeOnly();
+  }
+
+  /** Reorder pinned items */
+  reorderPinnedItems(sourceId: string, targetId: string, dropBefore: boolean): void {
+    log(`reorderPinnedItems called: sourceId=${sourceId}, targetId=${targetId}, dropBefore=${dropBefore}`);
+    
+    // Normalize sourceId and targetId for comparison (handle path separators)
+    const normalizedSourceId = normalizeItemId(sourceId, normalizePath);
+    const normalizedTargetId = normalizeItemId(targetId, normalizePath);
+    
+    const sourceIndex = this.pinnedItems.findIndex(item => {
+      return getItemIdWithNormalizedPath(item, normalizePath) === normalizedSourceId;
+    });
+    const targetIndex = this.pinnedItems.findIndex(item => {
+      return getItemIdWithNormalizedPath(item, normalizePath) === normalizedTargetId;
+    });
+
+    log(`reorderPinnedItems: sourceIndex=${sourceIndex}, targetIndex=${targetIndex}`);
+    log(`reorderPinnedItems: pinnedItems count=${this.pinnedItems.length}`);
+    log(`reorderPinnedItems: pinnedItems IDs=${this.pinnedItems.map(item => 
+      item.type === "note" ? `note:${item.id}` : `pinned:${item.id}`
+    ).join(", ")}`);
+
+    if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+      log(`reorderPinnedItems: Aborting - invalid indices or same position`);
+      return;
+    }
+
+    const [movedItem] = this.pinnedItems.splice(sourceIndex, 1);
+    const newTargetIndex = sourceIndex < targetIndex ? targetIndex : targetIndex;
+    const insertIndex = dropBefore ? newTargetIndex : newTargetIndex + 1;
+    this.pinnedItems.splice(insertIndex, 0, movedItem);
+
+    this.persistPinnedItems();
+    log(`Reordered pinned item from index ${sourceIndex} to ${insertIndex}`);
+    this.refreshTreeOnly();
+  }
+
+  /** Move a pinned item to the first position */
+  movePinnedItemToFirst(sourceId: string): void {
+    log(`movePinnedItemToFirst called: sourceId=${sourceId}`);
+    
+    // Normalize sourceId for comparison
+    const normalizedSourceId = normalizeItemId(sourceId, normalizePath);
+    
+    const sourceIndex = this.pinnedItems.findIndex(item => {
+      return getItemIdWithNormalizedPath(item, normalizePath) === normalizedSourceId;
+    });
+
+    log(`movePinnedItemToFirst: sourceIndex=${sourceIndex}`);
+
+    if (sourceIndex === -1 || sourceIndex === 0) {
+      log(`movePinnedItemToFirst: Aborting - item not found or already at first position`);
+      return;
+    }
+
+    const [movedItem] = this.pinnedItems.splice(sourceIndex, 1);
+    this.pinnedItems.unshift(movedItem);
+
+    this.persistPinnedItems();
+    log(`Moved pinned item from index ${sourceIndex} to first position`);
+    this.refreshTreeOnly();
+  }
+
+  /** Pin files at a specific position (0 = first) */
+  pinFilesAtPosition(filePaths: AbsolutePath[], position: number): void {
+    log(`pinFilesAtPosition: Adding ${filePaths.length} file(s) at position ${position}`);
+    
+    const alreadyPinned: AbsolutePath[] = [];
+    const newFiles: AbsolutePath[] = [];
+    
+    for (const path of filePaths) {
+      if (this.pinnedItems.some(item => item.type === "file" && normalizePath(item.id) === normalizePath(path))) {
+        alreadyPinned.push(path);
+      } else {
+        newFiles.push(path);
+      }
+    }
+    
+    // First, insert new files at the position
+    if (newFiles.length > 0) {
+      const newItems: PinnedItem[] = newFiles.map(path => ({ type: "file" as const, id: path, data: "" }));
+      this.pinnedItems.splice(position, 0, ...newItems);
+      log(`pinFilesAtPosition: Added ${newItems.length} new file(s)`);
+    }
+    
+    // Then, reorder already-pinned files to follow
+    if (alreadyPinned.length > 0) {
+      let targetIndex = position + newFiles.length;
+      for (const path of alreadyPinned) {
+        const pinnedId = `pinned:${normalizePath(path)}`;
+        const currentIndex = this.pinnedItems.findIndex(item => 
+          item.type === "file" && `pinned:${normalizePath(item.id)}` === pinnedId
+        );
+        if (currentIndex !== -1 && currentIndex !== targetIndex) {
+          const [item] = this.pinnedItems.splice(currentIndex, 1);
+          // Adjust target if we removed from before it
+          if (currentIndex < targetIndex) {targetIndex--;}
+          this.pinnedItems.splice(targetIndex, 0, item);
+          targetIndex++;
+        }
+      }
+      log(`pinFilesAtPosition: Reordered ${alreadyPinned.length} already-pinned file(s)`);
+    }
+    
+    log(`pinFilesAtPosition: Total pinnedItems=${this.pinnedItems.length}`);
+    
+    this.persistPinnedItems();
+    this.refreshTreeOnly();
+  }
+
+  /** Pin files after a specific item */
+  pinFilesAfterItem(filePaths: AbsolutePath[], afterItemId: string): void {
+    const normalizedAfterId = normalizeItemId(afterItemId, normalizePath);
+    
+    log(`pinFilesAfterItem: Adding ${filePaths.length} file(s) after item ${normalizedAfterId}`);
+    
+    const afterIndex = this.pinnedItems.findIndex(item => {
+      return getItemIdWithNormalizedPath(item, normalizePath) === normalizedAfterId;
+    });
+    
+    if (afterIndex === -1) {
+      log(`pinFilesAfterItem: Target item not found, falling back to append`);
+      this.pinFiles(filePaths);
+      return;
+    }
+    
+    const alreadyPinned: AbsolutePath[] = [];
+    const newFiles: AbsolutePath[] = [];
+    
+    for (const path of filePaths) {
+      if (this.pinnedItems.some(item => item.type === "file" && normalizePath(item.id) === normalizePath(path))) {
+        alreadyPinned.push(path);
+      } else {
+        newFiles.push(path);
+      }
+    }
+    
+    // First, insert new files after the target
+    let insertPosition = afterIndex + 1;
+    if (newFiles.length > 0) {
+      const newItems: PinnedItem[] = newFiles.map(path => ({ type: "file" as const, id: path, data: "" }));
+      this.pinnedItems.splice(insertPosition, 0, ...newItems);
+      log(`pinFilesAfterItem: Added ${newItems.length} new file(s) after index ${afterIndex}`);
+      insertPosition += newItems.length;
+    }
+    
+    // Then, reorder already-pinned files to follow
+    if (alreadyPinned.length > 0) {
+      for (const path of alreadyPinned) {
+        const pinnedId = `pinned:${normalizePath(path)}`;
+        const currentIndex = this.pinnedItems.findIndex(item => 
+          item.type === "file" && `pinned:${normalizePath(item.id)}` === pinnedId
+        );
+        if (currentIndex !== -1 && currentIndex !== insertPosition) {
+          const [item] = this.pinnedItems.splice(currentIndex, 1);
+          // Adjust insert position if we removed from before it
+          if (currentIndex < insertPosition) {insertPosition--;}
+          this.pinnedItems.splice(insertPosition, 0, item);
+          insertPosition++;
+        }
+      }
+      log(`pinFilesAfterItem: Reordered ${alreadyPinned.length} already-pinned file(s)`);
+    }
+    
+    log(`pinFilesAfterItem: Total pinnedItems=${this.pinnedItems.length}`);
+    
+    this.persistPinnedItems();
+    this.refreshTreeOnly();
+  }
+
+  /** Persist pinned items to workspace state */
+  private persistPinnedItems(): void {
+    if (this.context) {
+      this.context.workspaceState.update("pinnedItems", this.pinnedItems);
+    }
+  }
+
   /** Get all visible file paths (excluding deleted files) for search operations */
   getVisibleFilePaths(): AbsolutePath[] {
     const files: AbsolutePath[] = [];
@@ -372,6 +650,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.syncWarnings = warnings;
     this.refreshTreeOnly();
   }
+  
   /** Set repository branch names from git extension */
   setRepoBranches(branches: Map<string, BranchName>): void {
     this.repoBranches = branches;
@@ -448,12 +727,25 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         return [new MessageTreeItem(this.errorToShowInTreeView, "error")];
       }
 
-      // Collect results: sync warnings first, then files or empty message
+      // Collect results: sync warnings, pinned folder, then files or empty message
       const results: FreshFilesTreeItem[] = [];
 
       // Always show sync warnings at the top
       if (this.syncWarnings.length > 0) {
         results.push(...this.syncWarnings.map(w => new MessageTreeItem(w, "warning")));
+      }
+
+      // Add pinned items folder after warnings
+      if (this.pinnedItems.length > 0 || totalRepos > 0) {
+        // Use a virtual URI for the pinned folder
+        const pinnedFolderUri = vscode.Uri.parse("freshfiles://pinned");
+        const pinnedFolder = FreshFileItem.forPinnedFolder(
+          pinnedFolderUri,
+          this.openChangesMode,
+          this.pinnedItems.length,
+          ConfigService.getAutoExpandDepth() > 0,
+        );
+        results.push(pinnedFolder);
       }
 
       // Check if no files found
@@ -471,6 +763,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       } else {
         return this.buildRepoView(results, "repoFolder");
       }
+    }
+
+    // Get children of pinned folder
+    if (element instanceof FreshFileItem && element.contextValue === TreeItemContextValues.PINNED_FOLDER) {
+      return this.buildPinnedItems();
     }
 
     // Get children of a directory
@@ -520,6 +817,62 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
     }
     return results;
+  }
+
+  private buildPinnedItems(): FreshFilesTreeItem[] {
+    const items: FreshFilesTreeItem[] = [];
+
+    // Iterate in order
+    for (const pinnedItem of this.pinnedItems) {
+      if (pinnedItem.type === "note") {
+        items.push(new NoteTreeItem(pinnedItem.id, pinnedItem.data, pinnedItem.completed ?? false));
+      } else {
+        // File
+        const filePath = asAbsolutePath(pinnedItem.id);
+        const uri = vscode.Uri.file(filePath);
+        
+        // Check if file exists in freshFiles to get metadata
+        const metadata = this.freshFiles.get(filePath);
+        
+        // Create file item
+        const item = FreshFileItem.forFile(
+          uri,
+          this.openChangesMode,
+          metadata?.isDeleted ?? false,
+          metadata?.commitHash,
+          metadata?.isPending ?? false,
+          metadata?.status,
+        );
+
+        // Mark as pinned file for context menu
+        item.contextValue = TreeItemContextValues.PINNED_FILE;
+        
+        // Use unique ID to allow same file in both pinned and regular view
+        item.id = createPinnedFileId(uri.fsPath);
+
+        // Always show directory path in description for pinned items (excluding filename)
+        const folder = this.findWorkspaceFolderForPath(filePath);
+        if (folder) {
+          const relativePath = path.relative(folder.path, filePath);
+          const dirPath = path.dirname(relativePath);
+          item.description = dirPath === "." ? "" : normalizePath(dirPath);
+        } else {
+          const dirPath = path.dirname(filePath);
+          item.description = normalizePath(dirPath);
+        }
+        
+        // Tooltip shows git metadata if available
+        if (metadata) {
+          item.tooltip = formatFileTooltip(metadata);
+        } else {
+          item.tooltip = filePath;
+        }
+
+        items.push(item);
+      }
+    }
+
+    return items;
   }
 
   private async updateFreshFiles(): Promise<void> {

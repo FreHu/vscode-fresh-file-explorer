@@ -63,6 +63,16 @@ You make a commit but now your "pending changes" view is empty. You've lost the 
 
 ---
 
+### "Cool extension but I was looking for a todo list app"
+**Pain Point:** There just aren't enough todo list apps out there.
+
+| Approach  | How it works  | Friction  |
+| --------------- | ----------------- | ---------------- |
+| **Default VS Code**     | Is not a todo list | High - must vibe-code your own todo list |
+| **GitLens**             | Is probably not a todo list | Medium - I don't know, maybe it even has a todo list  |
+| [Fresh File Explorer](#pinned-section) | Is *also* a todo list | Low - Can't miss it |
+---
+
 ## Features
 
 ### Time Window Selection
@@ -82,6 +92,20 @@ Files are grouped by directory structure, with file counts on folders. Auto-expa
 - **Resurrect**: Restores the exhumed file to its original location
 
 ![resurrect](img/resurrect.png)
+
+### Pinned section
+
+At the top the tree, there is a special "pinned items" section. This is for files you want to keep handy independent of whatever the fresh file explorer is showing you. You can pin items with drag&drop or through the right click menu in the file explorer. 
+
+![pinned section](img/pinned.png)
+
+- Pin a non-fresh file you need to pay attention to, like a diagram or readme
+- Pin that critical file you've had on your desktop for the last 6 years. It does not have to be from your workspace.
+- Pin a deleted file
+- Create short notes and use it as a todo list. They can be reordered and marked as complete.
+- Pin your sensitive API keys as notes. All the pros do it.
+
+The pins are stored per workspace.
 
 ### Sync Status Notifications
 

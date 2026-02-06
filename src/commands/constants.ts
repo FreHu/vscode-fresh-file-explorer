@@ -32,5 +32,15 @@ export const Commands = {
   OPEN_TO_SIDE: "freshFileExplorer.openToSide",
   DISCARD_CHANGES: "freshFileExplorer.discardChanges",
   REVEAL_IN_SOURCE_CONTROL: "freshFileExplorer.revealInSourceControl",
-  TOGGLE_OPEN_MODE: "freshFileExplorer.toggleOpenMode",  
+  TOGGLE_OPEN_MODE: "freshFileExplorer.toggleOpenMode",
+
+  // Pin commands
+  PIN_FILE: "freshFileExplorer.pinFile",
+  UNPIN_FILE: "freshFileExplorer.unpinFile",
+  ADD_NOTE: "freshFileExplorer.addNote",
+  EDIT_NOTE: "freshFileExplorer.editNote",
+  TOGGLE_NOTE_COMPLETED: "freshFileExplorer.toggleNoteCompleted",
+  DELETE_NOTE: "freshFileExplorer.deleteNote",
+  CLEAR_ALL_PINNED: "freshFileExplorer.clearAllPinned",
+  CLEAR_COMPLETED: "freshFileExplorer.clearCompleted",
 } as const;

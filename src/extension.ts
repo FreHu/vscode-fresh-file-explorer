@@ -23,7 +23,10 @@ import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
 import { handleSearchInFreshFiles } from "./commands/searchCommand";
 import { handleQuickPickFile } from "./commands/quickPickCommand";
+import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
+import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
 import { Commands } from "./commands/constants";
+import { createDragAndDropController } from "./commands/dragDropController";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -134,6 +137,27 @@ function registerCommands(
     handleDiscardChanges(item, selectedItems, freshFileProvider),
   );
 
+
+  register(Commands.PIN_FILE, (item: FreshFileItem | vscode.Uri, selectedItems?: (FreshFileItem | vscode.Uri)[]) =>
+    handlePinFile(item, selectedItems, freshFileProvider),
+  );
+
+  register(Commands.UNPIN_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleUnpinFile(item, selectedItems, freshFileProvider),
+  );
+
+  register(Commands.ADD_NOTE, () => handleAddNote(freshFileProvider));
+
+  register(Commands.EDIT_NOTE, (item: any) => handleEditNote(item, freshFileProvider));
+
+  register(Commands.TOGGLE_NOTE_COMPLETED, (item: any) => handleToggleNoteCompleted(item, freshFileProvider));
+
+  register(Commands.DELETE_NOTE, (item: any) => handleDeleteNote(item, freshFileProvider));
+
+  register(Commands.CLEAR_ALL_PINNED, () => handleClearAllPinned(freshFileProvider));
+
+  register(Commands.CLEAR_COMPLETED, () => handleClearCompleted(freshFileProvider));
+
   register(Commands.REVEAL_IN_SOURCE_CONTROL, handleRevealInSourceControl);
 }
 
@@ -142,21 +166,7 @@ function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: 
     treeDataProvider: freshFileProvider,
     showCollapseAll: true,
     canSelectMany: true,
-    dragAndDropController: {
-      dragMimeTypes: ["text/uri-list"],
-      dropMimeTypes: [],
-      handleDrag: (items: readonly FreshFilesTreeItem[], dataTransfer: vscode.DataTransfer) => {
-        // Only handle FreshFileItem, not MessageItem, and exclude deleted files and directories
-        const uris = items
-          .filter((item): item is FreshFileItem => item instanceof FreshFileItem && !item.isDeleted && !item.isDirectory)
-          .map(item => item.resourceUri);
-        if (uris.length > 0) {
-          // Use CRLF (\r\n) as separator per text/uri-list spec (RFC 2483)
-          dataTransfer.set("text/uri-list", new vscode.DataTransferItem(uris.map(uri => uri.toString()).join("\r\n")));
-        }
-      },
-      handleDrop: undefined,
-    },
+    dragAndDropController: createDragAndDropController(freshFileProvider),
   });
   context.subscriptions.push(treeView);
 
