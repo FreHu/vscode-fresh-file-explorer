@@ -69,4 +69,11 @@ export class ConfigService {
   static getOpenSearchInEditor(): boolean {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.OPEN_SEARCH_IN_EDITOR, false);
   }
+
+  /**
+   * Get whether heatmap coloring is enabled
+   */
+  static isHeatmapEnabled(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.HEATMAP_ENABLED, false);
+  }
 }

@@ -43,4 +43,7 @@ export const Commands = {
   DELETE_NOTE: "freshFileExplorer.deleteNote",
   CLEAR_ALL_PINNED: "freshFileExplorer.clearAllPinned",
   CLEAR_COMPLETED: "freshFileExplorer.clearCompleted",
+
+  // Heatmap command
+  TOGGLE_HEATMAP: "freshFileExplorer.toggleHeatmap",
 } as const;

@@ -33,7 +33,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   // Map of absolute file path to file metadata
-  private freshFiles: Map<AbsolutePath, FileMetadata> = new Map();
+  freshFiles: Map<AbsolutePath, FileMetadata> = new Map();
   currentTimeWindow: TimeWindow;
   timeWindows: TimeWindow[];
   // Multi-root workspace support
@@ -52,6 +52,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   // Branch names for repositories (from Git extension API)
   private repoBranches: Map<string, BranchName> = new Map();
+
+  // Heatmap decoration provider (set by extension.ts after construction)
+  heatmapProvider?: { fireDidChange: () => void };
 
   // Open mode toggle - persisted
   openChangesMode: boolean = false;
@@ -904,6 +907,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Update contexts for viewsWelcome
     vscode.commands.executeCommand("setContext", "freshFileExplorer.hasRepos", totalRepos > 0);
     vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", false);
+
+    // Notify heatmap decoration provider of data changes
+    this.heatmapProvider?.fireDidChange();
   }
 
   private async updateFreshFilesForFolder(
@@ -1053,7 +1059,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return count;
   }
 
-  private getMostRecentDateInDirectory(dirPath: string): Date | undefined {
+  getMostRecentDateInDirectory(dirPath: string): Date | undefined {
     let mostRecent: Date | undefined;
     const normalizedDir = normalizePath(dirPath);
     const prefix = normalizedDir + "/";

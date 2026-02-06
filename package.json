@@ -108,8 +108,11 @@
         "command": "freshFileExplorer.clearFilters",
         "title": "Clear Filters",
         "icon": "$(clear-all)"
-      },
-      {
+      },      {
+        "command": "freshFileExplorer.toggleHeatmap",
+        "title": "Toggle Heatmap Coloring",
+        "icon": "$(color-mode)"
+      },      {
         "command": "freshFileExplorer.searchInFreshFiles",
         "title": "Fresh Files: Search in Fresh Files",
         "icon": "$(search)"
@@ -213,9 +216,14 @@
           "group": "navigation@5.5"
         },
         {
+          "command": "freshFileExplorer.toggleHeatmap",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@7"
+        },
+        {
           "command": "freshFileExplorer.expandAll",
           "when": "view == freshFileExplorer",
-          "group": "navigation@6"
+          "group": "navigation@8"
         }
       ],
       "view/item/context": [
@@ -383,6 +391,88 @@
         "when": "freshFileExplorer.loading"
       }
     ],
+    "colors": [
+      {
+        "id": "freshFileExplorer.heatmap.age1",
+        "description": "Most recent files (heatmap) - brightest",
+        "defaults": {
+          "dark": "#00E5FF",
+          "light": "#00ACC1",
+          "highContrast": "#18FFFF",
+          "highContrastLight": "#00838F"
+        }
+      },
+      {
+        "id": "freshFileExplorer.heatmap.age2",
+        "description": "Very recent files (heatmap)",
+        "defaults": {
+          "dark": "#26C6DA",
+          "light": "#0097A7",
+          "highContrast": "#40C4FF",
+          "highContrastLight": "#006064"
+        }
+      },
+      {
+        "id": "freshFileExplorer.heatmap.age3",
+        "description": "Recent files (heatmap)",
+        "defaults": {
+          "dark": "#29B6F6",
+          "light": "#0288D1",
+          "highContrast": "#448AFF",
+          "highContrastLight": "#01579B"
+        }
+      },
+      {
+        "id": "freshFileExplorer.heatmap.age4",
+        "description": "Moderately recent files (heatmap)",
+        "defaults": {
+          "dark": "#42A5F5",
+          "light": "#1976D2",
+          "highContrast": "#2196F3",
+          "highContrastLight": "#0D47A1"
+        }
+      },
+      {
+        "id": "freshFileExplorer.heatmap.age5",
+        "description": "Mid-age files (heatmap)",
+        "defaults": {
+          "dark": "#5C6BC0",
+          "light": "#303F9F",
+          "highContrast": "#536DFE",
+          "highContrastLight": "#1A237E"
+        }
+      },
+      {
+        "id": "freshFileExplorer.heatmap.age6",
+        "description": "Older files (heatmap)",
+        "defaults": {
+          "dark": "#78909C",
+          "light": "#546E7A",
+          "highContrast": "#90A4AE",
+          "highContrastLight": "#37474F"
+        }
+      },
+      {
+        "id": "freshFileExplorer.heatmap.age7",
+        "description": "Old files (heatmap)",
+        "defaults": {
+          "dark": "#90A4AE",
+          "light": "#607D8B",
+          "highContrast": "#B0BEC5",
+          "highContrastLight": "#455A64"
+        }
+      },
+      {
+        "id": "freshFileExplorer.heatmap.age8",
+        "description": "Oldest files (heatmap) - most faded",
+        "defaults": {
+          "dark": "#B0BEC5",
+          "light": "#78909C",
+          "highContrast": "#CFD8DC",
+          "highContrastLight": "#546E7A"
+        }
+      }
+    ],
     "configuration": {
       "title": "Fresh File Explorer",
       "properties": {
@@ -464,6 +554,11 @@
           "type": "boolean",
           "default": false,
           "description": "Open searches in a Search Editor tab instead of the Search view"
+        },
+        "freshFileExplorer.heatmap.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Color files by recency (heatmap). Recent files appear bright (cyan/blue), older files faded (gray). Colors appear in all views (Explorer, tabs, Fresh Files tree)."
         }
       }
     }

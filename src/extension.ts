@@ -15,6 +15,7 @@ import {
   handleSetTimeWindow,
   handleShowOutput,
   handleToggleOpenMode,
+  handleToggleHeatmap,
 } from "./commands/basicCommands";
 import { handleExhume, handleResurrect } from "./commands/deletedFileCommands";
 import { FreshFileProvider } from "./freshFileProvider";
@@ -27,6 +28,7 @@ import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
 import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
 import { Commands } from "./commands/constants";
 import { createDragAndDropController } from "./commands/dragDropController";
+import { HeatmapDecorationProvider } from "./heatmapDecorationProvider";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -36,6 +38,13 @@ export async function activate(context: vscode.ExtensionContext) {
   freshFileProvider.initialize(context);
 
   const treeView = createFreshFileTreeView(freshFileProvider, context);
+
+  // Create and register heatmap decoration provider
+  const heatmapProvider = new HeatmapDecorationProvider(freshFileProvider);
+  context.subscriptions.push(vscode.window.registerFileDecorationProvider(heatmapProvider));
+  
+  // Wire the heatmap provider to the fresh file provider
+  freshFileProvider.heatmapProvider = heatmapProvider;
 
   registerCommands(context, freshFileProvider, treeView);
 
@@ -53,6 +62,11 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration("freshFileExplorer")) {
         freshFileProvider.onConfigurationChanged();
+        
+        // If heatmap setting changed, refresh decorations
+        if (e.affectsConfiguration("freshFileExplorer.heatmap.enabled")) {
+          heatmapProvider.fireDidChange();
+        }
       }
     }),
   );
@@ -159,6 +173,8 @@ function registerCommands(
   register(Commands.CLEAR_COMPLETED, () => handleClearCompleted(freshFileProvider));
 
   register(Commands.REVEAL_IN_SOURCE_CONTROL, handleRevealInSourceControl);
+
+  register(Commands.TOGGLE_HEATMAP, () => handleToggleHeatmap(freshFileProvider));
 }
 
 function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: vscode.ExtensionContext) {
