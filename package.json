@@ -42,6 +42,11 @@
         "icon": "$(calendar)"
       },
       {
+        "command": "freshFileExplorer.setGroupingMode",
+        "title": "Set Grouping Mode",
+        "icon": "$(group-by-ref-type)"
+      },
+      {
         "command": "freshFileExplorer.showOutput",
         "title": "Fresh Files: Show Output Log"
       },
@@ -194,6 +199,11 @@
           "command": "freshFileExplorer.setTimeWindow",
           "when": "view == freshFileExplorer",
           "group": "navigation@2"
+        },
+        {
+          "command": "freshFileExplorer.setGroupingMode",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@2.5"
         },
         {
           "command": "freshFileExplorer.filterByAuthor",

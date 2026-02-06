@@ -286,6 +286,16 @@ export async function collectPendingChanges(
 ): Promise<Map<string, FileMetadata>> {
   const files = new Map<string, FileMetadata>();
 
+  // Get current user name for pending changes
+  let currentUserName: string | undefined;
+  try {
+    const userNameOutput = await execGitInDir("git config user.name", repoFullPath, { timeout: 1000 });
+    currentUserName = userNameOutput.trim() || undefined;
+  } catch (error) {
+    // If we can't get the user name, leave it undefined
+    log("Could not get git user.name for pending changes");
+  }
+
   // Get all modified, added, deleted, and untracked files using git status
   // --porcelain gives machine-readable output
   // -uall shows individual untracked files (not just directories)
@@ -325,6 +335,7 @@ export async function collectPendingChanges(
         // For deleted files, we don't check if file exists (it won't!)
         files.set(fileRelativePath, {
           date: now,
+          author: currentUserName ? asCommitAuthor(currentUserName) : undefined,
           status: statusCode.trim() || "D",
           isDeleted: true,
           isPending: true,
@@ -335,6 +346,7 @@ export async function collectPendingChanges(
         if (await fileExists(fullPath)) {
           files.set(fileRelativePath, {
             date: now,
+            author: currentUserName ? asCommitAuthor(currentUserName) : undefined,
             status: statusCode.trim() || "??",
             isDeleted: false,
             isPending: true,

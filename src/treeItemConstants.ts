@@ -12,6 +12,7 @@ export const TreeItemContextValues = {
   PINNED_FILE: "pinnedFile",
   PINNED_FOLDER: "pinnedFolder",
   PINNED_NOTE: "pinnedNote",
+  AUTHOR_GROUP: "authorGroup",
 } as const;
 
 /**

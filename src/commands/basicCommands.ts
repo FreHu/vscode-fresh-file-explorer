@@ -5,6 +5,7 @@ import { FreshFileProvider } from "../freshFileProvider";
 import { log, showOutputChannel } from "../utils/logger";
 import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
+import { GROUPING_MODE_OPTIONS, GroupingMode } from "../groupingMode";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
@@ -64,6 +65,32 @@ export async function handleSetTimeWindow(freshFileProvider: FreshFileProvider):
     const selected = quickPick.selectedItems[0];
     if (selected && selected.timeWindow !== freshFileProvider.currentTimeWindow) {
       freshFileProvider.setTimeWindow(selected.timeWindow);
+    }
+    quickPick.hide();
+  });
+
+  quickPick.show();
+}
+
+export async function handleSetGroupingMode(freshFileProvider: FreshFileProvider): Promise<void> {
+  log("Set grouping mode command triggered");
+
+  const quickPick = vscode.window.createQuickPick();
+  quickPick.title = "Select Grouping Mode";
+  quickPick.placeholder = "Choose how to organize files in the tree";
+
+  quickPick.items = GROUPING_MODE_OPTIONS.map(option => ({
+    label: `${option.icon} ${option.label}`,
+    description: option.description,
+    mode: option.mode,
+    // Mark current mode with check mark
+    picked: option.mode === freshFileProvider.groupingMode,
+  }));
+
+  quickPick.onDidAccept(() => {
+    const selected = quickPick.selectedItems[0] as any;
+    if (selected && selected.mode !== freshFileProvider.groupingMode) {
+      freshFileProvider.setGroupingMode(selected.mode as GroupingMode);
     }
     quickPick.hide();
   });

@@ -13,6 +13,7 @@ import {
   handleRevealInExplorer,
   handleRevealInSourceControl,
   handleSetTimeWindow,
+  handleSetGroupingMode,
   handleShowOutput,
   handleToggleOpenMode,
   handleToggleHeatmap,
@@ -104,6 +105,8 @@ function registerCommands(
   register(Commands.INITIALIZE_REPO, () => handleInitializeRepo(freshFileProvider));
 
   register(Commands.SET_TIME_WINDOW, () => handleSetTimeWindow(freshFileProvider));
+
+  register(Commands.SET_GROUPING_MODE, () => handleSetGroupingMode(freshFileProvider));
 
   register(Commands.FILTER_BY_AUTHOR, () => handleFilterByAuthor(freshFileProvider));
 

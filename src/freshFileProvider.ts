@@ -20,6 +20,7 @@ import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip } from
 import { log } from "./utils/logger";
 import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem } from "./treeItems";
 import { normalizePath } from "./utils";
+import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import {
   collectHistoricalChanges,
   collectPendingChanges,
@@ -55,6 +56,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   // Heatmap decoration provider (set by extension.ts after construction)
   heatmapProvider?: { fireDidChange: () => void };
+
+  // Grouping mode - persisted
+  groupingMode: GroupingMode = DEFAULT_GROUPING_MODE;
 
   // Open mode toggle - persisted
   openChangesMode: boolean = false;
@@ -101,6 +105,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Load persisted time window selection
     const persistedDays = context.workspaceState.get<number>("selectedTimeWindowDays");
     this.openChangesMode = context.workspaceState.get<boolean>("openChangesMode", false);
+    this.groupingMode = context.workspaceState.get<GroupingMode>("groupingMode", DEFAULT_GROUPING_MODE);
     // Load persisted pinned items
     const persistedItems = context.workspaceState.get<PinnedItem[]>("pinnedItems", []);
     this.pinnedItems = persistedItems;
@@ -190,6 +195,19 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     vscode.commands.executeCommand("setContext", "freshFileExplorer.openChangesMode", this.openChangesMode);
 
     // Refresh tree items without reloading data (just update the commands)
+    this.refreshTreeOnly();
+  }
+
+  setGroupingMode(mode: GroupingMode): void {
+    log(`Grouping mode changed from ${this.groupingMode} to ${mode}`);
+    this.groupingMode = mode;
+
+    // Persist the selection
+    if (this.context) {
+      this.context.workspaceState.update("groupingMode", mode);
+    }
+
+    // Refresh tree items without reloading data
     this.refreshTreeOnly();
   }
 
@@ -773,6 +791,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       return this.buildPinnedItems();
     }
 
+    // Get children of an author group
+    if (element instanceof FreshFileItem && element.contextValue === TreeItemContextValues.AUTHOR_GROUP) {
+      const authorName = element.label as string;
+      return this.buildAuthorFiles(authorName, true);
+    }
+
     // Get children of a directory
     if (element instanceof FreshFileItem) {
       return this.buildTree(element.resourceUri.fsPath);
@@ -783,6 +807,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   private buildRepoView(results: FreshFilesTreeItem[], contextValue: string) {
+    // If grouping by author, build a different structure
+    if (this.groupingMode === "author") {
+      return this.buildAuthorGroupedView(results);
+    }
+
+    // Default: group by file structure
     for (const folder of this.workspaceFolders) {
       for (const repo of folder.gitRepos) {
         const repoPath = repo ? path.join(folder.path, repo) : folder.path;
@@ -820,6 +850,119 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
     }
     return results;
+  }
+
+  private buildAuthorGroupedView(results: FreshFilesTreeItem[]): FreshFilesTreeItem[] {
+    // Group files by author
+    const authorGroups = new Map<string, { files: AbsolutePath[]; metadata: FileMetadata }[]>();
+
+    for (const [filePath, metadata] of this.freshFiles) {
+      // Apply filters
+      if (!this.passesFilters(metadata)) {
+        continue;
+      }
+
+      // Get author name - use "Unknown" for files without author (pending changes)
+      const authorName = metadata.author || "(No author)";
+
+      if (!authorGroups.has(authorName)) {
+        authorGroups.set(authorName, []);
+      }
+
+      authorGroups.get(authorName)!.push({ files: [filePath], metadata });
+    }
+
+    // Sort authors alphabetically
+    const sortedAuthors = Array.from(authorGroups.keys()).sort((a, b) => a.localeCompare(b));
+
+    // Create tree items for each author group
+    for (const authorName of sortedAuthors) {
+      const group = authorGroups.get(authorName)!;
+      const fileCount = group.length;
+
+      // Create a virtual URI for the author group
+      const authorUri = vscode.Uri.parse(`freshfiles://author/${encodeURIComponent(authorName)}`);
+      
+      // Get the most recent date from this author's files
+      const mostRecentDate = group.reduce((max, item) => {
+        return item.metadata.date > max ? item.metadata.date : max;
+      }, new Date(0));
+
+      // Create author group item
+      const authorItem = FreshFileItem.forDirectory(
+        authorUri,
+        this.openChangesMode,
+        fileCount,
+        ConfigService.getAutoExpandDepth() > 0,
+      );
+
+      // Customize the label and description for author groups
+      authorItem.label = authorName;
+      authorItem.description = `${fileCount} file${fileCount === 1 ? "" : "s"}`;
+      authorItem.tooltip = formatDirectoryTooltip(fileCount, mostRecentDate);
+      authorItem.iconPath = new vscode.ThemeIcon("person");
+
+      // Store author name in context for getChildren to use
+      authorItem.contextValue = TreeItemContextValues.AUTHOR_GROUP;
+
+      results.push(authorItem);
+    }
+
+    return results;
+  }
+
+  private buildAuthorFiles(authorName: string, skipAuthorInDescription: boolean = false): FreshFileItem[] {
+    const items: FreshFileItem[] = [];
+
+    // Collect all files by this author with their metadata
+    const filesList: Array<{ filePath: AbsolutePath; metadata: FileMetadata }> = [];
+    
+    for (const [filePath, metadata] of this.freshFiles) {
+      // Apply filters
+      if (!this.passesFilters(metadata)) {
+        continue;
+      }
+
+      // Check if this file is by the specified author
+      const fileAuthor = metadata.author || "(No author)";
+      if (fileAuthor !== authorName) {
+        continue;
+      }
+
+      filesList.push({ filePath, metadata });
+    }
+
+    // Sort by date (most recent first)
+    filesList.sort((a, b) => b.metadata.date.getTime() - a.metadata.date.getTime());
+
+    // Create tree items
+    for (const { filePath, metadata } of filesList) {
+      const uri = vscode.Uri.file(filePath);
+      const isDeleted = metadata.isDeleted ?? false;
+      const isPending = metadata.isPending ?? false;
+
+      const item = FreshFileItem.forFile(
+        uri,
+        this.openChangesMode,
+        isDeleted,
+        metadata.commitHash,
+        isPending,
+        metadata.status,
+      );
+
+      // Get description format, optionally excluding author
+      const descriptionFormat = skipAuthorInDescription
+        ? { ...ConfigService.getDescriptionFormat(), showAuthor: false }
+        : ConfigService.getDescriptionFormat();
+
+      // Add description and tooltip
+      item.description = formatFileDescription(metadata, descriptionFormat);
+      item.tooltip = formatFileTooltip(metadata);
+
+      items.push(item);
+    }
+
+    return items;
   }
 
   private buildPinnedItems(): FreshFilesTreeItem[] {
