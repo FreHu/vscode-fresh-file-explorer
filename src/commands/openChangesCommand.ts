@@ -25,18 +25,33 @@ export async function handleOpenChanges(
       const fileName = path.basename(fileItem.resourceUri.fsPath);
       try {
         if (fileItem.commitHash) {
-          // For committed files, show diff between commit and its parent
-          const leftRef = `${fileItem.commitHash}~1`;
-          const rightRef = fileItem.commitHash;
+          // Check if the file was newly added (status 'A' or starts with 'A')
+          const isNewlyAdded = fileItem.status?.startsWith("A");
 
-          const leftUri = gitUri(fileItem.resourceUri, leftRef);
-          const rightUri = gitUri(fileItem.resourceUri, rightRef);
-          const title = `${fileName} (${commitHashPart(fileItem.commitHash)}^ ↔ ${commitHashPart(
-            fileItem.commitHash,
-          )})`;
+          if (isNewlyAdded) {
+            // For newly added files, just open the file from that commit
+            // (can't show diff since parent doesn't have it)
+            const fileUri = gitUri(fileItem.resourceUri, fileItem.commitHash);
+            const title = `${fileName} (${commitHashPart(fileItem.commitHash)} - added)`;
+            
+            await vscode.commands.executeCommand("vscode.open", fileUri, {
+              preserveFocus,
+              preview: preserveFocus,
+            });
+          } else {
+            // For modified files, show diff between commit and its parent
+            const leftRef = `${fileItem.commitHash}~1`;
+            const rightRef = fileItem.commitHash;
 
-          const diffOptions = { preserveFocus, preview: preserveFocus };
-          await vscode.commands.executeCommand("vscode.diff", leftUri, rightUri, title, diffOptions);
+            const leftUri = gitUri(fileItem.resourceUri, leftRef);
+            const rightUri = gitUri(fileItem.resourceUri, rightRef);
+            const title = `${fileName} (${commitHashPart(fileItem.commitHash)}^ ↔ ${commitHashPart(
+              fileItem.commitHash,
+            )})`;
+
+            const diffOptions = { preserveFocus, preview: preserveFocus };
+            await vscode.commands.executeCommand("vscode.diff", leftUri, rightUri, title, diffOptions);
+          }
         } else if (fileItem.isPending) {
           // For pending changes (no commit hash), show diff against HEAD
           // git.openChange doesn't support preserveFocus directly, but we can refocus the tree after
