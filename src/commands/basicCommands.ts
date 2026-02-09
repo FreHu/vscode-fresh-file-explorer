@@ -12,51 +12,6 @@ export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   freshFileProvider.refresh();
 }
 
-export async function handleInitializeRepo(freshFileProvider: FreshFileProvider): Promise<void> {
-  log("Initialize repository command triggered");
-
-  // Check if we have a workspace folder
-  if (freshFileProvider.workspaceFolders.length === 0) {
-    vscode.window.showErrorMessage("No workspace folder open");
-    return;
-  }
-
-  // If single folder, initialize there. If multiple, ask which one.
-  let targetFolder = freshFileProvider.workspaceFolders[0];
-  if (freshFileProvider.workspaceFolders.length > 1) {
-    const selected = await vscode.window.showQuickPick(
-      freshFileProvider.workspaceFolders.map(f => ({
-        label: f.name,
-        description: f.path,
-        folder: f,
-      })),
-      { placeHolder: "Select folder to initialize as Git repository" },
-    );
-    if (!selected) {
-      return; // User cancelled
-    }
-    targetFolder = selected.folder;
-  }
-
-  // Run git init
-  try {
-    const { execFile } = await import("child_process");
-    const { promisify } = await import("util");
-    const execFilePromise = promisify(execFile);
-
-    await execFilePromise("git", ["init"], { cwd: targetFolder.path });
-    log(`Initialized Git repository in ${targetFolder.name}`);
-    vscode.window.showInformationMessage(`Git repository initialized in ${targetFolder.name}`);
-
-    // Refresh to discover the new repo
-    freshFileProvider.refresh();
-  } catch (error) {
-    const errorMsg = String(error);
-    log(`Failed to initialize Git repository: ${errorMsg}`, "error");
-    vscode.window.showErrorMessage(`Failed to initialize Git repository: ${errorMsg}`);
-  }
-}
-
 export async function handleSetTimeWindow(freshFileProvider: FreshFileProvider): Promise<void> {
   log("Set time window command triggered");
   const quickPick = createTimeWindowQuickPick(freshFileProvider.timeWindows, freshFileProvider.currentTimeWindow);

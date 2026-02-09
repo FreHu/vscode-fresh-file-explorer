@@ -9,7 +9,6 @@ export const Commands = {
   SHOW_OUTPUT: "freshFileExplorer.showOutput",
   EXPAND_ALL: "freshFileExplorer.expandAll",
   EXPAND_SUBTREE: "freshFileExplorer.expandSubtree",
-  INITIALIZE_REPO: "freshFileExplorer.initializeRepo",
 
   // Filter commands
   FILTER_BY_AUTHOR: "freshFileExplorer.filterByAuthor",

@@ -6,7 +6,6 @@ import { handleClearFilters, handleFilterByAuthor, handleFilterByCommit } from "
 import {
   handleExpandAll,
   handleExpandSubtree,
-  handleInitializeRepo,
   handleOpenFile,
   handleOpenToSide,
   handleRefresh,
@@ -102,8 +101,6 @@ function registerCommands(
   }
 
   register(Commands.REFRESH, () => handleRefresh(freshFileProvider));
-
-  register(Commands.INITIALIZE_REPO, () => handleInitializeRepo(freshFileProvider));
 
   register(Commands.SET_TIME_WINDOW, () => handleSetTimeWindow(freshFileProvider));
 

@@ -130,10 +130,6 @@
         "icon": "$(list-selection)"
       },
       {
-        "command": "freshFileExplorer.initializeRepo",
-        "title": "Initialize Repository"
-      },
-      {
         "command": "freshFileExplorer.pinFile",
         "title": "Pin File",
         "icon": "$(pin)"
@@ -392,11 +388,6 @@
       ]
     },
     "viewsWelcome": [
-      {
-        "view": "freshFileExplorer",
-        "contents": "No Git repositories found in workspace.\n[Initialize Repository](command:freshFileExplorer.initializeRepo)",
-        "when": "!freshFileExplorer.hasRepos && !freshFileExplorer.loading"
-      },
       {
         "view": "freshFileExplorer",
         "contents": "Loading fresh files...",
