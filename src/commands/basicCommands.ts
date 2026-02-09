@@ -146,7 +146,6 @@ export async function handleToggleHeatmap(freshFileProvider: FreshFileProvider):
   await config.update("freshFileExplorer.heatmap.enabled", newValue, vscode.ConfigurationTarget.Global);
   
   log(`Heatmap ${newValue ? "enabled" : "disabled"}`);
-  vscode.window.showInformationMessage(`Heatmap coloring ${newValue ? "enabled" : "disabled"}`);
   
   // Notify the heatmap provider to refresh decorations
   freshFileProvider.heatmapProvider?.fireDidChange();
