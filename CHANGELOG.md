@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.5]
+- `[NEW]` Open commit - right click a file to open its last commit in a multi-diff editor
+- `[REMOVED]` Welcome view with initialize repository button (pretty useless and briefly flashed during loading before we figure out there is a repo)
+- `[FIX]` Open changes of new file in git history was broken
+
 ## [1.0.4]
 - `[NEW]` Grouping options
 - `[NEW]` Heatmap

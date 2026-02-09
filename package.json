@@ -5,11 +5,14 @@
   "license": "MIT",
   "pricing": "Free",
   "publisher": "frehu",
+  "sponsor": {
+    "url": "https://github.com/sponsors/FreHu"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.0.4",
+  "version": "1.0.5",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.106.1"
