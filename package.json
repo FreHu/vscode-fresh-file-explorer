@@ -72,6 +72,10 @@
         "title": "Open Changes"
       },
       {
+        "command": "freshFileExplorer.openCommit",
+        "title": "Open Commit"
+      },
+      {
         "command": "freshFileExplorer.openToSide",
         "title": "Open to the Side"
       },
@@ -251,6 +255,11 @@
           "group": "navigation@2"
         },
         {
+          "command": "freshFileExplorer.openCommit",
+          "when": "view == freshFileExplorer && viewItem == file",
+          "group": "navigation@2.5"
+        },
+        {
           "command": "freshFileExplorer.expandSubtree",
           "when": "view == freshFileExplorer && viewItem == folder",
           "group": "1_expand@1"
@@ -383,6 +392,10 @@
         },
         {
           "command": "freshFileExplorer.clearCompleted",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openCommit",
           "when": "false"
         }
       ]

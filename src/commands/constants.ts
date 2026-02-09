@@ -44,6 +44,9 @@ export const Commands = {
   CLEAR_ALL_PINNED: "freshFileExplorer.clearAllPinned",
   CLEAR_COMPLETED: "freshFileExplorer.clearCompleted",
 
+  // Commit viewing
+  OPEN_COMMIT: "freshFileExplorer.openCommit",
+
   // Heatmap command
   TOGGLE_HEATMAP: "freshFileExplorer.toggleHeatmap",
 } as const;

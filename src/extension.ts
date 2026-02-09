@@ -22,6 +22,7 @@ import { FreshFileProvider } from "./freshFileProvider";
 import { setupGitExtensionListener } from "./gitExecutionListener";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
+import { handleOpenCommit } from "./commands/openCommitCommand";
 import { handleSearchInFreshFiles } from "./commands/searchCommand";
 import { handleQuickPickFile } from "./commands/quickPickCommand";
 import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
@@ -174,6 +175,8 @@ function registerCommands(
   register(Commands.CLEAR_COMPLETED, () => handleClearCompleted(freshFileProvider));
 
   register(Commands.REVEAL_IN_SOURCE_CONTROL, handleRevealInSourceControl);
+
+  register(Commands.OPEN_COMMIT, (item: FreshFileItem) => handleOpenCommit(item, freshFileProvider));
 
   register(Commands.TOGGLE_HEATMAP, () => handleToggleHeatmap(freshFileProvider));
 }

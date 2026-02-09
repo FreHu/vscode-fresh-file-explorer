@@ -527,3 +527,101 @@ export function gitUri(uri: vscode.Uri, ref: string) {
     query: JSON.stringify({ path: uri.fsPath, ref: ref }),
   });
 }
+
+/**
+ * Status codes from git diff-tree --name-status
+ */
+type DiffStatus = "A" | "D" | "M" | "R" | "C" | "T";
+
+export interface CommitChange {
+  status: DiffStatus;
+  filePath: string;
+  /** For renames/copies, the original file path */
+  originalFilePath?: string;
+}
+
+/**
+ * Get the list of files changed in a commit relative to its parent.
+ * Uses `git diff-tree` with --name-status to also get change types.
+ * For the root commit (no parent), uses --root flag.
+ * @param repoFullPath Full filesystem path to the repository
+ * @param commitHash The commit hash to inspect
+ * @returns Array of changed files with their status
+ */
+export async function getCommitChanges(repoFullPath: string, commitHash: string): Promise<CommitChange[]> {
+  // -r: recurse into subtrees, --no-commit-id: omit commit hash line,
+  // --name-status: show status + file paths, -z: NUL-delimited output for safe parsing
+  const args = ["diff-tree", "-r", "--no-commit-id", "--name-status", "--root", "-z", commitHash];
+  log(`Getting commit changes: git ${args.join(" ")}`);
+
+  const output = await execGitWithArgs(args, repoFullPath);
+  if (!output.trim()) {
+    return [];
+  }
+
+  // With -z, fields are NUL-separated: status\0path[\0originalPath]\0status\0path...
+  const parts = output.split("\0").filter(p => p !== "");
+  const changes: CommitChange[] = [];
+
+  let i = 0;
+  while (i < parts.length) {
+    const statusField = parts[i];
+    // Status can be e.g. "M", "A", "D", "R100", "C100"
+    const statusChar = statusField[0] as DiffStatus;
+
+    if (statusChar === "R" || statusChar === "C") {
+      // Rename/copy: status, original path, new path
+      if (i + 2 < parts.length) {
+        changes.push({
+          status: statusChar,
+          originalFilePath: decodeGitPath(parts[i + 1]),
+          filePath: decodeGitPath(parts[i + 2]),
+        });
+        i += 3;
+      } else {
+        break;
+      }
+    } else {
+      // Regular: status, path
+      if (i + 1 < parts.length) {
+        changes.push({
+          status: statusChar,
+          filePath: decodeGitPath(parts[i + 1]),
+        });
+        i += 2;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return changes;
+}
+
+/**
+ * Get the parent commit hash of a given commit.
+ * Returns undefined for root commits (no parent).
+ * @param repoFullPath Full filesystem path to the repository
+ * @param commitHash The commit hash
+ * @returns The parent commit hash, or undefined for root commits
+ */
+export async function getCommitParent(repoFullPath: string, commitHash: string): Promise<string | undefined> {
+  try {
+    const args = ["rev-parse", `${commitHash}^`];
+    const output = await execGitWithArgs(args, repoFullPath);
+    const parent = output.trim();
+    return parent || undefined;
+  } catch {
+    // Root commit has no parent - rev-parse will fail
+    return undefined;
+  }
+}
+
+/**
+ * Get the short commit message (first line) for a commit.
+ */
+export async function getCommitSubject(repoFullPath: string, commitHash: string): Promise<string> {
+  const args = ["log", "-1", "--format=%s", commitHash];
+  const output = await execGitWithArgs(args, repoFullPath);
+  return output.trim();
+}
