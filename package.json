@@ -12,7 +12,7 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.0.5",
+  "version": "1.0.6",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.106.1"
@@ -132,6 +132,11 @@
         "icon": "$(search)"
       },
       {
+        "command": "freshFileExplorer.searchInFoundFiles",
+        "title": "Search in Found Files",
+        "icon": "$(search-fuzzy)"
+      },
+      {
         "command": "freshFileExplorer.quickPickFile",
         "title": "Fresh Files: Quick Open",
         "icon": "$(list-selection)"
@@ -177,11 +182,27 @@
         "icon": "$(checklist)"
       }
     ],
-    "keybindings": {
-      "command": "freshFileExplorer.quickPickFile",
-      "key": "ctrl+q f"
-    },
+    "keybindings": [
+      {
+        "command": "freshFileExplorer.quickPickFile",
+        "key": "ctrl+q f"
+      }
+    ],
     "menus": {
+      "editor/title": [
+        {
+          "command": "freshFileExplorer.searchInFoundFiles",
+          "when": "activeEditor == 'workbench.editor.searchEditor'",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "freshFileExplorer.searchInFoundFiles",
+          "when": "inSearchEditor",
+          "group": "1_search@10"
+        }
+      ],
       "explorer/context": [
         {
           "command": "freshFileExplorer.pinFile",
@@ -571,7 +592,7 @@
         },
         "freshFileExplorer.openSearchInEditor": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Open searches in a Search Editor tab instead of the Search view"
         },
         "freshFileExplorer.heatmap.enabled": {

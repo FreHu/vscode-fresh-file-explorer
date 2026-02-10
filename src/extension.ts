@@ -23,7 +23,7 @@ import { setupGitExtensionListener } from "./gitExecutionListener";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
 import { handleOpenCommit } from "./commands/openCommitCommand";
-import { handleSearchInFreshFiles } from "./commands/searchCommand";
+import { handleSearchInFreshFiles, handlesearchInFoundFiles } from "./commands/searchCommand";
 import { handleQuickPickFile } from "./commands/quickPickCommand";
 import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
 import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
@@ -114,6 +114,8 @@ function registerCommands(
   register(Commands.CLEAR_FILTERS, () => handleClearFilters(freshFileProvider));
 
   register(Commands.SEARCH_IN_FRESH_FILES, () => handleSearchInFreshFiles(freshFileProvider));
+
+  register(Commands.SEARCH_IN_SEARCH_RESULTS, () => handlesearchInFoundFiles());
 
   register(Commands.QUICK_PICK_FILE, () => handleQuickPickFile(freshFileProvider));
 

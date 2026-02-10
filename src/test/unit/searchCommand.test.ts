@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { optimizeIncludePatterns } from "../../utils/patternUtils";
-import { batchFilesForSearch } from "../../commands/searchCommand";
+import { batchFilesForSearch, parseFilePathsFromSearchEditor } from "../../commands/searchCommand";
 
 describe("Search Command - Pattern Optimization", () => {
   describe("optimizeIncludePatterns", () => {
@@ -515,5 +515,215 @@ describe("Search Command - Pattern Optimization", () => {
         }
       });
     });
+  });
+});
+
+describe("parseFilePathsFromSearchEditor", () => {
+  it("should parse file paths from typical search editor output", () => {
+    const text = [
+      "# Search: foo",
+      "# Flags: CaseSensitive",
+      "# Including: src/**",
+      "# ContextLines: 1",
+      "",
+      "3 results - 2 files",
+      "",
+      "src/commands/searchCommand.ts:",
+      "  10:   const foo = 1;",
+      "  20:   return foo;",
+      "",
+      "src/utils/helpers.ts:",
+      "  5:   export const foo = 'bar';",
+      "",
+    ].join("\n");
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal([
+      "src/commands/searchCommand.ts",
+      "src/utils/helpers.ts",
+    ]);
+  });
+
+  it("should return empty array for no results", () => {
+    const text = [
+      "# Search: nonexistent",
+      "# Flags:",
+      "# ContextLines: 1",
+      "",
+      "0 results - 0 files",
+      "",
+    ].join("\n");
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal([]);
+  });
+
+  it("should handle single result", () => {
+    const text = [
+      "# Search: unique",
+      "",
+      "1 result - 1 file",
+      "",
+      "README.md:",
+      "  1:   unique content",
+    ].join("\n");
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal(["README.md"]);
+  });
+
+  it("should deduplicate file paths", () => {
+    // Shouldn't happen in practice, but defensive
+    const text = [
+      "# Search: dup",
+      "",
+      "2 results - 1 file",
+      "",
+      "src/file.ts:",
+      "  1:   first",
+      "",
+      "src/file.ts:",
+      "  2:   second",
+    ].join("\n");
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal(["src/file.ts"]);
+  });
+
+  it("should skip lines that look like context (indented)", () => {
+    const text = [
+      "# Search: test",
+      "",
+      "1 result - 1 file",
+      "",
+      "src/test.ts:",
+      "  10:     something: value",
+      "  11:   }",
+    ].join("\n");
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal(["src/test.ts"]);
+  });
+
+  it("should handle empty text", () => {
+    const paths = parseFilePathsFromSearchEditor("");
+    expect(paths).to.deep.equal([]);
+  });
+
+  it("should handle search editor with only headers", () => {
+    const text = [
+      "# Search: something",
+      "# Flags: CaseSensitive",
+      "# Including:",
+      "# Excluding:",
+      "# ContextLines: 2",
+      "",
+    ].join("\n");
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal([]);
+  });
+
+  it("should handle multiple results lines (e.g., results in multiple workspaces)", () => {
+    const text = [
+      "# Search: handler",
+      "",
+      "5 results - 3 files",
+      "",
+      "src/extension.ts:",
+      "  50:   handler()",
+      "",
+      "src/commands/basicCommands.ts:",
+      "  10:   export function handler() {",
+      "  11:     // ...",
+      "",
+      "src/commands/filterCommands.ts:",
+      "  22:   handler.apply()",
+    ].join("\n");
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal([
+      "src/extension.ts",
+      "src/commands/basicCommands.ts",
+      "src/commands/filterCommands.ts",
+    ]);
+  });
+
+  it("should handle Windows-style line endings", () => {
+    const text =
+      "# Search: foo\r\n\r\n1 result - 1 file\r\n\r\nsrc/file.ts:\r\n  1:   foo\r\n";
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal(["src/file.ts"]);
+  });
+
+  it("should parse real search editor output with backslash paths and context lines", () => {
+    const text = [
+      "23 results - 3 files",
+      "",
+      "README.md:",
+      "  150  ",
+      '  151: At the top the tree, there is a special "pinned items" section. This is for files you want to keep handy independent of whatever the fresh file explorer is showing you. You can pin items with drag&drop or through the right click menu in the file explorer. ',
+      "  152  ",
+      "",
+      "src\\extension.ts:",
+      '   30  import { Commands } from "./commands/constants";',
+      '   31: import { createDragAndDropController } from "./commands/dragDropController";',
+      '   32  import { HeatmapDecorationProvider } from "./heatmapDecorationProvider";',
+      "",
+      "  188      canSelectMany: true,",
+      "  189:     dragAndDropController: createDragAndDropController(freshFileProvider),",
+      "  190    });",
+      "",
+      "src\\commands\\dragDropController.ts:",
+      "   7  ",
+      "   8: // MIME types for drag & drop operations",
+      '   9  export const MIME_TYPE_URI_LIST = "text/uri-list";',
+      "",
+      "  12  /**",
+      "  13:  * Creates a drag & drop controller for the Fresh File Explorer tree view.",
+      "   14   * Supports:",
+      "  15:  * - Dragging pinned items to reorder them",
+      "  16:  * - Dragging files from elsewhere to pin them",
+      "  17:  * - Dragging files from the regular view to pin them",
+      "   18   */",
+      "  19: export function createDragAndDropController(freshFileProvider: FreshFileProvider): vscode.TreeDragAndDropController<FreshFilesTreeItem> {",
+      "  20    return {",
+      "  21:     dragMimeTypes: [MIME_TYPE_URI_LIST, MIME_TYPE_TREE_INTERNAL],",
+      '  22      dropMimeTypes: [MIME_TYPE_URI_LIST, MIME_TYPE_TREE_INTERNAL],',
+      "  23:     handleDrag: createHandleDrag(),",
+      "  24      handleDrop: createHandleDrop(freshFileProvider),",
+      "",
+      "  28  /**",
+      "  29:  * Creates the drag handler for tree items.",
+      "  30:  * Sets up data transfer for both pinned items (for reordering) and regular files (for external drag).",
+      "  31   */",
+      "  32: function createHandleDrag() {",
+      "  33    return (items: readonly FreshFilesTreeItem[], dataTransfer: vscode.DataTransfer) => {",
+      "  34:     // Handle dragging pinned items for reordering",
+      "  35      const pinnedItems = items.filter((item): item is FreshFileItem | NoteTreeItem =>",
+      "",
+      "  42        const itemIds = pinnedItems.map(item => item.id!);",
+      '  43:       log(`Drag: Setting internal data with IDs: ${JSON.stringify(itemIds)}`);',
+      "  44        dataTransfer.set(",
+      "",
+      "  72      if (internalData && target) {",
+      "  73:       const sourceIds = parseInternalDragData(internalData);",
+      "  74        ",
+      "",
+      "  89  /**",
+      "  90:  * Parses internal drag data to extract source item IDs.",
+      "  91   * Returns undefined if the data is not in our custom format (JSON array of strings).",
+      "  92   */",
+      "  93: function parseInternalDragData(data: string): string[] | undefined {",
+      "  94    try {",
+    ].join("\n");
+
+    const paths = parseFilePathsFromSearchEditor(text);
+    expect(paths).to.deep.equal([
+      "README.md",
+      "src\\extension.ts",
+      "src\\commands\\dragDropController.ts",
+    ]);
   });
 });

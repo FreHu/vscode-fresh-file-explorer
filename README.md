@@ -155,6 +155,7 @@ At the top the tree, there is a special "pinned items" section. This is for file
 - Pin a non-fresh file you need to pay attention to, like a diagram or readme
 - Pin that critical file you've had on your desktop for the last 6 years. It does not have to be from your workspace.
 - Pin a deleted file
+- Pin a search editor (must be saved as a file)
 - Create short notes and use it as a todo list. They can be reordered and marked as complete.
 - Pin your sensitive API keys as notes. All the pros do it.
 
@@ -181,22 +182,33 @@ Both options can be individually disabled.
 
 ### Search
 
+#### Search in Fresh Files
+
 Click the search icon in the Fresh Files toolbar to open VS Code's search view with all currently visible files pre-filled in the "files to include" pattern. This lets you search only within the files you're actively working on, respecting your current filters and time window. This searches file *contents*. To search the tree, use `CTRL+ALT+F`. 
 
 You can also trigger the search from the [quick pick](#quick-open-fresh-files).
 
 ![search](img/ff-search.png)
 
-**Features:**
 - Respects author and commit filters
 - Excludes deleted files (they're not on disk to search)
-- Configure whether the search opens in the view (*default*) or as an editor
-> When you have many files or very long paths, VS Code's underlying search mechanism (ripgrep) can hit OS command-line length limits. In this case, the file list will be split into batches which will open as separate search editors.
+- Configure whether the search opens in the view or as an editor (*default*)
+
+#### Search in Found Files
+
+**Problem:** "I want to find `b` in all files that contain `a`."
+
+**Solution:** Search for `a`, then use this action to open another search editor scoped to the files you found with your first search, then search for `b`. This process can be chained as many times as you want.
+
+![search in found files](img/search-in-found-files.png)
+
+> The action is available only in search editors, not the search view. But you can easily open your search view as a search editor.
 
 **Configuration:**
 - `freshFileExplorer.openSearchInEditor`: Open searches in a Search Editor tab instead of the Search view
-- `freshFileExplorer.searchPatternMaxLength`: Maximum pattern length per batch. Adjust this if you encounter command-line length limits on your OS.
+- `freshFileExplorer.searchPatternMaxLength`: Maximum pattern length per batch. Set a lower value if you encounter command-line length limits on your OS, or a higher value if your searches are getting batched. The default (4000 chars) is very conservative and can likely be set much higher on Linux.
 
+> When you have many files or very long paths, VS Code's underlying search mechanism (ripgrep) can hit OS command-line length limits. In this case, the file list will be split into batches which will open as separate search editors.
 ### Quick Open
 
 ![quick-open](img/ff-quick-open.png)

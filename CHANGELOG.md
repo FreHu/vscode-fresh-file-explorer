@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.6]
+- `[NEW]` Search in found files
+- `[REWORK]` Search include pattern length limitation - no longer truncates, now batches into multiple search editors
+- `[CONFIG]` Search editor is now the default preference
+
 ## [1.0.5]
 - `[NEW]` Open commit - right click a file to open its last commit in a multi-diff editor
 - `[REMOVED]` Welcome view with initialize repository button (pretty useless and briefly flashed during loading before we figure out there is a repo)

@@ -239,6 +239,112 @@ export async function handleSearchInFreshFiles(
 
 
 /**
+ * Parses file paths from a VS Code search editor's text content.
+ *
+ * Search editor format:
+ *   # Search: query
+ *   # Flags: ...
+ *   # Including: ...
+ *   # ContextLines: N
+ *
+ *   N results - M files
+ *
+ *   path/to/file.ts:
+ *     10:   some code
+ *     20:   more code
+ *
+ * File path lines start at column 0 and end with `:`.
+ * Result lines are indented. Header lines start with `#`.
+ */
+export function parseFilePathsFromSearchEditor(text: string): string[] {
+  const lines = text.split(/\r?\n/);
+  const filePaths = new Set<string>();
+
+  for (const line of lines) {
+    // Skip empty lines, header lines, indented result lines, and summary lines
+    if (
+      line.length === 0 ||
+      line.startsWith("#") ||
+      line.startsWith(" ") ||
+      line.startsWith("\t") ||
+      /^\d+ results? -/.test(line)
+    ) {
+      continue;
+    }
+
+    // File path lines end with ':'
+    // On Windows, drive letters like C: should not be confused with the trailing colon
+    if (line.endsWith(":")) {
+      const filePath = line.slice(0, -1);
+      if (filePath.length > 0) {
+        filePaths.add(filePath);
+      }
+    }
+  }
+
+  return Array.from(filePaths);
+}
+
+/**
+ * Opens a new search scoped to the files present in the current search editor's results.
+ * This is a "second-order" search: search within search results.
+ */
+export async function handlesearchInFoundFiles(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+
+  if (!editor || editor.document.uri.scheme !== "search-editor") {
+    vscode.window.showWarningMessage("This command must be run from a Search Editor");
+    return;
+  }
+
+  const text = editor.document.getText();
+  const filePaths = parseFilePathsFromSearchEditor(text);
+
+  if (filePaths.length === 0) {
+    vscode.window.showWarningMessage(
+      "No file paths found in the search results.",
+    );
+    return;
+  }
+
+  log(`Second-order search: Found ${filePaths.length} file(s) in search results`);
+
+  // Paths from the search editor are already workspace-relative,
+  // so we can use them directly as include patterns.
+  const { batches, oversizedFiles } = batchFilesForSearch(filePaths);
+
+  if (batches.length === 0) {
+    vscode.window.showErrorMessage("Unable to create search patterns for the given files");
+    return;
+  }
+
+  if (batches.length === 1) {
+    const pattern = optimizeIncludePatterns(batches[0]);
+    log(`Second-order search: ${filePaths.length} file(s), pattern length: ${pattern.length}`);
+    await openSearchView(pattern);
+  } else {
+    log(`Second-order search: Batching ${filePaths.length} file(s) into ${batches.length} search editors`);
+    for (let i = 0; i < batches.length; i++) {
+      const pattern = optimizeIncludePatterns(batches[i]);
+      await vscode.commands.executeCommand("search.action.openNewEditor", {
+        query: "",
+        filesToInclude: pattern,
+        triggerSearch: false,
+        showIncludesExcludes: true,
+      });
+      log(`Second-order search batch ${i + 1}/${batches.length}: ${batches[i].length} file(s), pattern length: ${pattern.length}`);
+    }
+
+    const totalFiles = batches.reduce((sum, batch) => sum + batch.length, 0);
+    let message = `Opened ${batches.length} search tabs to search ${totalFiles} files`;
+    if (oversizedFiles.length > 0) {
+      message += ` (${oversizedFiles.length} file(s) with very long paths may not be included)`;
+    }
+    vscode.window.showInformationMessage(message);
+  }
+}
+
+/**
  * Opens the search view with the given file paths.
  * Automatically batches into multiple search editors if needed to avoid command line length limits.
  */
