@@ -567,7 +567,7 @@
           "default": 4000,
           "minimum": 1000,
           "maximum": 500000,
-          "description": "Maximum length for search include pattern before truncation."
+          "description": "Maximum length for search include pattern per batch. When exceeded, files are split into multiple search editor tabs."
         },
         "freshFileExplorer.openSearchInEditor": {
           "type": "boolean",

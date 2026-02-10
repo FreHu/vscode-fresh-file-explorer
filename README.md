@@ -189,21 +189,13 @@ You can also trigger the search from the [quick pick](#quick-open-fresh-files).
 
 **Features:**
 - Respects author and commit filters
-- Excludes deleted files or lines (they're not on disk to search)
+- Excludes deleted files (they're not on disk to search)
 - Configure whether the search opens in the view (*default*) or as an editor
-
-**Limitations**
-
-- The search simply prefills your include pattern in the search, but the pattern length is not infinite
-- If you exceed the limit, vscode will simply refuse to search (`spawn ENAMETOOLONG` error will be shown in the search view). This means you need to lower the truncation limit in the settings.
-- Automatically truncates the file list if the limit would be exceeded and warns you.
-- You will probably be fine with <100 files, but ultimately this depends on how long the paths are in your workspace *(the true source of the error is that the maximum command line argument length is exceeded, which is how vscode performs the search)*. The length of the include pattern does not necessarily match the length of the command vscode will execute. I can't work around this limitation, but the maximum length is configurable.
-- Brace expansion is used to optimize pattern length (e.g., `src/{a.ts,b.ts}` instead of `src/a.ts,src/b.ts`)
-  
+> When you have many files or very long paths, VS Code's underlying search mechanism (ripgrep) can hit OS command-line length limits. In this case, the file list will be split into batches which will open as separate search editors.
 
 **Configuration:**
 - `freshFileExplorer.openSearchInEditor`: Open searches in a Search Editor tab instead of the Search view
-- `freshFileExplorer.searchPatternMaxLength`: Maximum pattern length before truncation (default: 4000 chars, tries to account for VS Code's expansion when calling ripgrep). Once more just to be clear: you are configuring the truncation limit, not the command line length limit (that depends on your OS). If you exceed the command line limit, you won't be able to search.
+- `freshFileExplorer.searchPatternMaxLength`: Maximum pattern length per batch. Adjust this if you encounter command-line length limits on your OS.
 
 ### Quick Open
 

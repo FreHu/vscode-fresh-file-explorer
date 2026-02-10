@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { optimizeIncludePatterns } from "../../utils/patternUtils";
+import { batchFilesForSearch } from "../../commands/searchCommand";
 
 describe("Search Command - Pattern Optimization", () => {
   describe("optimizeIncludePatterns", () => {
@@ -218,6 +219,300 @@ describe("Search Command - Pattern Optimization", () => {
         // Verify comma separation between groups (no outer braces)
         expect(optimized.startsWith("{")).to.be.false;
         expect(optimized.endsWith("}")).to.be.true; // Last group ends with }
+      });
+    });
+  });
+
+  describe("batchFilesForSearch", () => {
+    it("should return empty array for empty input", () => {
+      const result = batchFilesForSearch([]);
+      expect(result.batches).to.deep.equal([]);
+      expect(result.oversizedFiles).to.deep.equal([]);
+    });
+
+    it("should return single batch when all files fit", () => {
+      const paths = [
+        "app/components/Button.tsx",
+        "app/components/Input.tsx",
+        "lib/utils/format.ts",
+      ];
+      const result = batchFilesForSearch(paths, 1000);
+      
+      expect(result.batches).to.have.lengthOf(1);
+      expect(result.batches[0]).to.deep.equal(paths);
+      expect(result.oversizedFiles).to.deep.equal([]);
+    });
+
+    it("should split into multiple batches when pattern is too long", () => {
+      const paths = [
+        "app/components/Button.tsx",
+        "app/components/Input.tsx",
+        "lib/utils/format.ts",
+        "lib/utils/validate.ts",
+        "services/api/client.ts",
+      ];
+      
+      // Set a very small limit to force batching
+      const result = batchFilesForSearch(paths, 50);
+      
+      expect(result.batches.length).to.be.greaterThan(1);
+      
+      // Verify all files are included
+      const allFiles = result.batches.flat();
+      expect(allFiles).to.have.lengthOf(paths.length);
+      expect(allFiles.sort()).to.deep.equal(paths.sort());
+    });
+
+    it("should ensure each batch's pattern fits within the limit", () => {
+      const paths = [
+        "app/components/Button.tsx",
+        "app/components/Input.tsx",
+        "app/components/Modal.tsx",
+        "lib/utils/format.ts",
+        "lib/utils/validate.ts",
+        "services/api/client.ts",
+      ];
+      
+      const maxLength = 80;
+      const result = batchFilesForSearch(paths, maxLength);
+      
+      // Verify each batch's optimized pattern is within the limit
+      for (const batch of result.batches) {
+        const pattern = optimizeIncludePatterns(batch);
+        expect(pattern.length).to.be.at.most(maxLength,
+          `Batch pattern "${pattern}" (${pattern.length} chars) exceeds limit of ${maxLength}`);
+      }
+    });
+
+    it("should maximize files per batch using greedy algorithm", () => {
+      const paths = [
+        "a/b/file1.ts", // ~13 chars optimized
+        "a/b/file2.ts", // Combined: a/b/{file1.ts,file2.ts} = 24 chars
+        "a/b/file3.ts", // Combined: a/b/{file1.ts,file2.ts,file3.ts} = 34 chars
+        "c/d/file4.ts", // Similar size
+      ];
+      
+      // Limit allows 2 files from same dir but not 3
+      const result = batchFilesForSearch(paths, 30);
+      
+      // Should have at least 2 batches
+      expect(result.batches.length).to.be.at.least(2);
+      
+      // All files should be included
+      const allFiles = result.batches.flat();
+      expect(allFiles).to.have.lengthOf(paths.length);
+    });
+
+    it("should track single files that exceed limit", () => {
+      const longPath = "a/".repeat(100) + "file.ts"; // Very long path
+      const paths = [longPath];
+      
+      const result = batchFilesForSearch(paths, 50);
+      
+      // Should still return the file in a batch
+      expect(result.batches).to.have.lengthOf(1);
+      expect(result.batches[0]).to.deep.equal([longPath]);
+      
+      // Should be marked as oversized
+      expect(result.oversizedFiles).to.have.lengthOf(1);
+      expect(result.oversizedFiles[0]).to.equal(longPath);
+    });
+
+    it("should not lose files when mixing short and long paths", () => {
+      const paths = [
+        "short.ts",
+        "a/".repeat(50) + "very-long-path.ts",
+        "another-short.ts",
+        "b/".repeat(50) + "another-long-path.ts",
+      ];
+      
+      const result = batchFilesForSearch(paths, 100);
+      
+      // All files must be included
+      const allFiles = result.batches.flat();
+      expect(allFiles).to.have.lengthOf(paths.length);
+      expect(allFiles.sort()).to.deep.equal(paths.sort());
+      
+      // Oversized files should be tracked
+      expect(result.oversizedFiles.length).to.be.greaterThan(0);
+    });
+
+    it("should handle files from same directory efficiently", () => {
+      // Create many files in the same directory
+      const paths: string[] = [];
+      for (let i = 0; i < 20; i++) {
+        paths.push(`app/components/Component${i}.tsx`);
+      }
+      
+      // Should group them efficiently using brace expansion
+      const result = batchFilesForSearch(paths, 200);
+      
+      // Verify all files are included
+      const allFiles = result.batches.flat();
+      expect(allFiles).to.have.lengthOf(paths.length);
+      expect(allFiles.sort()).to.deep.equal(paths.sort());
+      
+      // First batch should contain multiple files due to efficient grouping
+      expect(result.batches[0].length).to.be.greaterThan(1);
+    });
+
+    it("should maintain file order within reasonable constraints", () => {
+      const paths = [
+        "app/a.ts",
+        "app/b.ts",
+        "lib/c.ts",
+        "lib/d.ts",
+      ];
+      
+      const result = batchFilesForSearch(paths, 1000);
+      
+      // When everything fits in one batch, order is preserved
+      if (result.batches.length === 1) {
+        expect(result.batches[0]).to.deep.equal(paths);
+      }
+    });
+
+    it("should work with realistic workspace scenario", () => {
+      // Simulate a realistic workspace with 150 files
+      const paths: string[] = [];
+      
+      // 50 frontend components
+      for (let i = 0; i < 50; i++) {
+        paths.push(`frontend/components/Component${i}.tsx`);
+      }
+      
+      // 50 backend services
+      for (let i = 0; i < 50; i++) {
+        paths.push(`backend/services/Service${i}.ts`);
+      }
+      
+      // 50 utility files
+      for (let i = 0; i < 50; i++) {
+        paths.push(`shared/utils/util${i}.ts`);
+      }
+      
+      const maxLength = 4000; // Default config value
+      const result = batchFilesForSearch(paths, maxLength);
+      
+      // Should handle all files
+      const allFiles = result.batches.flat();
+      expect(allFiles).to.have.lengthOf(150);
+      
+      // Each batch should respect the limit
+      for (const batch of result.batches) {
+        const pattern = optimizeIncludePatterns(batch);
+        expect(pattern.length).to.be.at.most(maxLength);
+      }
+      
+      // Log for debugging
+      console.log(`Batched 150 files into ${result.batches.length} batch(es)`);
+      result.batches.forEach((batch, i) => {
+        const pattern = optimizeIncludePatterns(batch);
+        console.log(`  Batch ${i + 1}: ${batch.length} files, ${pattern.length} chars`);
+      });
+    });
+
+    it("should handle edge case of exactly limit length", () => {
+      const paths = ["app/test.ts"];
+      const pattern = optimizeIncludePatterns(paths);
+      const exactLimit = pattern.length;
+      
+      const result = batchFilesForSearch(paths, exactLimit);
+      
+      expect(result.batches).to.have.lengthOf(1);
+      expect(result.batches[0]).to.deep.equal(paths);
+    });
+
+    it("should handle edge case of one char below limit", () => {
+      const paths = [
+        "app/a.ts",
+        "app/b.ts",
+      ];
+      const pattern = optimizeIncludePatterns(paths);
+      const limitJustBelow = pattern.length - 1;
+      
+      const result = batchFilesForSearch(paths, limitJustBelow);
+      
+      // Should split into 2 batches since combined pattern is too long
+      expect(result.batches.length).to.be.at.least(2);
+      
+      // All files should be included
+      const allFiles = result.batches.flat();
+      expect(allFiles).to.have.lengthOf(paths.length);
+    });
+
+    describe("completeness verification", () => {
+      // These tests are specifically for verifying no files are lost during batching
+      
+      it("should include every file exactly once", () => {
+        const paths = [
+          "app/a.ts",
+          "app/b.ts",
+          "app/c.ts",
+          "lib/d.ts",
+          "lib/e.ts",
+          "lib/f.ts",
+        ];
+        
+        const result = batchFilesForSearch(paths, 30);
+        
+        const allFiles = result.batches.flat();
+        
+        // Check count
+        expect(allFiles).to.have.lengthOf(paths.length);
+        
+        // Check each file appears exactly once
+        for (const path of paths) {
+          const count = allFiles.filter(f => f === path).length;
+          expect(count).to.equal(1, `File ${path} should appear exactly once`);
+        }
+      });
+
+      it("should not duplicate files across batches", () => {
+        const paths = Array.from({ length: 30 }, (_, i) => `app/file${i}.ts`);
+        
+        const result = batchFilesForSearch(paths, 100);
+        
+        // Collect all files with their batch index
+        const fileSeenInBatch = new Map<string, number[]>();
+        
+        result.batches.forEach((batch, batchIndex) => {
+          batch.forEach(file => {
+            if (!fileSeenInBatch.has(file)) {
+              fileSeenInBatch.set(file, []);
+            }
+            fileSeenInBatch.get(file)!.push(batchIndex);
+          });
+        });
+        
+        // Every file should appear in exactly one batch
+        for (const [file, batchIndices] of fileSeenInBatch.entries()) {
+          expect(batchIndices).to.have.lengthOf(1, 
+            `File ${file} appears in multiple batches: ${batchIndices.join(", ")}`);
+        }
+      });
+
+      it("should handle large file lists without losing files", () => {
+        // Create a large diverse file list
+        const paths: string[] = [];
+        
+        // Various directory structures
+        for (let i = 0; i < 100; i++) {
+          paths.push(`dir${i % 10}/subdir${i % 5}/file${i}.ts`);
+        }
+        
+        const result = batchFilesForSearch(paths, 500);
+        
+        const allFiles = result.batches.flat();
+        
+        // Verify count
+        expect(allFiles).to.have.lengthOf(paths.length);
+        
+        // Verify each original file is present
+        const allFilesSet = new Set(allFiles);
+        for (const path of paths) {
+          expect(allFilesSet.has(path)).to.be.true, `Missing file: ${path}`;
+        }
       });
     });
   });

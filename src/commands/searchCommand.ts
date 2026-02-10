@@ -88,6 +88,7 @@ export function convertToRelativePaths(
 /**
  * Builds an optimized search pattern from relative paths, with truncation if needed
  * @returns The optimized pattern, or null if paths are too long
+ * @deprecated Use batchFilesForSearch instead for better handling of long patterns
  */
 export function buildOptimizedSearchPattern(
   relativePaths: string[],
@@ -138,6 +139,68 @@ export function buildOptimizedSearchPattern(
 }
 
 /**
+ * Splits file paths into batches where each batch's optimized pattern fits within the limit.
+ * Uses a greedy algorithm to maximize files per batch.
+ * 
+ * @param relativePaths - Array of workspace-relative file paths
+ * @param maxLength - Maximum pattern length per batch (defaults to config value)
+ * @returns Object containing batches and array of problematic files that exceed the limit (extremely unlikely)
+ */
+export function batchFilesForSearch(
+  relativePaths: string[],
+  maxLength?: number
+): { batches: string[][]; oversizedFiles: string[] } {
+  const limit = maxLength ?? getMaxIncludePatternLength();
+  
+  if (relativePaths.length === 0) {
+    return { batches: [], oversizedFiles: [] };
+  }
+  
+  // Try to fit all files in one batch first
+  const singlePattern = optimizeIncludePatterns(relativePaths);
+  if (singlePattern.length <= limit) {
+    return { batches: [relativePaths], oversizedFiles: [] };
+  }
+  
+  // Need to batch - use greedy algorithm
+  const batches: string[][] = [];
+  const oversizedFiles: string[] = [];
+  let currentBatch: string[] = [];
+  
+  for (const path of relativePaths) {
+    // Try adding this path to the current batch
+    const testBatch = [...currentBatch, path];
+    const testPattern = optimizeIncludePatterns(testBatch);
+    
+    if (testPattern.length <= limit) {
+      // Fits in current batch
+      currentBatch.push(path);
+    } else {
+      // Doesn't fit - finalize current batch and start new one
+      if (currentBatch.length > 0) {
+        batches.push(currentBatch);
+      }
+      currentBatch = [path];
+      
+      // Check if even a single file exceeds the limit
+      const singleFilePattern = optimizeIncludePatterns([path]);
+      if (singleFilePattern.length > limit) {
+        // Really cursed repo or the user is a QA tester (hi there, you get an achievement).
+        oversizedFiles.push(path);
+        log(`Warning: Single file path exceeds limit: ${path} (${singleFilePattern.length} chars)`);
+      }
+    }
+  }
+  
+  // Don't forget the last batch
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+  
+  return { batches, oversizedFiles };
+}
+
+/**
  * Opens VS Code's search (either in view or editor based on config) with the given pattern
  */
 export async function openSearchView(includePattern: string): Promise<void> {
@@ -176,7 +239,8 @@ export async function handleSearchInFreshFiles(
 
 
 /**
- * Opens the search view with the given file paths
+ * Opens the search view with the given file paths.
+ * Automatically batches into multiple search editors if needed to avoid command line length limits.
  */
 export async function openSearchWithFiles(
   filePaths: AbsolutePath[],
@@ -193,21 +257,54 @@ export async function openSearchWithFiles(
   }
 
   const relativePatterns = convertToRelativePaths(filePaths, workspaceFolders);
-  const result = buildOptimizedSearchPattern(relativePatterns);
+  const { batches, oversizedFiles } = batchFilesForSearch(relativePatterns);
 
-  if (!result) {
-    vscode.window.showErrorMessage("File paths are too long to create a search pattern");
+  if (batches.length === 0) {
+    vscode.window.showErrorMessage("Unable to create search patterns for the given files");
     return;
   }
 
-  if (result.truncated) {
-    vscode.window.showWarningMessage(
-      `Search pattern limited to ${result.includedCount} of ${relativePatterns.length} file(s)`,
-    );
+  if (batches.length === 1) {
+    // Single batch - respect user's preference for search view vs editor
+    const pattern = optimizeIncludePatterns(batches[0]);
+    log(`Search: ${relativePatterns.length} file(s), pattern length: ${pattern.length}`);
+    await openSearchView(pattern);
+    
+    // Warn about oversized files if any
+    if (oversizedFiles.length > 0) {
+      const fileList = oversizedFiles.slice(0, 3).join("\n");
+      const moreText = oversizedFiles.length > 3 ? `\n...and ${oversizedFiles.length - 3} more` : "";
+      vscode.window.showWarningMessage(
+        `${oversizedFiles.length} file(s) may not be searchable due to very long paths:\n${fileList}${moreText}`
+      );
+    }
+  } else {
+    // Multiple batches required - always use search editors (multiple search views not possible)
+    log(`Search: Batching ${relativePatterns.length} file(s) into ${batches.length} search editors`);
+    
+    for (let i = 0; i < batches.length; i++) {
+      const pattern = optimizeIncludePatterns(batches[i]);
+      const batchNumber = i + 1;
+      
+      // Always open in editor when batching
+      await vscode.commands.executeCommand("search.action.openNewEditor", {
+        query: "",
+        filesToInclude: pattern,
+        triggerSearch: false,
+        showIncludesExcludes: true,
+      });
+      
+      log(`Search batch ${batchNumber}/${batches.length}: ${batches[i].length} file(s), pattern length: ${pattern.length}`);
+    }
+    
+    // Inform the user about the batching and any problematic files
+    const totalFiles = batches.reduce((sum, batch) => sum + batch.length, 0);
+    let message = `Opened ${batches.length} search tabs to search ${totalFiles} files (pattern too long for single search)`;
+    
+    if (oversizedFiles.length > 0) {
+      message += `\n\nNote: ${oversizedFiles.length} file(s) with very long paths may fail to search. Consider shortening your workspace path or folder structure.`;
+    }
+    
+    vscode.window.showInformationMessage(message);
   }
-
-  log(`Quick pick search: ${relativePatterns.length} file(s), pattern length: ${result.pattern.length}`);
-
-  // Open the search view
-  await openSearchView(result.pattern);
 }
