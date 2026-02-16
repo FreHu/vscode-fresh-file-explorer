@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.0.7]
+- `[NEW]` Menu button for search editor - open all found files
+- `[NEW]` Menu button for search editor - copy paths of found files (absolute/relative)
+- `[NEW]` Create new files directly from the tree view - right-click any file to create a sibling file
+- `[NEW]` Support for creating multiple files and nested folder structures (e.g., `folder/file1.ts,file2.ts`)
+- `[NEW]` Sort order options - sort files by name, date (newest first), or author
+- `[NEW]` Consolidated "View Options" menu to reduce toolbar clutter (grouping, sorting, and filters)
+- `[IMPROVEMENT]` Pending files now use actual file modification time for accurate date sorting
+- `[IMPROVEMENT]` Streamlined toolbar - moved less common actions to overflow menu
+- `[REMOVED]` "Expand All" from toolbar, it was janky anyway (still available via right-click on folders)
+
 ## [1.0.6]
 - `[NEW]` Search in found files
 - `[REWORK]` Search include pattern length limitation - no longer truncates, now batches into multiple search editors

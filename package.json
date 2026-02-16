@@ -12,7 +12,7 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.0.6",
+  "version": "1.0.7",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.106.1"
