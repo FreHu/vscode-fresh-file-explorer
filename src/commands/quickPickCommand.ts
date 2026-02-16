@@ -6,6 +6,7 @@ import { AbsolutePath } from "../pathTypes";
 import { FileMetadata } from "../types";
 import { isPendingChangesMode } from "../timeWindowUtils";
 import { openSearchWithFiles, convertToRelativePaths } from "./searchCommand";
+import { openFileWithoutDuplicating } from "../utils";
 
 interface FreshFileQuickPickItem extends vscode.QuickPickItem {
   filePath?: AbsolutePath;
@@ -195,7 +196,7 @@ function showFilteredQuickPick(
     } else if (selected?.filePath) {
       log(`Quick pick: Opening file ${selected.filePath}`);
       const uri = vscode.Uri.file(selected.filePath);
-      await vscode.commands.executeCommand("vscode.open", uri);
+      await openFileWithoutDuplicating(uri);
       actionTaken = true;
       filteredQuickPick.hide();
     }
@@ -300,7 +301,7 @@ function showMainQuickPick(
       // File selected - open it
       log(`Quick pick: Opening file ${selected.filePath}`);
       const uri = vscode.Uri.file(selected.filePath);
-      await vscode.commands.executeCommand("vscode.open", uri);
+      await openFileWithoutDuplicating(uri);
     }
   });
 

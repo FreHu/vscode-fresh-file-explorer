@@ -7,6 +7,7 @@ import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../groupingMode";
 import { SortOrder } from "../types";
+import { openFileWithoutDuplicating } from "../utils";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
@@ -179,7 +180,7 @@ export async function handleOpenFile(
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
   const preserveFocus = options?.preserveFocus ?? false;
   for (const fileItem of items.filter(isPossibleToOpen)) {
-    vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, {
+    await openFileWithoutDuplicating(fileItem.resourceUri, {
       preserveFocus,
       preview: preserveFocus,
     });
@@ -196,7 +197,9 @@ export function handleToggleOpenMode(freshFileProvider: FreshFileProvider): void
 export async function handleOpenToSide(item: FreshFileItem, selectedItems?: FreshFileItem[]): Promise<void> {
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
   for (const fileItem of items.filter(isPossibleToOpen)) {
-    vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, vscode.ViewColumn.Beside);
+    await openFileWithoutDuplicating(fileItem.resourceUri, {
+      viewColumn: vscode.ViewColumn.Beside,
+    });
   }
 }
 

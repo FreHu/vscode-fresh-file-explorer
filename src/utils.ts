@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 /** Helper to normalize path separators to forward slashes */
 export function normalizePath(path: string): string {
   return path.replace(/\\/g, "/");
@@ -32,4 +34,43 @@ export function setDifference<T>(all: Iterable<T>, exclude: Set<T>): Set<T> {
 
 export function dotsDots(str: string, length = 80): string {
   return str.length > length ? str.substring(0, length - 3) + "..." : str;
+}
+
+/**
+ * Opens a file, but if it's already open in any visible editor, focuses that editor instead of creating a duplicate tab.
+ * This prevents the annoying behavior where clicking a file that's already open in another pane creates a second tab.
+ */
+export async function openFileWithoutDuplicating(
+  uri: vscode.Uri,
+  options?: {
+    preserveFocus?: boolean;
+    preview?: boolean;
+    viewColumn?: vscode.ViewColumn;
+  }
+): Promise<void> {
+  const { preserveFocus = false, preview = false, viewColumn } = options ?? {};
+  
+  // Check if the file is already open in any visible editor
+  const existingEditor = vscode.window.visibleTextEditors.find(
+    editor => editor.document.uri.toString() === uri.toString()
+  );
+  
+  if (existingEditor) {
+    // File is already open, focus the existing editor instead of opening a duplicate
+    await vscode.window.showTextDocument(existingEditor.document, {
+      viewColumn: existingEditor.viewColumn,
+      preserveFocus,
+      preview,
+    });
+  } else {
+    // File is not open, open it normally
+    if (viewColumn !== undefined) {
+      await vscode.commands.executeCommand("vscode.open", uri, viewColumn);
+    } else {
+      await vscode.commands.executeCommand("vscode.open", uri, {
+        preserveFocus,
+        preview,
+      });
+    }
+  }
 }
