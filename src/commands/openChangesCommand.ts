@@ -4,6 +4,7 @@ import * as path from "path";
 import { FreshFileItem } from "../treeItems";
 import { log } from "../utils/logger";
 import { gitUri } from "../git/gitOperations";
+import { openFileWithoutDuplicating, openDiffWithoutDuplicating } from "../utils";
 
 /**
  * Handler for opening files in diff/changes mode
@@ -34,7 +35,7 @@ export async function handleOpenChanges(
             const fileUri = gitUri(fileItem.resourceUri, fileItem.commitHash);
             const title = `${fileName} (${commitHashPart(fileItem.commitHash)} - added)`;
             
-            await vscode.commands.executeCommand("vscode.open", fileUri, {
+            await openFileWithoutDuplicating(fileUri, {
               preserveFocus,
               preview: preserveFocus,
             });
@@ -49,8 +50,10 @@ export async function handleOpenChanges(
               fileItem.commitHash,
             )})`;
 
-            const diffOptions = { preserveFocus, preview: preserveFocus };
-            await vscode.commands.executeCommand("vscode.diff", leftUri, rightUri, title, diffOptions);
+            await openDiffWithoutDuplicating(leftUri, rightUri, title, {
+              preserveFocus,
+              preview: preserveFocus,
+            });
           }
         } else if (fileItem.isPending) {
           // For pending changes (no commit hash), show diff against HEAD
@@ -63,7 +66,7 @@ export async function handleOpenChanges(
         } else {
           // No commit info, just open the file
           log(`No commit hash or pending status for ${fileItem.resourceUri.fsPath}, opening file instead`, "warn");
-          await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, {
+          await openFileWithoutDuplicating(fileItem.resourceUri, {
             preserveFocus,
             preview: preserveFocus,
           });
@@ -71,7 +74,7 @@ export async function handleOpenChanges(
       } catch (error) {
         log(`Failed to open changes for ${fileItem.resourceUri.fsPath}: ${error}`, "error");
         // Fallback to just opening the file
-        await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri);
+        await openFileWithoutDuplicating(fileItem.resourceUri);
       }
     }
   }
