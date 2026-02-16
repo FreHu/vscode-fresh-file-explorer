@@ -45,6 +45,11 @@
         "icon": "$(calendar)"
       },
       {
+        "command": "freshFileExplorer.viewOptions",
+        "title": "View Options",
+        "icon": "$(filter)"
+      },
+      {
         "command": "freshFileExplorer.setGroupingMode",
         "title": "Set Grouping Mode",
         "icon": "$(group-by-ref-type)"
@@ -267,24 +272,9 @@
           "group": "navigation@2"
         },
         {
-          "command": "freshFileExplorer.setGroupingMode",
+          "command": "freshFileExplorer.viewOptions",
           "when": "view == freshFileExplorer",
           "group": "navigation@2.5"
-        },
-        {
-          "command": "freshFileExplorer.setSortOrder",
-          "when": "view == freshFileExplorer",
-          "group": "navigation@2.6"
-        },
-        {
-          "command": "freshFileExplorer.filterByAuthor",
-          "when": "view == freshFileExplorer",
-          "group": "navigation@3"
-        },
-        {
-          "command": "freshFileExplorer.filterByCommit",
-          "when": "view == freshFileExplorer",
-          "group": "navigation@4"
         },
         {
           "command": "freshFileExplorer.clearFilters",
@@ -412,8 +402,10 @@
           "command": "freshFileExplorer.revealInExplorer",
           "when": "false"
         },
-        {
-          "command": "freshFileExplorer.openFile",
+        {          "command": "freshFileExplorer.viewOptions",
+          "when": "false"
+        },
+        {          "command": "freshFileExplorer.openFile",
           "when": "false"
         },
         {

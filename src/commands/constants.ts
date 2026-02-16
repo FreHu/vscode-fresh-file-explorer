@@ -5,6 +5,7 @@ export const Commands = {
   // Main commands
   REFRESH: "freshFileExplorer.refresh",
   SET_TIME_WINDOW: "freshFileExplorer.setTimeWindow",
+  VIEW_OPTIONS: "freshFileExplorer.viewOptions",
   SET_GROUPING_MODE: "freshFileExplorer.setGroupingMode",
   SET_SORT_ORDER: "freshFileExplorer.setSortOrder",
   SHOW_OUTPUT: "freshFileExplorer.showOutput",

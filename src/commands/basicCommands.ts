@@ -28,74 +28,106 @@ export async function handleSetTimeWindow(freshFileProvider: FreshFileProvider):
   quickPick.show();
 }
 
-export async function handleSetGroupingMode(freshFileProvider: FreshFileProvider): Promise<void> {
+export async function handleSetGroupingMode(freshFileProvider: FreshFileProvider): Promise<boolean> {
   log("Set grouping mode command triggered");
 
-  const quickPick = vscode.window.createQuickPick();
-  quickPick.title = "Select Grouping Mode";
-  quickPick.placeholder = "Choose how to organize files in the tree";
+  return new Promise((resolve) => {
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.title = "Select Grouping Mode";
+    quickPick.placeholder = "Choose how to organize files in the tree";
 
-  quickPick.items = GROUPING_MODE_OPTIONS.map(option => ({
-    label: `${option.icon} ${option.label}`,
-    description: option.description,
-    mode: option.mode,
-    // Mark current mode with check mark
-    picked: option.mode === freshFileProvider.groupingMode,
-  }));
+    quickPick.items = GROUPING_MODE_OPTIONS.map(option => ({
+      label: `${option.icon} ${option.label}`,
+      description: option.description,
+      mode: option.mode,
+      // Mark current mode with check mark
+      picked: option.mode === freshFileProvider.groupingMode,
+    }));
 
-  quickPick.onDidAccept(() => {
-    const selected = quickPick.selectedItems[0] as any;
-    if (selected && selected.mode !== freshFileProvider.groupingMode) {
-      freshFileProvider.setGroupingMode(selected.mode as GroupingMode);
-    }
-    quickPick.hide();
+    let resolved = false;
+
+    quickPick.onDidAccept(() => {
+      const selected = quickPick.selectedItems[0] as any;
+      if (selected && selected.mode !== freshFileProvider.groupingMode) {
+        freshFileProvider.setGroupingMode(selected.mode as GroupingMode);
+      }
+      quickPick.hide();
+      if (!resolved) {
+        resolved = true;
+        resolve(true); // Selection made
+      }
+    });
+
+    quickPick.onDidHide(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(false); // Cancelled
+      }
+      quickPick.dispose();
+    });
+
+    quickPick.show();
   });
-
-  quickPick.show();
 }
 
-export async function handleSetSortOrder(freshFileProvider: FreshFileProvider): Promise<void> {
+export async function handleSetSortOrder(freshFileProvider: FreshFileProvider): Promise<boolean> {
   log("Set sort order command triggered");
 
-  const quickPick = vscode.window.createQuickPick();
-  quickPick.title = "Select Sort Order";
-  quickPick.placeholder = "Choose how to sort files within folders";
+  return new Promise((resolve) => {
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.title = "Select Sort Order";
+    quickPick.placeholder = "Choose how to sort files within folders";
 
-  const sortOptions = [
-    {
-      label: "$(symbol-text) Name (A-Z)",
-      description: "Sort alphabetically by filename",
-      order: "name" as SortOrder,
-    },
-    {
-      label: "$(calendar) Date (Newest First)",
-      description: "Sort by commit date, most recent first",
-      order: "date" as SortOrder,
-    },
-    {
-      label: "$(person) Author (A-Z)",
-      description: "Sort alphabetically by commit author",
-      order: "author" as SortOrder,
-    },
-  ];
+    const sortOptions = [
+      {
+        label: "$(symbol-text) Name (A-Z)",
+        description: "Sort alphabetically by filename",
+        order: "name" as SortOrder,
+      },
+      {
+        label: "$(calendar) Date (Newest First)",
+        description: "Sort by commit date, most recent first",
+        order: "date" as SortOrder,
+      },
+      {
+        label: "$(person) Author (A-Z)",
+        description: "Sort alphabetically by commit author",
+        order: "author" as SortOrder,
+      },
+    ];
 
-  quickPick.items = sortOptions.map(option => ({
-    label: option.label,
-    description: option.description,
-    order: option.order,
-    // Mark current sort order with check mark
-    picked: option.order === freshFileProvider.sortOrder,
-  }));
+    quickPick.items = sortOptions.map(option => ({
+      label: option.label,
+      description: option.description,
+      order: option.order,
+      // Mark current sort order with check mark
+      picked: option.order === freshFileProvider.sortOrder,
+    }));
 
-  quickPick.onDidAccept(() => {
-    const selected = quickPick.selectedItems[0] as any;
-    if (selected && selected.order !== freshFileProvider.sortOrder) {
-      freshFileProvider.setSortOrder(selected.order as SortOrder);
-    }
-    quickPick.hide();
+    let resolved = false;
+
+    quickPick.onDidAccept(() => {
+      const selected = quickPick.selectedItems[0] as any;
+      if (selected && selected.order !== freshFileProvider.sortOrder) {
+        freshFileProvider.setSortOrder(selected.order as SortOrder);
+      }
+      quickPick.hide();
+      if (!resolved) {
+        resolved = true;
+        resolve(true); // Selection made
+      }
+    });
+
+    quickPick.onDidHide(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(false); // Cancelled
+      }
+      quickPick.dispose();
+    });
+
+    quickPick.show();
   });
-
-  quickPick.show();
 }
 
 export function handleShowOutput(): void {

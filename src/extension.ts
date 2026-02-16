@@ -29,6 +29,7 @@ import { handleSearchInFreshFiles, handlesearchInFoundFiles, handleOpenAllFoundF
 import { handleQuickPickFile } from "./commands/quickPickCommand";
 import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
 import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
+import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { Commands } from "./commands/constants";
 import { createDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmapDecorationProvider";
@@ -106,6 +107,8 @@ function registerCommands(
   register(Commands.REFRESH, () => handleRefresh(freshFileProvider));
 
   register(Commands.SET_TIME_WINDOW, () => handleSetTimeWindow(freshFileProvider));
+
+  register(Commands.VIEW_OPTIONS, () => handleViewOptions(freshFileProvider));
 
   register(Commands.SET_GROUPING_MODE, () => handleSetGroupingMode(freshFileProvider));
 
