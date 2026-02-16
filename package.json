@@ -137,6 +137,16 @@
         "icon": "$(search-fuzzy)"
       },
       {
+        "command": "freshFileExplorer.openAllFoundFiles",
+        "title": "Open All Found Files",
+        "icon": "$(files)"
+      },
+      {
+        "command": "freshFileExplorer.copyPathsFromSearchResults",
+        "title": "Copy File Paths",
+        "icon": "$(copy)"
+      },
+      {
         "command": "freshFileExplorer.quickPickFile",
         "title": "Fresh Files: Quick Open",
         "icon": "$(list-selection)"
@@ -193,7 +203,17 @@
         {
           "command": "freshFileExplorer.searchInFoundFiles",
           "when": "activeEditor == 'workbench.editor.searchEditor'",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "freshFileExplorer.openAllFoundFiles",
+          "when": "activeEditor == 'workbench.editor.searchEditor'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "freshFileExplorer.copyPathsFromSearchResults",
+          "when": "activeEditor == 'workbench.editor.searchEditor'",
+          "group": "navigation@3"
         }
       ],
       "editor/context": [
@@ -201,6 +221,16 @@
           "command": "freshFileExplorer.searchInFoundFiles",
           "when": "inSearchEditor",
           "group": "1_search@10"
+        },
+        {
+          "command": "freshFileExplorer.openAllFoundFiles",
+          "when": "inSearchEditor",
+          "group": "1_search@11"
+        },
+        {
+          "command": "freshFileExplorer.copyPathsFromSearchResults",
+          "when": "inSearchEditor",
+          "group": "1_search@12"
         }
       ],
       "explorer/context": [

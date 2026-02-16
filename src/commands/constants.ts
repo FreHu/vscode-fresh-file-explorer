@@ -17,7 +17,9 @@ export const Commands = {
 
   // Search commands
   SEARCH_IN_FRESH_FILES: "freshFileExplorer.searchInFreshFiles",
-  SEARCH_IN_SEARCH_RESULTS: "freshFileExplorer.searchInFoundFiles",
+  SEARCH_IN_FOUND_FILES: "freshFileExplorer.searchInFoundFiles",
+  OPEN_ALL_FOUND_FILES: "freshFileExplorer.openAllFoundFiles",
+  COPY_PATHS_FROM_SEARCH_RESULTS: "freshFileExplorer.copyPathsFromSearchResults",
 
   // Quick pick command
   QUICK_PICK_FILE: "freshFileExplorer.quickPickFile",

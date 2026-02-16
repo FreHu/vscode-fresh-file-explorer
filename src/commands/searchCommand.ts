@@ -285,6 +285,154 @@ export function parseFilePathsFromSearchEditor(text: string): string[] {
   return Array.from(filePaths);
 }
 
+function convertRelativePathsToUris(
+  relativePaths: string[],
+  workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined,
+): vscode.Uri[] {
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    return [];
+  }
+
+  return relativePaths.map(path => {
+    // In multi-root workspaces, paths may be prefixed with workspace folder name
+    // e.g., "folder1/src/file.ts" or just "src/file.ts"
+    for (const folder of workspaceFolders) {
+      // Check if path starts with this workspace folder's name
+      const prefix = folder.name + '/';
+      if (path.startsWith(prefix)) {
+        // Strip workspace name prefix and resolve
+        const relativePath = path.substring(prefix.length);
+        return vscode.Uri.joinPath(folder.uri, relativePath);
+      }
+    }
+    
+    // No workspace prefix found, use first workspace folder (single-root or ambiguous)
+    return vscode.Uri.joinPath(workspaceFolders[0].uri, path);
+  });
+}
+
+/** * Copies file paths from the current search editor's results to the clipboard.
+ */
+export async function handleCopyPathsFromSearchResults(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+
+  if (!editor || editor.document.uri.scheme !== "search-editor") {
+    vscode.window.showWarningMessage("This command must be run from a Search Editor");
+    return;
+  }
+
+  const text = editor.document.getText();
+  const filePaths = parseFilePathsFromSearchEditor(text);
+
+  if (filePaths.length === 0) {
+    vscode.window.showWarningMessage(
+      "No file paths found in the search results. Run the search first.",
+    );
+    return;
+  }
+
+  // Ask user which format they want
+  const choice = await vscode.window.showQuickPick(
+    [
+      {
+        label: "Workspace-relative paths",
+        description: "e.g., src/commands/searchCommand.ts",
+        value: "relative",
+      },
+      {
+        label: "Absolute paths",
+        description: "Full file system paths",
+        value: "absolute",
+      },
+    ],
+    {
+      placeHolder: "Choose path format for clipboard",
+    },
+  );
+
+  if (!choice) {
+    return;
+  }
+
+  let pathsToCopy: string[];
+
+  if (choice.value === "absolute") {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const uris = convertRelativePathsToUris(filePaths, workspaceFolders);
+    pathsToCopy = uris.map(uri => uri.fsPath);
+  } else {
+    pathsToCopy = filePaths;
+  }
+
+  const clipboardText = pathsToCopy.join("\n");
+  await vscode.env.clipboard.writeText(clipboardText);
+
+  log(`Copied ${pathsToCopy.length} file path(s) to clipboard`);
+  vscode.window.showInformationMessage(
+    `Copied ${pathsToCopy.length} file path(s) to clipboard`,
+  );
+}
+
+/** * Opens all files from the current search editor's results.
+ */
+export async function handleOpenAllFoundFiles(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+
+  if (!editor || editor.document.uri.scheme !== "search-editor") {
+    vscode.window.showWarningMessage("This command must be run from a Search Editor");
+    return;
+  }
+
+  const text = editor.document.getText();
+  const filePaths = parseFilePathsFromSearchEditor(text);
+
+  if (filePaths.length === 0) {
+    vscode.window.showWarningMessage(
+      "No file paths found in the search results. Run the search first.",
+    );
+    return;
+  }
+
+  // Confirm if opening many files
+  const MAX_FILES_WITHOUT_CONFIRMATION = 15;
+  if (filePaths.length > MAX_FILES_WITHOUT_CONFIRMATION) {
+    const action = await vscode.window.showWarningMessage(
+      `${filePaths.length} is a lot of files. You sure about this?`,
+      { modal: true },
+      "Open All",
+      "Cancel",
+    );
+
+    if (action !== "Open All") {
+      return;
+    }
+  }
+
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  const uris = convertRelativePathsToUris(filePaths, workspaceFolders);
+
+  log(`Opening ${uris.length} file(s) from search results`);
+
+  let openedCount = 0;
+  let failedCount = 0;
+
+  for (const uri of uris) {
+    try {
+      // Open files in background to not overwhelm the editor
+      await vscode.commands.executeCommand("vscode.open", uri, { background: true });
+      openedCount++;
+    } catch (error) {
+      log(`Failed to open file: ${uri.fsPath} - ${error}`, "warn");
+      failedCount++;
+    }
+  }
+
+  if (failedCount > 0) {
+    const message = `Opened ${openedCount} file(s)${failedCount > 0 ? ` (${failedCount} failed)` : ""}`;
+    vscode.window.showWarningMessage(message);
+  }
+}
+
 /**
  * Opens a new search scoped to the files present in the current search editor's results.
  * This is a "second-order" search: search within search results.
