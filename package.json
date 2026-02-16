@@ -50,6 +50,11 @@
         "icon": "$(group-by-ref-type)"
       },
       {
+        "command": "freshFileExplorer.setSortOrder",
+        "title": "Set Sort Order",
+        "icon": "$(sort-precedence)"
+      },
+      {
         "command": "freshFileExplorer.showOutput",
         "title": "Fresh Files: Show Output Log"
       },
@@ -265,6 +270,11 @@
           "command": "freshFileExplorer.setGroupingMode",
           "when": "view == freshFileExplorer",
           "group": "navigation@2.5"
+        },
+        {
+          "command": "freshFileExplorer.setSortOrder",
+          "when": "view == freshFileExplorer",
+          "group": "navigation@2.6"
         },
         {
           "command": "freshFileExplorer.filterByAuthor",

@@ -6,6 +6,7 @@ import { log, showOutputChannel } from "../utils/logger";
 import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../groupingMode";
+import { SortOrder } from "../types";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
@@ -46,6 +47,50 @@ export async function handleSetGroupingMode(freshFileProvider: FreshFileProvider
     const selected = quickPick.selectedItems[0] as any;
     if (selected && selected.mode !== freshFileProvider.groupingMode) {
       freshFileProvider.setGroupingMode(selected.mode as GroupingMode);
+    }
+    quickPick.hide();
+  });
+
+  quickPick.show();
+}
+
+export async function handleSetSortOrder(freshFileProvider: FreshFileProvider): Promise<void> {
+  log("Set sort order command triggered");
+
+  const quickPick = vscode.window.createQuickPick();
+  quickPick.title = "Select Sort Order";
+  quickPick.placeholder = "Choose how to sort files within folders";
+
+  const sortOptions = [
+    {
+      label: "$(symbol-text) Name (A-Z)",
+      description: "Sort alphabetically by filename",
+      order: "name" as SortOrder,
+    },
+    {
+      label: "$(calendar) Date (Newest First)",
+      description: "Sort by commit date, most recent first",
+      order: "date" as SortOrder,
+    },
+    {
+      label: "$(person) Author (A-Z)",
+      description: "Sort alphabetically by commit author",
+      order: "author" as SortOrder,
+    },
+  ];
+
+  quickPick.items = sortOptions.map(option => ({
+    label: option.label,
+    description: option.description,
+    order: option.order,
+    // Mark current sort order with check mark
+    picked: option.order === freshFileProvider.sortOrder,
+  }));
+
+  quickPick.onDidAccept(() => {
+    const selected = quickPick.selectedItems[0] as any;
+    if (selected && selected.order !== freshFileProvider.sortOrder) {
+      freshFileProvider.setSortOrder(selected.order as SortOrder);
     }
     quickPick.hide();
   });

@@ -29,6 +29,11 @@ export type CommitAuthor = string & { readonly __brand: "commitAuthor" };
  */
 export type CommitMessage = string & { readonly __brand: "commitMessage" };
 
+/**
+ * Sort order for files in the tree view
+ */
+export type SortOrder = "name" | "date" | "author";
+
 export function asCommitHash(value: string) {
   return value as CommitHash;
 }

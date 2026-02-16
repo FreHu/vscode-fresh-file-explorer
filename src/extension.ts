@@ -13,6 +13,7 @@ import {
   handleRevealInSourceControl,
   handleSetTimeWindow,
   handleSetGroupingMode,
+  handleSetSortOrder,
   handleShowOutput,
   handleToggleOpenMode,
   handleToggleHeatmap,
@@ -107,6 +108,8 @@ function registerCommands(
   register(Commands.SET_TIME_WINDOW, () => handleSetTimeWindow(freshFileProvider));
 
   register(Commands.SET_GROUPING_MODE, () => handleSetGroupingMode(freshFileProvider));
+
+  register(Commands.SET_SORT_ORDER, () => handleSetSortOrder(freshFileProvider));
 
   register(Commands.FILTER_BY_AUTHOR, () => handleFilterByAuthor(freshFileProvider));
 

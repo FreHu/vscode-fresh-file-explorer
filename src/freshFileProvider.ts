@@ -13,6 +13,7 @@ import {
   CommitDataWithFileCount,
   asCommitMessage,
   PinnedItem,
+  SortOrder,
 } from "./types";
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
@@ -65,6 +66,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // Grouping mode - persisted
   groupingMode: GroupingMode = DEFAULT_GROUPING_MODE;
 
+  // Sort order - persisted
+  sortOrder: SortOrder = "name";
+
   // Open mode toggle - persisted
   openChangesMode: boolean = false;
 
@@ -111,6 +115,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const persistedDays = context.workspaceState.get<number>("selectedTimeWindowDays");
     this.openChangesMode = context.workspaceState.get<boolean>("openChangesMode", false);
     this.groupingMode = context.workspaceState.get<GroupingMode>("groupingMode", DEFAULT_GROUPING_MODE);
+    this.sortOrder = context.workspaceState.get<SortOrder>("sortOrder", "name");
     // Load persisted pinned items
     const persistedItems = context.workspaceState.get<PinnedItem[]>("pinnedItems", []);
     this.pinnedItems = persistedItems;
@@ -221,6 +226,19 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
 
     this.updateGroupingModeMessage();
+
+    // Refresh tree items without reloading data
+    this.refreshTreeOnly();
+  }
+
+  setSortOrder(order: SortOrder): void {
+    log(`Sort order changed from ${this.sortOrder} to ${order}`);
+    this.sortOrder = order;
+
+    // Persist the selection
+    if (this.context) {
+      this.context.workspaceState.update("sortOrder", order);
+    }
 
     // Refresh tree items without reloading data
     this.refreshTreeOnly();
@@ -854,6 +872,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   private buildRepoView(results: FreshFilesTreeItem[], contextValue: string) {
+    // Future consideration: A flat list view mode would be added here
+    // It would bypass buildTree() and create a single sorted array from freshFiles.values()
+    // The sortOrder state would be reused for consistent sorting behavior
+    
     // If grouping by author, build a different structure
     if (this.groupingMode === "author") {
       return this.buildAuthorGroupedView(results);
@@ -1778,12 +1800,67 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       items.push(item);
     }
 
-    // Sort: directories first, then alphabetically
+    // Sort based on current sort order
     items.sort((a, b) => {
-      if (a.isDirectory !== b.isDirectory) {
+      // For date sorting, don't separate directories and files
+      // For other sorts, directories come first
+      if (this.sortOrder !== "date" && a.isDirectory !== b.isDirectory) {
         return a.isDirectory ? -1 : 1;
       }
-      return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
+
+      switch (this.sortOrder) {
+        case "date": {
+          // Get dates for comparison
+          const dateA = a.isDirectory
+            ? this.getMostRecentDateInDirectory(a.resourceUri.fsPath)
+            : this.freshFiles.get(asAbsolutePath(a.resourceUri.fsPath))?.date;
+          const dateB = b.isDirectory
+            ? this.getMostRecentDateInDirectory(b.resourceUri.fsPath)
+            : this.freshFiles.get(asAbsolutePath(b.resourceUri.fsPath))?.date;
+
+          if (!dateA && !dateB) {
+            return 0;
+          }
+          if (!dateA) {
+            return 1; // Items without dates go to the end
+          }
+          if (!dateB) {
+            return -1;
+          }
+
+          // Sort by date descending (newest first)
+          const dateDiff = dateB.getTime() - dateA.getTime();
+          if (dateDiff !== 0) {
+            return dateDiff;
+          }
+
+          // Tiebreaker: alphabetical by filename
+          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
+        }
+        
+        case "author": {
+          // Get authors for comparison
+          const authorA = a.isDirectory
+            ? "" // Directories don't have authors, will be sorted first
+            : (this.freshFiles.get(asAbsolutePath(a.resourceUri.fsPath))?.author || "");
+          const authorB = b.isDirectory
+            ? ""
+            : (this.freshFiles.get(asAbsolutePath(b.resourceUri.fsPath))?.author || "");
+
+          const authorCompare = authorA.localeCompare(authorB);
+          if (authorCompare !== 0) {
+            return authorCompare;
+          }
+
+          // Tiebreaker: alphabetical by filename
+          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
+        }
+        
+        case "name":
+        default:
+          // Alphabetical by filename (directories already sorted first above)
+          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
+      }
     });
 
     return items;

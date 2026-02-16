@@ -341,11 +341,20 @@ export async function collectPendingChanges(
           isPending: true,
         });
       } else {
-        // For non-deleted files, verify they exist
+        // For non-deleted files, verify they exist and get their actual modification time
         const fullPath = path.join(workspaceRoot, fileRelativePath);
         if (await fileExists(fullPath)) {
+          // Get actual file modification time for proper date sorting
+          let fileDate = now; // Fallback to current time
+          try {
+            const stats = await fs.promises.stat(fullPath);
+            fileDate = stats.mtime; // Use actual file modification time
+          } catch (error) {
+            log(`Could not get mtime for ${fileRelativePath}, using current time`, "warn");
+          }
+
           files.set(fileRelativePath, {
-            date: now,
+            date: fileDate,
             author: currentUserName ? asCommitAuthor(currentUserName) : undefined,
             status: statusCode.trim() || "??",
             isDeleted: false,
