@@ -143,7 +143,7 @@
       },
       {
         "command": "freshFileExplorer.searchInFreshFiles",
-        "title": "Fresh Files: Search in Fresh Files",
+        "title": "Search in Fresh Files",
         "icon": "$(search)"
       },
       {
@@ -262,11 +262,6 @@
           "group": "navigation@0"
         },
         {
-          "command": "freshFileExplorer.refresh",
-          "when": "view == freshFileExplorer",
-          "group": "navigation@1"
-        },
-        {
           "command": "freshFileExplorer.setTimeWindow",
           "when": "view == freshFileExplorer",
           "group": "navigation@2"
@@ -282,19 +277,19 @@
           "group": "navigation@5"
         },
         {
+          "command": "freshFileExplorer.refresh",
+          "when": "view == freshFileExplorer",
+          "group": "1_actions@1"
+        },
+        {
           "command": "freshFileExplorer.searchInFreshFiles",
           "when": "view == freshFileExplorer",
-          "group": "navigation@5.5"
+          "group": "1_actions@2"
         },
         {
           "command": "freshFileExplorer.toggleHeatmap",
           "when": "view == freshFileExplorer",
-          "group": "navigation@7"
-        },
-        {
-          "command": "freshFileExplorer.expandAll",
-          "when": "view == freshFileExplorer",
-          "group": "navigation@8"
+          "group": "1_actions@3"
         }
       ],
       "view/item/context": [
