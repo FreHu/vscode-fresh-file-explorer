@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"module": "Node16",
+		"module": "CommonJS",
 		"target": "ES2022",
 		"outDir": "out",
 		"lib": [
@@ -16,7 +16,6 @@
 	},
 	"exclude": [
 		"node_modules",
-		".vscode-test",
-		"src/test/unit"
+		".vscode-test"
 	]
 }

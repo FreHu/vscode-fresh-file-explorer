@@ -1,5 +1,4 @@
 {
-  "require": "ts-node/register/transpile-only",
-  "extensions": ["ts"],
-  "spec": "src/test/unit/**/*.test.ts"
+  "spec": "out/test/unit/**/*.test.js",
+  "ui": "tdd"
 }

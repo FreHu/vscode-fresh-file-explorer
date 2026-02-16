@@ -655,13 +655,11 @@
     "test:all": "npm run test:unit && npm run test"
   },
   "devDependencies": {
-    "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/vscode": "^1.106.1",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
-    "chai": "^6.2.2",
     "eslint": "^9.39.1",
     "mocha": "^11.7.5",
     "ts-node": "^10.9.2",

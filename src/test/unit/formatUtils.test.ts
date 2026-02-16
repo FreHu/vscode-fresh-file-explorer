@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import * as assert from "assert";
 import {
   formatRepoDescription,
   formatRepoTooltip,
@@ -6,57 +6,57 @@ import {
   formatRelativeDate
 } from "../../utils/formatUtils";
 
-describe("Format Utils", () => {
-  describe("formatRepoDescription", () => {
-    it("should format with branch name and file count", () => {
-      expect(formatRepoDescription("main", 5)).to.equal("🔀 main");
+suite("Format Utils", () => {
+  suite("formatRepoDescription", () => {
+    test("should format with branch name and file count", () => {
+      assert.strictEqual(formatRepoDescription("main", 5), "(5) 🔀 main ");
     });
 
-    it("should format without branch name", () => {
-      expect(formatRepoDescription(undefined, 5)).to.equal("(5)");
+    test("should format without branch name", () => {
+      assert.strictEqual(formatRepoDescription(undefined, 5), "(5)");
     });
 
-    it("should show no files message with branch", () => {
-      expect(formatRepoDescription("main", 0)).to.equal("🔀 main (no fresh files)");
+    test("should show no files message with branch", () => {
+      assert.strictEqual(formatRepoDescription("main", 0), "🔀 main (no fresh files)");
     });
 
-    it("should show no files message without branch", () => {
-      expect(formatRepoDescription(undefined, 0)).to.equal("(no fresh files)");
+    test("should show no files message without branch", () => {
+      assert.strictEqual(formatRepoDescription(undefined, 0), "(no fresh files)");
     });
   });
 
-  describe("formatRepoTooltip", () => {
-    it("should format tooltip with branch name", () => {
+  suite("formatRepoTooltip", () => {
+    test("should format tooltip with branch name", () => {
       const result = formatRepoTooltip("my-project", "main", 10);
-      expect(result).to.equal("my-project (main)\n10 file(s) modified");
+      assert.strictEqual(result, "my-project (main)\n10 file(s) modified");
     });
 
-    it("should format tooltip without branch name", () => {
+    test("should format tooltip without branch name", () => {
       const result = formatRepoTooltip("my-project", undefined, 5);
-      expect(result).to.equal("my-project\n5 file(s) modified");
+      assert.strictEqual(result, "my-project\n5 file(s) modified");
     });
 
-    it("should handle singular file count", () => {
+    test("should handle singular file count", () => {
       const result = formatRepoTooltip("my-project", "main", 1);
-      expect(result).to.equal("my-project (main)\n1 file(s) modified");
+      assert.strictEqual(result, "my-project (main)\n1 file(s) modified");
     });
   });
 
-  describe("formatDirectoryTooltip", () => {
-    it("should format directory tooltip with count and date", () => {
+  suite("formatDirectoryTooltip", () => {
+    test("should format directory tooltip with count and date", () => {
       const date = new Date("2026-01-28T12:00:00");
       const result = formatDirectoryTooltip(5, date);
-      expect(result).to.match(/5 file\(s\) modified, most recent: .+/);
+      assert.ok(result.match(/5 file\(s\) modified, most recent: .+/));
     });
 
-    it("should handle singular file count", () => {
+    test("should handle singular file count", () => {
       const date = new Date("2026-01-28T12:00:00");
       const result = formatDirectoryTooltip(1, date);
-      expect(result).to.match(/1 file\(s\) modified, most recent: .+/);
+      assert.ok(result.match(/1 file\(s\) modified, most recent: .+/));
     });
   });
 
-  describe("formatRelativeDate", () => {
+  suite("formatRelativeDate", () => {
     const now = new Date("2026-01-28T12:00:00");
     
     // Helper to create a date relative to 'now'
@@ -64,7 +64,7 @@ describe("Format Utils", () => {
     const hoursAgo = (h: number) => new Date(now.getTime() - h * 60 * 60 * 1000);
     const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
 
-    beforeEach(() => {
+    setup(() => {
       // Mock Date.now() to return our test date
       const originalDate = Date;
       (global as any).Date = class extends originalDate {
@@ -81,43 +81,43 @@ describe("Format Utils", () => {
       };
     });
 
-    afterEach(() => {
+    teardown(() => {
       // Restore original Date
       (global as any).Date = Date;
     });
 
-    it("should format very recent times as 'just now'", () => {
-      expect(formatRelativeDate(minutesAgo(0))).to.equal("just now");
-      expect(formatRelativeDate(minutesAgo(1))).to.equal("just now");
+    test("should format very recent times as 'just now'", () => {
+      assert.strictEqual(formatRelativeDate(minutesAgo(0)), "just now");
+      assert.strictEqual(formatRelativeDate(minutesAgo(1)), "just now");
     });
 
-    it("should format minutes ago", () => {
-      expect(formatRelativeDate(minutesAgo(5))).to.equal("5 minutes ago");
-      expect(formatRelativeDate(minutesAgo(30))).to.equal("30 minutes ago");
-      expect(formatRelativeDate(minutesAgo(59))).to.equal("59 minutes ago");
+    test("should format minutes ago", () => {
+      assert.strictEqual(formatRelativeDate(minutesAgo(5)), "5 minutes ago");
+      assert.strictEqual(formatRelativeDate(minutesAgo(30)), "30 minutes ago");
+      assert.strictEqual(formatRelativeDate(minutesAgo(59)), "59 minutes ago");
     });
 
-    it("should format hours ago", () => {
-      expect(formatRelativeDate(hoursAgo(1))).to.equal("1 hour ago");
-      expect(formatRelativeDate(hoursAgo(5))).to.equal("5 hours ago");
-      expect(formatRelativeDate(hoursAgo(23))).to.equal("23 hours ago");
+    test("should format hours ago", () => {
+      assert.strictEqual(formatRelativeDate(hoursAgo(1)), "1 hour ago");
+      assert.strictEqual(formatRelativeDate(hoursAgo(5)), "5 hours ago");
+      assert.strictEqual(formatRelativeDate(hoursAgo(23)), "23 hours ago");
     });
 
-    it("should format days ago", () => {
-      expect(formatRelativeDate(daysAgo(1))).to.equal("yesterday");
-      expect(formatRelativeDate(daysAgo(2))).to.equal("2 days ago");
-      expect(formatRelativeDate(daysAgo(6))).to.equal("6 days ago");
+    test("should format days ago", () => {
+      assert.strictEqual(formatRelativeDate(daysAgo(1)), "yesterday");
+      assert.strictEqual(formatRelativeDate(daysAgo(2)), "2 days ago");
+      assert.strictEqual(formatRelativeDate(daysAgo(6)), "6 days ago");
     });
 
-    it("should format weeks ago", () => {
-      expect(formatRelativeDate(daysAgo(7))).to.equal("1 week ago");
-      expect(formatRelativeDate(daysAgo(14))).to.equal("2 weeks ago");
-      expect(formatRelativeDate(daysAgo(21))).to.equal("3 weeks ago");
+    test("should format weeks ago", () => {
+      assert.strictEqual(formatRelativeDate(daysAgo(7)), "1 week ago");
+      assert.strictEqual(formatRelativeDate(daysAgo(14)), "2 weeks ago");
+      assert.strictEqual(formatRelativeDate(daysAgo(21)), "3 weeks ago");
     });
 
-    it("should format months ago", () => {
-      expect(formatRelativeDate(daysAgo(30))).to.equal("1 month ago");
-      expect(formatRelativeDate(daysAgo(60))).to.equal("2 months ago");
+    test("should format months ago", () => {
+      assert.strictEqual(formatRelativeDate(daysAgo(30)), "1 month ago");
+      assert.strictEqual(formatRelativeDate(daysAgo(60)), "2 months ago");
     });
   });
 });
