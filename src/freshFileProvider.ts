@@ -995,6 +995,37 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return results;
   }
 
+  /**
+   * Sort files according to the current sort order setting
+   * Used by grouping modes (author, commit, moon phase, retrograde)
+   */
+  private sortFilesList(filesList: Array<{ filePath: AbsolutePath; metadata: FileMetadata }>): void {
+    switch (this.sortOrder) {
+      case "date":
+        // Sort by date (most recent first)
+        filesList.sort((a, b) => b.metadata.date.getTime() - a.metadata.date.getTime());
+        break;
+      case "author":
+        // Sort by author alphabetically
+        filesList.sort((a, b) => {
+          const authorA = a.metadata.author || "";
+          const authorB = b.metadata.author || "";
+          const authorCompare = authorA.localeCompare(authorB);
+          if (authorCompare !== 0) {
+            return authorCompare;
+          }
+          // Tiebreaker: filename
+          return path.basename(a.filePath).localeCompare(path.basename(b.filePath));
+        });
+        break;
+      case "name":
+      default:
+        // Sort alphabetically by filename
+        filesList.sort((a, b) => path.basename(a.filePath).localeCompare(path.basename(b.filePath)));
+        break;
+    }
+  }
+
   private buildAuthorFiles(authorName: string, skipAuthorInDescription: boolean = false): FreshFileItem[] {
     const items: FreshFileItem[] = [];
 
@@ -1016,8 +1047,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       filesList.push({ filePath, metadata });
     }
 
-    // Sort by date (most recent first)
-    filesList.sort((a, b) => b.metadata.date.getTime() - a.metadata.date.getTime());
+    // Sort according to current sort order
+    this.sortFilesList(filesList);
 
     // Create tree items
     for (const { filePath, metadata } of filesList) {
@@ -1155,8 +1186,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       filesList.push({ filePath, metadata });
     }
 
-    // Sort by date (most recent first)
-    filesList.sort((a, b) => b.metadata.date.getTime() - a.metadata.date.getTime());
+    // Sort according to current sort order
+    this.sortFilesList(filesList);
 
     // Create tree items (hide commit hash in description)
     for (const { filePath, metadata } of filesList) {
@@ -1282,8 +1313,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       filesList.push({ filePath, metadata });
     }
 
-    // Sort by date (most recent first)
-    filesList.sort((a, b) => b.metadata.date.getTime() - a.metadata.date.getTime());
+    // Sort according to current sort order
+    this.sortFilesList(filesList);
 
     // Create tree items
     for (const { filePath, metadata } of filesList) {
@@ -1416,8 +1447,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       filesList.push({ filePath, metadata });
     }
 
-    // Sort by date (most recent first)
-    filesList.sort((a, b) => b.metadata.date.getTime() - a.metadata.date.getTime());
+    // Sort according to current sort order
+    this.sortFilesList(filesList);
 
     // Create tree items
     for (const { filePath, metadata } of filesList) {
