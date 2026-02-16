@@ -36,6 +36,7 @@ export const Commands = {
   DISCARD_CHANGES: "freshFileExplorer.discardChanges",
   REVEAL_IN_SOURCE_CONTROL: "freshFileExplorer.revealInSourceControl",
   TOGGLE_OPEN_MODE: "freshFileExplorer.toggleOpenMode",
+  CREATE_FILE_NEXT_TO: "freshFileExplorer.createFileNextTo",
 
   // Pin commands
   PIN_FILE: "freshFileExplorer.pinFile",

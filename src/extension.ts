@@ -21,6 +21,7 @@ import { handleExhume, handleResurrect } from "./commands/deletedFileCommands";
 import { FreshFileProvider } from "./freshFileProvider";
 import { setupGitExtensionListener } from "./gitExecutionListener";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
+import { handleCreateFileNextTo } from "./commands/fileCreationCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
 import { handleOpenCommit } from "./commands/openCommitCommand";
 import { handleSearchInFreshFiles, handlesearchInFoundFiles, handleOpenAllFoundFiles, handleCopyPathsFromSearchResults } from "./commands/searchCommand";
@@ -159,6 +160,9 @@ function registerCommands(
     handleDiscardChanges(item, selectedItems, freshFileProvider),
   );
 
+  register(Commands.CREATE_FILE_NEXT_TO, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleCreateFileNextTo(item, selectedItems, freshFileProvider),
+  );
 
   register(Commands.PIN_FILE, (item: FreshFileItem | vscode.Uri, selectedItems?: (FreshFileItem | vscode.Uri)[]) =>
     handlePinFile(item, selectedItems, freshFileProvider),
