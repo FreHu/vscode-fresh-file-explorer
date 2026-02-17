@@ -79,6 +79,8 @@ export interface FileMetadata {
   status?: string; // For pending changes: 'M', 'A', '??', 'D', etc.
   isDeleted?: boolean; // True if the file has been deleted
   isPending?: boolean; // True if this is a pending (uncommitted) change
+  linesAdded?: number; // Number of lines added in this change
+  linesDeleted?: number; // Number of lines deleted in this change
 }
 
 /**
@@ -90,6 +92,7 @@ export interface DescriptionFormat {
   showCommitHash: boolean;
   showCommitMessage: boolean;
   showStatus: boolean; // For pending changes
+  showLineChanges: boolean; // Show +X -Y line change counts
 }
 
 export const DEFAULT_DESCRIPTION_FORMAT: DescriptionFormat = {
@@ -98,6 +101,7 @@ export const DEFAULT_DESCRIPTION_FORMAT: DescriptionFormat = {
   showCommitHash: false,
   showCommitMessage: true,
   showStatus: true,
+  showLineChanges: true,
 };
 
 /**

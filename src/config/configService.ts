@@ -17,6 +17,7 @@ export class ConfigService {
       showCommitHash: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_COMMIT_HASH, DEFAULT_DESCRIPTION_FORMAT.showCommitHash),
       showCommitMessage: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_COMMIT_MESSAGE, DEFAULT_DESCRIPTION_FORMAT.showCommitMessage),
       showStatus: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_STATUS, DEFAULT_DESCRIPTION_FORMAT.showStatus),
+      showLineChanges: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_LINE_CHANGES, DEFAULT_DESCRIPTION_FORMAT.showLineChanges),
     };
   }
 

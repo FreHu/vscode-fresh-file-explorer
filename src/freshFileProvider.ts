@@ -16,7 +16,7 @@ import {
 } from "./types";
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate } from "./utils/formatUtils";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription } from "./utils/formatUtils";
 import { log } from "./utils/logger";
 import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem } from "./treeItems";
 import { normalizePath } from "./utils";
@@ -868,6 +868,30 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return mostRecent;
   }
 
+  private getLineChangesInDirectory(dirPath: string): { added: number; deleted: number } | undefined {
+    // Check if feature is enabled first to avoid unnecessary work
+    if (!ConfigService.getDescriptionFormat().showLineChanges) {
+      return undefined;
+    }
+
+    let totalAdded = 0;
+    let totalDeleted = 0;
+    const normalizedDir = normalizePath(dirPath);
+    const prefix = normalizedDir + "/";
+
+    for (const [filePath, metadata] of this.freshFiles) {
+      const normalizedFile = normalizePath(filePath);
+      if (normalizedFile.startsWith(prefix)) {
+        if (this.filterManager.passesFilters(metadata)) {
+          totalAdded += metadata.linesAdded ?? 0;
+          totalDeleted += metadata.linesDeleted ?? 0;
+        }
+      }
+    }
+
+    return { added: totalAdded, deleted: totalDeleted };
+  }
+
   private buildTree(parentPath: string): FreshFileItem[] {
     // parentPath is now an absolute path (workspace folder path or subdirectory)
     // Normalize to forward slashes for consistent matching
@@ -958,7 +982,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       if (info.isDirectory) {
         const mostRecent = this.getMostRecentDateInDirectory(fullPath);
         if (mostRecent) {
-          item.tooltip = formatDirectoryTooltip(fileCount!, mostRecent);
+          const lineChanges = this.getLineChangesInDirectory(fullPath);
+          item.description = formatGroupDescription(fileCount!, lineChanges?.added, lineChanges?.deleted);
+          item.tooltip = formatDirectoryTooltip(fileCount!, mostRecent, lineChanges?.added, lineChanges?.deleted);
         }
       } else if (fileMetadata) {
         // Set description (shown next to filename)

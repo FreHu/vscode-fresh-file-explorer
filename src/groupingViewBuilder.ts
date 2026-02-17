@@ -4,7 +4,7 @@ import { AbsolutePath } from "./pathTypes";
 import { FileMetadata, SortOrder } from "./types";
 import { ConfigService } from "./config/configService";
 import { FreshFileItem, FreshFilesTreeItem } from "./treeItems";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate } from "./utils/formatUtils";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, calculateTotalLineChanges, formatGroupDescription, formatTooltipLineChanges } from "./utils/formatUtils";
 import { TreeItemContextValues } from "./treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "./utils/moonPhase";
 import { getRetrogradeInfo, getRetrogradeKey, type Planet } from "./utils/planetaryRetrograde";
@@ -52,6 +52,9 @@ export class GroupingViewBuilder {
         return item.metadata.date > max ? item.metadata.date : max;
       }, new Date(0));
 
+      // Calculate total line changes for this author
+      const totals = calculateTotalLineChanges(group);
+
       const authorItem = FreshFileItem.forDirectory(
         authorUri,
         openChangesMode,
@@ -60,8 +63,8 @@ export class GroupingViewBuilder {
       );
 
       authorItem.label = authorName;
-      authorItem.description = `${fileCount} file${fileCount === 1 ? "" : "s"}`;
-      authorItem.tooltip = formatDirectoryTooltip(fileCount, mostRecentDate);
+      authorItem.description = formatGroupDescription(fileCount, totals?.added, totals?.deleted);
+      authorItem.tooltip = formatDirectoryTooltip(fileCount, mostRecentDate, totals?.added, totals?.deleted);
       authorItem.iconPath = new vscode.ThemeIcon("person");
 
       authorItem.contextValue = TreeItemContextValues.AUTHOR_GROUP;
@@ -198,12 +201,21 @@ export class GroupingViewBuilder {
       }
       commitItem.description = descriptionParts.join(" • ");
       
+      // Calculate total line changes for this commit
+      const totals = calculateTotalLineChanges(group);
+      
       const tooltipLines = [
         `Commit: ${commitHash}`,
         `Author: ${firstFile.metadata.author || "(No author)"}`,
         `Date: ${formatRelativeDate(firstFile.metadata.date)}`,
         `Files: ${fileCount}`,
       ];
+      
+      const lineChangesLine = formatTooltipLineChanges(totals?.added, totals?.deleted);
+      if (lineChangesLine) {
+        tooltipLines.push(lineChangesLine);
+      }
+      
       if (firstFile.metadata.commitMessage) {
         tooltipLines.push(`\nMessage:\n${firstFile.metadata.commitMessage}`);
       }
@@ -333,13 +345,22 @@ export class GroupingViewBuilder {
       );
 
       phaseItem.label = `${moonPhaseInfo.emoji} ${phaseName}`;
-      phaseItem.description = `${fileCount} file${fileCount === 1 ? "" : "s"}`;
+
+      // Calculate total line changes for this moon phase
+      const totals = calculateTotalLineChanges(group);
+      phaseItem.description = formatGroupDescription(fileCount, totals?.added, totals?.deleted);
 
       const tooltipLines = [
         `Moon Phase: ${phaseName}`,
         `Files: ${fileCount}`,
         `Most recent: ${formatRelativeDate(mostRecentDate)}`,
       ];
+      
+      const lineChangesLine = formatTooltipLineChanges(totals?.added, totals?.deleted);
+      if (lineChangesLine) {
+        tooltipLines.push(lineChangesLine);
+      }
+      
       phaseItem.tooltip = tooltipLines.join("\n");
 
       phaseItem.iconPath = new vscode.ThemeIcon("circle-filled");
@@ -474,13 +495,22 @@ export class GroupingViewBuilder {
       );
 
       retrogradeItem.label = retrogradeInfo.displayName;
-      retrogradeItem.description = `${fileCount} file${fileCount === 1 ? "" : "s"}`;
+
+      // Calculate total line changes for this retrograde group
+      const totals = calculateTotalLineChanges(group);
+      retrogradeItem.description = formatGroupDescription(fileCount, totals?.added, totals?.deleted);
 
       const tooltipLines = [
         `Retrograde: ${retrogradeInfo.displayName}`,
         `Files: ${fileCount}`,
         `Most recent: ${formatRelativeDate(mostRecentDate)}`,
       ];
+      
+      const lineChangesLine = formatTooltipLineChanges(totals?.added, totals?.deleted);
+      if (lineChangesLine) {
+        tooltipLines.push(lineChangesLine);
+      }
+      
       retrogradeItem.tooltip = tooltipLines.join("\n");
 
       retrogradeItem.iconPath = new vscode.ThemeIcon(key === "none" ? "check" : "globe");

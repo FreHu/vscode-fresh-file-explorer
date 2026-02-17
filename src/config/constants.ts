@@ -8,6 +8,7 @@ export const ConfigKeys = {
   DESCRIPTION_SHOW_COMMIT_HASH: "freshFileExplorer.description.showCommitHash",
   DESCRIPTION_SHOW_COMMIT_MESSAGE: "freshFileExplorer.description.showCommitMessage",
   DESCRIPTION_SHOW_STATUS: "freshFileExplorer.description.showStatus",
+  DESCRIPTION_SHOW_LINE_CHANGES: "freshFileExplorer.description.showLineChanges",
 
   // General settings
   AUTO_EXPAND_DEPTH: "freshFileExplorer.autoExpandDepth",

@@ -306,6 +306,10 @@ export async function collectPendingChanges(
   const lines = output.split("\n").filter(line => line.length > 0);
   const now = new Date();
 
+  // Collect all tracked file paths (non-untracked, non-deleted) for batch diff
+  const trackedFiles: string[] = [];
+  const filePathMap = new Map<string, { status: string; relativePath: string }>();
+
   for (const line of lines) {
     // Format: XY filename (where XY is the status code)
     // Examples: " M file.txt", "?? newfile.txt", "A  staged.txt", "MM both.txt", " D deleted.txt"
@@ -327,22 +331,69 @@ export async function collectPendingChanges(
     // Build full path relative to workspace root
     const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + filePath : filePath;
 
-    // Check if this is a deletion
+    // Check if this is a deletion or untracked
     const isDeleted = statusCode.includes("D");
+    const isUntracked = statusCode.trim() === "??";
 
-    if (!files.has(fileRelativePath)) {
+    filePathMap.set(filePath, { status: statusCode.trim() || "??", relativePath: fileRelativePath });
+
+    // Collect tracked, non-deleted files for batch diff
+    if (!isDeleted && !isUntracked) {
+      trackedFiles.push(filePath);
+    }
+  }
+
+  // Get line statistics for all tracked changes in one command (only if feature is enabled)
+  const numstatMap = new Map<string, { added: number; deleted: number }>();
+  const showLineChanges = ConfigService.getDescriptionFormat().showLineChanges;
+  
+  if (showLineChanges && trackedFiles.length > 0) {
+    try {
+      const diffCommand = "git diff --numstat HEAD";
+      log(`Getting numstat for pending changes in ${repoRelativePath || "root"}`);
+      const diffOutput = await execGitInDir(diffCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+      const diffLines = diffOutput.split("\n").filter(line => line.length > 0);
+
+      for (const line of diffLines) {
+        const parts = line.split("\t");
+        if (parts.length === 3) {
+          const [added, deleted, fileName] = parts;
+          const decodedFileName = decodeGitPath(fileName);
+          
+          // Skip binary files (marked with -)
+          if (added !== "-" && deleted !== "-") {
+            numstatMap.set(decodedFileName, {
+              added: parseInt(added, 10),
+              deleted: parseInt(deleted, 10),
+            });
+          }
+        }
+      }
+    } catch (error) {
+      log(`Could not get numstat for pending changes: ${error}`, "warn");
+    }
+  }
+
+  // Now create FileMetadata entries with line statistics
+  for (const [filePath, fileInfo] of filePathMap) {
+    const { status, relativePath } = fileInfo;
+
+    if (!files.has(relativePath)) {
+      const isDeleted = status.includes("D");
+      const isUntracked = status === "??";
+
       if (isDeleted) {
-        // For deleted files, we don't check if file exists (it won't!)
-        files.set(fileRelativePath, {
+        // For deleted files, we don't check if file exists (it won't!) and skip line counts
+        files.set(relativePath, {
           date: now,
           author: currentUserName ? asCommitAuthor(currentUserName) : undefined,
-          status: statusCode.trim() || "D",
+          status: status,
           isDeleted: true,
           isPending: true,
         });
       } else {
         // For non-deleted files, verify they exist and get their actual modification time
-        const fullPath = path.join(workspaceRoot, fileRelativePath);
+        const fullPath = path.join(workspaceRoot, relativePath);
         if (await fileExists(fullPath)) {
           // Get actual file modification time for proper date sorting
           let fileDate = now; // Fallback to current time
@@ -350,15 +401,38 @@ export async function collectPendingChanges(
             const stats = await fs.promises.stat(fullPath);
             fileDate = stats.mtime; // Use actual file modification time
           } catch (error) {
-            log(`Could not get mtime for ${fileRelativePath}, using current time`, "warn");
+            log(`Could not get mtime for ${relativePath}, using current time`, "warn");
           }
 
-          files.set(fileRelativePath, {
+          let linesAdded: number | undefined;
+          let linesDeleted: number | undefined;
+
+          if (showLineChanges && isUntracked) {
+            // For untracked files, count all lines as additions
+            try {
+              const content = await fs.promises.readFile(fullPath, "utf-8");
+              const lineCount = content.split("\n").length;
+              linesAdded = lineCount;
+              linesDeleted = 0;
+            } catch (error) {
+              // If we can't read the file (binary, permission issue), skip line counts
+              log(`Could not count lines for untracked file ${relativePath}`, "warn");
+            }
+          } else {
+            // Use numstat from git diff
+            const lineCounts = numstatMap.get(filePath);
+            linesAdded = lineCounts?.added;
+            linesDeleted = lineCounts?.deleted;
+          }
+
+          files.set(relativePath, {
             date: fileDate,
             author: currentUserName ? asCommitAuthor(currentUserName) : undefined,
-            status: statusCode.trim() || "??",
+            status: status,
             isDeleted: false,
             isPending: true,
+            linesAdded,
+            linesDeleted,
           });
         }
       }
@@ -386,20 +460,18 @@ export async function collectHistoricalChanges(
 
   const sinceDate = `${days}.days.ago`;
 
-  // Use git log with custom format to get date, author, hash, and message
-  // Format: __COMMIT__<hash>|<author>|<date>|<subject>
-  // Files follow on subsequent lines until next __COMMIT__ or empty
-  // Note: We now include deletions (removed --diff-filter=d)
-  const gitCommand = `git log --since="${sinceDate}" --name-status --pretty=format:"__COMMIT__%h|%an|%aI|%s"`;
-  log(`Executing git command in ${repoRelativePath || "root"}: ${gitCommand}`);
+  // Step 1: Get file statuses using --name-status
+  const statusCommand = `git log --since="${sinceDate}" --name-status --pretty=format:"__COMMIT__%h|%an|%aI|%s"`;
+  log(`Executing git command for status in ${repoRelativePath || "root"}: ${statusCommand}`);
 
-  const output = await execGitInDir(gitCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+  const statusOutput = await execGitInDir(statusCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
 
-  // Parse the output - commits are prefixed with __COMMIT__, files follow with status prefix
-  const lines = output.split("\n").map(line => line.trim());
+  // Parse status output to build file status map
+  const statusLines = statusOutput.split("\n").map(line => line.trim());
   let currentCommit: CommitData | null = null;
+  const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
 
-  for (const line of lines) {
+  for (const line of statusLines) {
     if (line.startsWith("__COMMIT__")) {
       const commitData = line.substring("__COMMIT__".length);
       const parts = commitData.split("|");
@@ -408,7 +480,7 @@ export async function collectHistoricalChanges(
           hash: asCommitHash(parts[0]),
           author: asCommitAuthor(parts[1]),
           date: new Date(parts[2]),
-          message: asCommitMessage(parts.slice(3).join("|")), // In case message contains |
+          message: asCommitMessage(parts.slice(3).join("|")),
         };
       }
     } else if (line.length > 0 && currentCommit) {
@@ -440,27 +512,89 @@ export async function collectHistoricalChanges(
       // Build full path relative to workspace root
       const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + fileName : fileName;
 
-      // Only store the most recent commit info for each file
-      if (!files.has(fileRelativePath)) {
-        const isDeleted = status === "D";
-        const fullPath = path.join(workspaceRoot, fileRelativePath);
-        const existsOnDisk = await fileExists(fullPath);
+      // Only store the most recent status for each file
+      if (!fileStatusMap.has(fileRelativePath)) {
+        fileStatusMap.set(fileRelativePath, { status, commit: currentCommit });
+      }
+    }
+  }
 
-        // Include the file if:
-        // 1. It exists on disk (normal case)
-        // 2. It was deleted in this commit and still doesn't exist (historical deletion)
-        if (existsOnDisk || isDeleted) {
-          files.set(fileRelativePath, {
-            date: currentCommit.date,
-            author: currentCommit.author,
-            commitHash: currentCommit.hash,
-            commitMessage: currentCommit.message,
-            status: status,
-            isDeleted: !existsOnDisk, // Mark as deleted if it doesn't exist now
-            isPending: false,
+  // Step 2: Get line counts using --numstat (only if feature is enabled)
+  const lineCountsMap = new Map<string, { added: number; deleted: number }>();
+  const showLineChanges = ConfigService.getDescriptionFormat().showLineChanges;
+  
+  if (showLineChanges) {
+    const numstatCommand = `git log --since="${sinceDate}" --numstat --pretty=format:"__COMMIT__%h|%an|%aI|%s"`;
+    log(`Executing git command for numstat in ${repoRelativePath || "root"}: ${numstatCommand}`);
+
+    const numstatOutput = await execGitInDir(numstatCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+
+    // Parse numstat output to build line counts map
+    const numstatLines = numstatOutput.split("\n").map(line => line.trim());
+    currentCommit = null;
+
+  for (const line of numstatLines) {
+    if (line.startsWith("__COMMIT__")) {
+      const commitData = line.substring("__COMMIT__".length);
+      const parts = commitData.split("|");
+      if (parts.length >= 4) {
+        currentCommit = {
+          hash: asCommitHash(parts[0]),
+          author: asCommitAuthor(parts[1]),
+          date: new Date(parts[2]),
+          message: asCommitMessage(parts.slice(3).join("|")),
+        };
+      }
+    } else if (line.length > 0 && currentCommit) {
+      // Numstat format: <additions>\t<deletions>\t<filename>
+      const parts = line.split("\t");
+      if (parts.length !== 3) {
+        continue;
+      }
+
+      const [additions, deletions, filePath] = parts;
+      const fileName = decodeGitPath(filePath);
+
+      // Build full path relative to workspace root
+      const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + fileName : fileName;
+
+      // Only store the most recent line counts for each file
+      if (!lineCountsMap.has(fileRelativePath)) {
+        // Parse line counts, skip binary files (marked with -)
+        if (additions !== "-" && deletions !== "-") {
+          lineCountsMap.set(fileRelativePath, {
+            added: parseInt(additions, 10),
+            deleted: parseInt(deletions, 10),
           });
         }
       }
+    }
+  }
+  }
+
+  // Step 3: Merge status and line counts
+  for (const [fileRelativePath, statusInfo] of fileStatusMap) {
+    const fullPath = path.join(workspaceRoot, fileRelativePath);
+    const existsOnDisk = await fileExists(fullPath);
+    const isDeleted = statusInfo.status === "D";
+
+    // Include the file if:
+    // 1. It exists on disk (normal case)
+    // 2. It was deleted in this commit and still doesn't exist (historical deletion)
+    if (existsOnDisk || isDeleted) {
+      const lineCounts = lineCountsMap.get(fileRelativePath);
+
+      files.set(fileRelativePath, {
+        date: statusInfo.commit.date,
+        author: statusInfo.commit.author,
+        commitHash: statusInfo.commit.hash,
+        commitMessage: statusInfo.commit.message,
+        status: statusInfo.status,
+        isDeleted: !existsOnDisk,
+        isPending: false,
+        linesAdded: lineCounts?.added,
+        linesDeleted: lineCounts?.deleted,
+      });
     }
   }
 

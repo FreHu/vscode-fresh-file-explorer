@@ -582,6 +582,11 @@
           "default": true,
           "description": "Show file status (modified, added, etc.)"
         },
+        "freshFileExplorer.description.showLineChanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show line additions/deletions (+/-) in file descriptions"
+        },
         "freshFileExplorer.autoExpandDepth": {
           "type": "number",
           "default": 2,

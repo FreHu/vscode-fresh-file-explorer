@@ -1,4 +1,40 @@
 import { FileMetadata, DescriptionFormat } from "../types";
+import { ConfigService } from "../config/configService";
+
+/**
+ * Calculate total line changes from items with metadata.
+ * Returns undefined if the feature is disabled to avoid unnecessary work.
+ */
+export function calculateTotalLineChanges<T extends { metadata: FileMetadata }>(
+  items: T[],
+): { added: number; deleted: number } | undefined {
+  // Check if feature is enabled first to avoid unnecessary work
+  if (!ConfigService.getDescriptionFormat().showLineChanges) {
+    return undefined;
+  }
+
+  return items.reduce(
+    (totals, item) => ({
+      added: totals.added + (item.metadata.linesAdded ?? 0),
+      deleted: totals.deleted + (item.metadata.linesDeleted ?? 0),
+    }),
+    { added: 0, deleted: 0 },
+  );
+}
+
+/**
+ * Format a group description with file count and optional line changes
+ */
+export function formatGroupDescription(fileCount: number, linesAdded?: number, linesDeleted?: number): string {
+  const parts = [`${fileCount} file${fileCount === 1 ? "" : "s"}`];
+  
+  const lineChanges = formatLineChanges(linesAdded, linesDeleted);
+  if (lineChanges) {
+    parts.push(lineChanges);
+  }
+  
+  return parts.join(" • ");
+}
 
 /**
  * Format repository description with branch name and file count
@@ -21,36 +57,54 @@ export function formatRepoTooltip(repoName: string, branchName: string | undefin
 }
 
 /**
- * Format directory tooltip with file count and most recent date
+ * Format directory tooltip with file count, most recent date, and line changes
  */
-export function formatDirectoryTooltip(fileCount: number, mostRecent: Date): string {
-  return `${fileCount} file(s) modified, most recent: ${formatRelativeDate(mostRecent)}`;
+export function formatDirectoryTooltip(
+  fileCount: number,
+  mostRecent: Date,
+  linesAdded?: number,
+  linesDeleted?: number,
+): string {
+  let tooltip = `${fileCount} file(s) modified, most recent: ${formatRelativeDate(mostRecent)}`;
+  
+  const lineChanges = formatLineChanges(linesAdded, linesDeleted);
+  if (lineChanges) {
+    tooltip += ` (${lineChanges})`;
+  }
+  
+  return tooltip;
 }
 
 /**
- * Formats a date as a human-readable relative time string
+ * Formats a date as a concise relative time string
  * @param date The date to format
- * @returns A string like "just now", "5 minutes ago", "yesterday", etc.
+ * @returns A string like "now", "5m", "1h", "2d", "1w", "1mo", "1y"
  */
 export function formatRelativeDate(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
 
-  if (diffMinutes < 60) {
-    return diffMinutes <= 1 ? "just now" : `${diffMinutes} minutes ago`;
+  if (diffSeconds < 60) {
+    return "now";
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes}m`;
   } else if (diffHours < 24) {
-    return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
+    return `${diffHours}h`;
   } else if (diffDays < 7) {
-    return diffDays === 1 ? "yesterday" : `${diffDays} days ago`;
+    return `${diffDays}d`;
   } else if (diffDays < 30) {
     const weeks = Math.floor(diffDays / 7);
-    return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+    return `${weeks}w`;
+  } else if (diffMonths < 12) {
+    return `${diffMonths}mo`;
   } else {
-    const months = Math.floor(diffDays / 30);
-    return months === 1 ? "1 month ago" : `${months} months ago`;
+    return `${diffYears}y`;
   }
 }
 
@@ -118,6 +172,53 @@ function truncate(str: string, maxLength: number): string {
 }
 
 /**
+ * Format line changes as a string (e.g., "+15 -3")
+ * @param linesAdded The number of lines added (undefined or 0 for none)
+ * @param linesDeleted The number of lines deleted (undefined or 0 for none)
+ * @returns A formatted string like "+15 -3", or empty string if no changes
+ */
+function formatLineChanges(linesAdded: number | undefined, linesDeleted: number | undefined): string {
+  const added = linesAdded ?? 0;
+  const deleted = linesDeleted ?? 0;
+
+  if (added === 0 && deleted === 0) {
+    return "";
+  }
+
+  const parts: string[] = [];
+  if (added > 0) {
+    parts.push(`+${added}`);
+  }
+  if (deleted > 0) {
+    parts.push(`-${deleted}`);
+  }
+
+  return parts.length > 0 ? parts.join(" ") : "";
+}
+
+/**
+ * Format line changes for tooltip display
+ * @param linesAdded The number of lines added
+ * @param linesDeleted The number of lines deleted
+ * @returns A formatted string like "Lines: +15 -3", or undefined if no changes or feature disabled
+ */
+export function formatTooltipLineChanges(linesAdded?: number, linesDeleted?: number): string | undefined {
+  if (!linesAdded && !linesDeleted) {
+    return undefined;
+  }
+
+  const changeParts: string[] = [];
+  if (linesAdded && linesAdded > 0) {
+    changeParts.push(`+${linesAdded}`);
+  }
+  if (linesDeleted && linesDeleted > 0) {
+    changeParts.push(`-${linesDeleted}`);
+  }
+
+  return `Lines: ${changeParts.join(" ")}`;
+}
+
+/**
  * Format file metadata into a description string based on configuration
  * @param metadata The file metadata
  * @param format The description format configuration
@@ -129,6 +230,14 @@ export function formatFileDescription(metadata: FileMetadata, format: Descriptio
   // For pending changes, show status
   if (format.showStatus && metadata.status) {
     parts.push(getStatusLabel(metadata.status));
+  }
+
+  // Show line changes (+X -Y)
+  if (format.showLineChanges) {
+    const lineChanges = formatLineChanges(metadata.linesAdded, metadata.linesDeleted);
+    if (lineChanges) {
+      parts.push(lineChanges);
+    }
   }
 
   // Show date
@@ -183,7 +292,15 @@ export function formatFileTooltip(metadata: FileMetadata): string {
   }
 
   if (metadata.status) {
-    lines.push(`Status: ${getStatusLabel(metadata.status)}`);
+    let statusLine = `Status: ${getStatusLabel(metadata.status)}`;
+    
+    // Add line changes if available
+    const lineChanges = formatLineChanges(metadata.linesAdded, metadata.linesDeleted);
+    if (lineChanges) {
+      statusLine += ` (${lineChanges})`;
+    }
+    
+    lines.push(statusLine);
   }
 
   lines.push(`Modified: ${formatRelativeDate(metadata.date)} (${metadata.date.toLocaleDateString()})`);
