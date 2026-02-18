@@ -86,38 +86,38 @@ suite("Format Utils", () => {
       (global as any).Date = Date;
     });
 
-    test("should format very recent times as 'just now'", () => {
-      assert.strictEqual(formatRelativeDate(minutesAgo(0)), "just now");
-      assert.strictEqual(formatRelativeDate(minutesAgo(1)), "just now");
+    test("should format very recent times as 'now'", () => {
+      assert.strictEqual(formatRelativeDate(minutesAgo(0)), "now");
+      assert.strictEqual(formatRelativeDate(minutesAgo(1)), "1m");
     });
 
     test("should format minutes ago", () => {
-      assert.strictEqual(formatRelativeDate(minutesAgo(5)), "5 minutes ago");
-      assert.strictEqual(formatRelativeDate(minutesAgo(30)), "30 minutes ago");
-      assert.strictEqual(formatRelativeDate(minutesAgo(59)), "59 minutes ago");
+      assert.strictEqual(formatRelativeDate(minutesAgo(5)), "5m");
+      assert.strictEqual(formatRelativeDate(minutesAgo(30)), "30m");
+      assert.strictEqual(formatRelativeDate(minutesAgo(59)), "59m");
     });
 
     test("should format hours ago", () => {
-      assert.strictEqual(formatRelativeDate(hoursAgo(1)), "1 hour ago");
-      assert.strictEqual(formatRelativeDate(hoursAgo(5)), "5 hours ago");
-      assert.strictEqual(formatRelativeDate(hoursAgo(23)), "23 hours ago");
+      assert.strictEqual(formatRelativeDate(hoursAgo(1)), "1h");
+      assert.strictEqual(formatRelativeDate(hoursAgo(5)), "5h");
+      assert.strictEqual(formatRelativeDate(hoursAgo(23)), "23h");
     });
 
     test("should format days ago", () => {
-      assert.strictEqual(formatRelativeDate(daysAgo(1)), "yesterday");
-      assert.strictEqual(formatRelativeDate(daysAgo(2)), "2 days ago");
-      assert.strictEqual(formatRelativeDate(daysAgo(6)), "6 days ago");
+      assert.strictEqual(formatRelativeDate(daysAgo(1)), "1d");
+      assert.strictEqual(formatRelativeDate(daysAgo(2)), "2d");
+      assert.strictEqual(formatRelativeDate(daysAgo(6)), "6d");
     });
 
     test("should format weeks ago", () => {
-      assert.strictEqual(formatRelativeDate(daysAgo(7)), "1 week ago");
-      assert.strictEqual(formatRelativeDate(daysAgo(14)), "2 weeks ago");
-      assert.strictEqual(formatRelativeDate(daysAgo(21)), "3 weeks ago");
+      assert.strictEqual(formatRelativeDate(daysAgo(7)), "1w");
+      assert.strictEqual(formatRelativeDate(daysAgo(14)), "2w");
+      assert.strictEqual(formatRelativeDate(daysAgo(21)), "3w");
     });
 
     test("should format months ago", () => {
-      assert.strictEqual(formatRelativeDate(daysAgo(30)), "1 month ago");
-      assert.strictEqual(formatRelativeDate(daysAgo(60)), "2 months ago");
+      assert.strictEqual(formatRelativeDate(daysAgo(30)), "1mo");
+      assert.strictEqual(formatRelativeDate(daysAgo(60)), "2mo");
     });
   });
 });

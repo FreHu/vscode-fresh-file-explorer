@@ -30,6 +30,14 @@
           "type": "tree",
           "icon": "icons/fresh-files.svg",
           "contextualTitle": "Fresh File Explorer"
+        },
+        {
+          "id": "diffSearchResults",
+          "name": "Diff Search Results",
+          "type": "tree",
+          "icon": "$(git-compare)",
+          "contextualTitle": "Diff Search Results",
+          "when": "diffSearchResults.hasResults"
         }
       ]
     },
@@ -145,6 +153,20 @@
         "command": "freshFileExplorer.searchInFreshFiles",
         "title": "Search in Fresh Files",
         "icon": "$(search)"
+      },
+      {
+        "command": "freshFileExplorer.openDiffSearchPanel",
+        "title": "Open Diff Search",
+        "icon": "$(search)"
+      },
+      {
+        "command": "freshFileExplorer.openDiffMatch",
+        "title": "Open Diff"
+      },
+      {
+        "command": "freshFileExplorer.clearDiffSearch",
+        "title": "Clear Diff Search Results",
+        "icon": "$(clear-all)"
       },
       {
         "command": "freshFileExplorer.searchInFoundFiles",
@@ -287,9 +309,19 @@
           "group": "1_actions@2"
         },
         {
+          "command": "freshFileExplorer.openDiffSearchPanel",
+          "when": "view == diffSearchResults",
+          "group": "navigation@1"
+        },
+        {
           "command": "freshFileExplorer.toggleHeatmap",
           "when": "view == freshFileExplorer",
           "group": "1_actions@3"
+        },
+        {
+          "command": "freshFileExplorer.clearDiffSearch",
+          "when": "view == diffSearchResults",
+          "group": "navigation"
         }
       ],
       "view/item/context": [

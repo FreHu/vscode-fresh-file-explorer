@@ -33,6 +33,9 @@ import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { Commands } from "./commands/constants";
 import { createDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmapDecorationProvider";
+import { DiffSearchResultProvider } from "./diffSearchResultProvider";
+import { DiffSearchPanel } from "./diffSearchPanel";
+import { handleOpenDiffMatch, handleClearDiffSearch } from "./commands/diffSearchCommand";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -51,7 +54,18 @@ export async function activate(context: vscode.ExtensionContext) {
   // Wire the heatmap provider to the fresh file provider
   freshFileProvider.heatmapProvider = heatmapProvider;
 
-  registerCommands(context, freshFileProvider, treeView);
+  // Create and register diff search result provider
+  const diffSearchResultProvider = new DiffSearchResultProvider();
+  const diffSearchTreeView = vscode.window.createTreeView("diffSearchResults", {
+    treeDataProvider: diffSearchResultProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(diffSearchTreeView);
+
+  // Set initial context for diff search view visibility
+  vscode.commands.executeCommand("setContext", "diffSearchResults.hasResults", false);
+
+  registerCommands(context, freshFileProvider, treeView, diffSearchResultProvider);
 
   // Listen for workspace folder changes
   context.subscriptions.push(
@@ -99,6 +113,7 @@ function registerCommands(
   context: vscode.ExtensionContext,
   freshFileProvider: FreshFileProvider,
   treeView: vscode.TreeView<FreshFilesTreeItem>,
+  diffSearchResultProvider: DiffSearchResultProvider,
 ): void {
   function register(name: string, handler: (...args: any[]) => any) {
     context.subscriptions.push(vscode.commands.registerCommand(name, handler));
@@ -195,6 +210,15 @@ function registerCommands(
   register(Commands.OPEN_COMMIT, (item: FreshFileItem) => handleOpenCommit(item, freshFileProvider));
 
   register(Commands.TOGGLE_HEATMAP, () => handleToggleHeatmap(freshFileProvider));
+
+  // Diff search commands
+  register(Commands.OPEN_DIFF_SEARCH_PANEL, () => 
+    DiffSearchPanel.createOrShow(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])
+  );
+
+  register(Commands.OPEN_DIFF_MATCH, (item: any) => handleOpenDiffMatch(item));
+
+  register(Commands.CLEAR_DIFF_SEARCH, () => handleClearDiffSearch(diffSearchResultProvider));
 }
 
 function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: vscode.ExtensionContext) {

@@ -37,6 +37,13 @@ export class ConfigService {
   }
 
   /**
+   * Get the git timeout (alias for consistency)
+   */
+  static getGitTimeout(): number {
+    return ConfigService.getGitTimeoutMs();
+  }
+
+  /**
    * Get the time window day values
    */
   static getTimeWindowDays(): number[] {
@@ -77,4 +84,5 @@ export class ConfigService {
   static isHeatmapEnabled(): boolean {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.HEATMAP_ENABLED, false);
   }
+
 }

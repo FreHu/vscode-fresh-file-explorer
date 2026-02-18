@@ -55,4 +55,9 @@ export const Commands = {
 
   // Heatmap command
   TOGGLE_HEATMAP: "freshFileExplorer.toggleHeatmap",
+
+  // Diff search commands
+  OPEN_DIFF_SEARCH_PANEL: "freshFileExplorer.openDiffSearchPanel",
+  OPEN_DIFF_MATCH: "freshFileExplorer.openDiffMatch",
+  CLEAR_DIFF_SEARCH: "freshFileExplorer.clearDiffSearch",
 } as const;
