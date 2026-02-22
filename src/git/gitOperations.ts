@@ -4,11 +4,8 @@ import * as fs from "fs";
 import * as vscode from "vscode";
 
 import { log } from "../utils/logger";
-import { CommitData, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage, findRepoForFile } from "../types";
-import { AbsolutePath, asAbsolutePath } from "../pathTypes";
-import { normalizePath } from "../utils";
-import { FreshFileProvider } from "../freshFileProvider";
-import { FreshFileItem } from "../treeItems";
+import { CommitData, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage } from "../types";
+import { AbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
 
 /**
@@ -301,7 +298,7 @@ export async function collectPendingChanges(
     currentUserName = userNameOutput.trim() || undefined;
   } catch (error) {
     // If we can't get the user name, leave it undefined
-    log("Could not get git user.name for pending changes");
+    log(`Could not get git user.name for pending changes: ${error}`);
   }
 
   // Get all modified, added, deleted, and untracked files using git status
@@ -409,7 +406,7 @@ export async function collectPendingChanges(
             const stats = await fs.promises.stat(fullPath);
             fileDate = stats.mtime; // Use actual file modification time
           } catch (error) {
-            log(`Could not get mtime for ${relativePath}, using current time`, "warn");
+            log(`Could not get mtime for ${relativePath}, using current time. Error: ${error}`, "warn");
           }
 
           let linesAdded: number | undefined;
@@ -424,7 +421,7 @@ export async function collectPendingChanges(
               linesDeleted = 0;
             } catch (error) {
               // If we can't read the file (binary, permission issue), skip line counts
-              log(`Could not count lines for untracked file ${relativePath}`, "warn");
+              log(`Could not count lines for untracked file ${relativePath}. Error: ${error}`, "warn");
             }
           } else {
             // Use numstat from git diff

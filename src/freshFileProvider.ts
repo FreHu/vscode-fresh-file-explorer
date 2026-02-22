@@ -16,7 +16,7 @@ import {
 } from "./types";
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription } from "./utils/formatUtils";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "./utils/formatUtils";
 import { log } from "./utils/logger";
 import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem } from "./treeItems";
 import { normalizePath } from "./utils";

@@ -62,7 +62,7 @@ function createHandleDrag() {
  * Handles both reordering of pinned items and pinning new files at specific positions.
  */
 function createHandleDrop(freshFileProvider: FreshFileProvider) {
-  return async (target: FreshFilesTreeItem | undefined, dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) => {
+  return async (target: FreshFilesTreeItem | undefined, dataTransfer: vscode.DataTransfer) => {
     log(`Drop: Target type: ${target?.constructor.name}, contextValue: ${target instanceof FreshFileItem ? target.contextValue : 'N/A'}`);
     
     // Check for internal reordering first (our custom MIME type with array of IDs)

@@ -25,9 +25,7 @@ export async function handleOpenDiffMatch(matchItem: DiffSearchMatchItem): Promi
       const commitShort = matchItem.commitHash.substring(0, 7);
       
       if (matchItem.fileAdded) {
-        // Open just the new file version, as there's no parent to compare against
-        const title = `${fileName} (new in ${commitShort})`;
-        
+        // Open just the new file version, as there's no parent to compare against        
         const doc = await vscode.workspace.openTextDocument(rightUri);
         await vscode.window.showTextDocument(doc, {
           selection: new vscode.Range(matchItem.lineNumber - 1, 0, matchItem.lineNumber - 1, 0),

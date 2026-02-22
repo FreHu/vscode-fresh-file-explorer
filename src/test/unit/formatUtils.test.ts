@@ -3,7 +3,12 @@ import {
   formatRepoDescription,
   formatRepoTooltip,
   formatDirectoryTooltip,
-  formatRelativeDate
+  formatRelativeDate,
+  escapeRegex,
+  toForwardSlashes,
+  getStatusLabel,
+  truncate,
+  formatLineChanges,
 } from "../../utils/formatUtils";
 
 suite("Format Utils", () => {
@@ -118,6 +123,150 @@ suite("Format Utils", () => {
     test("should format months ago", () => {
       assert.strictEqual(formatRelativeDate(daysAgo(30)), "1mo");
       assert.strictEqual(formatRelativeDate(daysAgo(60)), "2mo");
+    });
+  });
+
+  suite("escapeRegex", () => {
+    test("leaves plain alphanumeric strings unchanged", () => {
+      assert.strictEqual(escapeRegex("hello"), "hello");
+      assert.strictEqual(escapeRegex("foo123"), "foo123");
+    });
+
+    test("escapes all regex special characters", () => {
+      assert.strictEqual(escapeRegex("."), "\\.");
+      assert.strictEqual(escapeRegex("*"), "\\*");
+      assert.strictEqual(escapeRegex("+"), "\\+");
+      assert.strictEqual(escapeRegex("?"), "\\?");
+      assert.strictEqual(escapeRegex("^"), "\\^");
+      assert.strictEqual(escapeRegex("$"), "\\$");
+      assert.strictEqual(escapeRegex("{"), "\\{");
+      assert.strictEqual(escapeRegex("}"), "\\}");
+      assert.strictEqual(escapeRegex("("), "\\(");
+      assert.strictEqual(escapeRegex(")"), "\\)");
+      assert.strictEqual(escapeRegex("|"), "\\|");
+      assert.strictEqual(escapeRegex("["), "\\[");
+      assert.strictEqual(escapeRegex("]"), "\\]");
+      assert.strictEqual(escapeRegex("\\"), "\\\\");
+    });
+
+    test("escapes special characters embedded in a longer string", () => {
+      assert.strictEqual(escapeRegex("foo.bar"), "foo\\.bar");
+      assert.strictEqual(escapeRegex("a+b*c"), "a\\+b\\*c");
+    });
+
+    test("returns empty string for empty input", () => {
+      assert.strictEqual(escapeRegex(""), "");
+    });
+  });
+
+  suite("toForwardSlashes", () => {
+    test("converts backslashes to forward slashes", () => {
+      assert.strictEqual(toForwardSlashes("src\\utils\\file.ts"), "src/utils/file.ts");
+    });
+
+    test("leaves forward slashes unchanged", () => {
+      assert.strictEqual(toForwardSlashes("src/utils/file.ts"), "src/utils/file.ts");
+    });
+
+    test("handles mixed separators", () => {
+      assert.strictEqual(toForwardSlashes("src\\utils/file.ts"), "src/utils/file.ts");
+    });
+
+    test("handles empty string", () => {
+      assert.strictEqual(toForwardSlashes(""), "");
+    });
+
+    test("handles UNC-style double backslash prefix", () => {
+      assert.strictEqual(toForwardSlashes("\\\\server\\share"), "//server/share");
+    });
+  });
+
+  suite("getStatusLabel", () => {
+    // Standard single-letter codes
+    test("M → modified", () => assert.strictEqual(getStatusLabel("M"), "modified"));
+    test("A → added",    () => assert.strictEqual(getStatusLabel("A"), "added"));
+    test("D → deleted",  () => assert.strictEqual(getStatusLabel("D"), "deleted"));
+    test("R → renamed",  () => assert.strictEqual(getStatusLabel("R"), "renamed"));
+    test("C → copied",   () => assert.strictEqual(getStatusLabel("C"), "copied"));
+    test("T → type changed", () => assert.strictEqual(getStatusLabel("T"), "type changed"));
+    test("?? → untracked",   () => assert.strictEqual(getStatusLabel("??"), "untracked"));
+    test("!! → ignored",     () => assert.strictEqual(getStatusLabel("!!"), "ignored"));
+
+    // Staged + unstaged combinations
+    test("MM → modified", () => assert.strictEqual(getStatusLabel("MM"), "modified"));
+    test("AM → added",    () => assert.strictEqual(getStatusLabel("AM"), "added"));
+    test("AD → deleted",  () => assert.strictEqual(getStatusLabel("AD"), "deleted"));
+    test("MD → deleted",  () => assert.strictEqual(getStatusLabel("MD"), "deleted"));
+    test("RM → renamed",  () => assert.strictEqual(getStatusLabel("RM"), "renamed"));
+
+    // Merge conflict codes
+    test("UU → conflict (both modified)",  () => assert.strictEqual(getStatusLabel("UU"), "conflict (both modified)"));
+    test("AA → conflict (both added)",     () => assert.strictEqual(getStatusLabel("AA"), "conflict (both added)"));
+    test("DD → conflict (both deleted)",   () => assert.strictEqual(getStatusLabel("DD"), "conflict (both deleted)"));
+    test("AU → conflict (added by us)",    () => assert.strictEqual(getStatusLabel("AU"), "conflict (added by us)"));
+    test("UA → conflict (added by them)",  () => assert.strictEqual(getStatusLabel("UA"), "conflict (added by them)"));
+    test("DU → conflict (deleted by us)",  () => assert.strictEqual(getStatusLabel("DU"), "conflict (deleted by us)"));
+    test("UD → conflict (deleted by them)", () => assert.strictEqual(getStatusLabel("UD"), "conflict (deleted by them)"));
+
+    // Unknown codes fall back to lowercase
+    test("unknown code is lowercased", () => assert.strictEqual(getStatusLabel("XY"), "xy"));
+    test("already lowercase unknown is unchanged", () => assert.strictEqual(getStatusLabel("zz"), "zz"));
+  });
+
+  suite("truncate", () => {
+    test("returns string unchanged when shorter than maxLength", () => {
+      assert.strictEqual(truncate("hello", 10), "hello");
+    });
+
+    test("returns string unchanged when equal to maxLength", () => {
+      assert.strictEqual(truncate("hello", 5), "hello");
+    });
+
+    test("truncates and appends ellipsis when longer than maxLength", () => {
+      assert.strictEqual(truncate("hello world", 6), "hello…");
+    });
+
+    test("result length equals maxLength after truncation", () => {
+      const result = truncate("abcdefgh", 5);
+      assert.strictEqual([...result].length, 5); // spread handles the ellipsis char
+    });
+
+    test("handles empty string", () => {
+      assert.strictEqual(truncate("", 5), "");
+    });
+
+    test("maxLength of 1 yields only the ellipsis", () => {
+      assert.strictEqual(truncate("abc", 1), "…");
+    });
+  });
+
+  suite("formatLineChanges", () => {
+    test("returns empty string when both are 0", () => {
+      assert.strictEqual(formatLineChanges(0, 0), "");
+    });
+
+    test("returns empty string when both are undefined", () => {
+      assert.strictEqual(formatLineChanges(undefined, undefined), "");
+    });
+
+    test("shows only additions when deletions are 0", () => {
+      assert.strictEqual(formatLineChanges(5, 0), "+5");
+    });
+
+    test("shows only deletions when additions are 0", () => {
+      assert.strictEqual(formatLineChanges(0, 3), "-3");
+    });
+
+    test("shows both additions and deletions", () => {
+      assert.strictEqual(formatLineChanges(15, 3), "+15 -3");
+    });
+
+    test("treats undefined as 0 for additions", () => {
+      assert.strictEqual(formatLineChanges(undefined, 4), "-4");
+    });
+
+    test("treats undefined as 0 for deletions", () => {
+      assert.strictEqual(formatLineChanges(7, undefined), "+7");
     });
   });
 });

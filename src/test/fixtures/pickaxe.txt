@@ -1,0 +1,1061 @@
+commit ccdbfbb86b0ece6bfa2ff18d6fac97c83cd1445f
+Author: FreHu <frederik.hudak@gmail.com>
+Date:   Sun Feb 22 14:14:48 2026 +0100
+
+    1.1
+
+diff --git a/package.json b/package.json
+index 86fa34e..7f11b98 100644
+--- a/package.json
++++ b/package.json
+@@ -12,7 +12,7 @@
+     "type": "git",
+     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
+   },
+-  "version": "1.0.7",
++  "version": "1.1.0",
+   "icon": "icons/extension.png",
+   "engines": {
+     "vscode": "^1.106.1"
+@@ -168,6 +168,18 @@
+         "title": "Clear Diff Search Results",
+         "icon": "$(clear-all)"
+       },
++      {
++        "command": "freshFileExplorer.gitLogFile",
++        "title": "File History"
++      },
++      {
++        "command": "freshFileExplorer.gitLogL",
++        "title": "Line/Function History"
++      },
++      {
++        "command": "freshFileExplorer.gitPickaxe",
++        "title": "Search Diffs for Selection"
++      },
+       {
+         "command": "freshFileExplorer.searchInFoundFiles",
+         "title": "Search in Found Files",
+@@ -254,6 +266,21 @@
+         }
+       ],
+       "editor/context": [
++        {
++          "command": "freshFileExplorer.gitLogL",
++          "when": "editorHasSelection || editorTextFocus",
++          "group": "z_freshfiles@1"
++        },
++        {
++          "command": "freshFileExplorer.gitLogFile",
++          "when": "editorTextFocus",
++          "group": "z_freshfiles@2"
++        },
++        {
++          "command": "freshFileExplorer.gitPickaxe",
++          "when": "editorHasSelection || editorTextFocus",
++          "group": "z_freshfiles@3"
++        },
+         {
+           "command": "freshFileExplorer.searchInFoundFiles",
+           "when": "inSearchEditor",
+@@ -345,6 +372,11 @@
+           "when": "view == freshFileExplorer && viewItem == file",
+           "group": "navigation@2.5"
+         },
++        {
++          "command": "freshFileExplorer.gitLogFile",
++          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile)$/",
++          "group": "navigation@2.6"
++        },
+         {
+           "command": "freshFileExplorer.expandSubtree",
+           "when": "view == freshFileExplorer && viewItem == folder",
+@@ -429,10 +461,12 @@
+           "command": "freshFileExplorer.revealInExplorer",
+           "when": "false"
+         },
+-        {          "command": "freshFileExplorer.viewOptions",
++        {
++          "command": "freshFileExplorer.viewOptions",
+           "when": "false"
+         },
+-        {          "command": "freshFileExplorer.openFile",
++        {
++          "command": "freshFileExplorer.openFile",
+           "when": "false"
+         },
+         {
+@@ -682,24 +716,25 @@
+     }
+   },
+   "scripts": {
+-    "vscode:prepublish": "npm run compile",
++    "vscode:prepublish": "npm run compile && npm run compile:webview",
+     "compile": "tsc -p ./",
+-    "watch": "tsc -watch -p ./",
+-    "pretest": "npm run compile && npm run lint",
++    "compile:webview": "tsc -p tsconfig.webview.json --noEmit && esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts --bundle --outdir=media --format=iife --platform=browser",
++    "watch": "run-p watch:ext watch:webview",
++    "watch:ext": "tsc -watch -p ./",
++    "watch:webview": "esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts --bundle --outdir=media --format=iife --platform=browser --watch",
++    "pretest": "npm run compile && npm run compile:webview && npm run lint",
+     "lint": "eslint src",
+-    "test": "vscode-test",
+-    "test:unit": "mocha",
+-    "test:all": "npm run test:unit && npm run test"
++    "test": "vscode-test"
+   },
+   "devDependencies": {
+-    "@types/mocha": "^10.0.10",
+     "@types/node": "22.x",
+     "@types/vscode": "^1.106.1",
++    "@types/vscode-webview": "^1.57.5",
+     "@vscode/test-cli": "^0.0.12",
+     "@vscode/test-electron": "^2.5.2",
++    "esbuild": "^0.27.3",
+     "eslint": "^9.39.1",
+-    "mocha": "^11.7.5",
+-    "ts-node": "^10.9.2",
++    "npm-run-all2": "^8.0.4",
+     "typescript": "^5.9.3",
+     "typescript-eslint": "^8.46.3"
+   },
+diff --git a/src/gitLogLPanel.ts b/src/gitLogLPanel.ts
+new file mode 100644
+index 0000000..5989bdd
+--- /dev/null
++++ b/src/gitLogLPanel.ts
+@@ -0,0 +1,291 @@
++import * as vscode from "vscode";
++import * as path from "path";
++import { execGitWithArgs, gitUri, getCommitParent, getCommitChanges, getCommitSubject } from "./git/gitOperations";
++import { parseGitLogL, GitLogLCommit } from "./git/gitLogLParser";
++import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
++import { log } from "./utils/logger";
++
++/**
++ * Manages the Git Log -L webview panel (one per unique query).
++ * Receives "compare" messages from the webview and opens a VS Code diff editor
++ * showing the two chosen commit versions of the file.
++ */
++export class GitLogLPanel {
++  private static panels = new Map<string, GitLogLPanel>();
++
++  private readonly _panel: vscode.WebviewPanel;
++  private readonly _extensionUri: vscode.Uri;
++  private readonly _repoRoot: string;
++  private readonly _filePath: string;
++  private readonly _lArg: string;
++  private readonly _label: string;
++  private readonly _gitCommand: string;
++  private readonly _mode: "logL" | "fileHistory";
++  private _disposables: vscode.Disposable[] = [];
++  /** Maps commit hash to the file path as it existed at that commit (handles renames). */
++  private _filePathByHash = new Map<string, string>();
++
++  public static createOrShow(
++    extensionUri: vscode.Uri,
++    repoRoot: string,
++    filePath: string,
++    lArg: string,
++    label: string,
++    commits: GitLogLCommit[],
++    gitCommand: string,
++    mode: "logL" | "fileHistory" = "logL",
++  ) {
++    const key = `${filePath}|${lArg}`;
++    const existing = GitLogLPanel.panels.get(key);
++    if (existing) {
++      existing._panel.reveal();
++      existing._sendCommits(commits);
++      return;
++    }
++
++    const tabTitle = mode === "fileHistory" ? `History: ${label}` : `Log -L: ${label}`;
++    const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
++    const panel = vscode.window.createWebviewPanel(
++      "gitLogLPanel",
++      tabTitle,
++      column,
++      {
++        enableScripts: true,
++        retainContextWhenHidden: true,
++        localResourceRoots: [extensionUri],
++      },
++    );
++
++    GitLogLPanel.panels.set(key, new GitLogLPanel(panel, extensionUri, repoRoot, filePath, lArg, label, commits, gitCommand, key, mode));
++  }
++
++  private constructor(
++    panel: vscode.WebviewPanel,
++    extensionUri: vscode.Uri,
++    repoRoot: string,
++    filePath: string,
++    lArg: string,
++    label: string,
++    commits: GitLogLCommit[],
++    gitCommand: string,
++    mapKey: string,
++    mode: "logL" | "fileHistory" = "logL",
++  ) {
++    this._panel = panel;
++    this._extensionUri = extensionUri;
++    this._repoRoot = repoRoot;
++    this._filePath = filePath;
++    this._lArg = lArg;
++    this._label = label;
++    this._gitCommand = gitCommand;
++    this._mode = mode;
++
++    const scriptUri = panel.webview
++      .asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "gitLogLPanel.js"))
++      .toString();
++    this._panel.webview.html = getGitLogLPanelHtml(this._panel.webview.cspSource, scriptUri);
++
++    this._panel.onDidDispose(() => {
++      GitLogLPanel.panels.delete(mapKey);
++      this.dispose();
++    }, null, this._disposables);
++
++    this._panel.webview.onDidReceiveMessage(
++      async (msg) => {
++        if (msg.command === "ready") {
++          this._sendCommits(commits);
++        } else {
++          await this._handleMessage(msg);
++        }
++      },
++      null,
++      this._disposables,
++    );
++  }
++
++  private _sendCommits(commits: GitLogLCommit[]) {
++    this._filePathByHash.clear();
++    for (const c of commits) {
++      if (c.filePathAtCommit) { this._filePathByHash.set(c.hash, c.filePathAtCommit); }
++    }
++    const currentRelative = toForwardSlashes(path.relative(this._repoRoot, this._filePath));
++    // Commits are newest-first. For each commit, the "newer neighbour" is the
++    // commit at index i-1 (or currentRelative for the first entry). Only show
++    // the rename badge when the path actually changes at this boundary.
++    const result = this._panel.webview.postMessage({
++      command: "setCommits",
++      commits: commits.map((c, i) => {
++        const newerPath = i === 0 ? currentRelative : (commits[i - 1].filePathAtCommit ?? currentRelative);
++        const thisPath = c.filePathAtCommit ?? currentRelative;
++        return {
++          hash: c.hash,
++          shortHash: c.shortHash,
++          author: c.author,
++          date: c.date.toISOString(),
++          message: c.message,
++          hunk: c.hunk,
++          added: c.added,
++          removed: c.removed,
++          filePathAtCommit: thisPath !== newerPath ? thisPath : null,
++        };
++      }),
++      label: this._label,
++      gitCommand: this._gitCommand,
++      mode: this._mode,
++    });
++    result.then(
++      ok => log(`GitLogLPanel: postMessage resolved: ${ok}`, "info"),
++      err => log(`GitLogLPanel: postMessage rejected: ${err}`, "error"),
++    );
++  }
++
++  private async _handleMessage(msg: any) {
++    switch (msg.command) {
++      case "compare":
++        await this._openDiff(msg.hashA, msg.hashB);
++        break;
++      case "openSingle":
++        await this._openSingle(msg.hash);
++        break;
++      case "openCommit":
++        await this._openCommit(msg.hash);
++        break;
++    }
++  }
++
++  private async _openDiff(hashA: string, hashB: string) {
++    try {
++      const pathA = this._filePathByHash.get(hashA) ?? null;
++      const pathB = this._filePathByHash.get(hashB) ?? null;
++      // Use the per-commit path for display name so the extension reflects the actual file type
++      const extA = path.extname(pathA ?? this._filePath);
++      const extB = path.extname(pathB ?? this._filePath);
++      const basenameA = path.basename((pathA ?? this._filePath), extA);
++      const basenameB = path.basename((pathB ?? this._filePath), extB);
++
++      const uriA = await this._getGitShowUri(hashA, `${basenameA}@${hashA.slice(0, 8)}${extA}`, pathA);
++      const uriB = await this._getGitShowUri(hashB, `${basenameB}@${hashB.slice(0, 8)}${extB}`, pathB);
++
++      const title = `${hashA.slice(0, 8)} Γåö ${hashB.slice(0, 8)}: ${path.basename(this._filePath)}`;
++      await vscode.commands.executeCommand("vscode.diff", uriA, uriB, title);
++    } catch (err) {
++      const message = err instanceof Error ? err.message : String(err);
++      log(`git log -L diff error: ${message}`, "error");
++      vscode.window.showErrorMessage(`Could not open diff: ${message}`);
++    }
++  }
++
++  private async _openCommit(hash: string) {
++    try {
++      const parentHash = await getCommitParent(this._repoRoot, hash);
++      const commitSubject = await getCommitSubject(this._repoRoot, hash);
++      const shortHash = hash.slice(0, 7);
++      const title = `${shortHash} - ${commitSubject}`;
++
++      const changes = await getCommitChanges(this._repoRoot, hash);
++      if (changes.length === 0) {
++        vscode.window.showInformationMessage(`No changes found in commit ${shortHash}.`);
++        return;
++      }
++
++      const resources: { originalUri?: vscode.Uri; modifiedUri?: vscode.Uri }[] = [];
++      for (const change of changes) {
++        const fileUri = vscode.Uri.file(path.join(this._repoRoot, change.filePath));
++        switch (change.status) {
++          case "A":
++            resources.push({ originalUri: undefined, modifiedUri: gitUri(fileUri, hash) });
++            break;
++          case "D":
++            resources.push({ originalUri: gitUri(fileUri, parentHash ?? hash), modifiedUri: undefined });
++            break;
++          case "R":
++          case "C": {
++            const origUri = vscode.Uri.file(path.join(this._repoRoot, change.originalFilePath!));
++            resources.push({ originalUri: gitUri(origUri, parentHash ?? hash), modifiedUri: gitUri(fileUri, hash) });
++            break;
++          }
++          default:
++            resources.push({ originalUri: gitUri(fileUri, parentHash ?? hash), modifiedUri: gitUri(fileUri, hash) });
++            break;
++        }
++      }
++
++      const parentId = parentHash ?? "root";
++      const multiDiffSourceUri = vscode.Uri.from({
++        scheme: "scm-history-item",
++        path: `${this._repoRoot}/${parentId}..${hash}`,
++      });
++
++      await vscode.commands.executeCommand("_workbench.openMultiDiffEditor", {
++        multiDiffSourceUri,
++        title,
++        resources,
++      });
++    } catch (err) {
++      const message = err instanceof Error ? err.message : String(err);
++      log(`git log -L open commit error: ${message}`, "error");
++      vscode.window.showErrorMessage(`Failed to open commit: ${message}`);
++    }
++  }
++
++  private async _openSingle(hash: string) {
++    try {
++      const commitPath = this._filePathByHash.get(hash) ?? null;
++      const ext = path.extname(commitPath ?? this._filePath);
++      const basename = path.basename(commitPath ?? this._filePath, ext);
++      const uri = await this._getGitShowUri(hash, `${basename}@${hash.slice(0, 8)}${ext}`, commitPath);
++      await vscode.window.showTextDocument(uri, { preview: true });
++    } catch (err) {
++      const message = err instanceof Error ? err.message : String(err);
++      vscode.window.showErrorMessage(`Could not open file: ${message}`);
++    }
++  }
++
++  /**
++   * Fetch the file content at a given commit and return a URI for a virtual
++   * read-only document backed by a ContentProvider registered in extension.ts.
++   */
++  private async _getGitShowUri(hash: string, displayName: string, filePathAtCommit?: string | null): Promise<vscode.Uri> {
++    const relativePath = filePathAtCommit ?? toForwardSlashes(path.relative(this._repoRoot, this._filePath));
++    const content = await execGitWithArgs(
++      ["show", `${hash}:${relativePath}`],
++      this._repoRoot,
++      { timeout: 10000 },
++    );
++
++    // Store content in the shared registry, addressable by a uri
++    const uri = vscode.Uri.parse(`gitlogl://${hash}/${displayName}`);
++    GitLogLContentProvider.instance.set(uri.toString(), content);
++    return uri;
++  }
++
++  public dispose() {
++    this._panel.dispose();
++    while (this._disposables.length) {
++      this._disposables.pop()?.dispose();
++    }
++  }
++}
++
++/**
++ * Simple in-memory content provider for `gitlogl://` URIs.
++ * Content is populated just before `vscode.diff` is called.
++ */
++export class GitLogLContentProvider implements vscode.TextDocumentContentProvider {
++  public static readonly scheme = "gitlogl";
++  public static instance = new GitLogLContentProvider();
++
++  private _store = new Map<string, string>();
++
++  set(uri: string, content: string) {
++    this._store.set(uri, content);
++  }
++
++  provideTextDocumentContent(uri: vscode.Uri): string {
++    return this._store.get(uri.toString()) ?? "";
++  }
++}
++
++function toForwardSlashes(p: string): string {
++  return p.replace(/\\/g, "/");
++}
+diff --git a/src/gitLogLPanelUI.ts b/src/gitLogLPanelUI.ts
+new file mode 100644
+index 0000000..2a31e1c
+--- /dev/null
++++ b/src/gitLogLPanelUI.ts
+@@ -0,0 +1,242 @@
++import { html, css, raw } from "./utils/templateHelpers";
++import { getNonce } from "./utils/nonceUtils";
++
++export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): string {
++  const nonce = getNonce();
++
++  const styles = css`
++    * { box-sizing: border-box; }
++    body {
++      padding: 16px 20px;
++      font-family: var(--vscode-font-family);
++      font-size: var(--vscode-font-size);
++      color: var(--vscode-foreground);
++      margin: 0;
++    }
++    h2 {
++      margin: 0 0 4px 0;
++      font-size: 1.1em;
++    }
++    .subtitle {
++      color: var(--vscode-descriptionForeground);
++      font-size: 0.9em;
++      margin-bottom: 6px;
++    }
++    .git-command {
++      font-family: var(--vscode-editor-font-family, monospace);
++      font-size: 0.82em;
++      color: var(--vscode-textPreformat-foreground);
++      background: var(--vscode-textPreformat-background, var(--vscode-editor-background));
++      border: 1px solid var(--vscode-panel-border);
++      border-radius: 3px;
++      padding: 2px 8px;
++      display: inline-block;
++      margin-bottom: 10px;
++      user-select: text;
++    }
++    .sticky-header {
++      position: sticky;
++      top: 0;
++      z-index: 10;
++      background: var(--vscode-sideBar-background, var(--vscode-editor-background));
++      padding-bottom: 10px;
++      margin: -16px -20px 0;
++      padding: 16px 20px 10px;
++      border-bottom: 1px solid var(--vscode-panel-border);
++      margin-bottom: 12px;
++    }
++    .toolbar {
++      display: flex;
++      align-items: center;
++      gap: 6px;
++      flex-wrap: wrap;
++    }
++    .toolbar-sep {
++      width: 1px;
++      height: 20px;
++      background: var(--vscode-panel-border);
++      margin: 0 2px;
++    }
++    button {
++      padding: 5px 12px;
++      background: var(--vscode-button-background);
++      color: var(--vscode-button-foreground);
++      border: none;
++      cursor: pointer;
++      font-family: var(--vscode-font-family);
++      font-size: var(--vscode-font-size);
++      font-weight: 600;
++    }
++    button:hover { background: var(--vscode-button-hoverBackground); }
++    button:disabled { opacity: 0.45; cursor: not-allowed; }
++    button.secondary {
++      background: var(--vscode-button-secondaryBackground);
++      color: var(--vscode-button-secondaryForeground);
++    }
++    button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
++    .hint {
++      font-size: 0.85em;
++      color: var(--vscode-descriptionForeground);
++    }
++    /* ΓöÇΓöÇ timeline ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
++    .timeline {
++      display: flex;
++      flex-direction: column;
++      gap: 0;
++    }
++    .commit-row {
++      display: flex;
++      flex-direction: column;
++      border: 1px solid var(--vscode-panel-border);
++      border-bottom: none;
++    }
++    .commit-row:last-child { border-bottom: 1px solid var(--vscode-panel-border); }
++    .commit-row.focused > .commit-header { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
++    .commit-header {
++      display: flex;
++      align-items: center;
++      gap: 8px;
++      user-select: none;
++      padding: 4px 10px 4px 4px;
++      flex-wrap: nowrap;
++      cursor: pointer;
++      min-width: 0;
++    }
++    .commit-header:hover { background: var(--vscode-list-hoverBackground); }
++    .chevron {
++      flex-shrink: 0;
++      width: 14px;
++      text-align: center;
++      font-size: 0.7em;
++      opacity: 0.5;
++      pointer-events: none;
++    }
++    .ab-btn {
++      flex-shrink: 0;
++      width: 24px;
++      height: 20px;
++      font-size: 0.72em;
++      font-weight: 700;
++      border-radius: 3px;
++      border: 1px solid var(--vscode-panel-border);
++      background: var(--vscode-button-secondaryBackground);
++      color: var(--vscode-button-secondaryForeground);
++      cursor: pointer;
++      padding: 0;
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      letter-spacing: 0.04em;
++    }
++    .ab-btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
++    .ab-btn.sel-a {
++      background: var(--vscode-gitDecoration-addedResourceForeground, #2ea043);
++      color: #fff;
++      border-color: transparent;
++    }
++    .ab-btn.sel-b {
++      background: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
++      color: #fff;
++      border-color: transparent;
++    }
++    .hash {
++      font-family: var(--vscode-editor-font-family, monospace);
++      font-size: 0.88em;
++      color: var(--vscode-textLink-foreground);
++      flex-shrink: 0;
++      cursor: pointer;
++      text-decoration: underline;
++      text-underline-offset: 2px;
++    }
++    .hash:hover { color: var(--vscode-textLink-activeForeground); }
++    .message {
++      flex: 1;
++      white-space: nowrap;
++      overflow: hidden;
++      text-overflow: ellipsis;
++      min-width: 0;
++    }
++    .meta {
++      font-size: 0.82em;
++      color: var(--vscode-descriptionForeground);
++      white-space: nowrap;
++      flex-shrink: 0;
++    }
++    .stat {
++      font-family: var(--vscode-editor-font-family, monospace);
++      font-size: 0.82em;
++      white-space: nowrap;
++      flex-shrink: 0;
++    }
++    .stat-add { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
++    .stat-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
++    .rename {
++      font-size: 0.78em;
++      color: var(--vscode-gitDecoration-renamedResourceForeground, var(--vscode-descriptionForeground));
++      white-space: nowrap;
++      flex-shrink: 1;
++      overflow: hidden;
++      text-overflow: ellipsis;
++      min-width: 0;
++      cursor: default;
++    }
++    .hunk {
++      display: none;
++      padding: 0 12px 10px 46px;
++      overflow-x: auto;
++    }
++    .commit-row.expanded .hunk { display: block; }
++    pre.diff {
++      margin: 0;
++      font-family: var(--vscode-editor-font-family, monospace);
++      font-size: var(--vscode-editor-font-size, 12px);
++      line-height: 1.4;
++      white-space: pre;
++    }
++    .diff-hunk-header { color: var(--vscode-gitDecoration-modifiedResourceForeground, #d4a017); }
++    .diff-add { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
++    .diff-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
++    .diff-ctx { color: var(--vscode-foreground); opacity: 0.7; }
++    .empty-state {
++      padding: 32px 0;
++      text-align: center;
++      color: var(--vscode-descriptionForeground);
++    }
++  `;
++
++  return html`<!DOCTYPE html>
++<html lang="en">
++<head>
++  <meta charset="UTF-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1.0">
++  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}';">
++  <title>Git Log -L</title>
++  <style>${raw(styles)}</style>
++</head>
++<body>
++  <div class="sticky-header">
++    <h2 id="title">Git Log -L</h2>
++    <p class="subtitle" id="subtitle">Loading...</p>
++    <code class="git-command" id="gitCommand"></code>
++    <div class="toolbar">
++      <button id="compareBtn" disabled>Compare A ΓåÆ B</button>
++      <button id="clearBtn" class="secondary">Clear</button>
++      <span id="selectionInfo" class="hint"></span>
++      <div class="toolbar-sep"></div>
++      <button id="prevBtn" class="secondary" disabled title="Previous commit (Ctrl+Left)">ΓùÇ Prev</button>
++      <button id="nextBtn" class="secondary" disabled title="Next commit (Ctrl+Right)">Next Γû╢</button>
++      <div class="toolbar-sep"></div>
++      <button id="expandAllBtn" class="secondary" title="Expand all (Ctrl+*)">Expand All</button>
++      <button id="collapseAllBtn" class="secondary" title="Collapse all (Ctrl+/)">Collapse All</button>
++    </div>
++  </div>
++
++  <div id="timeline" class="timeline">
++    <div class="empty-state">Loading commits...</div>
++  </div>
++
++  <script nonce="${nonce}" src="${scriptUri}"></script>
++</body>
++</html>`;
++}
++
+diff --git a/src/groupingViewBuilder.ts b/src/groupingViewBuilder.ts
+index dde89c9..dab77ba 100644
+--- a/src/groupingViewBuilder.ts
++++ b/src/groupingViewBuilder.ts
+@@ -4,11 +4,30 @@ import { AbsolutePath } from "./pathTypes";
+ import { FileMetadata, SortOrder } from "./types";
+ import { ConfigService } from "./config/configService";
+ import { FreshFileItem, FreshFilesTreeItem } from "./treeItems";
+-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, calculateTotalLineChanges, formatGroupDescription, formatTooltipLineChanges } from "./utils/formatUtils";
++import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges } from "./utils/formatUtils";
+ import { TreeItemContextValues } from "./treeItemConstants";
+ import { getMoonPhase, type MoonPhase } from "./utils/moonPhase";
+ import { getRetrogradeInfo, getRetrogradeKey, type Planet } from "./utils/planetaryRetrograde";
+ 
++/**
++ * Calculate total line changes from items with metadata.
++ * Returns undefined if the feature is disabled to avoid unnecessary work.
++ */
++function calculateTotalLineChanges<T extends { metadata: FileMetadata }>(
++  items: T[],
++): { added: number; deleted: number } | undefined {
++  if (!ConfigService.getDescriptionFormat().showLineChanges) {
++    return undefined;
++  }
++  return items.reduce(
++    (totals, item) => ({
++      added: totals.added + (item.metadata.linesAdded ?? 0),
++      deleted: totals.deleted + (item.metadata.linesDeleted ?? 0),
++    }),
++    { added: 0, deleted: 0 },
++  );
++}
++
+ /**
+  * Builds tree views for different grouping modes.
+  * Handles author, commit hash, moon phase, and retrograde grouping.
+diff --git a/src/utils/formatUtils.ts b/src/utils/formatUtils.ts
+index c81e910..8d0b19b 100644
+--- a/src/utils/formatUtils.ts
++++ b/src/utils/formatUtils.ts
+@@ -1,26 +1,4 @@
+ import { FileMetadata, DescriptionFormat } from "../types";
+-import { ConfigService } from "../config/configService";
+-
+-/**
+- * Calculate total line changes from items with metadata.
+- * Returns undefined if the feature is disabled to avoid unnecessary work.
+- */
+-export function calculateTotalLineChanges<T extends { metadata: FileMetadata }>(
+-  items: T[],
+-): { added: number; deleted: number } | undefined {
+-  // Check if feature is enabled first to avoid unnecessary work
+-  if (!ConfigService.getDescriptionFormat().showLineChanges) {
+-    return undefined;
+-  }
+-
+-  return items.reduce(
+-    (totals, item) => ({
+-      added: totals.added + (item.metadata.linesAdded ?? 0),
+-      deleted: totals.deleted + (item.metadata.linesDeleted ?? 0),
+-    }),
+-    { added: 0, deleted: 0 },
+-  );
+-}
+ 
+ /**
+  * Format a group description with file count and optional line changes
+@@ -319,3 +297,14 @@ export function formatFileTooltip(metadata: FileMetadata): string {
+ 
+   return lines.join("\n");
+ }
++
++/**
++ * Format a git argument list as a human-readable command string.
++ * Args containing spaces or special characters are single-quoted.
++ */
++export function formatGitCommand(args: string[]): string {
++  const formatted = args.map(arg =>
++    /[ \t\n:*?"<>|\\]/.test(arg) ? `'${arg}'` : arg
++  );
++  return "git " + formatted.join(" ");
++}
+diff --git a/src/webview/diffSearchPanel.ts b/src/webview/diffSearchPanel.ts
+new file mode 100644
+index 0000000..783f017
+--- /dev/null
++++ b/src/webview/diffSearchPanel.ts
+@@ -0,0 +1,306 @@
++import type { DiffSearchToWebview, DiffSearchFromWebview, DiffSearchHistoryEntry } from "./messages";
++
++// acquireVsCodeApi is a global injected by VS Code into the webview context.
++// @types/vscode-webview provides its declaration via tsconfig.webview.json.
++const vscode = acquireVsCodeApi();
++
++const form                 = document.getElementById("searchForm") as HTMLFormElement;
++const patternInput         = document.getElementById("pattern") as HTMLInputElement;
++const isRegexCheckbox      = document.getElementById("isRegex") as HTMLInputElement;
++const caseInsensitiveCheckbox = document.getElementById("caseInsensitive") as HTMLInputElement;
++const includePatternInput  = document.getElementById("includePattern") as HTMLInputElement;
++const excludePatternInput  = document.getElementById("excludePattern") as HTMLInputElement;
++const daysInput            = document.getElementById("daysInput") as HTMLInputElement;
++const pendingOnlyCheckbox  = document.getElementById("pendingOnly") as HTMLInputElement;
++const searchBtn            = document.getElementById("searchBtn") as HTMLButtonElement;
++const statusDiv            = document.getElementById("status") as HTMLElement;
++const batchProgressDiv     = document.getElementById("batchProgress") as HTMLElement;
++const batchBarsDiv         = document.getElementById("batchBars") as HTMLElement;
++const aggregateStatsDiv    = document.getElementById("aggregateStats") as HTMLElement;
++const daysRow              = document.getElementById("daysRow") as HTMLElement;
++const historySection       = document.getElementById("historySection") as HTMLElement;
++const historyList          = document.getElementById("historyList") as HTMLElement;
++const historyClearBtn      = document.getElementById("historyClearBtn") as HTMLButtonElement;
++
++interface RepoState {
++  commits: number;
++  matches: number;
++  pendingMatches: number;
++  status: string;
++}
++
++const repoStates: Record<number, RepoState> = {};
++
++function postMessage(msg: DiffSearchFromWebview): void {
++  vscode.postMessage(msg);
++}
++
++// Validate regex on checkbox change
++isRegexCheckbox.addEventListener("change", () => {
++  if (isRegexCheckbox.checked) {
++    validateRegex();
++  } else {
++    hideStatus();
++  }
++});
++
++patternInput.addEventListener("input", () => {
++  if (isRegexCheckbox.checked) {
++    validateRegex();
++  }
++});
++
++// Toggle days row when pending only checkbox changes
++pendingOnlyCheckbox.addEventListener("change", () => {
++  daysRow.style.display = pendingOnlyCheckbox.checked ? "none" : "";
++  if (pendingOnlyCheckbox.checked) {
++    hideStatus();
++  } else if (!daysInput.value) {
++    warnAboutFullHistory();
++  }
++});
++
++// Show warning when days is cleared (unlimited)
++daysInput.addEventListener("input", () => {
++  if (!daysInput.value && !pendingOnlyCheckbox.checked) {
++    warnAboutFullHistory();
++  } else if (statusDiv.textContent?.includes("all history")) {
++    hideStatus();
++  }
++});
++
++function warnAboutFullHistory(){
++  showStatus(
++      "ΓÜá∩╕Å Full history search is slow on large repos. Ballpark metrics - a minute per 1GB of .git folder size. The search will not die midway or eat all your RAM. Multiple repos run in parallel. ",
++      "warning",
++  );
++}
++
++function validateRegex(): void {
++  try {
++    new RegExp(patternInput.value);
++    hideStatus();
++    searchBtn.disabled = false;
++  } catch (e) {
++    showStatus("Invalid regex: " + (e as Error).message, "error");
++    searchBtn.disabled = true;
++  }
++}
++
++function showStatus(message: string, type = "info"): void {
++  statusDiv.textContent = message;
++  statusDiv.className = "status " + type;
++  statusDiv.style.display = "block";
++}
++
++function hideStatus(): void {
++  statusDiv.style.display = "none";
++}
++
++// Handle form submission
++form.addEventListener("submit", (e: SubmitEvent) => {
++  e.preventDefault();
++
++  const pattern = patternInput.value.trim();
++  if (!pattern) {
++    showStatus("Please enter a search pattern", "error");
++    return;
++  }
++
++  searchBtn.disabled = true;
++  showStatus("Searching...", "info");
++  const gitCommandEl = document.getElementById("gitCommand") as HTMLElement | null;
++  if (gitCommandEl) { gitCommandEl.style.display = "none"; }
++
++  postMessage({
++    command: "search",
++    pattern,
++    isRegex: isRegexCheckbox.checked,
++    caseInsensitive: caseInsensitiveCheckbox.checked,
++    includePattern: includePatternInput.value.trim(),
++    excludePattern: excludePatternInput.value.trim(),
++    pendingOnly: pendingOnlyCheckbox.checked,
++    days: pendingOnlyCheckbox.checked
++      ? null
++      : daysInput.value
++        ? parseInt(daysInput.value)
++        : null,
++  });
++});
++
++// Handle messages from extension
++window.addEventListener("message", (event: MessageEvent<DiffSearchToWebview>) => {
++  const message = event.data;
++  switch (message.command) {
++    case "setHistory": {
++      renderHistory(message.entries);
++      break;
++    }
++
++    case "prefillParams": {
++      const p = message.params;
++      applyParams(p);
++      break;
++    }
++
++    case "prefill":
++      patternInput.value = message.pattern;
++      patternInput.select();
++      patternInput.focus();
++      break;
++
++    case "reposStarted": {
++      // Initialize per-repo progress display
++      for (const key in repoStates) { delete repoStates[Number(key)]; }
++      batchBarsDiv.innerHTML = "";
++      batchProgressDiv.style.display = "block";
++      statusDiv.style.display = "none";
++
++      for (let i = 0; i < message.repoCount; i++) {
++        const repoName = message.repoNames[i];
++        repoStates[i + 1] = { commits: 0, matches: 0, pendingMatches: 0, status: "Waiting" };
++
++        const repoDiv = document.createElement("div");
++        repoDiv.className = "batch-bar";
++        repoDiv.id = "repo-" + (i + 1);
++        repoDiv.innerHTML =
++          '<div class="batch-bar-label">' +
++            "<span>" + repoName + "</span>" +
++            '<span id="repo-' + (i + 1) + '-stats" style="font-style: italic; color: var(--vscode-descriptionForeground);">Waiting...</span>' +
++          "</div>";
++        batchBarsDiv.appendChild(repoDiv);
++      }
++
++      aggregateStatsDiv.textContent = "Waiting...";
++      break;
++    }
++
++    case "repoProgress":
++      if (repoStates[message.repoIndex]) {
++        repoStates[message.repoIndex].status = message.status;
++        const statsSpan = document.getElementById("repo-" + message.repoIndex + "-stats");
++        if (statsSpan) { statsSpan.textContent = message.status; }
++      }
++      break;
++
++    case "repoComplete": {
++      if (repoStates[message.repoIndex]) {
++        repoStates[message.repoIndex] = {
++          commits: message.commits,
++          matches: message.matches,
++          pendingMatches: message.pendingMatches,
++          status: "Complete",
++        };
++
++        const statsSpan = document.getElementById("repo-" + message.repoIndex + "-stats");
++        if (statsSpan) {
++          const elapsed = message.elapsedMs !== null && message.elapsedMs !== undefined ? " ΓÇö " + formatElapsed(message.elapsedMs) : "";
++          const commitMatches = message.matches - message.pendingMatches;
++          if (message.commits === 0 && message.pendingMatches === 0) {
++            statsSpan.textContent = "No matches" + elapsed;
++          } else {
++            statsSpan.textContent =
++              message.commits + " commits (" + commitMatches + " matches), " +
++              message.pendingMatches + " pending" + elapsed;
++          }
++        }
++
++        // Update aggregate stats
++        let totalCommits = 0;
++        let totalMatches = 0;
++        let totalPending = 0;
++        for (const repoIndex in repoStates) {
++          totalCommits += repoStates[repoIndex].commits;
++          totalMatches += repoStates[repoIndex].matches;
++          totalPending += repoStates[repoIndex].pendingMatches;
++        }
++
++        if (totalCommits === 0 && totalPending === 0) {
++          aggregateStatsDiv.textContent = "Total: No matches";
++        } else {
++          const totalCommitMatches = totalMatches - totalPending;
++          aggregateStatsDiv.textContent =
++            "Total: " + totalCommits + " commits (" + totalCommitMatches + " matches), " +
++            totalPending + " pending";
++        }
++      }
++      break;
++    }
++
++    case "searchComplete":
++      searchBtn.disabled = false;
++      showStatus(message.message, message.count > 0 ? "info" : "error");
++      if (message.gitCommand) {
++        const gitCommandEl = document.getElementById("gitCommand") as HTMLElement | null;
++        if (gitCommandEl) {
++          gitCommandEl.textContent = message.gitCommand;
++          gitCommandEl.style.display = "block";
++        }
++      }
++      break;
++  }
++});
++
++historyClearBtn.addEventListener("click", () => {
++  postMessage({ command: "clearHistory" });
++});
++
++function applyParams(p: import("./messages").DiffSearchParams): void {
++  patternInput.value = p.pattern;
++  isRegexCheckbox.checked = p.isRegex;
++  caseInsensitiveCheckbox.checked = p.caseInsensitive;
++  includePatternInput.value = p.includePattern;
++  excludePatternInput.value = p.excludePattern;
++  pendingOnlyCheckbox.checked = p.pendingOnly;
++  daysRow.style.display = p.pendingOnly ? "none" : "";
++  daysInput.value = p.days !== null ? String(p.days) : "";
++}
++
++function formatRelativeTime(timestamp: number): string {
++  const diff = Date.now() - timestamp;
++  const m = Math.floor(diff / 60000);
++  if (m < 1) { return "just now"; }
++  if (m < 60) { return m + "m ago"; }
++  const h = Math.floor(m / 60);
++  if (h < 24) { return h + "h ago"; }
++  return Math.floor(h / 24) + "d ago";
++}
++
++function renderHistory(entries: DiffSearchHistoryEntry[]): void {
++  historyList.innerHTML = "";
++  if (entries.length === 0) {
++    historySection.style.display = "none";
++    return;
++  }
++  historySection.style.display = "block";
++  for (const entry of entries) {
++    const li = document.createElement("li");
++    li.className = "history-entry";
++    li.title = entry.label;
++
++    const labelSpan = document.createElement("span");
++    labelSpan.className = "history-label";
++    labelSpan.textContent = entry.label;
++
++    const timeSpan = document.createElement("span");
++    timeSpan.className = "history-time";
++    timeSpan.textContent = formatRelativeTime(entry.timestamp);
++
++    li.appendChild(labelSpan);
++    li.appendChild(timeSpan);
++    li.addEventListener("click", () => {
++      applyParams(entry.params);
++      patternInput.focus();
++    });
++    historyList.appendChild(li);
++  }
++}
++
++function formatElapsed(ms: number): string {
++  if (ms < 1000) { return ms + "ms"; }
++  return (ms / 1000).toFixed(1) + "s";
++}
++
++postMessage({ command: "ready" });
++
++patternInput.focus();

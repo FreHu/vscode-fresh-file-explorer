@@ -87,62 +87,45 @@ export function formatRelativeDate(date: Date): string {
 }
 
 /**
+ * Map of git status codes to human-readable labels.
+ */
+const STATUS_LABELS: Record<string, string> = {
+  // Standard statuses
+  M: "modified",
+  A: "added",
+  D: "deleted",
+  R: "renamed",
+  C: "copied",
+  T: "type changed",
+  "??": "untracked",
+  "!!": "ignored",
+  // Staged + unstaged combinations
+  MM: "modified",
+  AM: "added",
+  AD: "deleted",
+  MD: "deleted",
+  RM: "renamed",
+  // Merge conflict statuses
+  UU: "conflict (both modified)",
+  AA: "conflict (both added)",
+  DD: "conflict (both deleted)",
+  AU: "conflict (added by us)",
+  UA: "conflict (added by them)",
+  DU: "conflict (deleted by us)",
+  UD: "conflict (deleted by them)",
+};
+
+/**
  * Get a human-readable status label for git status codes
  */
-function getStatusLabel(status: string): string {
-  switch (status) {
-    // Standard statuses
-    case "M":
-      return "modified";
-    case "A":
-      return "added";
-    case "D":
-      return "deleted";
-    case "R":
-      return "renamed";
-    case "C":
-      return "copied";
-    case "T":
-      return "type changed";
-    case "??":
-      return "untracked";
-    case "!!":
-      return "ignored";
-    // Staged + unstaged combinations
-    case "MM":
-      return "modified";
-    case "AM":
-      return "added";
-    case "AD":
-      return "deleted";
-    case "MD":
-      return "deleted";
-    case "RM":
-      return "renamed";
-    // Merge conflict statuses
-    case "UU":
-      return "conflict (both modified)";
-    case "AA":
-      return "conflict (both added)";
-    case "DD":
-      return "conflict (both deleted)";
-    case "AU":
-      return "conflict (added by us)";
-    case "UA":
-      return "conflict (added by them)";
-    case "DU":
-      return "conflict (deleted by us)";
-    case "UD":
-      return "conflict (deleted by them)";
-    default:
-      return status.toLowerCase();
-  }
+export function getStatusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status.toLowerCase();
 }
 
 /**
  * Truncate a string to a maximum length, adding ellipsis if needed
  */
-function truncate(str: string, maxLength: number): string {
+export function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
     return str;
   }
@@ -155,7 +138,7 @@ function truncate(str: string, maxLength: number): string {
  * @param linesDeleted The number of lines deleted (undefined or 0 for none)
  * @returns A formatted string like "+15 -3", or empty string if no changes
  */
-function formatLineChanges(linesAdded: number | undefined, linesDeleted: number | undefined): string {
+export function formatLineChanges(linesAdded: number | undefined, linesDeleted: number | undefined): string {
   const added = linesAdded ?? 0;
   const deleted = linesDeleted ?? 0;
 
@@ -296,6 +279,20 @@ export function formatFileTooltip(metadata: FileMetadata): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Escape a string for use as a regex pattern.
+ */
+export function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Convert all backslashes in a path to forward slashes.
+ */
+export function toForwardSlashes(p: string): string {
+  return p.replace(/\\/g, "/");
 }
 
 /**

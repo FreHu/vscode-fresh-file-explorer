@@ -11,6 +11,29 @@ export async function handleViewOptions(freshFileProvider: FreshFileProvider): P
   await showViewOptionsMenu(freshFileProvider);
 }
 
+const options = [
+  {
+    label: "$(group-by-ref-type) Set Grouping Mode",
+    description: "Change how files are organized (by structure, author, commit, etc.)",
+    action: "grouping",
+  },
+  {
+    label: "$(sort-precedence) Set Sort Order",
+    description: "Change sorting within folders (name, date, author)",
+    action: "sort",
+  },
+  {
+    label: "$(person) Filter by Author",
+    description: "Show only files from specific authors",
+    action: "filterAuthor",
+  },
+  {
+    label: "$(git-commit) Filter by Commit",
+    description: "Show only files from specific commits",
+    action: "filterCommit",
+  },
+];
+
 /**
  * Shows the view options menu and loops back after sub-menu closes
  */
@@ -20,29 +43,6 @@ async function showViewOptionsMenu(freshFileProvider: FreshFileProvider): Promis
   const quickPick = vscode.window.createQuickPick();
   quickPick.title = "View Options";
   quickPick.placeholder = "Select a view option to configure";
-
-  const options = [
-    {
-      label: "$(group-by-ref-type) Set Grouping Mode",
-      description: "Change how files are organized (by structure, author, commit, etc.)",
-      action: "grouping",
-    },
-    {
-      label: "$(sort-precedence) Set Sort Order",
-      description: "Change sorting within folders (name, date, author)",
-      action: "sort",
-    },
-    {
-      label: "$(person) Filter by Author",
-      description: "Show only files from specific authors",
-      action: "filterAuthor",
-    },
-    {
-      label: "$(git-commit) Filter by Commit",
-      description: "Show only files from specific commits",
-      action: "filterCommit",
-    },
-  ];
 
   quickPick.items = options;
 

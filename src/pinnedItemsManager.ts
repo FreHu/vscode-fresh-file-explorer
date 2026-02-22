@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { AbsolutePath } from "./pathTypes";
 import { PinnedItem } from "./types";
 import { log } from "./utils/logger";

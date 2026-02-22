@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { filterMatchesByPattern, buildPathspecs } from "../../git/gitDiffSearch";
+import { filterMatchesByPattern, buildPathspecs, matchFileLines } from "../../git/gitDiffSearch";
 import { DiffMatch } from "../../git/gitDiffSearch";
 import { asAbsolutePath } from "../../pathTypes";
 
@@ -106,6 +106,65 @@ suite("gitDiffSearch", () => {
 
     test("filters empty entries from comma-separated list", () => {
       assert.deepStrictEqual(buildPathspecs("*.ts,,src/**", ""), ["*.ts", "src/**"]);
+    });
+  });
+
+  suite("matchFileLines", () => {
+    const FILE = asAbsolutePath("/repo/src/utils.ts");
+    const LINES = [
+      "const foo = 1;",
+      "const Bar = 2;",
+      "// TODO: remove this",
+      "export default foo;",
+    ];
+
+    test("plain text match returns matching lines with 1-based line numbers", () => {
+      const result = matchFileLines(LINES, FILE, "foo", false, false);
+      assert.strictEqual(result.length, 2);
+      assert.strictEqual(result[0].lineNumber, 1);
+      assert.strictEqual(result[0].lineContent, "const foo = 1;");
+      assert.strictEqual(result[1].lineNumber, 4);
+      assert.strictEqual(result[1].lineContent, "export default foo;");
+    });
+
+    test("plain text match is case-sensitive by default", () => {
+      const result = matchFileLines(LINES, FILE, "bar", false, false);
+      assert.strictEqual(result.length, 0);
+    });
+
+    test("plain text match is case-insensitive when requested", () => {
+      const result = matchFileLines(LINES, FILE, "bar", false, true);
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].lineContent, "const Bar = 2;");
+    });
+
+    test("regex match honours the pattern", () => {
+      const result = matchFileLines(LINES, FILE, "const \\w+ = \\d+", true, false);
+      assert.strictEqual(result.length, 2);
+      assert.strictEqual(result[0].lineNumber, 1);
+      assert.strictEqual(result[1].lineNumber, 2);
+    });
+
+    test("regex match with case-insensitive flag", () => {
+      const result = matchFileLines(LINES, FILE, "todo", true, true);
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].lineContent, "// TODO: remove this");
+    });
+
+    test("all result matches carry correct metadata", () => {
+      const [m] = matchFileLines(LINES, FILE, "foo", false, false);
+      assert.strictEqual(m.filePath, FILE);
+      assert.strictEqual(m.changeType, "added");
+      assert.strictEqual(m.isStaged, false);
+      assert.strictEqual(m.fileAdded, true);
+    });
+
+    test("no matches on empty file", () => {
+      assert.deepStrictEqual(matchFileLines([], FILE, "foo", false, false), []);
+    });
+
+    test("no matches when pattern absent from all lines", () => {
+      assert.deepStrictEqual(matchFileLines(LINES, FILE, "notpresent", false, false), []);
     });
   });
 });

@@ -292,7 +292,7 @@ export class DiffSearchPanel {
       const results = await Promise.allSettled(repoPromises);
 
       // Aggregate results
-      results.forEach((result, i) => {
+      results.forEach((result) => {
         if (result.status === "fulfilled") {
           allMatches = allMatches.concat(result.value);
           totalMatchCount += result.value.length;

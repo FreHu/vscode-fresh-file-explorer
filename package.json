@@ -731,14 +731,16 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run compile:webview",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run copy:fixtures",
     "compile:webview": "tsc -p tsconfig.webview.json --noEmit && esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts --bundle --outdir=media --format=iife --platform=browser",
+    "copy:fixtures": "copyfiles -u 1 \"src/test/fixtures/**\" out/",
     "watch": "run-p watch:ext watch:webview",
     "watch:ext": "tsc -watch -p ./",
     "watch:webview": "esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts --bundle --outdir=media --format=iife --platform=browser --watch",
     "pretest": "npm run compile && npm run compile:webview && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test:coverage": "vscode-test --coverage"
   },
   "devDependencies": {
     "@types/node": "22.x",
@@ -746,6 +748,7 @@
     "@types/vscode-webview": "^1.57.5",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
+    "copyfiles": "^2.4.1",
     "esbuild": "^0.27.3",
     "eslint": "^9.39.1",
     "npm-run-all2": "^8.0.4",

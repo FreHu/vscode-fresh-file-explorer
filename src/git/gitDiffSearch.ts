@@ -103,6 +103,147 @@ export async function searchHistoricalDiffs(
 }
 
 /**
+ * Creates a stateful line processor for `git log -p` / `git diff` output.
+ * Extracted for testability — `parseDiffOutput` and `streamGitDiffOutput` both use it.
+ *
+ * @param cwd         Repo root prepended to relative file paths in the output.
+ * @param extractCommitInfo  Whether to parse commit/author/date headers (git log -p).
+ * @param onMatch     Called for every added/removed diff line that is parsed.
+ * @param onCommitFound  Optional progress callback, called per commit header parsed.
+ */
+function createDiffLineProcessor(
+  cwd: string,
+  extractCommitInfo: boolean,
+  onMatch: (match: DiffMatch) => void,
+  onCommitFound?: (commitNumber: number) => void,
+): (line: string) => void {
+  let currentFile: string | null = null;
+  let currentFileAdded = false;
+  let currentCommit: CommitHash | undefined;
+  let currentCommitMessage: string | undefined;
+  let currentCommitDate: Date | undefined;
+  let addedLineNum = 0;
+  let removedLineNum = 0;
+  let commitCount = 0;
+
+  return function processLine(line: string) {
+    // Parse commit header (from git log -p)
+    if (extractCommitInfo && line.startsWith("commit ")) {
+      const hash = line.substring(7, 47).trim();
+      currentCommit = asCommitHash(hash);
+      currentCommitMessage = undefined;
+      currentCommitDate = undefined;
+      commitCount++;
+      if (onCommitFound) {
+        onCommitFound(commitCount);
+      }
+      return;
+    }
+
+    // Parse commit date
+    if (extractCommitInfo && currentCommit && line.startsWith("Date:   ")) {
+      const dateStr = line.substring(8).trim();
+      currentCommitDate = new Date(dateStr);
+      return;
+    }
+
+    // Parse commit message
+    if (extractCommitInfo && currentCommit && line.startsWith("    ") && !currentCommitMessage) {
+      currentCommitMessage = line.trim();
+      return;
+    }
+
+    // Parse diff header
+    if (line.startsWith("diff --git ")) {
+      currentFile = null;
+      currentFileAdded = false;
+      return;
+    }
+
+    // Detect new file
+    if (line.startsWith("new file mode")) {
+      currentFileAdded = true;
+      return;
+    }
+
+    // Skip binary files
+    if (line.startsWith("Binary files ")) {
+      currentFile = null;
+      return;
+    }
+
+    // Parse file path from +++ b/path
+    if (line.startsWith("+++ b/")) {
+      let filePath = line.substring(6);
+      filePath = decodeGitPath(filePath);
+      const absolutePath = asAbsolutePath(`${cwd}/${filePath}`);
+      currentFile = absolutePath;
+      return;
+    }
+
+    // Parse hunk header
+    if (line.startsWith("@@")) {
+      const match = line.match(/@@ -(\d+),?\d* \+(\d+),?\d* @@/);
+      if (match) {
+        removedLineNum = parseInt(match[1], 10);
+        addedLineNum = parseInt(match[2], 10);
+      }
+      return;
+    }
+
+    // Parse diff lines
+    if (currentFile && line.length > 0) {
+      const prefix = line[0];
+
+      if (prefix === "+") {
+        onMatch({
+          filePath: currentFile as AbsolutePath,
+          lineNumber: addedLineNum,
+          lineContent: line.substring(1),
+          changeType: "added",
+          commitHash: currentCommit,
+          commitMessage: currentCommitMessage,
+          commitDate: currentCommitDate,
+          fileAdded: currentFileAdded,
+        });
+        addedLineNum++;
+      } else if (prefix === "-") {
+        onMatch({
+          filePath: currentFile as AbsolutePath,
+          lineNumber: removedLineNum,
+          lineContent: line.substring(1),
+          changeType: "removed",
+          commitHash: currentCommit,
+          commitMessage: currentCommitMessage,
+          commitDate: currentCommitDate,
+        });
+        removedLineNum++;
+      } else if (prefix === " ") {
+        addedLineNum++;
+        removedLineNum++;
+      }
+    }
+  };
+}
+
+/**
+ * Parse raw `git log -p` or `git diff` text into an array of diff matches.
+ * Pure function with no I/O — suitable for unit testing.
+ *
+ * @param raw              Full text output from git.
+ * @param cwd              Repo root used to build absolute file paths.
+ * @param extractCommitInfo  Pass `true` for `git log -p` output, `false` for plain `git diff`.
+ */
+export function parseDiffOutput(raw: string, cwd: string, extractCommitInfo: boolean): DiffMatch[] {
+  const matches: DiffMatch[] = [];
+  const processLine = createDiffLineProcessor(cwd, extractCommitInfo, m => matches.push(m));
+  for (const line of raw.split("\n")) {
+    processLine(line);
+  }
+  return matches;
+}
+
+/**
  * Execute git command and stream/parse output line-by-line to avoid memory issues
  * Supports incremental result callbacks for live UI updates
  */
@@ -117,17 +258,17 @@ function streamGitDiffOutput(
   return new Promise((resolve, reject) => {
     const child = cp.spawn("git", args, { cwd, timeout });
     const matches: DiffMatch[] = [];
-    
+
     // Batching for incremental updates
     let batchBuffer: DiffMatch[] = [];
-    const BATCH_SIZE = 250; // Increased: fire callback every N matches
+    const BATCH_SIZE = 250;
     let lastBatchTime = Date.now();
-    const BATCH_INTERVAL = 1000; // Increased to 1s to reduce update frequency
+    const BATCH_INTERVAL = 1000;
 
     function flushBatch() {
       if (batchBuffer.length > 0 && onBatch) {
-        onBatch(batchBuffer); // Send reference, not copy
-        batchBuffer = []; // Create new array for next batch
+        onBatch(batchBuffer);
+        batchBuffer = [];
         lastBatchTime = Date.now();
       }
     }
@@ -135,123 +276,13 @@ function streamGitDiffOutput(
     function addMatch(match: DiffMatch) {
       matches.push(match);
       batchBuffer.push(match);
-      
-      // Flush if batch is full or time interval elapsed
       if (batchBuffer.length >= BATCH_SIZE || Date.now() - lastBatchTime >= BATCH_INTERVAL) {
         flushBatch();
       }
     }
-    
-    // Streaming line parser state
+
     let buffer = "";
-    let currentFile: string | null = null;
-    let currentFileAdded = false;
-    let currentCommit: CommitHash | undefined;
-    let currentCommitMessage: string | undefined;
-    let currentCommitDate: Date | undefined;
-    let addedLineNum = 0;
-    let removedLineNum = 0;
-    let commitCount = 0;
-
-    // Process each line as it arrives
-    function processLine(line: string) {
-      // Parse commit header (from git log -p)
-      if (extractCommitInfo && line.startsWith("commit ")) {
-        const hash = line.substring(7, 47).trim();
-        currentCommit = asCommitHash(hash);
-        currentCommitMessage = undefined;
-        currentCommitDate = undefined;
-        commitCount++;
-        if (onCommitFound) {
-          onCommitFound(commitCount);
-        }
-        return;
-      }
-
-      // Parse commit date
-      if (extractCommitInfo && currentCommit && line.startsWith("Date:   ")) {
-        const dateStr = line.substring(8).trim();
-        currentCommitDate = new Date(dateStr);
-        return;
-      }
-
-      // Parse commit message
-      if (extractCommitInfo && currentCommit && line.startsWith("    ") && !currentCommitMessage) {
-        currentCommitMessage = line.trim();
-        return;
-      }
-
-      // Parse diff header
-      if (line.startsWith("diff --git ")) {
-        currentFile = null;
-        currentFileAdded = false;
-        return;
-      }
-
-      // Detect new file
-      if (line.startsWith("new file mode")) {
-        currentFileAdded = true;
-        return;
-      }
-
-      // Skip binary files
-      if (line.startsWith("Binary files ")) {
-        currentFile = null;
-        return;
-      }
-
-      // Parse file path from +++ b/path
-      if (line.startsWith("+++ b/")) {
-        let filePath = line.substring(6);
-        filePath = decodeGitPath(filePath);
-        const absolutePath = asAbsolutePath(`${cwd}/${filePath}`);
-        currentFile = absolutePath;
-        return;
-      }
-
-      // Parse hunk header
-      if (line.startsWith("@@")) {
-        const match = line.match(/@@ -(\d+),?\d* \+(\d+),?\d* @@/);
-        if (match) {
-          removedLineNum = parseInt(match[1], 10);
-          addedLineNum = parseInt(match[2], 10);
-        }
-        return;
-      }
-
-      // Parse diff lines
-      if (currentFile && line.length > 0) {
-        const prefix = line[0];
-
-        if (prefix === "+") {
-          addMatch({
-            filePath: currentFile as AbsolutePath,
-            lineNumber: addedLineNum,
-            lineContent: line.substring(1),
-            changeType: "added",
-            commitHash: currentCommit,
-            commitMessage: currentCommitMessage,
-            commitDate: currentCommitDate,
-            fileAdded: currentFileAdded,
-          });
-          addedLineNum++;
-        } else if (prefix === "-") {
-          addMatch({
-            filePath: currentFile as AbsolutePath,
-            lineNumber: removedLineNum,
-            lineContent: line.substring(1),
-            changeType: "removed",
-            commitHash: currentCommit,
-            commitMessage: currentCommitMessage,
-            commitDate: currentCommitDate,
-          });
-          removedLineNum++;
-        } else if (prefix === " ") {
-          addedLineNum++;
-          removedLineNum++;
-        }
-      }
-    }
+    const processLine = createDiffLineProcessor(cwd, extractCommitInfo, addMatch, onCommitFound);
 
     // Stream stdout data in chunks
     child.stdout.on("data", (data: Buffer) => {
@@ -312,6 +343,48 @@ function streamGitDiffOutput(
  * These are invisible to `git diff` / `git diff --staged`, so we list them with
  * `git ls-files --others --exclude-standard` and read each file directly.
  */
+/**
+ * Pure function: scan `lines` of a single file and return a DiffMatch for every line that
+ * satisfies the search criteria. Used by searchUntrackedFiles and directly testable.
+ */
+export function matchFileLines(
+  lines: string[],
+  filePath: AbsolutePath,
+  pattern: string,
+  isRegex: boolean,
+  caseInsensitive: boolean,
+): DiffMatch[] {
+  const regexFlags = caseInsensitive ? "i" : "";
+  const searchRegex = isRegex ? new RegExp(pattern, regexFlags) : null;
+  const lowerPattern = caseInsensitive ? pattern.toLowerCase() : "";
+  const matches: DiffMatch[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    let matched: boolean;
+    if (searchRegex) {
+      matched = searchRegex.test(line);
+    } else if (caseInsensitive) {
+      matched = line.toLowerCase().includes(lowerPattern);
+    } else {
+      matched = line.includes(pattern);
+    }
+
+    if (matched) {
+      matches.push({
+        filePath,
+        lineNumber: i + 1,
+        lineContent: line,
+        changeType: "added",
+        isStaged: false,
+        fileAdded: true,
+      });
+    }
+  }
+
+  return matches;
+}
+
 async function searchUntrackedFiles(
   repoPath: string,
   pattern: string,
@@ -338,8 +411,6 @@ async function searchUntrackedFiles(
     return [];
   }
 
-  const regexFlags = caseInsensitive ? "i" : "";
-  const searchRegex = isRegex ? new RegExp(pattern, regexFlags) : null;
   const matches: DiffMatch[] = [];
   const repoRoot = asAbsolutePath(repoPath);
 
@@ -362,28 +433,8 @@ async function searchUntrackedFiles(
     }
 
     const lines = content.split("\n").map(l => l.replace(/\r$/, ""));
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      let matched: boolean;
-      if (searchRegex) {
-        matched = searchRegex.test(line);
-      } else if (caseInsensitive) {
-        matched = line.toLowerCase().includes(pattern.toLowerCase());
-      } else {
-        matched = line.includes(pattern);
-      }
-
-      if (matched) {
-        matches.push({
-          filePath: absPath,
-          lineNumber: i + 1,
-          lineContent: line,
-          changeType: "added",
-          isStaged: false,
-          fileAdded: true,
-        });
-      }
-    }
+    const fileMatches = matchFileLines(lines, absPath, pattern, isRegex, caseInsensitive);
+    matches.push(...fileMatches);
   }
 
   return matches;

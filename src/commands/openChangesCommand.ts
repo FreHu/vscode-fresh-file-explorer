@@ -32,9 +32,7 @@ export async function handleOpenChanges(
           if (isNewlyAdded) {
             // For newly added files, just open the file from that commit
             // (can't show diff since parent doesn't have it)
-            const fileUri = gitUri(fileItem.resourceUri, fileItem.commitHash);
-            const title = `${fileName} (${commitHashPart(fileItem.commitHash)} - added)`;
-            
+            const fileUri = gitUri(fileItem.resourceUri, fileItem.commitHash);            
             await openFileWithoutDuplicating(fileUri, {
               preserveFocus,
               preview: preserveFocus,

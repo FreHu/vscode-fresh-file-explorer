@@ -63,7 +63,6 @@ export class DiffSearchMatchItem extends vscode.TreeItem {
     this.label = `L${lineNumber}: ${truncatedContent}`;
 
     // Set unique ID
-    const commitPart = commitHash ? commitHash : (isStaged ? "staged" : "unstaged");
     this.id = `match-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`;
 
     // Use appropriate icon based on change type

@@ -6,5 +6,10 @@ export default defineConfig({
     ui: "tdd",
     timeout: 20000,
     color: true
-  }
+  },
+  coverage: {
+    includeAll: true,
+    include: ["out/**/*.js"],
+    exclude: ["out/test/**", "out/webview/**"],
+  },
 });

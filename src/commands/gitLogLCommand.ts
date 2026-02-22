@@ -5,8 +5,30 @@ import { parseGitLogL } from "../git/gitLogLParser";
 import { GitLogLPanel } from "../gitLogLPanel";
 import { log } from "../utils/logger";
 import { FreshFileItem } from "../treeItems";
-import { formatGitCommand } from "../utils/formatUtils";
+import { formatGitCommand, escapeRegex, toForwardSlashes } from "../utils/formatUtils";
 export { formatGitCommand };
+
+export type LArgSpec =
+  | { kind: "lineRange"; startLine: number; endLine: number; relativePath: string; fileName: string }
+  | { kind: "funcName";  funcName: string;                   relativePath: string; fileName: string };
+
+/**
+ * Pure function: build the `-L` argument and a human-readable label from a selection spec.
+ * Line numbers are 1-based.
+ */
+export function buildLArg(spec: LArgSpec): { lArg: string; label: string } {
+  if (spec.kind === "lineRange") {
+    return {
+      lArg: `${spec.startLine},${spec.endLine}:${spec.relativePath}`,
+      label: `lines ${spec.startLine}\u2013${spec.endLine} \u00b7 ${spec.fileName}`,
+    };
+  } else {
+    return {
+      lArg: `:${escapeRegex(spec.funcName)}:${spec.relativePath}`,
+      label: `${spec.funcName} \u00b7 ${spec.fileName}`,
+    };
+  }
+}
 
 /**
  * Run `git log -L` on the current editor selection.
@@ -43,6 +65,7 @@ export async function handleGitLogL(): Promise<void> {
 
   // Path relative to the repo root (git expects forward slashes)
   const relativePath = toForwardSlashes(nodePath.relative(repoRoot, filePath));
+  const fileName = nodePath.basename(filePath);
 
   let lArg: string;
   let label: string;
@@ -50,8 +73,7 @@ export async function handleGitLogL(): Promise<void> {
   if (isMultiLine) {
     const startLine = selection.start.line + 1;
     const endLine = selection.end.line + 1;
-    lArg = `${startLine},${endLine}:${relativePath}`;
-    label = `lines ${startLine}–${endLine} · ${nodePath.basename(filePath)}`;
+    ({ lArg, label } = buildLArg({ kind: "lineRange", startLine, endLine, relativePath, fileName }));
     log(`git log -L (line range): ${lArg}`, "info");
   } else {
     const funcName = getSelectedWordOrText(editor);
@@ -61,8 +83,7 @@ export async function handleGitLogL(): Promise<void> {
       );
       return;
     }
-    lArg = `:${escapeRegex(funcName)}:${relativePath}`;
-    label = `${funcName} · ${nodePath.basename(filePath)}`;
+    ({ lArg, label } = buildLArg({ kind: "funcName", funcName, relativePath, fileName }));
     log(`git log -L (funcname): ${lArg}`, "info");
   }
 
@@ -174,12 +195,6 @@ function getSelectedWordOrText(editor: vscode.TextEditor): string {
   return "";
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
-function toForwardSlashes(p: string): string {
-  return p.replace(/\\/g, "/");
-}
 
 

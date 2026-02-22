@@ -86,59 +86,6 @@ export function convertToRelativePaths(
 }
 
 /**
- * Builds an optimized search pattern from relative paths, with truncation if needed
- * @returns The optimized pattern, or null if paths are too long
- * @deprecated Use batchFilesForSearch instead for better handling of long patterns
- */
-export function buildOptimizedSearchPattern(
-  relativePaths: string[],
-): { pattern: string; truncated: boolean; includedCount: number } | null {
-  const maxLength = getMaxIncludePatternLength();
-
-  // Optimize pattern using nested brace expansion
-  let includePattern = optimizeIncludePatterns(relativePaths);
-  let truncated = false;
-  let includedCount = relativePaths.length;
-
-  // Check if the optimized pattern is still too long
-  if (includePattern.length > maxLength) {
-    truncated = true;
-
-    // Fall back to including as many individual files as possible
-    const includedPaths: string[] = [];
-    let currentLength = 2; // Account for { and }
-
-    for (const path of relativePaths) {
-      const additionalLength = path.length + (includedPaths.length > 0 ? 1 : 0);
-
-      if (currentLength + additionalLength > maxLength) {
-        break;
-      }
-
-      includedPaths.push(path);
-      currentLength += additionalLength;
-    }
-
-    if (includedPaths.length === 0) {
-      return null;
-    }
-
-    includePattern = includedPaths.length === 1 ? includedPaths[0] : `{${includedPaths.join(",")}}`;
-    includedCount = includedPaths.length;
-
-    log(
-      `Search: Pattern too long after optimization, including only ${includedCount} of ${relativePaths.length} files`,
-    );
-  }
-
-  log(
-    `Search: Optimized ${relativePaths.length} file(s), final pattern length: ${includePattern.length}`,
-  );
-
-  return { pattern: includePattern, truncated, includedCount };
-}
-
-/**
  * Splits file paths into batches where each batch's optimized pattern fits within the limit.
  * Uses a greedy algorithm to maximize files per batch.
  * 

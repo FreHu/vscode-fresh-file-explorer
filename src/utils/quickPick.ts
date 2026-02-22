@@ -7,11 +7,11 @@ export interface CommitQuickPickItem extends vscode.QuickPickItem {
   hash: CommitHash;
 }
 
-export function createCommitQuickPick(
+export function buildCommitItems(
   commits: CommitDataWithFileCount[],
-  excludedCommits: Set<CommitHash> = new Set()
-): vscode.QuickPick<CommitQuickPickItem> {
-  const items: CommitQuickPickItem[] = commits.map(c => {
+  excludedCommits: Set<CommitHash> = new Set(),
+): CommitQuickPickItem[] {
+  return commits.map(c => {
     const repoPart = c.repoName ? `[${c.repoName}] ` : "";
     const isPicked = !excludedCommits.has(c.hash);
     return {
@@ -22,6 +22,13 @@ export function createCommitQuickPick(
       hash: c.hash,
     };
   });
+}
+
+export function createCommitQuickPick(
+  commits: CommitDataWithFileCount[],
+  excludedCommits: Set<CommitHash> = new Set()
+): vscode.QuickPick<CommitQuickPickItem> {
+  const items = buildCommitItems(commits, excludedCommits);
 
   const quickPick = vscode.window.createQuickPick<CommitQuickPickItem>();
   quickPick.items = items;
@@ -40,11 +47,11 @@ export interface AuthorPickItem extends vscode.QuickPickItem {
   author: string;
 }
 
-export function createAuthorQuickPick(
+export function buildAuthorItems(
   authors: AuthorData[],
-  excludedAuthors: Set<string> = new Set()
-): vscode.QuickPick<AuthorPickItem> {
-  const items: AuthorPickItem[] = authors.map(a => {
+  excludedAuthors: Set<string> = new Set(),
+): AuthorPickItem[] {
+  return authors.map(a => {
     const isPicked = !excludedAuthors.has(a.author);
     return {
       label: a.author,
@@ -53,6 +60,13 @@ export function createAuthorQuickPick(
       author: a.author,
     };
   });
+}
+
+export function createAuthorQuickPick(
+  authors: AuthorData[],
+  excludedAuthors: Set<string> = new Set()
+): vscode.QuickPick<AuthorPickItem> {
+  const items = buildAuthorItems(authors, excludedAuthors);
 
   const quickPick = vscode.window.createQuickPick<AuthorPickItem>();
   quickPick.items = items;
@@ -72,10 +86,10 @@ export interface TimeWindowPickItem extends vscode.QuickPickItem {
   timeWindow: TimeWindow;
 }
 
-export function createTimeWindowQuickPick(
+export function buildTimeWindowItems(
   timeWindows: TimeWindow[],
   currentTimeWindow: TimeWindow,
-): vscode.QuickPick<TimeWindowPickItem> {
+): TimeWindowPickItem[] {
   const isCurrent = (tw: TimeWindow) => {
     if (tw.type === "pending" && currentTimeWindow.type === "pending") {
       return true;
@@ -83,7 +97,7 @@ export function createTimeWindowQuickPick(
     return tw.type === "historical" && currentTimeWindow.type === "historical" && tw.days === currentTimeWindow.days;
   };
 
-  const items: TimeWindowPickItem[] = timeWindows.map(tw => ({
+  return timeWindows.map(tw => ({
     description: isCurrent(tw)
       ? "(current)"
       : isPendingChangesMode(tw)
@@ -93,6 +107,13 @@ export function createTimeWindowQuickPick(
     timeWindow: tw,
     label: tw.label,
   }));
+}
+
+export function createTimeWindowQuickPick(
+  timeWindows: TimeWindow[],
+  currentTimeWindow: TimeWindow,
+): vscode.QuickPick<TimeWindowPickItem> {
+  const items = buildTimeWindowItems(timeWindows, currentTimeWindow);
 
   const quickPick = vscode.window.createQuickPick<TimeWindowPickItem>();
   quickPick.items = items;

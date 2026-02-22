@@ -7,7 +7,6 @@ import { findRepoForFile } from "../types";
 import { discardFileChanges, isPathWithinRoot } from "../git/gitOperations";
 import { normalizePath } from "../utils";
 import { log } from "../utils/logger";
-import { Commands } from "./constants";
 import { asAbsolutePath } from "../pathTypes";
 
 // Discard changes command - for pending files only
