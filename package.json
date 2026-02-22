@@ -12,10 +12,10 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.1.1",
+  "version": "1.1.2",
   "icon": "icons/extension.png",
   "engines": {
-    "vscode": "^1.106.1"
+    "vscode": "^1.105.1"
   },
   "categories": [
     "Other"
@@ -744,7 +744,7 @@
   },
   "devDependencies": {
     "@types/node": "22.x",
-    "@types/vscode": "^1.106.1",
+    "@types/vscode": "^1.105.1",
     "@types/vscode-webview": "^1.57.5",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",

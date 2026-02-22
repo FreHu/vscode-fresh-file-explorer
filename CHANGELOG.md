@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.1.2]
+- [NEW] Create files action on folder level
+- [CONFIG] Support older vscode engine (cursor runs on 1.105.1)
+
 ## [1.1.1]
 - `[FIX]` Repos not in immediate subfolders not discovered https://github.com/FreHu/vscode-fresh-file-explorer/issues/1
 
