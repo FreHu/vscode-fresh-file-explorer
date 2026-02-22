@@ -126,6 +126,11 @@
         "icon": "$(new-file)"
       },
       {
+        "command": "freshFileExplorer.createFileInside",
+        "title": "New File Inside",
+        "icon": "$(new-file)"
+      },
+      {
         "command": "freshFileExplorer.revealInSourceControl",
         "title": "Reveal in Source Control View"
       },
@@ -399,8 +404,13 @@
         },
         {
           "command": "freshFileExplorer.createFileNextTo",
-          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile)$/",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
           "group": "2_modification@2"
+        },
+        {
+          "command": "freshFileExplorer.createFileInside",
+          "when": "view == freshFileExplorer && viewItem =~ /^(folder|workspaceFolder|repoFolder)$/",
+          "group": "2_modification@3"
         },
         {
           "command": "freshFileExplorer.resurrect",
@@ -487,6 +497,10 @@
         },
         {
           "command": "freshFileExplorer.createFileNextTo",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.createFileInside",
           "when": "false"
         },
         {
