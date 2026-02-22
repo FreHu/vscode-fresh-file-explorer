@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.1.1]
+- `[FIX]` Repos not in immediate subfolders not discovered https://github.com/FreHu/vscode-fresh-file-explorer/issues/1
+
 ## [1.1]
 - `[NEW]` History search tools (pickaxe, -L, history view)
 - `[NEW]` Change counts in tree view (lines added/removed)

@@ -246,9 +246,12 @@ export function fileExists(filePath: string): Promise<boolean> {
 }
 
 /**
- * Discover git repositories in immediate subdirectories of a path
+ * Discover git repositories in subdirectories of a path, recursing into non-repo directories.
+ * Stops recursing once a git repository is found (repos inside repos are not considered).
+ * @param rootPath The directory to scan
+ * @param relativePrefix Internal: the path prefix accumulated during recursion (forward-slash separated)
  */
-export async function discoverGitReposInSubdirs(rootPath: string): Promise<string[]> {
+export async function discoverGitReposInSubdirs(rootPath: string, relativePrefix: string = ""): Promise<string[]> {
   const repos: string[] = [];
 
   try {
@@ -257,11 +260,16 @@ export async function discoverGitReposInSubdirs(rootPath: string): Promise<strin
     for (const entry of entries) {
       if (entry.isDirectory() && !entry.name.startsWith(".")) {
         const subDirPath = path.join(rootPath, entry.name);
+        const relativePath = relativePrefix ? `${relativePrefix}/${entry.name}` : entry.name;
         const isGit = await isGitRepository(subDirPath);
 
         if (isGit) {
-          log(`Found Git repository in subdirectory: ${entry.name}`);
-          repos.push(entry.name);
+          log(`Found Git repository in subdirectory: ${relativePath}`);
+          repos.push(relativePath);
+        } else {
+          // Not a git repo — recurse deeper to find nested repos
+          const nested = await discoverGitReposInSubdirs(subDirPath, relativePath);
+          repos.push(...nested);
         }
       }
     }
