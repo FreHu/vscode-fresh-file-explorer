@@ -4,7 +4,13 @@ import { DiffMatch, searchHistoricalDiffs, searchPendingDiffs } from "./git/gitD
 import { isGitRepository, discoverGitReposInSubdirs } from "./git/gitOperations";
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
 import { log } from "./utils/logger";
+import { formatGitCommand } from "./utils/formatUtils";
 import { getWebviewHtml } from "./diffSearchPanelUI";
+import { DiffSearchParams, DiffSearchHistoryEntry } from "./webview/messages";
+
+const STORAGE_KEY = "diffSearchParams";
+const HISTORY_KEY = "diffSearchHistory";
+const MAX_HISTORY = 25;
 
 interface SearchMessage {
   command: "search";
@@ -15,12 +21,6 @@ interface SearchMessage {
   excludePattern: string;
   pendingOnly: boolean;
   days: number | null; // null = unlimited (all history)
-  selectedRepos: string[]; // Empty array means all repos
-}
-
-interface WorkspaceRepo {
-  path: AbsolutePath;
-  name: string;
 }
 
 export class DiffSearchPanel {
@@ -29,18 +29,24 @@ export class DiffSearchPanel {
   private readonly _extensionUri: vscode.Uri;
   private readonly _resultProvider: DiffSearchResultProvider;
   private readonly _workspaceFolders: readonly vscode.WorkspaceFolder[];
+  private readonly _context: vscode.ExtensionContext;
   private _disposables: vscode.Disposable[] = [];
 
   public static createOrShow(
     extensionUri: vscode.Uri,
     resultProvider: DiffSearchResultProvider,
     workspaceFolders: readonly vscode.WorkspaceFolder[],
+    context: vscode.ExtensionContext,
+    prefillPattern?: string,
   ) {
     const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
 
     // If we already have a panel, show it
     if (DiffSearchPanel.currentPanel) {
       DiffSearchPanel.currentPanel._panel.reveal(column);
+      if (prefillPattern) {
+        DiffSearchPanel.currentPanel._sendPrefill(prefillPattern);
+      }
       return;
     }
 
@@ -56,7 +62,7 @@ export class DiffSearchPanel {
       },
     );
 
-    DiffSearchPanel.currentPanel = new DiffSearchPanel(panel, extensionUri, resultProvider, workspaceFolders);
+    DiffSearchPanel.currentPanel = new DiffSearchPanel(panel, extensionUri, resultProvider, workspaceFolders, context, prefillPattern);
   }
 
   private constructor(
@@ -64,11 +70,14 @@ export class DiffSearchPanel {
     extensionUri: vscode.Uri,
     resultProvider: DiffSearchResultProvider,
     workspaceFolders: readonly vscode.WorkspaceFolder[],
+    context: vscode.ExtensionContext,
+    private readonly _prefillPattern?: string,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._resultProvider = resultProvider;
     this._workspaceFolders = workspaceFolders;
+    this._context = context;
 
     // Set the webview's initial html content
     this._update();
@@ -93,29 +102,75 @@ export class DiffSearchPanel {
         break;
       case "ready":
         // Webview is ready, send initial data
-        await this._sendRepoList();
+        // Restore persisted params (overridden by prefill if present)
+        const saved = this._context.workspaceState.get<DiffSearchParams>(STORAGE_KEY);
+        if (saved) {
+          this._panel.webview.postMessage({ command: "prefillParams", params: saved });
+        }
+        if (this._prefillPattern) {
+          this._sendPrefill(this._prefillPattern);
+        }
+        // Send history
+        this._sendHistory();
+        break;
+
+      case "clearHistory":
+        await this._context.workspaceState.update(HISTORY_KEY, []);
+        this._sendHistory();
         break;
     }
   }
 
-  private async _sendRepoList() {
-    const repos: WorkspaceRepo[] = [];
+  private _sendPrefill(pattern: string) {
+    this._panel.webview.postMessage({ command: "prefill", pattern });
+  }
 
-    for (const folder of this._workspaceFolders) {
-      repos.push({
-        path: asAbsolutePath(folder.uri.fsPath),
-        name: folder.name,
-      });
+  private _sendHistory(): void {
+    const entries = this._context.workspaceState.get<DiffSearchHistoryEntry[]>(HISTORY_KEY, []);
+    this._panel.webview.postMessage({ command: "setHistory", entries });
+  }
+
+  private _saveParams(searchData: SearchMessage): void {
+    const params: DiffSearchParams = {
+      pattern: searchData.pattern,
+      isRegex: searchData.isRegex,
+      caseInsensitive: searchData.caseInsensitive,
+      includePattern: searchData.includePattern,
+      excludePattern: searchData.excludePattern,
+      pendingOnly: searchData.pendingOnly,
+      days: searchData.days,
+    };
+    this._context.workspaceState.update(STORAGE_KEY, params);
+
+    // Build human-readable label
+    const flags: string[] = [];
+    if (searchData.isRegex) { flags.push("regex"); }
+    if (searchData.caseInsensitive) { flags.push("ci"); }
+    if (searchData.pendingOnly) {
+      flags.push("pending only");
+    } else if (searchData.days) {
+      flags.push(searchData.days + "d");
+    } else {
+      flags.push("all history");
     }
+    if (searchData.includePattern) { flags.push("+" + searchData.includePattern); }
+    if (searchData.excludePattern) { flags.push("-" + searchData.excludePattern); }
+    const label = `"${searchData.pattern}"` + (flags.length ? "  ·  " + flags.join("  ·  ") : "");
 
-    this._panel.webview.postMessage({
-      command: "setRepos",
-      repos: repos,
-    });
+    // Prepend to history, dedup by label, trim to max
+    const existing = this._context.workspaceState.get<DiffSearchHistoryEntry[]>(HISTORY_KEY, []);
+    const filtered = existing.filter(e => e.label !== label);
+    const updated: DiffSearchHistoryEntry[] = [
+      { params, label, timestamp: Date.now() },
+      ...filtered,
+    ].slice(0, MAX_HISTORY);
+    this._context.workspaceState.update(HISTORY_KEY, updated);
   }
 
   private async _executeSearch(searchData: SearchMessage) {
-    const { pattern, isRegex, caseInsensitive, includePattern, excludePattern, pendingOnly, days, selectedRepos } = searchData;
+    this._saveParams(searchData);
+    this._sendHistory();
+    const { pattern, isRegex, caseInsensitive, includePattern, excludePattern, pendingOnly, days } = searchData;
     const sinceDays = days ?? -1; // null → -1 (unlimited)
 
     if (!pattern.trim()) {
@@ -138,10 +193,7 @@ export class DiffSearchPanel {
       let allMatches: any[] = [];
 
       // Execute search with commit tracking (no progress notification, only webview updates)
-      const reposToSearch =
-        selectedRepos.length > 0
-          ? this._workspaceFolders.filter((f) => selectedRepos.includes(asAbsolutePath(f.uri.fsPath)))
-          : this._workspaceFolders;
+      const reposToSearch = this._workspaceFolders;
 
       const totalFolders = reposToSearch.length;
 
@@ -229,6 +281,7 @@ export class DiffSearchPanel {
           repoName: repoName,
           commits: uniqueCommits,
           matches: repoMatches.length,
+          pendingMatches: pendingMatches.length,
           elapsedMs: Date.now() - repoStartTime,
         });
 
@@ -240,17 +293,11 @@ export class DiffSearchPanel {
 
       // Aggregate results
       results.forEach((result, i) => {
-        const repoName = actualRepos[i].name;
         if (result.status === "fulfilled") {
-          log(`Repo ${repoName} completed with ${result.value.length} matches`, "info");
           allMatches = allMatches.concat(result.value);
           totalMatchCount += result.value.length;
-        } else {
-          log(`Repo ${repoName} failed: ${result.reason}`, "error");
         }
       });
-
-      log(`Search complete: ${totalMatchCount} total matches from ${results.filter(r => r.status === "fulfilled").length}/${results.length} repos`, "info");
 
       // Now update tree view once with all results
       this._resultProvider.showResults(pattern, allMatches, repoNames);
@@ -264,6 +311,7 @@ export class DiffSearchPanel {
           command: "searchComplete",
           message: "No matches found",
           count: 0,
+          gitCommand: buildSearchGitCommand(searchData),
         });
         vscode.window.showInformationMessage(`Diff search complete: No matches found for "${pattern}"`);
       } else {
@@ -271,6 +319,7 @@ export class DiffSearchPanel {
           command: "searchComplete",
           message: `Search complete`,
           count: totalMatchCount,
+          gitCommand: buildSearchGitCommand(searchData),
         });
         
         // Count unique commits for notification
@@ -295,7 +344,10 @@ export class DiffSearchPanel {
 
   private _update() {
     const webview = this._panel.webview;
-    this._panel.webview.html = getWebviewHtml(webview.cspSource);
+    const scriptUri = webview
+      .asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "media", "diffSearchPanel.js"))
+      .toString();
+    webview.html = getWebviewHtml(webview.cspSource, scriptUri);
   }
 
   public dispose() {
@@ -312,9 +364,46 @@ export class DiffSearchPanel {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Module-level helpers
-// ---------------------------------------------------------------------------
+/**
+ * Build a representative git command string from the search parameters,
+ * mirroring what searchHistoricalDiffs / searchPendingDiffs actually run.
+ */
+function buildSearchGitCommand(search: SearchMessage): string {
+  if (search.pendingOnly) {
+    const args = ["diff"];
+    const pathspecs = buildPathspecsForDisplay(search.includePattern, search.excludePattern);
+    if (pathspecs.length > 0) {
+      args.push("--", ...pathspecs);
+    }
+    return formatGitCommand(args);
+  }
+
+  const args: string[] = ["log", "-p"];
+  if (search.caseInsensitive) {
+    args.push("-i");
+  }
+  args.push(search.isRegex ? "-G" : "-S", search.pattern);
+  if (search.days !== null && search.days > 0) {
+    args.push(`--since=${search.days}.days.ago`);
+  }
+  const pathspecs = buildPathspecsForDisplay(search.includePattern, search.excludePattern);
+  if (pathspecs.length > 0) {
+    args.push("--", ...pathspecs);
+  }
+  return formatGitCommand(args);
+}
+
+/** Reconstruct pathspec array from include/exclude pattern strings (mirrors gitDiffSearch logic). */
+function buildPathspecsForDisplay(includePattern: string, excludePattern: string): string[] {
+  const specs: string[] = [];
+  if (includePattern) {
+    includePattern.split(",").map(p => p.trim()).filter(Boolean).forEach(p => specs.push(p));
+  }
+  if (excludePattern) {
+    excludePattern.split(",").map(p => p.trim()).filter(Boolean).forEach(p => specs.push(`:!${p}`));
+  }
+  return specs;
+}
 
 interface RepoInfo {
   name: string;

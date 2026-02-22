@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.1]
+- `[NEW]` History search tools (pickaxe, -L, history view)
+- `[NEW]` Change counts in tree view (lines added/removed)
+
 ## [1.0.7]
 - `[NEW]` Menu button for search editor - open all found files
 - `[NEW]` Menu button for search editor - copy paths of found files (absolute/relative)

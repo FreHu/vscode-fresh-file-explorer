@@ -40,8 +40,8 @@ Fresh File Explorer is designed for what you need 80% of the time. GitLens is fo
 | **Learning Curve**          |                Minimal | Significant                   |
 | **File Tree View**          |      ✅ Primary feature | ✅ Available                   |
 | **Blame/Annotations**       |                      ❌ | ✅ Excellent                   |
-| **Commit Graph**            |                      ❌ | ✅ Visual graph                |
-| **Line History**            |                      ❌ | ✅ Detailed                    |
+| **Commit Graph**            |                      Per-file history view | ✅ Visual graph                |
+| **Line History**            |   ✅ Line, function & file history, diff search | ✅ Detailed                    |
 | **Deleted File Restore**    |            ✅ One-click | ✅ Via commits                 |
 | **Author/Commit Filtering** |  ✅ Visual multi-select | ✅ Via search                  |
 | **Price**                   |                 ✅  Free, but I will always accept your money | ❌ Free, but they will sometimes demand your money |

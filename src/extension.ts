@@ -35,7 +35,9 @@ import { createDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmapDecorationProvider";
 import { DiffSearchResultProvider } from "./diffSearchResultProvider";
 import { DiffSearchPanel } from "./diffSearchPanel";
-import { handleOpenDiffMatch, handleClearDiffSearch } from "./commands/diffSearchCommand";
+import { handleOpenDiffMatch, handleClearDiffSearch, handleGitPickaxe } from "./commands/diffSearchCommand";
+import { handleGitLogL, handlegitLogFile } from "./commands/gitLogLCommand";
+import { GitLogLContentProvider } from "./gitLogLPanel";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -64,6 +66,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Set initial context for diff search view visibility
   vscode.commands.executeCommand("setContext", "diffSearchResults.hasResults", false);
+
+  // Register virtual document provider for git log -L diff views
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(
+      GitLogLContentProvider.scheme,
+      GitLogLContentProvider.instance,
+    ),
+  );
 
   registerCommands(context, freshFileProvider, treeView, diffSearchResultProvider);
 
@@ -213,12 +223,20 @@ function registerCommands(
 
   // Diff search commands
   register(Commands.OPEN_DIFF_SEARCH_PANEL, () => 
-    DiffSearchPanel.createOrShow(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])
+    DiffSearchPanel.createOrShow(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [], context)
   );
 
   register(Commands.OPEN_DIFF_MATCH, (item: any) => handleOpenDiffMatch(item));
 
   register(Commands.CLEAR_DIFF_SEARCH, () => handleClearDiffSearch(diffSearchResultProvider));
+
+  register(Commands.GIT_PICKAXE, () =>
+    handleGitPickaxe(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [], context)
+  );
+
+  // Git log -L
+  register(Commands.GIT_LOG_L, () => handleGitLogL());
+  register(Commands.GIT_LOG_FILE, (item?: any) => handlegitLogFile(item));
 }
 
 function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: vscode.ExtensionContext) {

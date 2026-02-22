@@ -4,10 +4,29 @@ import { AbsolutePath } from "./pathTypes";
 import { FileMetadata, SortOrder } from "./types";
 import { ConfigService } from "./config/configService";
 import { FreshFileItem, FreshFilesTreeItem } from "./treeItems";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, calculateTotalLineChanges, formatGroupDescription, formatTooltipLineChanges } from "./utils/formatUtils";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges } from "./utils/formatUtils";
 import { TreeItemContextValues } from "./treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "./utils/moonPhase";
 import { getRetrogradeInfo, getRetrogradeKey, type Planet } from "./utils/planetaryRetrograde";
+
+/**
+ * Calculate total line changes from items with metadata.
+ * Returns undefined if the feature is disabled to avoid unnecessary work.
+ */
+function calculateTotalLineChanges<T extends { metadata: FileMetadata }>(
+  items: T[],
+): { added: number; deleted: number } | undefined {
+  if (!ConfigService.getDescriptionFormat().showLineChanges) {
+    return undefined;
+  }
+  return items.reduce(
+    (totals, item) => ({
+      added: totals.added + (item.metadata.linesAdded ?? 0),
+      deleted: totals.deleted + (item.metadata.linesDeleted ?? 0),
+    }),
+    { added: 0, deleted: 0 },
+  );
+}
 
 /**
  * Builds tree views for different grouping modes.

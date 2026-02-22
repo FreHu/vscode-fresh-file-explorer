@@ -1,26 +1,4 @@
 import { FileMetadata, DescriptionFormat } from "../types";
-import { ConfigService } from "../config/configService";
-
-/**
- * Calculate total line changes from items with metadata.
- * Returns undefined if the feature is disabled to avoid unnecessary work.
- */
-export function calculateTotalLineChanges<T extends { metadata: FileMetadata }>(
-  items: T[],
-): { added: number; deleted: number } | undefined {
-  // Check if feature is enabled first to avoid unnecessary work
-  if (!ConfigService.getDescriptionFormat().showLineChanges) {
-    return undefined;
-  }
-
-  return items.reduce(
-    (totals, item) => ({
-      added: totals.added + (item.metadata.linesAdded ?? 0),
-      deleted: totals.deleted + (item.metadata.linesDeleted ?? 0),
-    }),
-    { added: 0, deleted: 0 },
-  );
-}
 
 /**
  * Format a group description with file count and optional line changes
@@ -318,4 +296,15 @@ export function formatFileTooltip(metadata: FileMetadata): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Format a git argument list as a human-readable command string.
+ * Args containing spaces or special characters are single-quoted.
+ */
+export function formatGitCommand(args: string[]): string {
+  const formatted = args.map(arg =>
+    /[ \t\n:*?"<>|\\]/.test(arg) ? `'${arg}'` : arg
+  );
+  return "git " + formatted.join(" ");
 }

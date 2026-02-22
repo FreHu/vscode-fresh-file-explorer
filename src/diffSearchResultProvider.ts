@@ -36,7 +36,6 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
    * @param repoNames Map of repo paths to repo names
    */
   showResults(pattern: string, matches: DiffMatch[], repoNames: Map<AbsolutePath, string>): void {
-    log(`showResults called: pattern="${pattern}", matches=${matches.length}, repos=${repoNames.size}`, "info");
     this.searchPattern = pattern;
     this.allMatches = matches;
     this.repoNames = repoNames;

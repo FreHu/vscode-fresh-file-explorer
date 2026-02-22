@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "types": ["vscode-webview"],
+    "noEmit": true,
+    "rootDir": "src/webview"
+  },
+  "include": ["src/webview/**/*"],
+  "exclude": ["node_modules"]
+}

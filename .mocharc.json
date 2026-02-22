@@ -1,4 +1,0 @@
-{
-  "spec": "out/test/unit/**/*.test.js",
-  "ui": "tdd"
-}

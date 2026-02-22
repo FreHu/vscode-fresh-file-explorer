@@ -1,7 +1,9 @@
 import * as cp from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { CommitHash, asCommitHash } from "../types";
-import { decodeGitPath } from "./gitOperations";
+import { decodeGitPath, execGitWithArgs, isPathWithinRoot } from "./gitOperations";
 import { log } from "../utils/logger";
 import { ConfigService } from "../config/configService";
 
@@ -305,6 +307,88 @@ function streamGitDiffOutput(
  * @param onBatch Optional callback for progressive results
  * @returns Array of diff matches from staged and unstaged changes
  */
+/**
+ * Search for a pattern in untracked files (new files not yet staged or committed).
+ * These are invisible to `git diff` / `git diff --staged`, so we list them with
+ * `git ls-files --others --exclude-standard` and read each file directly.
+ */
+async function searchUntrackedFiles(
+  repoPath: string,
+  pattern: string,
+  isRegex: boolean,
+  caseInsensitive: boolean,
+  includePattern: string,
+  excludePattern: string,
+): Promise<DiffMatch[]> {
+  const pathspecs = buildPathspecs(includePattern, excludePattern);
+  const args = pathspecs.length > 0
+    ? ["ls-files", "--others", "--exclude-standard", "--", ...pathspecs]
+    : ["ls-files", "--others", "--exclude-standard"];
+
+  let output: string;
+  try {
+    output = await execGitWithArgs(args, repoPath, { timeout: ConfigService.getGitTimeout() });
+  } catch (err) {
+    log(`Untracked files listing error: ${err}`, "warn");
+    return [];
+  }
+
+  const relPaths = output.split("\n").map(l => l.trim()).filter(Boolean);
+  if (relPaths.length === 0) {
+    return [];
+  }
+
+  const regexFlags = caseInsensitive ? "i" : "";
+  const searchRegex = isRegex ? new RegExp(pattern, regexFlags) : null;
+  const matches: DiffMatch[] = [];
+  const repoRoot = asAbsolutePath(repoPath);
+
+  for (const relPath of relPaths) {
+    const decodedPath = decodeGitPath(relPath);
+    const absPath = asAbsolutePath(path.join(repoPath, decodedPath));
+
+    // Security: ensure the resolved path is within the repo root
+    if (!isPathWithinRoot(absPath, repoRoot)) {
+      log(`Skipping untracked path outside repo root: ${absPath}`, "warn");
+      continue;
+    }
+
+    let content: string;
+    try {
+      content = await fs.promises.readFile(absPath, "utf8");
+    } catch (err) {
+      log(`Could not read untracked file ${absPath}: ${err}`, "warn");
+      continue;
+    }
+
+    const lines = content.split("\n").map(l => l.replace(/\r$/, ""));
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      let matched: boolean;
+      if (searchRegex) {
+        matched = searchRegex.test(line);
+      } else if (caseInsensitive) {
+        matched = line.toLowerCase().includes(pattern.toLowerCase());
+      } else {
+        matched = line.includes(pattern);
+      }
+
+      if (matched) {
+        matches.push({
+          filePath: absPath,
+          lineNumber: i + 1,
+          lineContent: line,
+          changeType: "added",
+          isStaged: false,
+          fileAdded: true,
+        });
+      }
+    }
+  }
+
+  return matches;
+}
+
 export async function searchPendingDiffs(
   repoPath: string,
   pattern: string,
@@ -367,6 +451,21 @@ export async function searchPendingDiffs(
     } catch (err) {
       // No staged changes or error - continue
       log(`Staged diff search error: ${err}`, "warn");
+    }
+
+    // Search untracked files (new files not yet added to git)
+    try {
+      const untrackedMatches = await searchUntrackedFiles(
+        repoPath, pattern, isRegex, caseInsensitive, includePattern, excludePattern
+      );
+      if (untrackedMatches.length > 0) {
+        untrackedMatches.forEach(m => matches.push(m));
+        if (onBatch) {
+          onBatch(untrackedMatches);
+        }
+      }
+    } catch (err) {
+      log(`Untracked files search error: ${err}`, "warn");
     }
   } catch (error: any) {
     log(`Pending diff search error: ${error}`, "error");

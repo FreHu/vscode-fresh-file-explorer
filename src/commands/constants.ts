@@ -60,4 +60,13 @@ export const Commands = {
   OPEN_DIFF_SEARCH_PANEL: "freshFileExplorer.openDiffSearchPanel",
   OPEN_DIFF_MATCH: "freshFileExplorer.openDiffMatch",
   CLEAR_DIFF_SEARCH: "freshFileExplorer.clearDiffSearch",
+
+  // Git log -L (line / function history)
+  GIT_LOG_L: "freshFileExplorer.gitLogL",
+
+  // Git log for entire file history
+  GIT_LOG_FILE: "freshFileExplorer.gitLogFile",
+
+  // Git pickaxe search (-S): open diff search panel prefilled with selection
+  GIT_PICKAXE: "freshFileExplorer.gitPickaxe",
 } as const;
