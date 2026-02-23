@@ -21,6 +21,12 @@
     "Other"
   ],
   "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "This extension runs Git commands and accesses the local filesystem, which requires a trusted workspace."
+    }
+  },
   "contributes": {
     "views": {
       "explorer": [
@@ -664,8 +670,8 @@
         },
         "freshFileExplorer.description.showLineChanges": {
           "type": "boolean",
-          "default": true,
-          "description": "Show line additions/deletions (+/-) in file descriptions"
+          "default": false,
+          "description": "Show line additions/deletions (+/-) in file descriptions. This requires an additional call to git log and may slow down loading for large repositories."
         },
         "freshFileExplorer.autoExpandDepth": {
           "type": "number",
@@ -754,8 +760,5 @@
     "npm-run-all2": "^8.0.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.3"
-  },
-  "dependencies": {
-    "astronomy-engine": "^2.1.19"
   }
 }

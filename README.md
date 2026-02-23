@@ -2,9 +2,9 @@
 
 Easily navigate recent changes based on your pending work and Git history.
 
-# Install
+# Links
 
-[Marketplace](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer) | [OpenVSX](https://open-vsx.org/extension/frehu/fresh-file-explorer)
+[Marketplace](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer) | [OpenVSX](https://open-vsx.org/extension/frehu/fresh-file-explorer) | [Github](https://github.com/FreHu/vscode-fresh-file-explorer)
 # Table of Contents
 
 - [Features](#features)
@@ -29,6 +29,8 @@ Easily navigate recent changes based on your pending work and Git history.
     - [Search Editor Actions](#search-editor-actions)
 - [Use Cases](#use-cases)
 - [Extension Settings](#extension-settings)
+- [Security](#security)
+- [Contributing](#contributing)
 
 # Features 
 ## Fresh File Explorer
@@ -317,13 +319,33 @@ You make a commit but now your "pending changes" view is empty. You've lost the 
 
 Look under `freshfileexplorer.` to see all configurable settings.
 
+# Security
+
+I got some feedback around what is essentially an inherent problem with the trustworthiness of extensions in general. It's a valid concern and not one I can solve. 
+
+All I can give you is some assurrances:
+
+- Fresh File Explorer contains no telemetry and does not make any web requests. It doesn't ask AI to do anything.
+- The code is right here for you to audit. There are zero runtime dependencies.
+- If you're worried about me getting hacked and malware being pushed through an update, you can disable automatic updates for any extension. You will lose out on new bugs and features, but you will always have the code you at some point chose to trust.
+
+Potentially dangerous features: none, really. But for completeness' sake:
+- The only destructive operation the extension can do is [discard pending changes](./src/commands/discardChangesCommand.ts). It works on files you yourself selected and gives you a warning. 
+- It can create files if you choose to (via create or resurrect), but will never overwrite existing ones.
+- When viewing deleted files (referred to as `exhume`), a copy is saved as a temp file in `%TEMP%\fresh-file-explorer` or `/tmp/fresh-file-explorer`. This is only for files you try to open. If you really want something gone, you'll have to delete it from there.
+- Commands that involve user-controlled data (like filenames from git output) use `cp.spawn("git", args)` to prevent shell injection.
+  
+As well as some warnings:
+
+- Don't install random extensions from the internet just because they look cool. They can do pretty much whatever on your computer. Except for mine, mine's good.
+- A person who doesn't already know this is unlikely to bother reading this documentation.
+
 # Contributing
 
 If you find a bug or have an idea for a faster horse, open an issue.
 
 For bug reports, it is extremely helpful if the problem is reproducible on a public repository.
 
----
 
 # Comparison with GitLens
 
@@ -333,6 +355,30 @@ Fresh File Explorer is **not** a GitLens replacement. It's a more focused, opini
 - You want one view
 
 **Use GitLens when**
+- You want 25 views
+
+![gitlens views](img/gitlens-views.png)
+
+Because one of those 25 is actually very similar to Fresh File Explorer, some more comparison can be found [here](./COMPARISON_WITH_GITLENS.md).
+
+
+# Testimonials
+
+> This is **above average** for a VS Code extension.
+>
+> _(a chatbot instructed to pretend to be Linus Torvalds)_e GitLens when**
+- You want 25 views
+
+![gitlens views](img/gitlens-views.png)
+
+Because one of those 25 is actually very similar to Fresh File Explorer, some more comparison can be found [here](./COMPARISON_WITH_GITLENS.md).
+
+
+# Testimonials
+
+> This is **above average** for a VS Code extension.
+>
+> _(a chatbot instructed to pretend to be Linus Torvalds)_se GitLens when**
 - You want 25 views
 
 ![gitlens views](img/gitlens-views.png)

@@ -112,6 +112,15 @@ export async function handleResurrect(
   for (const fileItem of deletedItems) {
     const fileName = path.basename(fileItem.resourceUri.fsPath);
 
+    // Don't overwrite an existing file
+    // HOWEVER, this should be impossible - if a file exists in the same location as a deleted file, it would not show up in the tree as deleted
+    // so you shouldn't have the resurrect option available at all
+    if (fs.existsSync(fileItem.resourceUri.fsPath)) {
+      log(`Resurrect skipped - file already exists: ${fileItem.resourceUri.fsPath}`, "warn");
+      errors.push(fileName + " (already exists)");
+      continue;
+    }
+
     try {
       log(`Resurrecting deleted file: ${fileItem.resourceUri.fsPath}`);
 

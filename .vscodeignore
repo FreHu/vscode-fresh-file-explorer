@@ -10,3 +10,7 @@ vsc-extension-quickstart.md
 **/*.ts
 **/.vscode-test.*
 .waylog
+coverage/**
+out/test/**
+agents.md
+tsconfig.webview.json
