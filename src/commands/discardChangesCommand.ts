@@ -49,6 +49,7 @@ export async function handleDiscardChanges(
   if (confirm === "Discard Changes") {
     const errors: string[] = [];
     let successCount = 0;
+    let anyUntrackedDiscarded = false;
 
     for (const fileItem of pendingItems) {
       try {
@@ -80,6 +81,9 @@ export async function handleDiscardChanges(
 
         const isUntracked = fileItem.status === "??" || fileItem.status === "?";
         await discardFileChanges(repoLocation.repoFullPath, repoLocation.filePathInRepo, isUntracked);
+        if (isUntracked) {
+          anyUntrackedDiscarded = true;
+        }
         successCount++;
       } catch (error) {
         const fileName = path.basename(fileItem.resourceUri.fsPath);
@@ -92,7 +96,14 @@ export async function handleDiscardChanges(
       vscode.window.showErrorMessage(`Failed to discard: ${errors.join(", ")}`);
     }
     if (successCount > 0) {
-      freshFileProvider.refresh();
+      // Discarding an untracked file removes it from disk, which can change the isDeleted
+      // determination of its historical entry in the cache. A full refresh is required
+      // to correctly restore the deleted-file state (icon, context menu, resurrect option).
+      if (anyUntrackedDiscarded) {
+        freshFileProvider.refresh();
+      } else {
+        freshFileProvider.refreshPending();
+      }
     }
   }
 }

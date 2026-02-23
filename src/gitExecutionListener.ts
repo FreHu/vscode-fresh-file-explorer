@@ -15,7 +15,7 @@ export async function setupGitExtensionListener(
   /**
    * Check sync status for all repositories and update warnings
    */
-  async function updateSyncWarnings(api: GitAPI): Promise<void> {
+  async function updateSyncWarnings(api: GitAPI, silent = false): Promise<void> {
     const showCurrentBranchSync = ConfigService.getShowCurrentBranchSync();
     const showBaseBranchSync = ConfigService.getShowBaseBranchSync();
 
@@ -83,8 +83,8 @@ export async function setupGitExtensionListener(
       }
     }
 
-    freshFileProvider.setSyncWarnings(warnings);
-    freshFileProvider.setRepoBranches(branches);
+    freshFileProvider.setSyncWarnings(warnings, silent);
+    freshFileProvider.setRepoBranches(branches, silent);
   }
 
   try {
@@ -100,50 +100,136 @@ export async function setupGitExtensionListener(
     // Initial sync check
     await updateSyncWarnings(api);
 
-    // Debounce refresh to avoid excessive updates
+    // Per-repo snapshots: track meaningful state so we can skip refreshes
+    // when only remote tracking counts (ahead/behind) change — e.g. on background fetches.
+    const repoSnapshots = new Map<string, RepoSnapshot>();
+
+    function takeSnapshot(repo: Repository): RepoSnapshot {
+      return {
+        commit: repo.state.HEAD?.commit,
+        branch: repo.state.HEAD?.name,
+        indexLength: repo.state.indexChanges.length,
+        workingTreeLength: repo.state.workingTreeChanges.length,
+        ahead: repo.state.HEAD?.ahead,
+        behind: repo.state.HEAD?.behind,
+      };
+    }
+
+    for (const repo of api.repositories) {
+      repoSnapshots.set(normalizePath(repo.rootUri.fsPath), takeSnapshot(repo));
+    }
+
+    // Track the pendingRefreshVersion we last acted on, to avoid duplicate
+    // refreshes when onDidSaveTextDocument already triggered refreshPending().
+    let lastHandledPendingVersion = freshFileProvider.pendingRefreshVersion;
+
+    // Debounce state
     let refreshTimeout: NodeJS.Timeout | undefined;
-    const debouncedRefresh = async () => {
+    // Set to true when a change that bypasses snapshot comparison is pending
+    // (e.g. the git API itself changed state, or a brand-new repo was opened)
+    let pendingForceRefresh = false;
+
+    const handleRefresh = async () => {
+      refreshTimeout = undefined;
+
+      if (!freshFileProvider.hasGitRepositories()) {
+        log("Git state changed, but no repositories found - skipping refresh");
+        return;
+      }
+
+      // full refresh   — commit hash or branch changed
+      // pending refresh — only index/working-tree counts changed (stage, save, discard)
+      // sync only       — only ahead/behind changed (background fetch)
+      const force = pendingForceRefresh;
+      pendingForceRefresh = false;
+
+      let needsFullRefresh = force;
+      let needsPendingRefresh = false;
+
+      if (!force) {
+        for (const repo of api.repositories) {
+          const key = normalizePath(repo.rootUri.fsPath);
+          const prev = repoSnapshots.get(key);
+          const curr = takeSnapshot(repo);
+          if (!prev || prev.commit !== curr.commit || prev.branch !== curr.branch) {
+            needsFullRefresh = true;
+          } else if (prev.indexLength !== curr.indexLength || prev.workingTreeLength !== curr.workingTreeLength) {
+            needsPendingRefresh = true;
+          }
+        }
+      }
+
+      // Update snapshots regardless of what we decided
+      for (const repo of api.repositories) {
+        repoSnapshots.set(normalizePath(repo.rootUri.fsPath), takeSnapshot(repo));
+      }
+
+      if (needsFullRefresh) {
+        log("Git commit or branch changed, doing full refresh");
+        await updateSyncWarnings(api, true);
+        freshFileProvider.refresh();
+      } else if (needsPendingRefresh) {
+        // Check if a file-save-triggered refreshPending() already ran while
+        // the debounce was counting down. If so, just re-snapshot and skip.
+        if (freshFileProvider.pendingRefreshVersion !== lastHandledPendingVersion) {
+          log("Git working tree changed, but pending refresh already done via file save — skipping");
+          await updateSyncWarnings(api, true);
+        } else {
+          log("Git working tree or index changed, refreshing pending files only");
+          await updateSyncWarnings(api, true);
+          await freshFileProvider.refreshPending();
+        }
+        lastHandledPendingVersion = freshFileProvider.pendingRefreshVersion;
+      } else {
+        // Check whether ahead/behind counts actually changed (background fetch).
+        // If nothing at all changed, the git extension fired a spurious event — skip entirely.
+        let syncChanged = false;
+        for (const repo of api.repositories) {
+          const key = normalizePath(repo.rootUri.fsPath);
+          const prev = repoSnapshots.get(key);
+          if (!prev || prev.ahead !== repo.state.HEAD?.ahead || prev.behind !== repo.state.HEAD?.behind) {
+            syncChanged = true;
+            break;
+          }
+        }
+        if (syncChanged) {
+          log("Git remote sync counts changed, updating sync warnings only");
+          await updateSyncWarnings(api);
+        } else {
+          log("Git state event fired but nothing changed, skipping");
+        }
+      }
+    };
+
+    const scheduleRefresh = (force = false) => {
+      if (force) {
+        pendingForceRefresh = true;
+      }
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
       }
-      refreshTimeout = setTimeout(async () => {
-        // Skip refresh if we have no repositories - nothing to update
-        if (!freshFileProvider.hasGitRepositories()) {
-          log("Git state changed, but no repositories found - skipping refresh");
-          refreshTimeout = undefined;
-          return;
-        }
-
-        log("Git state changed, refreshing");
-        await updateSyncWarnings(api);
-        freshFileProvider.refresh();
-        refreshTimeout = undefined;
-      }, 500); // 500ms debounce
+      refreshTimeout = setTimeout(handleRefresh, 500);
     };
 
-    // Listen for repository state changes
+    // Listen for git API state changes (extension init/deinit) — always force refresh
     context.subscriptions.push(
-      api.onDidChangeState(async () => {
-        await debouncedRefresh();
-      }),
+      api.onDidChangeState(() => scheduleRefresh(true)),
     );
 
-    // Also listen for changes in each repository
+    // Listen for per-repo state changes — snapshot comparison decides whether to refresh
     for (const repo of api.repositories) {
       context.subscriptions.push(
-        repo.state.onDidChange(async () => {
-          await debouncedRefresh();
-        }),
+        repo.state.onDidChange(() => scheduleRefresh()),
       );
     }
 
     // Listen for new repositories being opened
     context.subscriptions.push(
       api.onDidOpenRepository((repo: Repository) => {
+        // Snapshot the new repo immediately so first change can be compared
+        repoSnapshots.set(normalizePath(repo.rootUri.fsPath), takeSnapshot(repo));
         context.subscriptions.push(
-          repo.state.onDidChange(async () => {
-            await debouncedRefresh();
-          }),
+          repo.state.onDidChange(() => scheduleRefresh()),
         );
       }),
     );
@@ -171,9 +257,14 @@ interface UpstreamRef {
 
 interface Branch {
   name?: string;
+  commit?: string;
   upstream?: UpstreamRef;
   ahead?: number;
   behind?: number;
+}
+
+interface Change {
+  uri: vscode.Uri;
 }
 
 interface Repository {
@@ -185,5 +276,16 @@ interface Repository {
 
 interface RepositoryState {
   HEAD: Branch | undefined;
+  indexChanges: Change[];
+  workingTreeChanges: Change[];
   onDidChange: vscode.Event<void>;
+}
+
+interface RepoSnapshot {
+  commit: string | undefined;
+  branch: string | undefined;
+  indexLength: number;
+  workingTreeLength: number;
+  ahead: number | undefined;
+  behind: number | undefined;
 }

@@ -23,8 +23,9 @@ export class DataCollector {
   static async collectAllFiles(
     workspaceFolders: WorkspaceFolderInfo[],
     currentTimeWindow: TimeWindow,
-  ): Promise<{ files: Map<AbsolutePath, FileMetadata>; error?: string }> {
+  ): Promise<{ files: Map<AbsolutePath, FileMetadata>; historicalFiles: Map<AbsolutePath, FileMetadata>; error?: string }> {
     const newFiles = new Map<AbsolutePath, FileMetadata>();
+    const newHistoricalFiles = new Map<AbsolutePath, FileMetadata>();
     let errorToShow: string | undefined;
 
     for (const folder of workspaceFolders) {
@@ -32,7 +33,7 @@ export class DataCollector {
     }
 
     for (const folder of workspaceFolders) {
-      const error = await DataCollector.collectFilesForFolder(folder, currentTimeWindow, newFiles);
+      const error = await DataCollector.collectFilesForFolder(folder, currentTimeWindow, newFiles, newHistoricalFiles);
       if (error && !errorToShow) {
         errorToShow = error;
       }
@@ -47,7 +48,7 @@ export class DataCollector {
     vscode.commands.executeCommand("setContext", "freshFileExplorer.hasRepos", totalRepos > 0);
     vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", false);
 
-    return { files: newFiles, error: errorToShow };
+    return { files: newFiles, historicalFiles: newHistoricalFiles, error: errorToShow };
   }
 
   /**
@@ -57,20 +58,19 @@ export class DataCollector {
     folder: WorkspaceFolderInfo,
     currentTimeWindow: TimeWindow,
     targetMap: Map<AbsolutePath, FileMetadata>,
+    historicalTargetMap: Map<AbsolutePath, FileMetadata>,
   ): Promise<string | undefined> {
     const rootIsGit = await isGitRepository(folder.path);
 
     if (rootIsGit) {
-      log(`Workspace folder "${folder.name}" is a Git repository`);
       folder.gitRepos.push("");
-      return await DataCollector.collectFilesFromRepo(folder, "", currentTimeWindow, targetMap);
+      return await DataCollector.collectFilesFromRepo(folder, "", currentTimeWindow, targetMap, historicalTargetMap);
     } else {
-      log(`Workspace folder "${folder.name}" is not a Git repository, scanning subdirectories...`);
       const subRepos = await discoverGitReposInSubdirs(folder.path);
       let error: string | undefined;
       for (const repo of subRepos) {
         folder.gitRepos.push(repo);
-        const repoError = await DataCollector.collectFilesFromRepo(folder, repo, currentTimeWindow, targetMap);
+        const repoError = await DataCollector.collectFilesFromRepo(folder, repo, currentTimeWindow, targetMap, historicalTargetMap);
         if (repoError && !error) {
           error = repoError;
         }
@@ -87,6 +87,7 @@ export class DataCollector {
     repoRelativePath: string,
     currentTimeWindow: TimeWindow,
     targetMap: Map<AbsolutePath, FileMetadata>,
+    historicalTargetMap: Map<AbsolutePath, FileMetadata>,
   ): Promise<string | undefined> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
     const filesBefore = targetMap.size;
@@ -120,6 +121,9 @@ export class DataCollector {
           folder.path,
           currentTimeWindow.days,
         );
+        // Store historical files in the dedicated historical map (unmerged, no dedup with pending)
+        DataCollector.addFilesToMap(folder, historicalFiles, historicalTargetMap);
+        // Also overlay into the combined map (pending entries already there take priority)
         DataCollector.addFilesToMap(folder, historicalFiles, targetMap);
       } catch (error) {
         const errorMessage = String(error);
@@ -140,12 +144,38 @@ export class DataCollector {
       }
     }
 
-    const filesAdded = targetMap.size - filesBefore;
-    log(
-      `Collected ${filesAdded} file(s) from ${folder.name}/${repoRelativePath || "root"}, total now: ${targetMap.size}`,
-    );
-
     return errorToReturn;
+  }
+
+  /**
+   * Collect only pending (uncommitted) changes for all known repositories.
+   * Skips repository discovery — requires gitRepos to already be populated on each folder
+   * from a prior collectAllFiles() call.
+   * Returns an AbsolutePath-keyed map ready to merge into freshFiles.
+   */
+  static async collectPendingFiles(
+    workspaceFolders: WorkspaceFolderInfo[],
+  ): Promise<Map<AbsolutePath, FileMetadata>> {
+    const newFiles = new Map<AbsolutePath, FileMetadata>();
+    for (const folder of workspaceFolders) {
+      for (const repoRelativePath of folder.gitRepos) {
+        const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
+        try {
+          const files = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
+          for (const [filePath, metadata] of files) {
+            const absolutePath = asAbsolutePath(normalizePath(path.join(folder.path, filePath)));
+            newFiles.set(absolutePath, metadata);
+          }
+          log(`Collected ${files.size} pending file(s) from ${folder.name}/${repoRelativePath || "root"}`);
+        } catch (error) {
+          log(
+            `Failed to get pending changes from ${folder.name}/${repoRelativePath || "root"}: ${String(error)}`,
+            "warn",
+          );
+        }
+      }
+    }
+    return newFiles;
   }
 
   /**

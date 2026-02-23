@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.1.3]
+
+- [PERF] Eliminate pointless refetches of git log in response to git listener (it was most of them)
+- [PERF] Minor optimizations of git log (initial load)
+- [CONFIG] Change counts disabled by default (because of perf)
+- [DOCS] Added notes on security
+- [DEPS] Removed the only runtime dependency
+- [VSIX] Removed files that don't need to be there
+
 ## [1.1.2]
 - [NEW] Create files action on folder level
 - [CONFIG] Support older vscode engine (cursor runs on 1.105.1)

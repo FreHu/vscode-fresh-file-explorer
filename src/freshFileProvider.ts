@@ -69,6 +69,15 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private pinnedItemsManager = new PinnedItemsManager();
   private filterManager = new FilterManager();
 
+  // Incremented every time refreshPending() runs, so external listeners can detect
+  // that a pending refresh already happened and skip scheduling a duplicate.
+  pendingRefreshVersion: number = 0;
+
+  // Historical (committed) file entries cached from the last full refresh.
+  // Kept separate from freshFiles so pending-only refreshes can restore them
+  // when a file's uncommitted changes are reverted.
+  private historicalFiles: Map<AbsolutePath, FileMetadata> = new Map();
+
   constructor() {
     this.initializeWorkspaceFolders();
     this.timeWindows = this.loadTimeWindows();
@@ -163,6 +172,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", true);
     this.dataLoaded = false;
     this.freshFiles = new Map();
+    this.historicalFiles = new Map();
     clearRetrogradeCache();
     this._onDidChangeTreeData.fire();
   }
@@ -170,6 +180,39 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   /** Refresh the tree display without reloading data from git */
   refreshTreeOnly(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * Refresh only the pending layer, leaving historical data cached.
+   * Used when working-tree or index changes are detected but no full refresh is required (e.g. new file created).
+   * Falls back to a full refresh if data hasn't been loaded yet.
+   */
+  async refreshPending(): Promise<void> {
+    if (!this.dataLoaded) {
+      this.refresh();
+      return;
+    }
+    this.pendingRefreshVersion++;
+    log("Refreshing pending changes only");
+    await this.updatePendingFiles();
+    this.heatmapProvider?.fireDidChange();
+    this._onDidChangeTreeData.fire();
+  }
+
+  private async updatePendingFiles(): Promise<void> {
+    if (this.workspaceFolders.length === 0) {
+      return;
+    }
+
+    const pendingFiles = await DataCollector.collectPendingFiles(this.workspaceFolders);
+
+    // Rebuild freshFiles from cached historical baseline + new pending entries.
+    // This restores historical entries for files whose pending changes were reverted.
+    const merged = new Map<AbsolutePath, FileMetadata>(this.historicalFiles);
+    for (const [absolutePath, metadata] of pendingFiles) {
+      merged.set(absolutePath, metadata);
+    }
+    this.freshFiles = merged;
   }
 
   setTimeWindow(timeWindow: TimeWindow): void {
@@ -494,15 +537,19 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   /** Update sync warnings from git extension */
-  setSyncWarnings(warnings: string[]): void {
+  setSyncWarnings(warnings: string[], silent = false): void {
     this.syncWarnings = warnings;
-    this.refreshTreeOnly();
+    if (!silent) {
+      this.refreshTreeOnly();
+    }
   }
-  
+
   /** Set repository branch names from git extension */
-  setRepoBranches(branches: Map<string, BranchName>): void {
+  setRepoBranches(branches: Map<string, BranchName>, silent = false): void {
     this.repoBranches = branches;
-    this.refreshTreeOnly();
+    if (!silent) {
+      this.refreshTreeOnly();
+    }
   }
 
   getTreeItem(element: FreshFilesTreeItem): vscode.TreeItem {
@@ -823,10 +870,14 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
 
     const result = await DataCollector.collectAllFiles(this.workspaceFolders, this.currentTimeWindow);
-    
+
     this.freshFiles = result.files;
     this.errorToShowInTreeView = result.error;
     this.dataLoaded = true;
+
+    // Store the historical baseline independently so pending-only refreshes can
+    // restore entries when uncommitted changes are reverted (e.g. resurrect then discard).
+    this.historicalFiles = result.historicalFiles;
 
     // Notify heatmap decoration provider of data changes
     this.heatmapProvider?.fireDidChange();

@@ -101,12 +101,16 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   // Listen for file saves to auto-refresh (updates pending changes)
+  // the git listener picks up the change anyway, 
+  // but the delay is extremely noticeable (1-2s)
+  // this is pretty much instant
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(() => {
       log("File saved, refreshing pending changes");
-      freshFileProvider.refresh();
+      freshFileProvider.refreshPending();
     }),
   );
+
 
   // Listen for git state changes (commits, checkouts, etc.)
   // The git extension exposes an API we can use

@@ -132,7 +132,7 @@ async function createFilesInDirectory(
   }
 
   // Refresh the tree to show the new files (if they fall within the time window)
-  provider.refresh();
+  provider.refreshPending();
 }
 
 /**
