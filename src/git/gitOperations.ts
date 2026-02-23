@@ -8,6 +8,9 @@ import { CommitData, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage
 import { AbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
 
+const gitPathDecoder = new TextDecoder("utf-8");
+const gitPathEncoder = new TextEncoder();
+
 /**
  * Validate that a file path is safely within the expected root directory.
  * Prevents path traversal attacks (e.g., ../../etc/passwd).
@@ -117,6 +120,11 @@ export function decodeGitPath(gitPath: string): string {
     gitPath = gitPath.slice(1, -1);
   }
 
+  // No backslash -> no octal escapes — should be most cases
+  if (!gitPath.includes("\\")) {
+    return gitPath;
+  }
+
   // Decode octal escape sequences (e.g., \303\261 -> bytes -> UTF-8 string)
   // Git escapes non-ASCII bytes as \NNN octal sequences
   const bytes: number[] = [];
@@ -137,14 +145,14 @@ export function decodeGitPath(gitPath: string): string {
       bytes.push(char);
     } else {
       // Multi-byte UTF-8 character that wasn't escaped (shouldn't happen, but handle it)
-      const encoded = new TextEncoder().encode(gitPath[i]);
+      const encoded = gitPathEncoder.encode(gitPath[i]);
       bytes.push(...encoded);
     }
     i++;
   }
 
   // Decode the bytes as UTF-8
-  return new TextDecoder("utf-8").decode(new Uint8Array(bytes));
+  return gitPathDecoder.decode(new Uint8Array(bytes));
 }
 
 /**
@@ -472,11 +480,12 @@ export async function collectHistoricalChanges(
   const statusOutput = await execGitInDir(statusCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
 
   // Parse status output to build file status map
-  const statusLines = statusOutput.split("\n").map(line => line.trim());
+  const statusLines = statusOutput.split("\n");
   let currentCommit: CommitData | null = null;
   const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
 
-  for (const line of statusLines) {
+  for (let line of statusLines) {
+    line = line.trim();
     if (line.startsWith("__COMMIT__")) {
       const commitData = line.substring("__COMMIT__".length);
       const parts = commitData.split("|");
@@ -535,10 +544,11 @@ export async function collectHistoricalChanges(
     const numstatOutput = await execGitInDir(numstatCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
 
     // Parse numstat output to build line counts map
-    const numstatLines = numstatOutput.split("\n").map(line => line.trim());
+    const numstatLines = numstatOutput.split("\n");
     currentCommit = null;
 
-  for (const line of numstatLines) {
+  for (let line of numstatLines) {
+    line = line.trim();
     if (line.startsWith("__COMMIT__")) {
       const commitData = line.substring("__COMMIT__".length);
       const parts = commitData.split("|");
@@ -578,9 +588,18 @@ export async function collectHistoricalChanges(
   }
 
   // Step 3: Merge status and line counts
-  for (const [fileRelativePath, statusInfo] of fileStatusMap) {
-    const fullPath = path.join(workspaceRoot, fileRelativePath);
-    const existsOnDisk = await fileExists(fullPath);
+  const fileStatusEntries = Array.from(fileStatusMap.entries());
+
+  // ideally look into an approach that avoids having to do this check
+  // but need to look into edge cases around detecting deletes
+  const existsResults = await Promise.all(
+    fileStatusEntries.map(
+      ([fileRelativePath]) => fileExists(path.join(workspaceRoot, fileRelativePath)))
+  );
+
+  for (let i = 0; i < fileStatusEntries.length; i++) {
+    const [fileRelativePath, statusInfo] = fileStatusEntries[i];
+    const existsOnDisk = existsResults[i];
     const isDeleted = statusInfo.status === "D";
 
     // Include the file if:
