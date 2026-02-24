@@ -70,4 +70,7 @@ export const Commands = {
 
   // Git pickaxe search (-S): open diff search panel prefilled with selection
   GIT_PICKAXE: "freshFileExplorer.gitPickaxe",
+
+  // Performance benchmark panel
+  PERF_BENCHMARK: "freshFileExplorer.perfBenchmark",
 } as const;

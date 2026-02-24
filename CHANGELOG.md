@@ -2,6 +2,7 @@
 
 ## [1.1.3]
 
+- [NEW] Performance benchmark view for measuring load times 
 - [PERF] Eliminate pointless refetches of git log in response to git listener (it was most of them)
 - [PERF] Minor optimizations of git log (initial load)
 - [CONFIG] Change counts disabled by default (because of perf)

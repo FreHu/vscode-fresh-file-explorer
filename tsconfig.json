@@ -18,6 +18,7 @@
 		"node_modules",
 		".vscode-test",
 		"src/webview/gitLogLPanel.ts",
-		"src/webview/diffSearchPanel.ts"
+		"src/webview/diffSearchPanel.ts",
+		"src/webview/perfBenchmarkPanel.ts"
 	]
 }

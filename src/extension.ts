@@ -38,6 +38,7 @@ import { DiffSearchPanel } from "./diffSearchPanel";
 import { handleOpenDiffMatch, handleClearDiffSearch, handleGitPickaxe } from "./commands/diffSearchCommand";
 import { handleGitLogL, handlegitLogFile } from "./commands/gitLogLCommand";
 import { GitLogLContentProvider } from "./gitLogLPanel";
+import { PerfBenchmarkPanel } from "./perfBenchmarkPanel";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -245,6 +246,11 @@ function registerCommands(
   // Git log -L
   register(Commands.GIT_LOG_L, () => handleGitLogL());
   register(Commands.GIT_LOG_FILE, (item?: any) => handlegitLogFile(item));
+
+  // Performance benchmark
+  register(Commands.PERF_BENCHMARK, () =>
+    PerfBenchmarkPanel.createOrShow(context.extensionUri, vscode.workspace.workspaceFolders || [])
+  );
 }
 
 function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: vscode.ExtensionContext) {
