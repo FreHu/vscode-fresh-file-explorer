@@ -8,6 +8,7 @@ import { gitUri, getCommitChanges, getCommitParent, getCommitSubject } from "../
 import { asAbsolutePath } from "../pathTypes";
 import { findRepoForFile } from "../types";
 import { normalizePath } from "../utils";
+import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 
 /**
  * Opens all changes from a commit in VS Code's multi-diff editor.
@@ -27,7 +28,7 @@ export async function handleOpenCommit(
 
   // Find the repo this file belongs to
   const filePath = asAbsolutePath(normalizePath(item.resourceUri.fsPath));
-  const folder = freshFileProvider.findWorkspaceFolderForPath(filePath);
+  const folder = findWorkspaceFolderForPath(filePath, freshFileProvider.workspaceFolders);
   if (!folder) {
     log(`Open commit: could not find workspace folder for ${filePath}`, "warn");
     return;

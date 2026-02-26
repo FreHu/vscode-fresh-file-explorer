@@ -4,7 +4,7 @@ import { FreshFileProvider } from "../freshFileProvider";
 import { FreshFileItem } from "../treeItems";
 import { log } from "../utils/logger";
 import { asAbsolutePath } from "../pathTypes";
-import { isPathWithinRoot } from "../git/gitOperations";
+import { findWorkspaceFolderForPath, isPathWithinRoot } from "../utils/pathUtils";
 
 export type ResolveInputToPathsResult =
   | { kind: "paths"; paths: string[] }
@@ -149,7 +149,7 @@ export async function handleCreateFileNextTo(
     // For both files and folders: place the new file alongside (in the parent directory)
     const targetDir = path.dirname(targetPath);
 
-    const folder = provider.findWorkspaceFolderForPath(asAbsolutePath(targetPath));
+    const folder = findWorkspaceFolderForPath(asAbsolutePath(targetPath), provider.workspaceFolders);
     if (!folder) {
       vscode.window.showErrorMessage("Could not determine workspace folder for this item");
       log(`Failed to find workspace folder for ${targetPath}`, "error");
@@ -175,7 +175,7 @@ export async function handleCreateFileInside(
   try {
     const targetDir = item.resourceUri.fsPath;
 
-    const folder = provider.findWorkspaceFolderForPath(asAbsolutePath(targetDir));
+    const folder = findWorkspaceFolderForPath(asAbsolutePath(targetDir), provider.workspaceFolders);
     if (!folder) {
       vscode.window.showErrorMessage("Could not determine workspace folder for this folder");
       log(`Failed to find workspace folder for ${targetDir}`, "error");

@@ -11,7 +11,7 @@ import { openFileWithoutDuplicating } from "../utils";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
-  freshFileProvider.refresh();
+  freshFileProvider.hardRefresh();
 }
 
 export async function handleSetTimeWindow(freshFileProvider: FreshFileProvider): Promise<void> {

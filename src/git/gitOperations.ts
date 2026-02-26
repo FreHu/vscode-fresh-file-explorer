@@ -12,25 +12,6 @@ const gitPathDecoder = new TextDecoder("utf-8");
 const gitPathEncoder = new TextEncoder();
 
 /**
- * Validate that a file path is safely within the expected root directory.
- * Prevents path traversal attacks (e.g., ../../etc/passwd).
- * @param filePath The absolute file path to validate
- * @param rootPath The root directory the file must be within
- * @returns true if the file is safely within the root, false otherwise
- */
-export function isPathWithinRoot(filePath: AbsolutePath, rootPath: AbsolutePath): boolean {
-  // Resolve both paths to absolute, normalized form
-  const resolvedFile = path.resolve(filePath);
-  const resolvedRoot = path.resolve(rootPath);
-
-  // Ensure root path ends with separator for proper prefix matching
-  const rootWithSep = resolvedRoot.endsWith(path.sep) ? resolvedRoot : resolvedRoot + path.sep;
-
-  // File must start with root path (or be exactly the root)
-  return resolvedFile === resolvedRoot || resolvedFile.startsWith(rootWithSep);
-}
-
-/**
  * Execute a git command with arguments safely (no shell interpolation).
  * This is CRITICAL for security - avoids shell injection from filenames.
  * @param args Array of git arguments (e.g., ['show', 'HEAD:file.txt'])

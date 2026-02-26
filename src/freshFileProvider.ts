@@ -18,7 +18,7 @@ import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindow
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "./utils/formatUtils";
 import { log } from "./utils/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem } from "./treeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem, isPinnedFolder, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./treeItems";
 import { normalizePath } from "./utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./utils/moonPhase";
@@ -28,6 +28,8 @@ import { PinnedItemsManager } from "./pinnedItemsManager";
 import { FilterManager } from "./filterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
 import { DataCollector } from "./dataCollector";
+import { findWorkspaceFolderForPath, getRelativeDepth, getParentPathWithinWorkspace } from "./utils/pathUtils";
+import { FreshFileItemSorter } from "./freshFileItemSorter";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -43,6 +45,14 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private context: vscode.ExtensionContext | undefined;
   private refreshPromise: Promise<void> | undefined;
   private dataLoaded: boolean = false;
+  // Set to true once git repos have been discovered (before file loading completes)
+  private reposDiscovered: boolean = false;
+  // Normalized absolute paths of repos whose initial (pending) file loading is still in progress
+  private reposLoading: Set<string> = new Set();
+  // Normalized absolute paths of repos that have pending files loaded but historical is still running
+  private reposLoadingHistorical: Set<string> = new Set();
+  // Incremented on every refresh() so in-flight updateFreshFiles calls can detect staleness
+  private refreshEpoch: number = 0;
 
   // Sync status warnings
   private syncWarnings: string[] = [];
@@ -85,7 +95,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     // Set initial context - we're loading
     vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", true);
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.hasRepos", false);
 
     if (this.workspaceFolders.length === 0) {
       log(`FreshFileProvider initialized with no workspace folders`);
@@ -166,11 +175,49 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+   * Soft refresh: reload files from the already-known set of repositories.
+   * Skips repo discovery.
+   * Falls back to hardRefresh() if repos have never been discovered yet.
+   */
   refresh(): void {
+    if (!this.reposDiscovered) {
+      this.hardRefresh();
+      return;
+    }
     const daysText = this.currentTimeWindow.type === "historical" ? ` (${this.currentTimeWindow.days} days)` : "";
-    log(`Refreshing tree view with time window: ${this.currentTimeWindow.label}${daysText}`);
+    log(`Refreshing files (skipping repo discovery) with time window: ${this.currentTimeWindow.label}${daysText}`);
     vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", true);
     this.dataLoaded = false;
+    this.freshFiles = new Map();
+    this.historicalFiles = new Map();
+    this.refreshEpoch++;
+    clearRetrogradeCache();
+    // Pre-populate reposLoading so spinner appears on each repo node immediately.
+    this.reposLoading.clear();
+    this.reposLoadingHistorical.clear();
+    for (const folder of this.workspaceFolders) {
+      for (const repoRelPath of folder.gitRepos) {
+        const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
+        this.reposLoading.add(normalizePath(repoFullPath));
+      }
+    }
+    this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * Hard refresh: re-discover repositories then reload all files.
+   * Use this when the repo list may have changed (refresh button, workspace folder change).
+   */
+  hardRefresh(): void {
+    const daysText = this.currentTimeWindow.type === "historical" ? ` (${this.currentTimeWindow.days} days)` : "";
+    log(`Hard refresh (re-discovering repos) with time window: ${this.currentTimeWindow.label}${daysText}`);
+    vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", true);
+    this.dataLoaded = false;
+    this.reposDiscovered = false;
+    this.reposLoading.clear();
+    this.reposLoadingHistorical.clear();
+    this.refreshEpoch++;
     this.freshFiles = new Map();
     this.historicalFiles = new Map();
     clearRetrogradeCache();
@@ -189,7 +236,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    */
   async refreshPending(): Promise<void> {
     if (!this.dataLoaded) {
-      this.refresh();
+      this.refresh(); // soft if repos known, hard if first load
       return;
     }
     this.pendingRefreshVersion++;
@@ -222,7 +269,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     if (this.context && timeWindow.type === "historical") {
       this.context.workspaceState.update("selectedTimeWindowDays", timeWindow.days);
     }
-    this.refresh();
+    this.refresh(); // soft — repos unchanged
   }
 
   toggleOpenMode(): void {
@@ -279,21 +326,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         "If a file was modified by multiple authors or commits in " +
         "the selected period, only the latest change is shown.";
     }
-  }
-
-  /** Find which workspace folder contains a given absolute file path */
-  findWorkspaceFolderForPath(absolutePath: AbsolutePath): WorkspaceFolderInfo | undefined {
-    // Normalize path separators
-    const normalizedPath = normalizePath(absolutePath);
-
-    // Find the workspace folder that contains this path
-    for (const folder of this.workspaceFolders) {
-      const normalizedFolder = normalizePath(folder.path);
-      if (normalizedPath === normalizedFolder || normalizedPath.startsWith(normalizedFolder + "/")) {
-        return folder;
-      }
-    }
-    return undefined;
   }
 
   /** Get list of unique authors from current files */
@@ -561,23 +593,18 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       return undefined;
     }
 
-    // Find which workspace folder this element belongs to
-    const folder = this.findWorkspaceFolderForPath(asAbsolutePath(element.resourceUri.fsPath));
+    const folder = findWorkspaceFolderForPath(asAbsolutePath(element.resourceUri.fsPath), this.workspaceFolders);
     if (!folder) {
       return undefined;
     }
 
-    const filePath = normalizePath(path.relative(folder.path, element.resourceUri.fsPath));
-    const lastSlash = filePath.lastIndexOf("/");
-
-    if (lastSlash === -1) {
+    const parentPath = getParentPathWithinWorkspace(element.resourceUri.fsPath, folder.path);
+    if (!parentPath) {
       // Item is at root level of this workspace folder, no parent
       return undefined;
     }
 
-    // Get parent directory path
-    const parentPath = filePath.substring(0, lastSlash);
-    const parentUri = vscode.Uri.file(path.join(folder.path, parentPath));
+    const parentUri = vscode.Uri.file(parentPath);
 
     // Create a parent FreshFileItem (directory)
     return FreshFileItem.forDirectory(
@@ -599,16 +626,28 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         return [new MessageTreeItem("No workspace folder open", "warning")];
       }
 
-      // Populate fresh files if not already done
-      // Use promise cache to prevent concurrent updates
-      if (!this.dataLoaded) {
-        if (!this.refreshPromise) {
-          log("Loading files from Git repositories...");
-          this.refreshPromise = this.updateFreshFiles().finally(() => {
-            this.refreshPromise = undefined;
-          });
-        }
-        await this.refreshPromise;
+      // Start loading if not already in progress (fire-and-forget — we show
+      // progress via reposDiscovered / reposLoading state instead of awaiting).
+      if (!this.dataLoaded && !this.refreshPromise) {
+        log("Loading files from Git repositories...");
+        this.refreshPromise = this.updateFreshFiles().finally(() => {
+          this.refreshPromise = undefined;
+          // If another refresh() arrived while we were loading, start a fresh load.
+          if (!this.dataLoaded) {
+            log("Stale load detected after promise settled — starting new load");
+            this.refreshPromise = this.updateFreshFiles().finally(() => {
+              this.refreshPromise = undefined;
+            });
+          }
+        });
+      }
+
+      // While repo discovery is still running, show a placeholder so VS Code
+      // doesn't display an empty/blank tree.
+      // Guard: if dataLoaded is already true the placeholder must not appear —
+      // reposDiscovered might be stale-false after a mid-load refresh().
+      if (!this.reposDiscovered && !this.dataLoaded) {
+        return [new MessageTreeItem("Discovering repositories…", "loading~spin")];
       }
 
       const totalRepos = this.workspaceFolders.reduce((sum, folder) => sum + folder.gitRepos.length, 0);
@@ -643,8 +682,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         results.push(pinnedFolder);
       }
 
-      // Check if no files found
-      if (this.freshFiles.size === 0) {
+      // Check if no files found — but only when loading is fully complete.
+      // While repos are still loading, fall through to buildRepoView so the
+      // per-repo loading spinners are shown instead of the empty message.
+      if (this.freshFiles.size === 0 && this.reposLoading.size === 0) {
         const message = isPendingChangesMode(this.currentTimeWindow)
           ? "No pending changes"
           : `No files modified in the last ${this.currentTimeWindow.label}`;
@@ -660,13 +701,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
     }
 
-    // Get children of pinned folder
-    if (element instanceof FreshFileItem && element.contextValue === TreeItemContextValues.PINNED_FOLDER) {
+    if (isPinnedFolder(element)) {
       return this.buildPinnedItems();
     }
 
-    // Get children of an author group
-    if (element instanceof FreshFileItem && element.contextValue === TreeItemContextValues.AUTHOR_GROUP) {
+    if (isAuthorGroup(element)) {
       const authorName = element.label as string;
       return GroupingViewBuilder.buildAuthorFiles(
         authorName,
@@ -678,8 +717,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       );
     }
 
-    // Get children of a commit hash group
-    if (element instanceof FreshFileItem && element.contextValue === TreeItemContextValues.COMMIT_HASH_GROUP) {
+    if (isCommitHashGroup(element)) {
       const commitHash = element.label as string;
       return GroupingViewBuilder.buildCommitHashFiles(
         commitHash,
@@ -690,8 +728,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       );
     }
 
-    // Get children of a moon phase group
-    if (element instanceof FreshFileItem && element.contextValue === TreeItemContextValues.MOON_PHASE_GROUP) {
+    if (isMoonPhaseGroup(element)) {
       const moonPhaseName = decodeURIComponent(element.resourceUri.path.replace("/", ""));
       return GroupingViewBuilder.buildMoonPhaseFiles(
         moonPhaseName as MoonPhase,
@@ -702,8 +739,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       );
     }
 
-    // Get children of a retrograde group
-    if (element instanceof FreshFileItem && element.contextValue === TreeItemContextValues.RETROGRADE_GROUP) {
+    if (isRetrogradeGroup(element)) {
       const retrogradeKey = decodeURIComponent(element.resourceUri.path.replace("/", ""));
       return GroupingViewBuilder.buildRetrogradeFiles(
         retrogradeKey,
@@ -716,7 +752,17 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     // Get children of a directory
     if (element instanceof FreshFileItem) {
-      return this.buildTree(element.resourceUri.fsPath);
+      const normalizedPath = normalizePath(element.resourceUri.fsPath);
+      // If this repo is still in the initial load, show a single spinner.
+      if (this.reposLoading.has(normalizedPath)) {
+        return [new MessageTreeItem("Loading…", "loading~spin")];
+      }
+      const children: FreshFilesTreeItem[] = this.buildTree(element.resourceUri.fsPath);
+      // If pending is shown but historical is still running, append a history spinner.
+      if (this.reposLoadingHistorical.has(normalizedPath)) {
+        children.push(new MessageTreeItem("Loading history…", "loading~spin"));
+      }
+      return children;
     }
 
     log("getChildren returning empty array (unknown element type)");
@@ -789,6 +835,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
         const repoUri = vscode.Uri.file(repoPath);
         const branchName = this.repoBranches.get(repoNormalized);
+        const isLoading = this.reposLoading.has(repoNormalized);
 
         // Respect auto-expand depth setting for repository roots
         const shouldExpand = ConfigService.getAutoExpandDepth() > 0 && fileCount > 0;
@@ -801,6 +848,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           branchName,
           contextValue,
           shouldExpand,
+          isLoading,
         );
         results.push(repoItem);
       }
@@ -840,7 +888,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         item.id = createPinnedFileId(uri.fsPath);
 
         // Always show directory path in description for pinned items (excluding filename)
-        const folder = this.findWorkspaceFolderForPath(filePath);
+        const folder = findWorkspaceFolderForPath(filePath, this.workspaceFolders);
         if (folder) {
           const relativePath = path.relative(folder.path, filePath);
           const dirPath = path.dirname(relativePath);
@@ -869,17 +917,117 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       return;
     }
 
-    const result = await DataCollector.collectAllFiles(this.workspaceFolders, this.currentTimeWindow);
+    const epoch = this.refreshEpoch;
+    const isCancelled = () => this.refreshEpoch !== epoch;
 
-    this.freshFiles = result.files;
-    this.errorToShowInTreeView = result.error;
+    // --- Phase 1: Discover repositories (skipped on soft refresh) ---
+    if (!this.reposDiscovered) {
+      await DataCollector.discoverAllRepos(this.workspaceFolders);
+
+      if (isCancelled()) {
+        log("updateFreshFiles: cancelled after repo discovery (newer refresh started)");
+        return;
+      }
+
+      const totalRepos = this.workspaceFolders.reduce((sum, f) => sum + f.gitRepos.length, 0);
+      log(`Discovered ${totalRepos} Git repository(ies) across ${this.workspaceFolders.length} workspace folder(s)`);
+
+      if (totalRepos === 0) {
+        vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", false);
+        this.reposDiscovered = true;
+        this.dataLoaded = true;
+        this._onDidChangeTreeData.fire();
+        return;
+      }
+
+      // Mark all repos as loading and fire so the repo list appears immediately
+      // with per-repo spinners before any git log commands have run.
+      for (const folder of this.workspaceFolders) {
+        for (const repoRelPath of folder.gitRepos) {
+          const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
+          this.reposLoading.add(normalizePath(repoFullPath));
+        }
+      }
+
+      this.reposDiscovered = true;
+      this._onDidChangeTreeData.fire(); // Show repo list with per-repo loading indicators
+    } else {
+      // Soft refresh: repos already known. reposLoading was pre-populated by refresh().
+      const totalRepos = this.workspaceFolders.reduce((sum, f) => sum + f.gitRepos.length, 0);
+      log(`Reloading files for ${totalRepos} known Git repository(ies) (skipping discovery)`);
+    }
+
+    // --- Phase 2: Load files per repository (pending first, then historical) ---
+    const newFiles = new Map<AbsolutePath, FileMetadata>();
+    const newHistoricalFiles = new Map<AbsolutePath, FileMetadata>();
+    let errorToShow: string | undefined;
+    const pendingOnly = isPendingChangesMode(this.currentTimeWindow);
+    const histDays = this.currentTimeWindow.type === "historical" ? this.currentTimeWindow.days : 0;
+
+    for (const folder of this.workspaceFolders) {
+      for (const repoRelPath of folder.gitRepos) {
+        if (isCancelled()) {
+          log("updateFreshFiles: cancelled mid-load (newer refresh started)");
+          return;
+        }
+
+        const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
+        const normalizedRepoPath = normalizePath(repoFullPath);
+
+        // --- Phase 2: Pending changes (fast) ---
+        await DataCollector.collectPendingForRepo(folder, repoRelPath, newFiles);
+
+        if (isCancelled()) {
+          log("updateFreshFiles: cancelled after pending load (newer refresh started)");
+          return;
+        }
+
+        // Transition: pending loaded → remove spinner, expose pending files immediately.
+        // If historical mode, keep a secondary indicator so children show a history spinner.
+        this.reposLoading.delete(normalizedRepoPath);
+        if (!pendingOnly) {
+          this.reposLoadingHistorical.add(normalizedRepoPath);
+        }
+        this.freshFiles = new Map(newFiles);
+        this._onDidChangeTreeData.fire();
+
+        if (pendingOnly) {
+          continue;
+        }
+
+        // --- Phase 3: Historical changes (potentially slow) ---
+        const repoError = await DataCollector.collectHistoricalForRepo(
+          folder,
+          repoRelPath,
+          histDays,
+          newFiles,
+          newHistoricalFiles,
+        );
+        if (repoError && !errorToShow) {
+          errorToShow = repoError;
+        }
+
+        if (isCancelled()) {
+          log("updateFreshFiles: cancelled after loading repo (newer refresh started)");
+          return;
+        }
+
+        this.reposLoadingHistorical.delete(normalizedRepoPath);
+        this.freshFiles = new Map(newFiles);
+        this.historicalFiles = new Map(newHistoricalFiles);
+        this._onDidChangeTreeData.fire();
+      }
+    }
+
+    this.errorToShowInTreeView = errorToShow;
     this.dataLoaded = true;
 
-    // Store the historical baseline independently so pending-only refreshes can
-    // restore entries when uncommitted changes are reverted (e.g. resurrect then discard).
-    this.historicalFiles = result.historicalFiles;
+    const totalRepos = this.workspaceFolders.reduce((sum, f) => sum + f.gitRepos.length, 0);
+    log(
+      `Loaded ${newFiles.size} total fresh file(s) across ${totalRepos} Git repository(ies)`,
+    );
 
-    // Notify heatmap decoration provider of data changes
+    vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", false);
     this.heatmapProvider?.fireDidChange();
   }
 
@@ -964,15 +1112,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         // Calculate relative path from parent
         const relativePath =
           normalizedFile === normalizedParent ? "" : normalizedFile.substring(normalizedParent.length + 1);
-
-        if (relativePath.length === 0) {
-          // Human note: This branch is likely useless
-          // AI Note: Edge case: buildTree was called with a file path from freshFiles.
-          // This means we're trying to show a file as its own child, which doesn't make sense.
-          // Skip it - directories in the tree are virtual groupings, not entries in freshFiles.
-          continue;
-        }
-
         const nextSlash = relativePath.indexOf("/");
 
         if (nextSlash === -1) {
@@ -994,12 +1133,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       const uri = vscode.Uri.file(fullPath);
 
       // Determine collapsible state based on auto-expand depth
-      // Count depth relative to workspace folder
-      const folder = this.findWorkspaceFolderForPath(asAbsolutePath(fullPath));
-      const folderDepth = folder ? folder.path.split(/[\/\\]/).filter((s: string) => s.length > 0).length : 0;
-      const itemDepth = fullPath.split(/[/\\]/).filter(s => s.length > 0).length;
-      const relativeDepth = itemDepth - folderDepth;
-
+      const relativeDepth = getRelativeDepth(fullPath, this.workspaceFolders);
       let collapsibleState = vscode.TreeItemCollapsibleState.None;
       if (info.isDirectory) {
         collapsibleState =
@@ -1047,67 +1181,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
 
     // Sort based on current sort order
-    items.sort((a, b) => {
-      // For date sorting, don't separate directories and files
-      // For other sorts, directories come first
-      if (this.sortOrder !== "date" && a.isDirectory !== b.isDirectory) {
-        return a.isDirectory ? -1 : 1;
-      }
-
-      switch (this.sortOrder) {
-        case "date": {
-          // Get dates for comparison
-          const dateA = a.isDirectory
-            ? this.getMostRecentDateInDirectory(a.resourceUri.fsPath)
-            : this.freshFiles.get(asAbsolutePath(a.resourceUri.fsPath))?.date;
-          const dateB = b.isDirectory
-            ? this.getMostRecentDateInDirectory(b.resourceUri.fsPath)
-            : this.freshFiles.get(asAbsolutePath(b.resourceUri.fsPath))?.date;
-
-          if (!dateA && !dateB) {
-            return 0;
-          }
-          if (!dateA) {
-            return 1; // Items without dates go to the end
-          }
-          if (!dateB) {
-            return -1;
-          }
-
-          // Sort by date descending (newest first)
-          const dateDiff = dateB.getTime() - dateA.getTime();
-          if (dateDiff !== 0) {
-            return dateDiff;
-          }
-
-          // Tiebreaker: alphabetical by filename
-          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
-        }
-        
-        case "author": {
-          // Get authors for comparison
-          const authorA = a.isDirectory
-            ? "" // Directories don't have authors, will be sorted first
-            : (this.freshFiles.get(asAbsolutePath(a.resourceUri.fsPath))?.author || "");
-          const authorB = b.isDirectory
-            ? ""
-            : (this.freshFiles.get(asAbsolutePath(b.resourceUri.fsPath))?.author || "");
-
-          const authorCompare = authorA.localeCompare(authorB);
-          if (authorCompare !== 0) {
-            return authorCompare;
-          }
-
-          // Tiebreaker: alphabetical by filename
-          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
-        }
-        
-        case "name":
-        default:
-          // Alphabetical by filename (directories already sorted first above)
-          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
-      }
-    });
+    FreshFileItemSorter.sort(
+      items,
+      this.sortOrder,
+      (item) => item.isDirectory
+        ? this.getMostRecentDateInDirectory(item.resourceUri.fsPath)
+        : this.freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.date,
+      (item) => item.isDirectory
+        ? ""
+        : (this.freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.author || ""),
+    );
 
     return items;
   }

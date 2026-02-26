@@ -83,7 +83,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       log("Workspace folders changed, re-initializing");
       freshFileProvider.initializeWorkspaceFolders();
-      freshFileProvider.refresh();
+      freshFileProvider.hardRefresh();
     }),
   );
 

@@ -21,6 +21,7 @@
     "Other"
   ],
   "main": "./out/extension.js",
+  "activationEvents": ["*"],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false,
@@ -415,12 +416,12 @@
         },
         {
           "command": "freshFileExplorer.createFileNextTo",
-          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/ && !freshFileExplorer.loading",
           "group": "2_modification@2"
         },
         {
           "command": "freshFileExplorer.createFileInside",
-          "when": "view == freshFileExplorer && viewItem =~ /^(folder|workspaceFolder|repoFolder)$/",
+          "when": "view == freshFileExplorer && viewItem =~ /^(folder|workspaceFolder|repoFolder)$/ && !freshFileExplorer.loading",
           "group": "2_modification@3"
         },
         {

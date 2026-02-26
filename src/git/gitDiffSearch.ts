@@ -3,7 +3,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { CommitHash, asCommitHash } from "../types";
-import { decodeGitPath, execGitWithArgs, isPathWithinRoot } from "./gitOperations";
+import { decodeGitPath, execGitWithArgs } from "./gitOperations";
+import { isPathWithinRoot } from "../utils/pathUtils";
 import { log } from "../utils/logger";
 import { ConfigService } from "../config/configService";
 

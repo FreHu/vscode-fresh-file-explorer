@@ -1,8 +1,6 @@
 import * as path from "path";
-import * as vscode from "vscode";
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
 import { FileMetadata, WorkspaceFolderInfo } from "./types";
-import { TimeWindow, isPendingChangesMode } from "./timeWindowUtils";
 import { normalizePath } from "./utils";
 import { log } from "./utils/logger";
 import {
@@ -18,139 +16,87 @@ import {
  */
 export class DataCollector {
   /**
-   * Update fresh files for all workspace folders
+   * Discover all Git repositories across workspace folders.
+   * Populates `folder.gitRepos` for each folder without loading any files.
    */
-  static async collectAllFiles(
-    workspaceFolders: WorkspaceFolderInfo[],
-    currentTimeWindow: TimeWindow,
-  ): Promise<{ files: Map<AbsolutePath, FileMetadata>; historicalFiles: Map<AbsolutePath, FileMetadata>; error?: string }> {
-    const newFiles = new Map<AbsolutePath, FileMetadata>();
-    const newHistoricalFiles = new Map<AbsolutePath, FileMetadata>();
-    let errorToShow: string | undefined;
-
+  static async discoverAllRepos(workspaceFolders: WorkspaceFolderInfo[]): Promise<void> {
     for (const folder of workspaceFolders) {
       folder.gitRepos = [];
-    }
-
-    for (const folder of workspaceFolders) {
-      const error = await DataCollector.collectFilesForFolder(folder, currentTimeWindow, newFiles, newHistoricalFiles);
-      if (error && !errorToShow) {
-        errorToShow = error;
-      }
-    }
-
-    const totalRepos = workspaceFolders.reduce((sum, folder) => sum + folder.gitRepos.length, 0);
-    log(
-      `Found ${totalRepos} Git repository(ies) across ${workspaceFolders.length} workspace folder(s) with ${newFiles.size} total fresh files`,
-    );
-
-    // Update contexts for viewsWelcome
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.hasRepos", totalRepos > 0);
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", false);
-
-    return { files: newFiles, historicalFiles: newHistoricalFiles, error: errorToShow };
-  }
-
-  /**
-   * Collect files for a single workspace folder
-   */
-  private static async collectFilesForFolder(
-    folder: WorkspaceFolderInfo,
-    currentTimeWindow: TimeWindow,
-    targetMap: Map<AbsolutePath, FileMetadata>,
-    historicalTargetMap: Map<AbsolutePath, FileMetadata>,
-  ): Promise<string | undefined> {
-    const rootIsGit = await isGitRepository(folder.path);
-
-    if (rootIsGit) {
-      folder.gitRepos.push("");
-      return await DataCollector.collectFilesFromRepo(folder, "", currentTimeWindow, targetMap, historicalTargetMap);
-    } else {
-      const subRepos = await discoverGitReposInSubdirs(folder.path);
-      let error: string | undefined;
-      for (const repo of subRepos) {
-        folder.gitRepos.push(repo);
-        const repoError = await DataCollector.collectFilesFromRepo(folder, repo, currentTimeWindow, targetMap, historicalTargetMap);
-        if (repoError && !error) {
-          error = repoError;
+      const rootIsGit = await isGitRepository(folder.path);
+      if (rootIsGit) {
+        folder.gitRepos.push("");
+      } else {
+        const subRepos = await discoverGitReposInSubdirs(folder.path);
+        for (const repo of subRepos) {
+          folder.gitRepos.push(repo);
         }
       }
-      return error;
     }
   }
 
   /**
-   * Collect files from a single repository
+   * Collect only the pending (uncommitted) changes for a single repository.
    */
-  private static async collectFilesFromRepo(
+  static async collectPendingForRepo(
     folder: WorkspaceFolderInfo,
     repoRelativePath: string,
-    currentTimeWindow: TimeWindow,
+    targetMap: Map<AbsolutePath, FileMetadata>,
+  ): Promise<void> {
+    const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
+    try {
+      const files = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
+      DataCollector.addFilesToMap(folder, files, targetMap);
+    } catch (error) {
+      log(`Failed to get pending changes from ${folder.name}/${repoRelativePath || "root"}: ${String(error)}`, "warn");
+    }
+  }
+
+  /**
+   * Collect only the historical (committed) changes for a single repository.
+   * Returns an error message if the repo has no commits or git failed, otherwise undefined.
+   */
+  static async collectHistoricalForRepo(
+    folder: WorkspaceFolderInfo,
+    repoRelativePath: string,
+    days: number,
     targetMap: Map<AbsolutePath, FileMetadata>,
     historicalTargetMap: Map<AbsolutePath, FileMetadata>,
   ): Promise<string | undefined> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
     const filesBefore = targetMap.size;
-    let errorToReturn: string | undefined;
-
-    if (isPendingChangesMode(currentTimeWindow)) {
-      try {
-        const files = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
-        DataCollector.addFilesToMap(folder, files, targetMap);
-      } catch (error) {
-        const errorMessage = String(error);
+    try {
+      const historicalFiles = await collectHistoricalChanges(
+        repoRelativePath,
+        repoFullPath,
+        folder.path,
+        days,
+      );
+      DataCollector.addFilesToMap(folder, historicalFiles, historicalTargetMap);
+      DataCollector.addFilesToMap(folder, historicalFiles, targetMap);
+    } catch (error) {
+      const errorMessage = String(error);
+      if (errorMessage.includes("your current branch does not have any commits yet")) {
+        log(`No commits yet in repo ${folder.name}/${repoRelativePath || "root"}`);
+        if (targetMap.size === filesBefore) {
+          return "This repository has no commits yet. Add and commit files to see them here.";
+        }
+      } else {
         log(
-          `Failed to get pending changes from ${folder.name}/${repoRelativePath || "root"}: ${errorMessage}`,
-          "error",
+          `Failed to get historical changes from ${folder.name}/${repoRelativePath || "root"}: ${errorMessage}`,
+          "warn",
         );
-        errorToReturn = `Error: ${errorMessage}`;
-      }
-    } else {
-      try {
-        const pendingFiles = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
-        DataCollector.addFilesToMap(folder, pendingFiles, targetMap);
-      } catch (error) {
-        const errorMessage = String(error);
-        log(`Failed to get pending changes from ${folder.name}/${repoRelativePath || "root"}: ${errorMessage}`, "warn");
-      }
-
-      try {
-        const historicalFiles = await collectHistoricalChanges(
-          repoRelativePath,
-          repoFullPath,
-          folder.path,
-          currentTimeWindow.days,
-        );
-        // Store historical files in the dedicated historical map (unmerged, no dedup with pending)
-        DataCollector.addFilesToMap(folder, historicalFiles, historicalTargetMap);
-        // Also overlay into the combined map (pending entries already there take priority)
-        DataCollector.addFilesToMap(folder, historicalFiles, targetMap);
-      } catch (error) {
-        const errorMessage = String(error);
-        if (errorMessage.includes("your current branch does not have any commits yet")) {
-          log(`No commits yet in repo ${folder.name}/${repoRelativePath || "root"}`);
-          if (targetMap.size === filesBefore) {
-            errorToReturn = "This repository has no commits yet. Add and commit files to see them here.";
-          }
-        } else {
-          log(
-            `Failed to get historical changes from ${folder.name}/${repoRelativePath || "root"}: ${errorMessage}`,
-            "warn",
-          );
-          if (targetMap.size === filesBefore) {
-            errorToReturn = `Git error: ${errorMessage}`;
-          }
+        if (targetMap.size === filesBefore) {
+          return `Git error: ${errorMessage}`;
         }
       }
     }
-
-    return errorToReturn;
+    return undefined;
   }
 
   /**
    * Collect only pending (uncommitted) changes for all known repositories.
    * Skips repository discovery — requires gitRepos to already be populated on each folder
-   * from a prior collectAllFiles() call.
+   * from a prior discoverAllRepos() call.
    * Returns an AbsolutePath-keyed map ready to merge into freshFiles.
    */
   static async collectPendingFiles(

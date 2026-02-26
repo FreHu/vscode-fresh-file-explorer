@@ -151,8 +151,17 @@ export async function setupGitExtensionListener(
           const key = normalizePath(repo.rootUri.fsPath);
           const prev = repoSnapshots.get(key);
           const curr = takeSnapshot(repo);
-          if (!prev || prev.commit !== curr.commit || prev.branch !== curr.branch) {
+          if (!prev) {
+            // Brand-new repo we haven't seen before — force a refresh.
             needsFullRefresh = true;
+          } else if (prev.commit !== curr.commit || prev.branch !== curr.branch) {
+            // Commit or branch differs — but only treat it as a real change if the
+            // previous snapshot had a known state. If both were undefined the git
+            // extension simply hadn't finished initialising when we snapshotted it;
+            // the in-progress load will naturally capture the correct state.
+            if (prev.commit !== undefined || prev.branch !== undefined) {
+              needsFullRefresh = true;
+            }
           } else if (prev.indexLength !== curr.indexLength || prev.workingTreeLength !== curr.workingTreeLength) {
             needsPendingRefresh = true;
           }
@@ -211,9 +220,13 @@ export async function setupGitExtensionListener(
       refreshTimeout = setTimeout(handleRefresh, 500);
     };
 
-    // Listen for git API state changes (extension init/deinit) — always force refresh
+    // Listen for git API state changes (extension init/deinit).
+    // We intentionally do NOT force here — the initial git extension activation fires
+    // this event before any repo state is populated, which would cancel the in-flight
+    // load for no reason. Snapshot comparison in handleRefresh is sufficient to detect
+    // any real branch/commit change that follows.
     context.subscriptions.push(
-      api.onDidChangeState(() => scheduleRefresh(true)),
+      api.onDidChangeState(() => scheduleRefresh()),
     );
 
     // Listen for per-repo state changes — snapshot comparison decides whether to refresh

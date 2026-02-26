@@ -84,24 +84,35 @@ constructor(
     branchName: string | undefined,
     contextValue: string,
     expanded: boolean = true,
+    isLoading: boolean = false,
   ): FreshFileItem {
-    const item = new FreshFileItem(
-      uri,
-      true,
-      fileCount > 0
+    const collapsibleState = isLoading
+      ? vscode.TreeItemCollapsibleState.Collapsed
+      : fileCount > 0
         ? expanded
           ? vscode.TreeItemCollapsibleState.Expanded
           : vscode.TreeItemCollapsibleState.Collapsed
-        : vscode.TreeItemCollapsibleState.None,
+        : vscode.TreeItemCollapsibleState.None;
+
+    const item = new FreshFileItem(
+      uri,
+      true,
+      collapsibleState,
       openChangesMode,
       fileCount,
     );
 
     item.label = repoName;
-    item.description = formatRepoDescription(branchName, fileCount);
+    if (isLoading) {
+      item.description = "loading…";
+      item.iconPath = new vscode.ThemeIcon("loading~spin");
+      item.tooltip = `Loading ${repoName}…`;
+    } else {
+      item.description = formatRepoDescription(branchName, fileCount);
+      item.iconPath = new vscode.ThemeIcon("repo");
+      item.tooltip = formatRepoTooltip(repoName, branchName, fileCount);
+    }
     item.contextValue = contextValue;
-    item.iconPath = new vscode.ThemeIcon("repo");
-    item.tooltip = formatRepoTooltip(repoName, branchName, fileCount);
 
     return item;
   }
@@ -217,3 +228,20 @@ export class NoteTreeItem extends vscode.TreeItem {
 }
 
 export type FreshFilesTreeItem = FreshFileItem | MessageTreeItem | NoteTreeItem;
+
+/** Type guards for specific FreshFileItem contextValue variants */
+export function isPinnedFolder(el: FreshFilesTreeItem): el is FreshFileItem {
+  return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.PINNED_FOLDER;
+}
+export function isAuthorGroup(el: FreshFilesTreeItem): el is FreshFileItem {
+  return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.AUTHOR_GROUP;
+}
+export function isCommitHashGroup(el: FreshFilesTreeItem): el is FreshFileItem {
+  return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.COMMIT_HASH_GROUP;
+}
+export function isMoonPhaseGroup(el: FreshFilesTreeItem): el is FreshFileItem {
+  return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.MOON_PHASE_GROUP;
+}
+export function isRetrogradeGroup(el: FreshFilesTreeItem): el is FreshFileItem {
+  return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.RETROGRADE_GROUP;
+}

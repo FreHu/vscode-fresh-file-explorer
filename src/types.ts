@@ -135,7 +135,6 @@ export interface AuthorData {
  */
 export interface WorkspaceFolderProvider {
   workspaceFolders: WorkspaceFolderInfo[];
-  findWorkspaceFolderForPath(absolutePath: AbsolutePath): WorkspaceFolderInfo | undefined;
 }
 
 /**

@@ -6,6 +6,7 @@ import { FreshFileItem } from "../treeItems";
 import { normalizePath } from "../utils";
 import { WorkspaceFolderProvider, RefreshableProvider, findRepoForFile } from "../types";
 import { asAbsolutePath } from "../pathTypes";
+import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 
 /**
  * Interface for a provider that can work with deleted files
@@ -25,8 +26,7 @@ async function getDeletedFileContentAsBuffer(
     return undefined;
   }
 
-  // Find which workspace folder this file belongs to
-  const folder = provider.findWorkspaceFolderForPath(asAbsolutePath(item.resourceUri.fsPath));
+  const folder = findWorkspaceFolderForPath(asAbsolutePath(item.resourceUri.fsPath), provider.workspaceFolders);
   if (!folder) {
     vscode.window.showErrorMessage("Could not determine workspace folder for file");
     return undefined;
@@ -125,7 +125,7 @@ export async function handleResurrect(
       log(`Resurrecting deleted file: ${fileItem.resourceUri.fsPath}`);
 
       // Find workspace folder and repo
-      const folder = provider.findWorkspaceFolderForPath(asAbsolutePath(fileItem.resourceUri.fsPath));
+      const folder = findWorkspaceFolderForPath(asAbsolutePath(fileItem.resourceUri.fsPath), provider.workspaceFolders);
       if (!folder) {
         log(`Could not find workspace folder for: ${fileItem.resourceUri.fsPath}`, "error");
         errors.push(fileName + " (no workspace folder)");

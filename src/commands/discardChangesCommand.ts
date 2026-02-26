@@ -4,10 +4,12 @@ import * as path from "path";
 import { FreshFileProvider } from "../freshFileProvider";
 import { FreshFileItem } from "../treeItems";
 import { findRepoForFile } from "../types";
-import { discardFileChanges, isPathWithinRoot } from "../git/gitOperations";
+import { discardFileChanges } from "../git/gitOperations";
+import { isPathWithinRoot } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
 import { log } from "../utils/logger";
 import { asAbsolutePath } from "../pathTypes";
+import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 
 // Discard changes command - for pending files only
 // SAFETY: Only discards explicitly selected files, shows full list in confirmation
@@ -54,7 +56,7 @@ export async function handleDiscardChanges(
     for (const fileItem of pendingItems) {
       try {
         // Find workspace folder and git repo for this file
-        const folder = freshFileProvider.findWorkspaceFolderForPath(asAbsolutePath(fileItem.resourceUri.fsPath));
+        const folder = findWorkspaceFolderForPath(asAbsolutePath(fileItem.resourceUri.fsPath), freshFileProvider.workspaceFolders);
         if (!folder) {
           log(`Could not find workspace folder for: ${fileItem.resourceUri.fsPath}`, "error");
           errors.push(path.basename(fileItem.resourceUri.fsPath) + " (no workspace folder)");

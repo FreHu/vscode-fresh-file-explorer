@@ -19,15 +19,24 @@ A tree view in the Explorer sidebar showing files modified within a configurable
 ### Data Flow
 
 1. `FreshFileProvider` is the central data store and TreeDataProvider
-2. On refresh, `updateFreshFiles()` populates `freshFiles: Map<AbsolutePath, FileMetadata>`
-3. **Key insight**: `freshFiles` stores only file paths, not directories. Directories are virtual groupings created in `buildTree()`
-4. `getChildren()` calls `buildTree()` which dynamically constructs the tree from the flat file map
-5. `_onDidChangeTreeData.fire()` triggers VS Code to re-query the tree
+2. Loading is **lazy and incremental**: `getChildren()` detects no data is loaded and fires `updateFreshFiles()` as a non-blocking promise. It returns immediately with a spinner placeholder.
+3. `updateFreshFiles()` runs in three phases per repository, firing `_onDidChangeTreeData` after each step so the tree updates progressively:
+   - **Phase 1** (once per hard refresh): Repo discovery via `DataCollector.discoverAllRepos()`
+   - **Phase 2**: Pending changes via `DataCollector.collectPendingForRepo()` — fast, shown immediately
+   - **Phase 3**: Historical changes via `DataCollector.collectHistoricalForRepo()` — slow, shown after pending
+4. Two separate file maps are maintained:
+   - `freshFiles`: The combined live view (pending + historical) used by the tree
+   - `historicalFiles`: The historical baseline; used to restore entries when pending changes are reverted
+5. **Key insight**: `freshFiles` stores only file paths, not directories. Directories are virtual groupings created on-demand by `buildTree()`
+6. `getChildren()` calls `buildTree()` for directory nodes, which dynamically constructs children from the flat `freshFiles` map
+7. A `refreshEpoch` counter is incremented on every refresh. `updateFreshFiles()` checks it at each async boundary to abort stale loads if a newer refresh has started.
 
-### Two Types of "Refresh"
+### Four Types of "Refresh"
 
-- `refresh()`: Clears the file cache, forcing a full reload from Git on next `getChildren()` call
-- `refreshTreeOnly()`: Just fires the tree change event, reusing cached data (used for filter changes, toggle mode)
+- `hardRefresh()`: Clears everything including discovered repos, forcing full repo re-discovery and reload on next `getChildren()` call. Use when repos may have changed.
+- `refresh()` (soft): Clears file cache but keeps discovered repos. Skips repo discovery on next load. Falls back to `hardRefresh()` if repos were never discovered.
+- `refreshTreeOnly()`: Just fires the tree change event, reusing cached data (used for filter changes, display toggle, sync warnings).
+- `refreshPending()`: Reloads only pending changes via `updatePendingFiles()`, rebuilding `freshFiles` from the cached `historicalFiles` baseline plus fresh pending entries. Falls back to `refresh()` if data not yet loaded.
 
 ### Commit history
 
@@ -51,7 +60,7 @@ asAbsolutePath(path); // Automatically calls normalizePath() internally
 
 ### Path Security
 
-[gitOperations.ts](src/git/gitOperations.ts) contains `isPathWithinRoot()` to prevent path traversal attacks. Use this when writing files based on Git output (resurrect, etc.).
+[pathUtils.ts](src/utils/pathUtils.ts) contains `isPathWithinRoot()` to prevent path traversal attacks. Use this when writing files based on Git output (resurrect, etc.).
 
 ## Git Command Execution
 
