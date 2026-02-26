@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
-import { FreshFileItem, FreshFilesTreeItem, NoteTreeItem } from "../treeItems";
+import { FreshFileItem, FreshFilesTreeItem, NoteTreeItem } from "../fresh-files/freshFileTreeItems";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
-import { FreshFileProvider } from "../freshFileProvider";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log } from "../extension/logger";
-import { TreeItemContextValues } from "../treeItemConstants";
+import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 
 // MIME types for drag & drop operations
 export const MIME_TYPE_URI_LIST = "text/uri-list";

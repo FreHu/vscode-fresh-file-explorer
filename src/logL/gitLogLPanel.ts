@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { execGitWithArgs, gitUri, getCommitParent, getCommitChanges, getCommitSubject } from "./git/gitOperations";
-import { GitLogLCommit } from "./git/gitLogLParser";
+import { execGitWithArgs, gitUri, getCommitParent, getCommitChanges, getCommitSubject } from "../git/gitOperations";
+import { GitLogLCommit } from "../git/gitLogLParser";
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
-import { log } from "./extension/logger";
+import { log } from "../extension/logger";
 
 /**
  * Manages the Git Log -L webview panel (one per unique query).

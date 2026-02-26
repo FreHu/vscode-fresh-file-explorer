@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { log } from "../extension/logger";
 import { createAuthorQuickPick, createCommitQuickPick } from "../utils/quickPick";
-import { setDifference } from "../utils";
+import { setDifference } from "../utils/collectionUtils";
 import { AuthorData, CommitDataWithFileCount, CommitHash } from "../types";
 import { ContextManager } from "../extension/contextManager";
 

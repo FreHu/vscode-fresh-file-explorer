@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { AbsolutePath } from "./pathTypes";
-import { FileMetadata, SortOrder } from "./types";
-import { ConfigService } from "./config/configService";
-import { FreshFileItem, FreshFilesTreeItem } from "./treeItems";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges } from "./utils/formatUtils";
-import { TreeItemContextValues } from "./treeItemConstants";
-import { getMoonPhase, type MoonPhase } from "./utils/moonPhase";
-import { getRetrogradeInfo, getRetrogradeKey, type Planet } from "./utils/planetaryRetrograde";
+import { AbsolutePath } from "../pathTypes";
+import { FileMetadata, SortOrder } from "../types";
+import { ConfigService } from "../config/configService";
+import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges } from "../utils/formatUtils";
+import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
+import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
+import { getRetrogradeInfo, getRetrogradeKey, type Planet } from "../fresh-files/planetaryRetrograde";
 
 /**
  * Calculate total line changes from items with metadata.

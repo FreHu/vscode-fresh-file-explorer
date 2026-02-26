@@ -1,5 +1,5 @@
-import { html, css, raw } from "./utils/templateHelpers";
-import { getNonce } from "./utils/nonceUtils";
+import { html, css, raw } from "../utils/templateHelpers";
+import { getNonce } from "../utils/webviewUtils";
 
 export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): string {
   const nonce = getNonce();

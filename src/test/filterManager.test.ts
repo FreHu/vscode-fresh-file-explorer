@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { FilterManager } from "../filterManager";
+import { FilterManager } from "../fresh-files/freshFileFilterManager";
 import { FileMetadata, asCommitHash } from "../types";
 
 suite("FilterManager", () => {

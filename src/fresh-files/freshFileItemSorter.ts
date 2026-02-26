@@ -1,6 +1,6 @@
 import * as path from "path";
-import { FreshFileItem } from "./treeItems";
-import { SortOrder } from "./types";
+import { FreshFileItem } from "./freshFileTreeItems";
+import { SortOrder } from "../types";
 
 export class FreshFileItemSorter {
   /**

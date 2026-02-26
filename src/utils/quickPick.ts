@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
-import { isPendingChangesMode, TimeWindow } from "../timeWindowUtils";
+import { isPendingChangesMode, TimeWindow } from "../fresh-files/timeWindowUtils";
 import { AuthorData, CommitDataWithFileCount, CommitHash } from "../types";
-import { dotsDots as truncateWithDots } from "../utils";
+import { dotsDots } from "./formatUtils";
 
 export interface CommitQuickPickItem extends vscode.QuickPickItem {
   hash: CommitHash;
@@ -17,7 +17,7 @@ export function buildCommitItems(
     return {
       label: `$(git-commit) ${c.hash}`,
       description: `${repoPart}${c.date.toLocaleDateString()} • ${c.fileCount} file(s) by ${c.author}`,
-      detail: truncateWithDots(c.message),
+      detail: dotsDots(c.message),
       picked: isPicked,
       hash: c.hash,
     };

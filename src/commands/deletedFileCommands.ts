@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { log } from "../extension/logger";
 import { getFileFromHistoryAsBuffer } from "../git/gitOperations";
-import { FreshFileItem } from "../treeItems";
+import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { WorkspaceFolderProvider, RefreshableProvider, findRepoForFile } from "../types";
 import { asAbsolutePath } from "../pathTypes";

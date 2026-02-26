@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { GroupingViewBuilder } from "../groupingViewBuilder";
+import { GroupingViewBuilder } from "../fresh-files/groupingViewBuilder";
 import { FileMetadata } from "../types";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 

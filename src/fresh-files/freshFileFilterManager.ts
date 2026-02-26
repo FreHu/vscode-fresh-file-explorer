@@ -1,5 +1,5 @@
-import { CommitHash, FileMetadata } from "./types";
-import { log } from "./extension/logger";
+import { CommitHash, FileMetadata } from "../types";
+import { log } from "../extension/logger";
 
 /**
  * Manages filter state for the Fresh File Explorer.

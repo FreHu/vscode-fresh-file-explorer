@@ -1,6 +1,6 @@
 import * as assert from "assert";
-import { filterMatchesByPattern, buildPathspecs, matchFileLines } from "../../git/gitDiffSearch";
-import { DiffMatch } from "../../git/gitDiffSearch";
+import { filterMatchesByPattern, buildPathspecs, matchFileLines } from "../../diff-search/diffSearchParser";
+import { DiffMatch } from "../../diff-search/diffSearchParser";
 import { asAbsolutePath } from "../../pathTypes";
 
 function makeMatch(lineContent: string): DiffMatch {

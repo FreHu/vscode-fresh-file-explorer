@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-import { FreshFileItem } from "../treeItems";
-import { FreshFileProvider } from "../freshFileProvider";
+import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log } from "../extension/logger";
 import { gitUri, getCommitChanges, getCommitParent, getCommitSubject } from "../git/gitOperations";
 import { asAbsolutePath } from "../pathTypes";

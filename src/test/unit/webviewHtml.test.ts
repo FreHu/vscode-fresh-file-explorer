@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { getGitLogLPanelHtml } from "../../gitLogLPanelUI";
+import { getGitLogLPanelHtml } from "../../logL/gitLogLPanelUI";
 import { formatGitCommand } from "../../utils/formatUtils";
 
 /**

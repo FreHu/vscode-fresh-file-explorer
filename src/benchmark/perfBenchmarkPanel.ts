@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { execGitWithArgs, discoverReposInWorkspace } from "./git/gitOperations";
+import { execGitWithArgs, discoverReposInWorkspace } from "../git/gitOperations";
 import { getWebviewHtml } from "./perfBenchmarkPanelUI";
-import { Benchmark, BenchmarkInputValues } from "./benchmark/benchmark";
-import { RepoInfo } from "./git/gitOperations";
-import { createGitLogBenchmark, createGitLogStreamBenchmark, createGitNumstatBenchmark } from "./benchmark/gitLogBenchmark";
+import { Benchmark, BenchmarkInputValues } from "../benchmark/benchmark";
+import { RepoInfo } from "../git/gitOperations";
+import { createGitLogBenchmark, createGitLogStreamBenchmark, createGitNumstatBenchmark } from "../benchmark/gitLogBenchmark";
 
 /**
  * Expands multi-value params (comma-separated strings) into a flat list of

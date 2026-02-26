@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { FreshFileProvider } from "../freshFileProvider";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
 import { FileMetadata } from "../types";
-import { isPendingChangesMode } from "../timeWindowUtils";
+import { isPendingChangesMode } from "../fresh-files/timeWindowUtils";
 import { openSearchWithFiles, convertToRelativePaths } from "./searchCommand";
 import { openFileWithoutDuplicating } from "../utils";
 

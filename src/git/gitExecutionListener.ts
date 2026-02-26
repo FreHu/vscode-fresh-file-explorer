@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
-import { FreshFileProvider } from "./freshFileProvider";
-import { ConfigService } from "./config/configService";
-import { log } from "./extension/logger";
-import { normalizePath } from "./utils";
-import { BranchName, asBranchName } from "./types";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { ConfigService } from "../config/configService";
+import { log } from "../extension/logger";
+import { normalizePath } from "../utils";
+import { BranchName, asBranchName } from "../types";
 
 /**
  * Set up listener for git extension state changes

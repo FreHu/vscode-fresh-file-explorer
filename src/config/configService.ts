@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { DescriptionFormat, DEFAULT_DESCRIPTION_FORMAT } from "../types";
-import { DEFAULT_TIME_WINDOW_DAYS } from "../timeWindowUtils";
+import { DEFAULT_TIME_WINDOW_DAYS } from "../fresh-files/timeWindowUtils";
 import { ConfigKeys } from "./constants";
 
 /**

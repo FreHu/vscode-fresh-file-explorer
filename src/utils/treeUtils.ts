@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { FreshFileItem, FreshFilesTreeItem } from "../treeItems";
+import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
 import { log } from "../extension/logger";
 
 /**

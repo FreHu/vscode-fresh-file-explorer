@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { AbsolutePath } from "./pathTypes";
-import { CommitHash } from "./types";
-import { Commands } from "./commands/constants";
-import { formatRelativeDate } from "./utils/formatUtils";
+import { AbsolutePath } from "../pathTypes";
+import { CommitHash } from "../types";
+import { Commands } from "../commands/constants";
+import { formatRelativeDate } from "../utils/formatUtils";
 
 /**
  * Tree item representing a file with diff matches

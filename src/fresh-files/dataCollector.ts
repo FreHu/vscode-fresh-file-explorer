@@ -1,14 +1,14 @@
 import * as path from "path";
-import { AbsolutePath, asAbsolutePath } from "./pathTypes";
-import { FileMetadata, WorkspaceFolderInfo } from "./types";
-import { normalizePath } from "./utils";
-import { log } from "./extension/logger";
+import { AbsolutePath, asAbsolutePath } from "../pathTypes";
+import { FileMetadata, WorkspaceFolderInfo } from "../types";
+import { normalizePath } from "../utils";
+import { log } from "../extension/logger";
 import {
   collectHistoricalChanges,
   collectPendingChanges,
   discoverGitReposInSubdirs,
   isGitRepository,
-} from "./git/gitOperations";
+} from "../git/gitOperations";
 
 /**
  * Handles Git data collection for the Fresh File Explorer.

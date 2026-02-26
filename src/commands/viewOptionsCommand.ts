@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { FreshFileProvider } from "../freshFileProvider";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log } from "../extension/logger";
 import { handleSetGroupingMode, handleSetSortOrder } from "./basicCommands";
 import { handleFilterByAuthor, handleFilterByCommit } from "./filterCommands";

@@ -3,8 +3,7 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
     "types": ["vscode-webview"],
-    "noEmit": true,
-    "rootDir": "src/webview"
+    "noEmit": true
   },
   "include": ["src/webview/**/*"],
   "exclude": ["node_modules"]

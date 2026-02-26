@@ -2,7 +2,7 @@ import * as assert from "assert";
 import { buildCommitItems, buildAuthorItems, buildTimeWindowItems } from "../../utils/quickPick";
 import { asCommitHash } from "../../types";
 import type { CommitDataWithFileCount, AuthorData } from "../../types";
-import type { TimeWindow } from "../../timeWindowUtils";
+import type { TimeWindow } from "../../fresh-files/timeWindowUtils";
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 

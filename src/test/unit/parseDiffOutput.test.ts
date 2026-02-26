@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { parseDiffOutput } from "../../git/gitDiffSearch";
+import { parseDiffOutput } from "../../diff-search/diffSearchParser";
 
 const CWD = "/repo";
 

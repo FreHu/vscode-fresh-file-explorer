@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { FreshFileProvider } from "../freshFileProvider";
-import { FreshFileItem } from "../treeItems";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { log } from "../extension/logger";
 import { asAbsolutePath } from "../pathTypes";
 import { findWorkspaceFolderForPath, isPathWithinRoot } from "../utils/pathUtils";

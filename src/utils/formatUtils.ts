@@ -3,7 +3,8 @@ import { FileMetadata, DescriptionFormat } from "../types";
 /**
  * Format a group description with file count and optional line changes
  */
-export function formatGroupDescription(fileCount: number, linesAdded?: number, linesDeleted?: number): string {
+export function formatGroupDescription(
+  fileCount: number, linesAdded?: number, linesDeleted?: number): string {
   const parts = [`${fileCount} file${fileCount === 1 ? "" : "s"}`];
   
   const lineChanges = formatLineChanges(linesAdded, linesDeleted);
@@ -17,7 +18,8 @@ export function formatGroupDescription(fileCount: number, linesAdded?: number, l
 /**
  * Format repository description with branch name and file count
  */
-export function formatRepoDescription(branchName: string | undefined, fileCount: number): string {
+export function formatRepoDescription(
+  branchName: string | undefined, fileCount: number): string {
   if (fileCount === 0) {
     return branchName ? `🔀 ${branchName} (no fresh files)` : "(no fresh files)";
   } else {
@@ -28,7 +30,8 @@ export function formatRepoDescription(branchName: string | undefined, fileCount:
 /**
  * Format repository tooltip with name, branch, and file count
  */
-export function formatRepoTooltip(repoName: string, branchName: string | undefined, fileCount: number): string {
+export function formatRepoTooltip(
+  repoName: string, branchName: string | undefined, fileCount: number): string {
   return branchName
     ? `${repoName} (${branchName})\n${fileCount} file(s) modified`
     : `${repoName}\n${fileCount} file(s) modified`;
@@ -304,4 +307,31 @@ export function formatGitCommand(args: string[]): string {
     /[ \t\n:*?"<>|\\]/.test(arg) ? `'${arg}'` : arg
   );
   return "git " + formatted.join(" ");
+}
+
+/**
+ * Build a human-readable label for a number of days
+ */
+export function formatDaysLabel(days: number): string {
+  const dayLabels: Record<number, string> = {
+    [-1]: "Pending changes",
+    1: "1 day",
+    7: "1 week",
+    14: "2 weeks",
+    30: "1 month",
+    60: "2 months",
+    90: "3 months",
+    180: "6 months",
+    365: "1 year",
+  };
+
+  if (dayLabels.hasOwnProperty(days)) {
+    return dayLabels[days];
+  }
+
+  return `${days} days`;
+}
+
+export function dotsDots(str: string, length = 80): string {
+  return str.length > length ? str.substring(0, length - 3) + "..." : str;
 }

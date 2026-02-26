@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
-import { FreshFileProvider } from "./freshFileProvider";
-import { ConfigService } from "./config/configService";
-import { asAbsolutePath } from "./pathTypes";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { ConfigService } from "../config/configService";
+import { asAbsolutePath } from "../pathTypes";
 
 /**
  * Provides file decorations (text color) for the heatmap feature.

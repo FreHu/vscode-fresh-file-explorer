@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import { FreshFileItem } from "../treeItems";
-import { FreshFileProvider } from "../freshFileProvider";
+import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 
 /**

@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { parseDiffOutput, filterMatchesByPattern } from "../../git/gitDiffSearch";
+import { parseDiffOutput, filterMatchesByPattern } from "../../diff-search/diffSearchParser";
 
 const fixture = fs.readFileSync(path.join(__dirname, "..", "fixtures", "pickaxe.txt"), "utf-8");
 const CWD = "/repo";

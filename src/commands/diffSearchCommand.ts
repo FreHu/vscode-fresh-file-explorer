@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { DiffSearchResultProvider } from "../diffSearchResultProvider";
-import { DiffSearchMatchItem } from "../diffSearchTreeItems";
+import { DiffSearchResultProvider } from "../diff-search/diffSearchResultProvider";
+import { DiffSearchMatchItem } from "../diff-search/diffSearchTreeItems";
 import { gitUri } from "../git/gitOperations";
-import { DiffSearchPanel } from "../diffSearchPanel";
+import { DiffSearchPanel } from "../diff-search/diffSearchPanel";
 
 /**
  * Open a diff match in the editor

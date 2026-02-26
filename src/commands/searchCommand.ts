@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { FreshFileProvider } from "../freshFileProvider";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { ConfigService } from "../config/configService";
 import { log } from "../extension/logger";
 import { optimizeIncludePatterns } from "../utils/patternUtils";

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { PinnedItem, SortOrder } from "../types";
-import { GroupingMode, DEFAULT_GROUPING_MODE } from "../groupingMode";
+import { GroupingMode, DEFAULT_GROUPING_MODE } from "../fresh-files/groupingMode";
 import { DiffSearchParams, DiffSearchHistoryEntry } from "../webview/messages";
 
 /**

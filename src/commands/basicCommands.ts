@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 
-import { FreshFileItem, FreshFilesTreeItem } from "../treeItems";
-import { FreshFileProvider } from "../freshFileProvider";
+import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log, showOutputChannel } from "../extension/logger";
 import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
-import { GROUPING_MODE_OPTIONS, GroupingMode } from "../groupingMode";
+import { GROUPING_MODE_OPTIONS, GroupingMode } from "../fresh-files/groupingMode";
 import { SortOrder } from "../types";
 import { openFileWithoutDuplicating } from "../utils";
 

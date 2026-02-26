@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import { DiffSearchResultProvider } from "./diffSearchResultProvider";
-import { DiffMatch, searchHistoricalDiffs, searchPendingDiffs } from "./git/gitDiffSearch";
-import { discoverReposInWorkspace } from "./git/gitOperations";
-import { AbsolutePath } from "./pathTypes";
-import { log } from "./extension/logger";
-import { formatGitCommand } from "./utils/formatUtils";
-import { getWebviewHtml } from "./diffSearchPanelUI";
-import { DiffSearchParams, DiffSearchHistoryEntry } from "./webview/messages";
-import { WorkspaceStateManager } from "./extension/workspaceStateManager";
+import { DiffMatch, searchHistoricalDiffs, searchPendingDiffs } from "./diffSearchParser";
+import { discoverReposInWorkspace } from "../git/gitOperations";
+import { AbsolutePath } from "../pathTypes";
+import { log } from "../extension/logger";
+import { formatGitCommand } from "../utils/formatUtils";
+import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
+import { DiffSearchParams, DiffSearchHistoryEntry } from "../webview/messages";
+import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 const MAX_HISTORY = 25;
 
 interface SearchMessage {

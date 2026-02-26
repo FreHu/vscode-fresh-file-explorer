@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 import { initializeLogger, log } from "./extension/logger";
-import { FreshFileItem, FreshFilesTreeItem } from "./treeItems";
+import { FreshFileItem, FreshFilesTreeItem } from "./fresh-files/freshFileTreeItems";
 import { handleClearFilters, handleFilterByAuthor, handleFilterByCommit } from "./commands/filterCommands";
 import {
   handleExpandAll,
@@ -19,8 +19,8 @@ import {
   handleToggleHeatmap,
 } from "./commands/basicCommands";
 import { handleExhume, handleResurrect } from "./commands/deletedFileCommands";
-import { FreshFileProvider } from "./freshFileProvider";
-import { setupGitExtensionListener } from "./gitExecutionListener";
+import { FreshFileProvider } from "./fresh-files/freshFileProvider";
+import { setupGitExtensionListener } from "./git/gitExecutionListener";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleCreateFileNextTo, handleCreateFileInside } from "./commands/fileCreationCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
@@ -32,15 +32,15 @@ import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteComple
 import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { Commands } from "./commands/constants";
 import { createDragAndDropController } from "./commands/dragDropController";
-import { HeatmapDecorationProvider } from "./heatmapDecorationProvider";
-import { DiffSearchResultProvider } from "./diffSearchResultProvider";
-import { DiffSearchPanel } from "./diffSearchPanel";
+import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
+import { DiffSearchResultProvider } from "./diff-search/diffSearchResultProvider";
+import { DiffSearchPanel } from "./diff-search/diffSearchPanel";
 import { handleOpenDiffMatch, handleClearDiffSearch, handleGitPickaxe } from "./commands/diffSearchCommand";
 import { handleGitLogL, handlegitLogFile } from "./commands/gitLogLCommand";
-import { GitLogLContentProvider } from "./gitLogLPanel";
+import { GitLogLContentProvider } from "./logL/gitLogLPanel";
 import { ContextManager } from "./extension/contextManager";
 import { WorkspaceStateManager } from "./extension/workspaceStateManager";
-import { PerfBenchmarkPanel } from "./perfBenchmarkPanel";
+import { PerfBenchmarkPanel } from "./benchmark/perfBenchmarkPanel";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);

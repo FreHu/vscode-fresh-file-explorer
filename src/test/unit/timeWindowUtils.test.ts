@@ -4,7 +4,7 @@ import {
   buildTimeWindows,
   DEFAULT_TIME_WINDOW_DAYS,
   type TimeWindow
-} from "../../timeWindowUtils";
+} from "../../fresh-files/timeWindowUtils";
 
 suite("Time Window Utils", () => {
   suite("isPendingChangesMode", () => {

@@ -15,3 +15,7 @@ export function groupBy<K, V>(items: V[], keyFn: (item: V) => K): Map<K, V[]> {
   }
   return map;
 }
+
+export function setDifference<T>(all: Iterable<T>, exclude: Set<T>): Set<T> {
+  return new Set(Array.from(all).filter(x => !exclude.has(x)));
+}

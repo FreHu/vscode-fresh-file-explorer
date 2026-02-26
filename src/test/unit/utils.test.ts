@@ -1,5 +1,7 @@
 import * as assert from "assert";
-import { normalizePath, formatDaysLabel, setDifference, dotsDots } from "../../utils";
+import { normalizePath } from "../../utils";
+import { dotsDots, formatDaysLabel } from "../../utils/formatUtils";
+import { setDifference } from "../../utils/collectionUtils";
 
 suite("Utils", () => {
   suite("normalizePath", () => {

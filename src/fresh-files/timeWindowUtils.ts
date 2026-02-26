@@ -1,4 +1,4 @@
-import { formatDaysLabel } from "./utils";
+import { formatDaysLabel } from "../utils/formatUtils";
 
 /**
  * TimeWindow discriminated union

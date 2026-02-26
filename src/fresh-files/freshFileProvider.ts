@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-import { ConfigService } from "./config/configService";
+import { ConfigService } from "../config/configService";
 import {
   WorkspaceFolderInfo,
   FileMetadata,
@@ -13,25 +13,25 @@ import {
   CommitDataWithFileCount,
   asCommitMessage,
   SortOrder,
-} from "./types";
+} from "../types";
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
-import { AbsolutePath, asAbsolutePath } from "./pathTypes";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "./utils/formatUtils";
-import { log } from "./extension/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem, isPinnedFolder, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./treeItems";
-import { normalizePath } from "./utils";
+import { AbsolutePath, asAbsolutePath } from "../pathTypes";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "../utils/formatUtils";
+import { log } from "../extension/logger";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem, isPinnedFolder, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
+import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
-import { type MoonPhase } from "./utils/moonPhase";
-import { clearRetrogradeCache } from "./utils/planetaryRetrograde";
+import { type MoonPhase } from "./moonPhase";
+import { clearRetrogradeCache } from "./planetaryRetrograde";
 import { TreeItemContextValues, createPinnedFileId } from "./treeItemConstants";
 import { PinnedItemsManager } from "./pinnedItemsManager";
-import { FilterManager } from "./filterManager";
+import { FilterManager } from "./freshFileFilterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
 import { DataCollector } from "./dataCollector";
-import { findWorkspaceFolderForPath, getRelativeDepth, getParentPathWithinWorkspace } from "./utils/pathUtils";
+import { findWorkspaceFolderForPath, getRelativeDepth, getParentPathWithinWorkspace } from "../utils/pathUtils";
 import { FreshFileItemSorter } from "./freshFileItemSorter";
-import { ContextManager } from "./extension/contextManager";
-import { WorkspaceStateManager } from "./extension/workspaceStateManager";
+import { ContextManager } from "../extension/contextManager";
+import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();

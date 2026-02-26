@@ -1,8 +1,8 @@
-import { AbsolutePath } from "./pathTypes";
-import { WorkspaceStateManager } from "./extension/workspaceStateManager";
-import { PinnedItem } from "./types";
-import { log } from "./extension/logger";
-import { normalizePath } from "./utils";
+import { AbsolutePath } from "../pathTypes";
+import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { PinnedItem } from "../types";
+import { log } from "../extension/logger";
+import { normalizePath } from "../utils";
 import { normalizeItemId, getItemIdWithNormalizedPath } from "./treeItemConstants";
 
 /**

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import { FreshFileProvider } from "../freshFileProvider";
-import { NoteTreeItem } from "../treeItems";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { NoteTreeItem } from "../fresh-files/freshFileTreeItems";
 import { log } from "../extension/logger";
 
 export async function handleAddNote(freshFileProvider: FreshFileProvider): Promise<void> {

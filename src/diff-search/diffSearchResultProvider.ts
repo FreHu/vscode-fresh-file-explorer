@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { DiffMatch } from "./git/gitDiffSearch";
-import { groupBy } from "./utils/collectionUtils";
+import { DiffMatch } from "./diffSearchParser";
+import { groupBy } from "../utils/collectionUtils";
 import {
   DiffSearchFileItem,
   DiffSearchMatchItem,
@@ -10,10 +10,10 @@ import {
   DiffSearchPendingItem,
   DiffSearchTreeItem,
 } from "./diffSearchTreeItems";
-import { AbsolutePath } from "./pathTypes";
-import { CommitHash } from "./types";
-import { log } from "./extension/logger";
-import { ContextManager } from "./extension/contextManager";
+import { AbsolutePath } from "../pathTypes";
+import { CommitHash } from "../types";
+import { log } from "../extension/logger";
+import { ContextManager } from "../extension/contextManager";
 
 /**
  * Tree data provider for diff search results

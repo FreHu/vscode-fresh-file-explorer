@@ -2,9 +2,9 @@ import * as vscode from "vscode";
 import * as nodePath from "path";
 import { execGitWithArgs } from "../git/gitOperations";
 import { parseGitLogL } from "../git/gitLogLParser";
-import { GitLogLPanel } from "../gitLogLPanel";
+import { GitLogLPanel } from "../logL/gitLogLPanel";
 import { log } from "../extension/logger";
-import { FreshFileItem } from "../treeItems";
+import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { formatGitCommand, escapeRegex, toForwardSlashes } from "../utils/formatUtils";
 export { formatGitCommand };
 
