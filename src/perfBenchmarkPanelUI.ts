@@ -185,26 +185,17 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
 
     <div class="form-row">
       <div class="form-group">
-        <label for="ranges">Time ranges (days)</label>
-        <input type="text" id="ranges" value="1,3,7,30,60" placeholder="e.g. 1,3,7,30,60">
-      </div>
-      <div class="form-group">
-        <label for="mode">Command</label>
-        <select id="mode">
-          <option value="log">--name-status (log)</option>
-          <option value="numstat">--numstat</option>
-          <option value="both">Both</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="pathspec">Pathspec <span style="font-weight:normal;color:var(--vscode-descriptionForeground)">(optional)</span></label>
-        <input type="text" id="pathspec" placeholder="e.g. src/ *.ts">
-      </div>
-      <div class="form-group">
-        <button id="runBtn">Run</button>
+        <label for="benchmark">Benchmark</label>
+        <select id="benchmark"></select>
       </div>
     </div>
-    <p class="help-text">Runs <code>git log --since="N.days.ago"</code> with the selected flag across all repositories in this workspace.</p>
+    <div class="form-row" id="inputForm"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <button id="runBtn" disabled>Run</button>
+      </div>
+    </div>
+    <p class="help-text">Select a benchmark, fill in the inputs, and click Run.</p>
 
     <div class="status" id="status" style="display:none;"></div>
 

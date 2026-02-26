@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import { DiffSearchResultProvider } from "./diffSearchResultProvider";
 import { DiffMatch, searchHistoricalDiffs, searchPendingDiffs } from "./git/gitDiffSearch";
-import { isGitRepository, discoverGitReposInSubdirs } from "./git/gitOperations";
-import { AbsolutePath, asAbsolutePath } from "./pathTypes";
+import { discoverReposInWorkspace } from "./git/gitOperations";
+import { AbsolutePath } from "./pathTypes";
 import { log } from "./utils/logger";
 import { formatGitCommand } from "./utils/formatUtils";
 import { getWebviewHtml } from "./diffSearchPanelUI";
@@ -197,7 +197,7 @@ export class DiffSearchPanel {
 
       const totalFolders = reposToSearch.length;
 
-      const actualRepos = await expandWorkspaceFoldersToRepos(reposToSearch, totalFolders);
+      const actualRepos = await discoverReposInWorkspace(reposToSearch, totalFolders);
 
       const totalRepos = actualRepos.length;
       
@@ -403,41 +403,6 @@ function buildPathspecsForDisplay(includePattern: string, excludePattern: string
     excludePattern.split(",").map(p => p.trim()).filter(Boolean).forEach(p => specs.push(`:!${p}`));
   }
   return specs;
-}
-
-interface RepoInfo {
-  name: string;
-  path: AbsolutePath;
-}
-
-/**
- * Expand a list of workspace folders into the actual git repositories they
- * contain. If the folder root itself is a git repo it is used directly;
- * otherwise immediate subdirectories are scanned.
- */
-async function expandWorkspaceFoldersToRepos(
-  folders: readonly vscode.WorkspaceFolder[],
-  totalFolders: number,
-): Promise<RepoInfo[]> {
-  const repos: RepoInfo[] = [];
-
-  for (const folder of folders) {
-    const folderPath = folder.uri.fsPath;
-    const rootIsGit = await isGitRepository(folderPath);
-
-    if (rootIsGit) {
-      repos.push({ name: folder.name, path: asAbsolutePath(folderPath) });
-    } else {
-      const subRepos = await discoverGitReposInSubdirs(folderPath);
-      for (const repoRelPath of subRepos) {
-        const repoFullPath = asAbsolutePath(`${folderPath}/${repoRelPath}`);
-        const repoName = totalFolders > 1 ? `${folder.name}/${repoRelPath}` : repoRelPath;
-        repos.push({ name: repoName, path: repoFullPath });
-      }
-    }
-  }
-
-  return repos;
 }
 
 /**

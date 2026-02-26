@@ -5,7 +5,7 @@ import * as vscode from "vscode";
 
 import { log } from "../utils/logger";
 import { CommitData, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage } from "../types";
-import { AbsolutePath } from "../pathTypes";
+import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
 
 const gitPathDecoder = new TextDecoder("utf-8");
@@ -45,7 +45,7 @@ export function execGitWithArgs(args: string[], cwd: string, options: { timeout?
     let stdout = "";
     let stderr = "";
 
-    child.stdout.on("data", data => {
+    child.stdout.on("data", (data: Buffer) => {
       stdout += data.toString();
     });
 
@@ -86,7 +86,7 @@ export function execGitWithArgsBuffer(
     const chunks: Buffer[] = [];
     let stderr = "";
 
-    child.stdout.on("data", data => {
+    child.stdout.on("data", (data: Buffer) => {
       chunks.push(Buffer.from(data));
     });
 
@@ -285,6 +285,41 @@ export async function discoverGitReposInSubdirs(rootPath: string, relativePrefix
   return repos;
 }
 
+export interface RepoInfo {
+  name: string;
+  path: AbsolutePath;
+}
+
+/**
+ * Expand a list of workspace folders into the actual git repositories they
+ * contain. If the folder root itself is a git repo it is used directly;
+ * otherwise subdirectories are scanned recursively.
+ */
+export async function discoverReposInWorkspace(
+  folders: readonly vscode.WorkspaceFolder[],
+  totalFolders: number,
+): Promise<RepoInfo[]> {
+  const repos: RepoInfo[] = [];
+
+  for (const folder of folders) {
+    const folderPath = folder.uri.fsPath;
+    const rootIsGit = await isGitRepository(folderPath);
+
+    if (rootIsGit) {
+      repos.push({ name: folder.name, path: asAbsolutePath(folderPath) });
+    } else {
+      const subRepos = await discoverGitReposInSubdirs(folderPath);
+      for (const repoRelPath of subRepos) {
+        const repoFullPath = asAbsolutePath(`${folderPath}/${repoRelPath}`);
+        const repoName = totalFolders > 1 ? `${folder.name}/${repoRelPath}` : repoRelPath;
+        repos.push({ name: repoName, path: repoFullPath });
+      }
+    }
+  }
+
+  return repos;
+}
+
 /**
  * Collect pending (uncommitted) changes from a git repository
  * @param repoRelativePath Path relative to workspace root (empty string for root)
@@ -357,31 +392,13 @@ export async function collectPendingChanges(
   }
 
   // Get line statistics for all tracked changes in one command (only if feature is enabled)
-  const numstatMap = new Map<string, { added: number; deleted: number }>();
   const showLineChanges = ConfigService.getDescriptionFormat().showLineChanges;
-  
+  let numstatMap = new Map<string, { added: number; deleted: number }>();
+
   if (showLineChanges && trackedFiles.length > 0) {
     try {
-      const diffCommand = "git diff --numstat HEAD";
       log(`Getting numstat for pending changes in ${repoRelativePath || "root"}`);
-      const diffOutput = await execGitInDir(diffCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
-      const diffLines = diffOutput.split("\n").filter(line => line.length > 0);
-
-      for (const line of diffLines) {
-        const parts = line.split("\t");
-        if (parts.length === 3) {
-          const [added, deleted, fileName] = parts;
-          const decodedFileName = decodeGitPath(fileName);
-          
-          // Skip binary files (marked with -)
-          if (added !== "-" && deleted !== "-") {
-            numstatMap.set(decodedFileName, {
-              added: parseInt(added, 10),
-              deleted: parseInt(deleted, 10),
-            });
-          }
-        }
-      }
+      numstatMap = await streamGitDiffNumstat(["diff", "--numstat", "HEAD"], repoFullPath, ConfigService.getGitTimeoutMs());
     } catch (error) {
       log(`Could not get numstat for pending changes: ${error}`, "warn");
     }
@@ -456,6 +473,282 @@ export async function collectPendingChanges(
 }
 
 /**
+ * Stateful line processor for `git log --name-status` output.
+ * Calls `onFileEntry` for every file entry parsed, passing the workspace-relative
+ * path, the git status code, and the enclosing commit.
+ * Extracted for testability — both `parseGitLogNameStatus` and
+ * `streamGitLogNameStatus` use this.
+ */
+function createNameStatusLineProcessor(
+  repoRelativePath: string,
+  onFileEntry: (relativePath: string, status: string, commit: CommitData) => void,
+): (line: string) => void {
+  let currentCommit: CommitData | null = null;
+
+  return function processLine(rawLine: string) {
+    const line = rawLine.trim();
+    if (line.startsWith("__COMMIT__")) {
+      const parts = line.substring("__COMMIT__".length).split("|");
+      if (parts.length >= 4) {
+        currentCommit = {
+          hash: asCommitHash(parts[0]),
+          author: asCommitAuthor(parts[1]),
+          date: new Date(parts[2]),
+          message: asCommitMessage(parts.slice(3).join("|")),
+        };
+      }
+      return;
+    }
+
+    if (line.length === 0 || !currentCommit) {
+      return;
+    }
+
+    // Format: <status>\t<filename>
+    // Renames/copies: R100\t<old>\t<new>  or  C100\t<src>\t<dst>
+    const tabIndex = line.indexOf("\t");
+    if (tabIndex === -1) {
+      return;
+    }
+
+    const status = line.substring(0, tabIndex);
+    let fileName: string;
+
+    if (status.startsWith("R") || status.startsWith("C")) {
+      const rest = line.substring(tabIndex + 1);
+      const secondTab = rest.indexOf("\t");
+      // Use the NEW path (destination) for renames/copies
+      fileName = secondTab !== -1
+        ? decodeGitPath(rest.substring(secondTab + 1))
+        : decodeGitPath(rest);
+    } else {
+      fileName = decodeGitPath(line.substring(tabIndex + 1));
+    }
+
+    const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + fileName : fileName;
+    onFileEntry(fileRelativePath, status, currentCommit);
+  };
+}
+
+/**
+ * Parse raw `git log --name-status` text into a map of file paths to their
+ * most-recent (first-seen) commit info.
+ * Pure function with no I/O — suitable for unit testing.
+ *
+ * @param raw              Full text output from git.
+ * @param repoRelativePath Repo root relative to workspace root (empty for root repo).
+ */
+export function parseGitLogNameStatus(
+  raw: string,
+  repoRelativePath: string,
+): Map<string, { status: string; commit: CommitData }> {
+  const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
+  const processLine = createNameStatusLineProcessor(repoRelativePath, (relativePath, status, commit) => {
+    if (!fileStatusMap.has(relativePath)) {
+      fileStatusMap.set(relativePath, { status, commit });
+    }
+  });
+  for (const line of raw.split("\n")) {
+    processLine(line);
+  }
+  return fileStatusMap;
+}
+
+/**
+ * Execute `git log --name-status` and stream/parse output line-by-line.
+ * Avoids buffering the entire output in memory, which can reach 10+ MB on
+ * large repositories.
+ */
+/**
+ * Spawn `git` with the given args and call `onLine` for every complete line of
+ * stdout output. Handles the line-buffer split, stderr collection, error and
+ * close events uniformly so individual streaming functions only need to supply
+ * the per-line processing logic.
+ */
+function spawnGitLines(
+  args: string[],
+  cwd: string,
+  timeout: number | undefined,
+  onLine: (line: string) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = cp.spawn("git", args, { cwd, timeout });
+    let buffer = "";
+
+    child.stdout.on("data", (data: Buffer) => {
+      buffer += data.toString();
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        onLine(line);
+      }
+    });
+
+    let stderr = "";
+    child.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on("error", (error) => {
+      reject(error.message);
+    });
+
+    child.on("close", (code) => {
+      if (buffer.trim()) {
+        onLine(buffer);
+      }
+      if (code !== 0) {
+        reject(stderr || `git exited with code ${code}`);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+export function streamGitLogNameStatus(
+  args: string[],
+  cwd: string,
+  repoRelativePath: string,
+  timeout: number | undefined,
+): Promise<Map<string, { status: string; commit: CommitData }>> {
+  const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
+  const processLine = createNameStatusLineProcessor(repoRelativePath, (relativePath, status, commit) => {
+    if (!fileStatusMap.has(relativePath)) {
+      fileStatusMap.set(relativePath, { status, commit });
+    }
+  });
+  return spawnGitLines(args, cwd, timeout, processLine).then(() => fileStatusMap);
+}
+
+/**
+ * Stateful line processor for `git log --numstat` output.
+ * Skips `__COMMIT__` header lines; calls onEntry for data lines.
+ */
+function createNumstatLineProcessor(
+  repoRelativePath: string,
+  onEntry: (relativePath: string, added: number, deleted: number) => void,
+): (line: string) => void {
+  return function processLine(rawLine: string) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("__COMMIT__")) {
+      return;
+    }
+    const parts = line.split("\t");
+    if (parts.length !== 3) {
+      return;
+    }
+    const [additions, deletions, filePath] = parts;
+    if (additions === "-" || deletions === "-") {
+      return; // binary
+    }
+    const added = parseInt(additions, 10);
+    const deleted = parseInt(deletions, 10);
+    if (isNaN(added) || isNaN(deleted)) {
+      return;
+    }
+    const fileName = decodeGitPath(filePath);
+    const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + fileName : fileName;
+    onEntry(fileRelativePath, added, deleted);
+  };
+}
+
+/** Pure parse of `git log --numstat` output. Workspace-relative keys, first-wins dedup. */
+export function parseGitLogNumstat(
+  raw: string,
+  repoRelativePath: string,
+): Map<string, { added: number; deleted: number }> {
+  const map = new Map<string, { added: number; deleted: number }>();
+  const processLine = createNumstatLineProcessor(repoRelativePath, (rel, added, deleted) => {
+    if (!map.has(rel)) {
+      map.set(rel, { added, deleted });
+    }
+  });
+  for (const line of raw.split("\n")) {
+    processLine(line);
+  }
+  return map;
+}
+
+/** Streaming `git log --numstat`. Workspace-relative keys, first-wins dedup. */
+export function streamGitLogNumstat(
+  args: string[],
+  cwd: string,
+  repoRelativePath: string,
+  timeout: number | undefined,
+): Promise<Map<string, { added: number; deleted: number }>> {
+  const map = new Map<string, { added: number; deleted: number }>();
+  const processLine = createNumstatLineProcessor(repoRelativePath, (rel, added, deleted) => {
+    if (!map.has(rel)) {
+      map.set(rel, { added, deleted });
+    }
+  });
+  return spawnGitLines(args, cwd, timeout, processLine).then(() => map);
+}
+
+/** Pure parse of `git diff --numstat` output (no commit headers). Repo-relative keys. */
+export function parseGitDiffNumstat(raw: string): Map<string, { added: number; deleted: number }> {
+  const map = new Map<string, { added: number; deleted: number }>();
+  for (const rawLine of raw.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+    const parts = line.split("\t");
+    if (parts.length !== 3) {
+      continue;
+    }
+    const [additions, deletions, filePath] = parts;
+    if (additions === "-" || deletions === "-") {
+      continue; // binary
+    }
+    const added = parseInt(additions, 10);
+    const deleted = parseInt(deletions, 10);
+    if (isNaN(added) || isNaN(deleted)) {
+      continue;
+    }
+    const fileName = decodeGitPath(filePath);
+    if (!map.has(fileName)) {
+      map.set(fileName, { added, deleted });
+    }
+  }
+  return map;
+}
+
+/** Streaming `git diff --numstat`. Repo-relative keys. */
+export function streamGitDiffNumstat(
+  args: string[],
+  cwd: string,
+  timeout: number | undefined,
+): Promise<Map<string, { added: number; deleted: number }>> {
+  const map = new Map<string, { added: number; deleted: number }>();
+  const processLine = (rawLine: string) => {
+    const line = rawLine.trim();
+    if (!line) {
+      return;
+    }
+    const parts = line.split("\t");
+    if (parts.length !== 3) {
+      return;
+    }
+    const [additions, deletions, filePath] = parts;
+    if (additions === "-" || deletions === "-") {
+      return; // binary
+    }
+    const added = parseInt(additions, 10);
+    const deleted = parseInt(deletions, 10);
+    if (isNaN(added) || isNaN(deleted)) {
+      return;
+    }
+    const fileName = decodeGitPath(filePath);
+    if (!map.has(fileName)) {
+      map.set(fileName, { added, deleted });
+    }
+  };
+  return spawnGitLines(args, cwd, timeout, processLine).then(() => map);
+}
+
+/**
  * Collect historical changes from git log within a time window
  * @param repoRelativePath Path relative to workspace root (empty string for root)
  * @param repoFullPath Full filesystem path to the repository
@@ -473,118 +766,20 @@ export async function collectHistoricalChanges(
 
   const sinceDate = `${days}.days.ago`;
 
-  // Step 1: Get file statuses using --name-status
-  const statusCommand = `git log --since="${sinceDate}" --name-status --pretty=format:"__COMMIT__%h|%an|%aI|%s"`;
-  log(`Executing git command for status in ${repoRelativePath || "root"}: ${statusCommand}`);
+  // Step 1: Get file statuses using --name-status (streamed to avoid buffering 10+ MB)
+  const statusArgs = ["log", `--since=${sinceDate}`, "--name-status", "--pretty=format:__COMMIT__%h|%an|%aI|%s"];
+  log(`Executing git command for status in ${repoRelativePath || "root"}: git ${statusArgs.join(" ")}`);
 
-  const statusOutput = await execGitInDir(statusCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
-
-  // Parse status output to build file status map
-  const statusLines = statusOutput.split("\n");
-  let currentCommit: CommitData | null = null;
-  const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
-
-  for (let line of statusLines) {
-    line = line.trim();
-    if (line.startsWith("__COMMIT__")) {
-      const commitData = line.substring("__COMMIT__".length);
-      const parts = commitData.split("|");
-      if (parts.length >= 4) {
-        currentCommit = {
-          hash: asCommitHash(parts[0]),
-          author: asCommitAuthor(parts[1]),
-          date: new Date(parts[2]),
-          message: asCommitMessage(parts.slice(3).join("|")),
-        };
-      }
-    } else if (line.length > 0 && currentCommit) {
-      // Format is: <status>\t<filename> (e.g., "M\tfile.txt", "D\tdeleted.txt")
-      // For renames: R100\t<old_path>\t<new_path>
-      // For copies: C100\t<source_path>\t<dest_path>
-      const tabIndex = line.indexOf("\t");
-      if (tabIndex === -1) {
-        continue;
-      }
-
-      const status = line.substring(0, tabIndex);
-      let fileName: string;
-
-      // Handle renames and copies - they have two tab-separated paths
-      if (status.startsWith("R") || status.startsWith("C")) {
-        const restOfLine = line.substring(tabIndex + 1);
-        const secondTabIndex = restOfLine.indexOf("\t");
-        if (secondTabIndex !== -1) {
-          // Use the NEW path (destination) for renames/copies
-          fileName = decodeGitPath(restOfLine.substring(secondTabIndex + 1));
-        } else {
-          fileName = decodeGitPath(restOfLine);
-        }
-      } else {
-        fileName = decodeGitPath(line.substring(tabIndex + 1));
-      }
-
-      // Build full path relative to workspace root
-      const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + fileName : fileName;
-
-      // Only store the most recent status for each file
-      if (!fileStatusMap.has(fileRelativePath)) {
-        fileStatusMap.set(fileRelativePath, { status, commit: currentCommit });
-      }
-    }
-  }
+  const fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs());
 
   // Step 2: Get line counts using --numstat (only if feature is enabled)
-  const lineCountsMap = new Map<string, { added: number; deleted: number }>();
   const showLineChanges = ConfigService.getDescriptionFormat().showLineChanges;
-  
+  let lineCountsMap = new Map<string, { added: number; deleted: number }>();
+
   if (showLineChanges) {
-    const numstatCommand = `git log --since="${sinceDate}" --numstat --pretty=format:"__COMMIT__%h|%an|%aI|%s"`;
-    log(`Executing git command for numstat in ${repoRelativePath || "root"}: ${numstatCommand}`);
-
-    const numstatOutput = await execGitInDir(numstatCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
-
-    // Parse numstat output to build line counts map
-    const numstatLines = numstatOutput.split("\n");
-    currentCommit = null;
-
-  for (let line of numstatLines) {
-    line = line.trim();
-    if (line.startsWith("__COMMIT__")) {
-      const commitData = line.substring("__COMMIT__".length);
-      const parts = commitData.split("|");
-      if (parts.length >= 4) {
-        currentCommit = {
-          hash: asCommitHash(parts[0]),
-          author: asCommitAuthor(parts[1]),
-          date: new Date(parts[2]),
-          message: asCommitMessage(parts.slice(3).join("|")),
-        };
-      }
-    } else if (line.length > 0 && currentCommit) {
-      // Numstat format: <additions>\t<deletions>\t<filename>
-      const parts = line.split("\t");
-      if (parts.length !== 3) {
-        continue;
-      }
-
-      const [additions, deletions, filePath] = parts;
-      const fileName = decodeGitPath(filePath);
-
-      // Build full path relative to workspace root
-      const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + fileName : fileName;
-
-      // Only store the most recent line counts for each file
-      if (!lineCountsMap.has(fileRelativePath)) {
-        // Parse line counts, skip binary files (marked with -)
-        if (additions !== "-" && deletions !== "-") {
-          lineCountsMap.set(fileRelativePath, {
-            added: parseInt(additions, 10),
-            deleted: parseInt(deletions, 10),
-          });
-        }
-      }
-    }
-  }
+    const numstatArgs = ["log", `--since=${sinceDate}`, "--numstat", "--pretty=format:__COMMIT__%h|%an|%aI|%s"];
+    log(`Executing git command for numstat in ${repoRelativePath || "root"}: git ${numstatArgs.join(" ")}`);
+    lineCountsMap = await streamGitLogNumstat(numstatArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs());
   }
 
   // Step 3: Merge status and line counts

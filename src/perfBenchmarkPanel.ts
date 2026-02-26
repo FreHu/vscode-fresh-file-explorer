@@ -1,31 +1,32 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { execGitWithArgs, isGitRepository, discoverGitReposInSubdirs } from "./git/gitOperations";
-import { AbsolutePath, asAbsolutePath } from "./pathTypes";
-import { log } from "./utils/logger";
+import { execGitWithArgs, discoverReposInWorkspace } from "./git/gitOperations";
 import { getWebviewHtml } from "./perfBenchmarkPanelUI";
+import { Benchmark, BenchmarkInputValues } from "./benchmark/benchmark";
+import { RepoInfo } from "./git/gitOperations";
+import { createGitLogBenchmark, createGitLogStreamBenchmark, createGitNumstatBenchmark } from "./benchmark/gitLogBenchmark";
 
-interface RepoInfo {
-  name: string;
-  path: AbsolutePath;
+/**
+ * Expands multi-value params (comma-separated strings) into a flat list of
+ * single-value input sets, one per combination.
+ * Non-multi params are passed through unchanged to every set.
+ */
+function expandMultiParams(inputs: BenchmarkInputValues, multiParamNames: string[]): BenchmarkInputValues[] {
+  let sets: BenchmarkInputValues[] = [{ ...inputs }];
+  for (const name of multiParamNames) {
+    const raw = String(inputs[name] ?? "");
+    const values = raw.split(",").map(s => s.trim()).filter(Boolean);
+    if (values.length === 0) { continue; }
+    sets = sets.flatMap(set => values.map(v => ({ ...set, [name]: isNaN(Number(v)) ? v : Number(v) })));
+  }
+  return sets;
 }
 
 interface RunMessage {
   command: "run";
-  ranges: number[];
-  mode: "log" | "numstat" | "both";
-  pathspec: string;
-}
-
-interface BenchmarkResult {
-  days: number;
-  mode: "log" | "numstat";
-  repoLabel: string;
-  elapsedMs: number;
-  lines: number;
-  bytes: number;
-  error?: string;
+  benchmarkName: string;
+  inputs: BenchmarkInputValues;
 }
 
 interface RepoStats {
@@ -46,6 +47,7 @@ export class PerfBenchmarkPanel {
   private readonly _extensionUri: vscode.Uri;
   private readonly _workspaceFolders: readonly vscode.WorkspaceFolder[];
   private _disposables: vscode.Disposable[] = [];
+  private _benchmarks: Benchmark[] = [];
 
   public static createOrShow(extensionUri: vscode.Uri, workspaceFolders: readonly vscode.WorkspaceFolder[]) {
     const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
@@ -79,28 +81,63 @@ export class PerfBenchmarkPanel {
     this._workspaceFolders = workspaceFolders;
 
     this._panel.webview.html = this._getHtml();
-
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-
     this._panel.webview.onDidReceiveMessage(
-      async (message) => {
-        await this._handleMessage(message);
-      },
+      async (message) => { await this._handleMessage(message); },
       null,
       this._disposables,
     );
+
+    this._initialize();
+  }
+
+  private async _initialize() {
+    const repos = await discoverReposInWorkspace(this._workspaceFolders, this._workspaceFolders.length);
+    this._benchmarks = [
+      createGitLogBenchmark(repos),
+      createGitLogStreamBenchmark(repos),
+      createGitNumstatBenchmark(repos),
+    ];
+    this._sendBenchmarkSpecs();
+  }
+
+  private _sendBenchmarkSpecs() {
+    this._panel.webview.postMessage({
+      command: "benchmarks",
+      benchmarks: this._benchmarks.map(b => ({ name: b.name, inputSpec: b.inputSpec, outputSpec: b.outputSpec })),
+    });
   }
 
   private async _handleMessage(message: any) {
-    if (message.command === "run") {
+    if (message.command === "ready") {
+      // Webview signals it is ready; re-send specs (handles reloads / first load race)
+      this._sendBenchmarkSpecs();
+    } else if (message.command === "run") {
       await this._runBenchmark(message as RunMessage);
     } else if (message.command === "getStats") {
       await this._sendStats();
     }
   }
 
+  private async _runBenchmark(msg: RunMessage) {
+    const benchmark = this._benchmarks.find(b => b.name === msg.benchmarkName);
+    if (!benchmark) {
+      this._panel.webview.postMessage({ command: "error", message: `Unknown benchmark: ${msg.benchmarkName}` });
+      return;
+    }
+    try {
+      // Expand multi-value params: run once per combination, concat all rows
+      const multiParams = benchmark.inputSpec.params.filter(p => p.multi);
+      const inputSets = expandMultiParams(msg.inputs, multiParams.map(p => p.name));
+      const allRows = (await Promise.all(inputSets.map(inputs => benchmark.run(inputs)))).flat();
+      this._panel.webview.postMessage({ command: "results", columns: benchmark.outputSpec.columns, rows: allRows });
+    } catch (err: any) {
+      this._panel.webview.postMessage({ command: "error", message: String(err) });
+    }
+  }
+
   private async _sendStats() {
-    const repos = await this._collectRepos();
+    const repos = await discoverReposInWorkspace(this._workspaceFolders, this._workspaceFolders.length);
     if (repos.length === 0) {
       this._panel.webview.postMessage({ command: "statsError", message: "No Git repositories found in workspace." });
       return;
@@ -128,7 +165,6 @@ export class PerfBenchmarkPanel {
       const authorCount = shortlogOut.trim() ? shortlogOut.trim().split("\n").length : null;
       const currentBranch = branchOut.trim() || null;
 
-      // Get date of the root (oldest) commit
       let oldestCommitDate: string | null = null;
       const rootHash = rootOut.trim().split("\n")[0];
       if (rootHash) {
@@ -140,77 +176,6 @@ export class PerfBenchmarkPanel {
     } catch (err: any) {
       return { repoLabel: repo.name, repoPath: repo.path, commitCount: null, oldestCommitDate: null, authorCount: null, currentBranch: null, hasCommitGraph, commitGraphPath, error: String(err) };
     }
-  }
-
-  private async _runBenchmark(msg: RunMessage) {
-    const repos = await this._collectRepos();
-    if (repos.length === 0) {
-      this._panel.webview.postMessage({ command: "error", message: "No Git repositories found in workspace." });
-      return;
-    }
-
-    const modes = msg.mode === "both" ? ["log", "numstat"] as const : [msg.mode];
-    const results: BenchmarkResult[] = [];
-
-    // Outermost loop = mode so all log rows appear before all numstat rows
-    for (const mode of modes) {
-      for (const days of msg.ranges) {
-        for (const repo of repos) {
-          const result = await this._runSingle(days, mode, repo, msg.pathspec);
-          results.push(result);
-        }
-      }
-    }
-
-    this._panel.webview.postMessage({ command: "results", results });
-  }
-
-  private async _runSingle(days: number, mode: "log" | "numstat", repo: RepoInfo, pathspec: string): Promise<BenchmarkResult> {
-    const since = `${days}.days.ago`;
-    const modeFlag = mode === "log" ? "--name-status" : "--numstat";
-    const args = [
-      "log",
-      `--since=${since}`,
-      modeFlag,
-      `--pretty=format:__COMMIT__%h|%an|%aI|%s`,
-      ...(pathspec ? ["--", pathspec] : []),
-    ];
-
-    log(`[perf-benchmark] git ${args.join(" ")} in ${repo.name}`);
-    const start = Date.now();
-    try {
-      const output = await execGitWithArgs(args, repo.path);
-      const elapsedMs = Date.now() - start;
-      const bytes = Buffer.byteLength(output, "utf8");
-      const lines = output ? output.split("\n").length : 0;
-      return { days, mode, repoLabel: repo.name, elapsedMs, lines, bytes };
-    } catch (err: any) {
-      const elapsedMs = Date.now() - start;
-      return { days, mode, repoLabel: repo.name, elapsedMs, lines: 0, bytes: 0, error: String(err) };
-    }
-  }
-
-  private async _collectRepos(): Promise<RepoInfo[]> {
-    const repos: RepoInfo[] = [];
-    const totalFolders = this._workspaceFolders.length;
-
-    for (const folder of this._workspaceFolders) {
-      const folderPath = folder.uri.fsPath;
-      const rootIsGit = await isGitRepository(folderPath);
-
-      if (rootIsGit) {
-        repos.push({ name: totalFolders > 1 ? folder.name : folder.name, path: asAbsolutePath(folderPath) });
-      } else {
-        const subRepos = await discoverGitReposInSubdirs(folderPath);
-        for (const repoRelPath of subRepos) {
-          const repoFullPath = asAbsolutePath(`${folderPath}/${repoRelPath}`);
-          const repoName = totalFolders > 1 ? `${folder.name}/${repoRelPath}` : repoRelPath;
-          repos.push({ name: repoName, path: repoFullPath });
-        }
-      }
-    }
-
-    return repos;
   }
 
   private _getHtml(): string {

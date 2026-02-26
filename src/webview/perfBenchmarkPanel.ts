@@ -1,24 +1,34 @@
 const vscode = acquireVsCodeApi();
 
-const rangesInput   = document.getElementById("ranges")       as HTMLInputElement;
-const modeSelect    = document.getElementById("mode")         as HTMLSelectElement;
-const pathspecInput = document.getElementById("pathspec")     as HTMLInputElement;
-const runBtn        = document.getElementById("runBtn")       as HTMLButtonElement;
-const statusDiv     = document.getElementById("status")       as HTMLDivElement;
-const resultsDiv    = document.getElementById("results")      as HTMLDivElement;
-const statsBtn      = document.getElementById("statsBtn")     as HTMLButtonElement;
-const statsStatus   = document.getElementById("statsStatus")  as HTMLDivElement;
-const statsSection  = document.getElementById("statsSection") as HTMLDivElement;
+const benchmarkSelect = document.getElementById("benchmark")   as HTMLSelectElement;
+const inputFormDiv    = document.getElementById("inputForm")   as HTMLDivElement;
+const runBtn          = document.getElementById("runBtn")      as HTMLButtonElement;
+const statusDiv       = document.getElementById("status")      as HTMLDivElement;
+const resultsDiv      = document.getElementById("results")     as HTMLDivElement;
+const statsBtn        = document.getElementById("statsBtn")    as HTMLButtonElement;
+const statsStatus     = document.getElementById("statsStatus") as HTMLDivElement;
+const statsSection    = document.getElementById("statsSection") as HTMLDivElement;
 
-interface BenchmarkResult {
-  days: number;
-  mode: "log" | "numstat";
-  repoLabel: string;
-  elapsedMs: number;
-  lines: number;
-  bytes: number;
-  error?: string;
+
+import type { 
+  BenchmarkColumnSpec, 
+  BenchmarkInputSpec, 
+  BenchmarkOutputSpec, 
+  BenchmarkInputValues, 
+  BenchmarkOutputRow 
+} from "../benchmark/benchmark";
+
+interface SerializableBenchmark {
+  name: string;
+  inputSpec:  BenchmarkInputSpec;
+  outputSpec: BenchmarkOutputSpec;
 }
+
+interface BenchmarksMessage { command: "benchmarks"; benchmarks: SerializableBenchmark[]; }
+interface ResultsMessage    { command: "results";    columns: BenchmarkColumnSpec[]; rows: BenchmarkOutputRow[]; }
+interface ErrorMessage      { command: "error";      message: string; }
+interface StatsMessage      { command: "stats";      stats: RepoStats[]; }
+interface StatsErrMessage   { command: "statsError"; message: string; }
 
 interface RepoStats {
   repoLabel: string;
@@ -32,10 +42,70 @@ interface RepoStats {
   error?: string;
 }
 
-interface ResultsMessage  { command: "results";    results: BenchmarkResult[]; }
-interface ErrorMessage    { command: "error";      message: string; }
-interface StatsMessage    { command: "stats";      stats: RepoStats[]; }
-interface StatsErrMessage { command: "statsError"; message: string; }
+let benchmarks: SerializableBenchmark[] = [];
+
+benchmarkSelect.addEventListener("change", () => {
+  const bm = benchmarks.find(b => b.name === benchmarkSelect.value);
+  if (bm) { renderInputForm(bm); }
+});
+
+function renderInputForm(bm: SerializableBenchmark) {
+  inputFormDiv.innerHTML = "";
+  for (const param of bm.inputSpec.params) {
+    const group = document.createElement("div");
+    group.className = "form-group";
+
+    const label = document.createElement("label");
+    label.htmlFor = `param-${param.name}`;
+    label.textContent = param.name;
+    group.appendChild(label);
+
+    if (param.type === "boolean") {
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = `param-${param.name}`;
+      input.checked = Boolean(param.default ?? false);
+      group.appendChild(input);
+    } else {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.id = `param-${param.name}`;
+      input.value = String(param.default ?? "");
+      if (param.multi) { input.placeholder = "comma-separated, e.g. 7,30,90"; }
+      group.appendChild(input);
+    }
+
+    inputFormDiv.appendChild(group);
+  }
+}
+
+function collectInputs(bm: SerializableBenchmark): BenchmarkInputValues {
+  const inputs: BenchmarkInputValues = {};
+  for (const param of bm.inputSpec.params) {
+    const el = document.getElementById(`param-${param.name}`);
+    if (!el) { continue; }
+    if (param.type === "boolean") {
+      inputs[param.name] = (el as HTMLInputElement).checked;
+    } else if (param.type === "number" && !param.multi) {
+      inputs[param.name] = parseFloat((el as HTMLInputElement).value) || 0;
+    } else {
+      // multi params and string params: pass the raw string so expandMultiParams can split it
+      inputs[param.name] = (el as HTMLInputElement).value;
+    }
+  }
+  return inputs;
+}
+
+runBtn.addEventListener("click", () => {
+  const bm = benchmarks.find(b => b.name === benchmarkSelect.value);
+  if (!bm) { return; }
+  const inputs = collectInputs(bm);
+  runBtn.disabled = true;
+  resultsDiv.style.display = "none";
+  resultsDiv.innerHTML = "";
+  showStatus("Running…", "info");
+  vscode.postMessage({ command: "run", benchmarkName: bm.name, inputs });
+});
 
 statsBtn.addEventListener("click", () => {
   statsBtn.disabled = true;
@@ -45,41 +115,38 @@ statsBtn.addEventListener("click", () => {
   vscode.postMessage({ command: "getStats" });
 });
 
-runBtn.addEventListener("click", () => {
-  const raw = rangesInput.value.trim();
-  if (!raw) {
-    showStatus("Enter at least one day range.", "error");
-    return;
-  }
 
-  const ranges = raw.split(",").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
-  if (ranges.length === 0) {
-    showStatus("No valid day ranges found. Use comma-separated numbers like: 1,3,7,30", "error");
-    return;
-  }
-
-  runBtn.disabled = true;
-  resultsDiv.style.display = "none";
-  resultsDiv.innerHTML = "";
-  showStatus(`Running ${ranges.length} range(s)…`, "info");
-
-  vscode.postMessage({ command: "run", ranges, mode: modeSelect.value, pathspec: pathspecInput.value.trim() });
-});
-
-window.addEventListener("message", (event: MessageEvent<ResultsMessage | ErrorMessage | StatsMessage | StatsErrMessage>) => {
+window.addEventListener("message", (event: MessageEvent<BenchmarksMessage | ResultsMessage | ErrorMessage | StatsMessage | StatsErrMessage>) => {
   const msg = event.data;
+  if (msg.command === "benchmarks") {
+    benchmarks = msg.benchmarks;
+    benchmarkSelect.innerHTML = "";
+    for (const bm of benchmarks) {
+      const opt = document.createElement("option");
+      opt.value = bm.name;
+      opt.textContent = bm.name;
+      benchmarkSelect.appendChild(opt);
+    }
+    if (benchmarks.length > 0) {
+      renderInputForm(benchmarks[0]);
+      runBtn.disabled = false;
+    }
+    return;
+  }
   if (msg.command === "error") {
     showStatus(msg.message, "error");
     runBtn.disabled = false;
     return;
   }
   if (msg.command === "results") {
-    renderResults(msg.results);
+    renderResults(msg.columns, msg.rows);
     runBtn.disabled = false;
+    return;
   }
   if (msg.command === "statsError") {
     showStatsStatus(msg.message, "error");
     statsBtn.disabled = false;
+    return;
   }
   if (msg.command === "stats") {
     renderStats(msg.stats);
@@ -87,100 +154,78 @@ window.addEventListener("message", (event: MessageEvent<ResultsMessage | ErrorMe
   }
 });
 
-function renderResults(results: BenchmarkResult[]) {
+// Signal the extension host that the webview is ready to receive messages
+vscode.postMessage({ command: "ready" });
+
+function renderResults(columns: BenchmarkColumnSpec[], rows: BenchmarkOutputRow[]) {
   resultsDiv.innerHTML = "";
 
-  // Group results by repo, preserving insertion order
-  const repoOrder: string[] = [];
-  const byRepo = new Map<string, BenchmarkResult[]>();
-  for (const r of results) {
-    if (!byRepo.has(r.repoLabel)) {
-      repoOrder.push(r.repoLabel);
-      byRepo.set(r.repoLabel, []);
+  const table = document.createElement("table");
+
+  const thead = table.createTHead();
+  const headerRow = thead.insertRow();
+  for (const col of columns) {
+    const th = document.createElement("th");
+    th.textContent = col.name;
+    if (col.type === "number") { th.className = "num"; }
+    headerRow.appendChild(th);
+    if (col.comparison) {
+      const thCmp = document.createElement("th");
+      thCmp.className = "num";
+      thCmp.textContent = col.comparison === "ratioWithPrevious" ? `${col.name} ×` : `${col.name} Δ`;
+      headerRow.appendChild(thCmp);
     }
-    byRepo.get(r.repoLabel)!.push(r);
   }
 
-  const multiRepo = repoOrder.length > 1;
+  const errorCol = columns.find(c => c.role === "error");
+  const prevValues = new Map<string, number>();
 
-  for (const repoLabel of repoOrder) {
-    const repoResults = byRepo.get(repoLabel)!;
-
-    if (multiRepo) {
-      const h3 = document.createElement("h3");
-      h3.style.cssText = "margin: 20px 0 6px; font-size: 1em;";
-      h3.textContent = repoLabel;
-      resultsDiv.appendChild(h3);
+  const tbody = table.createTBody();
+  for (const row of rows) {
+    const tr = tbody.insertRow();
+    if (errorCol) {
+      const errVal = row[errorCol.name];
+      if (typeof errVal === "string" && errVal !== "") { tr.className = "error-row"; }
     }
-
-    const table = document.createElement("table");
-    table.innerHTML = `
-      <thead><tr>
-        <th>Days</th>
-        <th>Mode</th>
-        <th class="num">Elapsed (ms)</th>
-        <th class="num">Time ×</th>
-        <th class="num">Lines</th>
-        <th class="num">Size</th>
-        <th class="num">Size ×</th>
-      </tr></thead>`;
-    const tbody = table.createTBody();
-
-    const prevByMode = new Map<string, BenchmarkResult>();
-
-    for (const r of repoResults) {
-      const tr = tbody.insertRow();
-      if (r.error) {
-        tr.className = "error-row";
-        tr.innerHTML = `
-          <td>${r.days}d</td>
-          <td>${r.mode}</td>
-          <td class="num" colspan="5">${escHtml(r.error)}</td>
-        `;
+    for (const col of columns) {
+      const td = tr.insertCell();
+      const val = row[col.name];
+      if (col.type === "number") {
+        td.className = "num";
+        td.textContent = typeof val === "number" ? formatNumber(val, col.format) : String(val ?? "");
       } else {
-        const prev = prevByMode.get(r.mode);
-        const timeRatioCell = prev ? ratioCell(r.elapsedMs, prev.elapsedMs, r.days, prev.days) : `<td class="num">—</td>`;
-        const sizeRatioCell = prev ? ratioCell(r.bytes,     prev.bytes,     r.days, prev.days) : `<td class="num">—</td>`;
-        prevByMode.set(r.mode, r);
-        tr.innerHTML = `
-          <td>${r.days}d</td>
-          <td>${r.mode}</td>
-          <td class="num">${r.elapsedMs.toLocaleString()}</td>
-          ${timeRatioCell}
-          <td class="num">${r.lines.toLocaleString()}</td>
-          <td class="num">${formatSize(r.bytes)}</td>
-          ${sizeRatioCell}
-        `;
+        td.textContent = String(val ?? "");
+      }
+      if (col.comparison && typeof val === "number") {
+        const tdCmp = tr.insertCell();
+        tdCmp.className = "num";
+        const prev = prevValues.get(col.name);
+        if (prev === undefined || prev === 0) {
+          tdCmp.textContent = "—";
+        } else if (col.comparison === "ratioWithPrevious") {
+          tdCmp.textContent = `${(val / prev).toFixed(2)}×`;
+        } else {
+          const diff = val - prev;
+          tdCmp.textContent = (diff >= 0 ? "+" : "") + formatNumber(diff, col.format);
+        }
+        prevValues.set(col.name, val);
       }
     }
-
-    resultsDiv.appendChild(table);
   }
 
+  resultsDiv.appendChild(table);
   hideStatus();
   resultsDiv.style.display = "";
 }
 
-/**
- * Build a colored ratio cell.
- * actual / prev compared to expectedNumerator / expectedDenominator (the range ratio).
- * Sub-linear → green, ~linear ±20% → neutral, super-linear → red.
- */
-function ratioCell(actual: number, prev: number, days: number, prevDays: number): string {
-  if (prev === 0) { return `<td class="num">—</td>`; }
-  const rangeRatio = days / prevDays;
-  const actualRatio = actual / prev;
-  const relative = actualRatio / rangeRatio; // 1.0 = perfectly linear
-  const cls = relative < 0.85 ? "ratio-sub" : relative > 1.2 ? "ratio-sup" : "ratio-lin";
-  const label = actualRatio.toFixed(2) + "×";
-  const expected = `<span class="ratio-expected">(exp ${rangeRatio.toFixed(2)}×)</span>`;
-  return `<td class="num ratio ${cls}">${label}${expected}</td>`;
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) { return `${bytes} B`; }
-  if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)} KB`; }
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+function formatNumber(val: number, format: BenchmarkColumnSpec["format"]): string {
+  if (format === "bytes") {
+    if (val < 1024) { return `${val} B`; }
+    if (val < 1024 * 1024) { return `${(val / 1024).toFixed(1)} KB`; }
+    return `${(val / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  if (format === "duration-ms") { return `${val.toLocaleString()} ms`; }
+  return val.toLocaleString();
 }
 
 function escHtml(str: string): string {
@@ -235,7 +280,6 @@ function renderStats(stats: RepoStats[]) {
     }
     block.appendChild(table);
 
-    // Commit-graph hints
     const cgDiv = document.createElement("div");
     cgDiv.style.marginTop = "12px";
     cgDiv.innerHTML = `
