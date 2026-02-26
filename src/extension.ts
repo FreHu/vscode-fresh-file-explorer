@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-import { initializeLogger, log } from "./utils/logger";
+import { initializeLogger, log } from "./extension/logger";
 import { FreshFileItem, FreshFilesTreeItem } from "./treeItems";
 import { handleClearFilters, handleFilterByAuthor, handleFilterByCommit } from "./commands/filterCommands";
 import {
@@ -38,14 +38,18 @@ import { DiffSearchPanel } from "./diffSearchPanel";
 import { handleOpenDiffMatch, handleClearDiffSearch, handleGitPickaxe } from "./commands/diffSearchCommand";
 import { handleGitLogL, handlegitLogFile } from "./commands/gitLogLCommand";
 import { GitLogLContentProvider } from "./gitLogLPanel";
+import { ContextManager } from "./extension/contextManager";
+import { WorkspaceStateManager } from "./extension/workspaceStateManager";
 import { PerfBenchmarkPanel } from "./perfBenchmarkPanel";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
   log("Fresh File Explorer extension activating");
 
+  WorkspaceStateManager.initialize(context);
+
   const freshFileProvider = new FreshFileProvider();
-  freshFileProvider.initialize(context);
+  freshFileProvider.initialize();
 
   const treeView = createFreshFileTreeView(freshFileProvider, context);
   freshFileProvider.setTreeView(treeView);
@@ -66,7 +70,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(diffSearchTreeView);
 
   // Set initial context for diff search view visibility
-  vscode.commands.executeCommand("setContext", "diffSearchResults.hasResults", false);
+  ContextManager.setDiffSearchHasResults(false);
 
   // Register virtual document provider for git log -L diff views
   context.subscriptions.push(
@@ -232,7 +236,7 @@ function registerCommands(
 
   // Diff search commands
   register(Commands.OPEN_DIFF_SEARCH_PANEL, () => 
-    DiffSearchPanel.createOrShow(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [], context)
+    DiffSearchPanel.createOrShow(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])
   );
 
   register(Commands.OPEN_DIFF_MATCH, (item: any) => handleOpenDiffMatch(item));
@@ -240,7 +244,7 @@ function registerCommands(
   register(Commands.CLEAR_DIFF_SEARCH, () => handleClearDiffSearch(diffSearchResultProvider));
 
   register(Commands.GIT_PICKAXE, () =>
-    handleGitPickaxe(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [], context)
+    handleGitPickaxe(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])
   );
 
   // Git log -L
@@ -269,8 +273,8 @@ function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: 
       if (selectedItems.length > 0) {
         const firstItem = selectedItems[0];
         // Set contexts that other extensions may check
-        vscode.commands.executeCommand("setContext", "freshFileExplorer.selectedFile", firstItem.resourceUri.fsPath);
-        vscode.commands.executeCommand("setContext", "explorerResourceIsFolder", firstItem.isDirectory);
+        ContextManager.setSelectedFile(firstItem.resourceUri.fsPath);
+        ContextManager.setExplorerResourceIsFolder(firstItem.isDirectory);
       }
     }),
   );

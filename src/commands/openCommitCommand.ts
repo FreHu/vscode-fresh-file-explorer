@@ -3,7 +3,7 @@ import * as path from "path";
 
 import { FreshFileItem } from "../treeItems";
 import { FreshFileProvider } from "../freshFileProvider";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { gitUri, getCommitChanges, getCommitParent, getCommitSubject } from "../git/gitOperations";
 import { asAbsolutePath } from "../pathTypes";
 import { findRepoForFile } from "../types";

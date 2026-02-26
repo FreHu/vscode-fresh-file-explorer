@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { FreshFileProvider } from "./freshFileProvider";
 import { ConfigService } from "./config/configService";
-import { log } from "./utils/logger";
+import { log } from "./extension/logger";
 import { normalizePath } from "./utils";
 import { BranchName, asBranchName } from "./types";
 

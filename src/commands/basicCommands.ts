@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 import { FreshFileItem, FreshFilesTreeItem } from "../treeItems";
 import { FreshFileProvider } from "../freshFileProvider";
-import { log, showOutputChannel } from "../utils/logger";
+import { log, showOutputChannel } from "../extension/logger";
 import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../groupingMode";

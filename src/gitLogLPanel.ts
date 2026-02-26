@@ -3,7 +3,7 @@ import * as path from "path";
 import { execGitWithArgs, gitUri, getCommitParent, getCommitChanges, getCommitSubject } from "./git/gitOperations";
 import { GitLogLCommit } from "./git/gitLogLParser";
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
-import { log } from "./utils/logger";
+import { log } from "./extension/logger";
 
 /**
  * Manages the Git Log -L webview panel (one per unique query).

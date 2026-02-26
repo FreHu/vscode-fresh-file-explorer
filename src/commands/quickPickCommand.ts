@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { FreshFileProvider } from "../freshFileProvider";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
 import { FileMetadata } from "../types";
 import { isPendingChangesMode } from "../timeWindowUtils";

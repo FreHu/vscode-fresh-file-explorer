@@ -3,13 +3,11 @@ import { DiffSearchResultProvider } from "./diffSearchResultProvider";
 import { DiffMatch, searchHistoricalDiffs, searchPendingDiffs } from "./git/gitDiffSearch";
 import { discoverReposInWorkspace } from "./git/gitOperations";
 import { AbsolutePath } from "./pathTypes";
-import { log } from "./utils/logger";
+import { log } from "./extension/logger";
 import { formatGitCommand } from "./utils/formatUtils";
 import { getWebviewHtml } from "./diffSearchPanelUI";
 import { DiffSearchParams, DiffSearchHistoryEntry } from "./webview/messages";
-
-const STORAGE_KEY = "diffSearchParams";
-const HISTORY_KEY = "diffSearchHistory";
+import { WorkspaceStateManager } from "./extension/workspaceStateManager";
 const MAX_HISTORY = 25;
 
 interface SearchMessage {
@@ -29,14 +27,12 @@ export class DiffSearchPanel {
   private readonly _extensionUri: vscode.Uri;
   private readonly _resultProvider: DiffSearchResultProvider;
   private readonly _workspaceFolders: readonly vscode.WorkspaceFolder[];
-  private readonly _context: vscode.ExtensionContext;
   private _disposables: vscode.Disposable[] = [];
 
   public static createOrShow(
     extensionUri: vscode.Uri,
     resultProvider: DiffSearchResultProvider,
     workspaceFolders: readonly vscode.WorkspaceFolder[],
-    context: vscode.ExtensionContext,
     prefillPattern?: string,
   ) {
     const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
@@ -62,7 +58,7 @@ export class DiffSearchPanel {
       },
     );
 
-    DiffSearchPanel.currentPanel = new DiffSearchPanel(panel, extensionUri, resultProvider, workspaceFolders, context, prefillPattern);
+    DiffSearchPanel.currentPanel = new DiffSearchPanel(panel, extensionUri, resultProvider, workspaceFolders, prefillPattern);
   }
 
   private constructor(
@@ -70,14 +66,12 @@ export class DiffSearchPanel {
     extensionUri: vscode.Uri,
     resultProvider: DiffSearchResultProvider,
     workspaceFolders: readonly vscode.WorkspaceFolder[],
-    context: vscode.ExtensionContext,
     private readonly _prefillPattern?: string,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._resultProvider = resultProvider;
     this._workspaceFolders = workspaceFolders;
-    this._context = context;
 
     // Set the webview's initial html content
     this._update();
@@ -103,7 +97,7 @@ export class DiffSearchPanel {
       case "ready":
         // Webview is ready, send initial data
         // Restore persisted params (overridden by prefill if present)
-        const saved = this._context.workspaceState.get<DiffSearchParams>(STORAGE_KEY);
+        const saved = WorkspaceStateManager.getDiffSearchParams();
         if (saved) {
           this._panel.webview.postMessage({ command: "prefillParams", params: saved });
         }
@@ -115,7 +109,7 @@ export class DiffSearchPanel {
         break;
 
       case "clearHistory":
-        await this._context.workspaceState.update(HISTORY_KEY, []);
+        WorkspaceStateManager.setDiffSearchHistory([]);
         this._sendHistory();
         break;
     }
@@ -126,7 +120,7 @@ export class DiffSearchPanel {
   }
 
   private _sendHistory(): void {
-    const entries = this._context.workspaceState.get<DiffSearchHistoryEntry[]>(HISTORY_KEY, []);
+    const entries = WorkspaceStateManager.getDiffSearchHistory();
     this._panel.webview.postMessage({ command: "setHistory", entries });
   }
 
@@ -140,7 +134,7 @@ export class DiffSearchPanel {
       pendingOnly: searchData.pendingOnly,
       days: searchData.days,
     };
-    this._context.workspaceState.update(STORAGE_KEY, params);
+    WorkspaceStateManager.setDiffSearchParams(params);
 
     // Build human-readable label
     const flags: string[] = [];
@@ -158,13 +152,13 @@ export class DiffSearchPanel {
     const label = `"${searchData.pattern}"` + (flags.length ? "  ·  " + flags.join("  ·  ") : "");
 
     // Prepend to history, dedup by label, trim to max
-    const existing = this._context.workspaceState.get<DiffSearchHistoryEntry[]>(HISTORY_KEY, []);
+    const existing = WorkspaceStateManager.getDiffSearchHistory();
     const filtered = existing.filter(e => e.label !== label);
     const updated: DiffSearchHistoryEntry[] = [
       { params, label, timestamp: Date.now() },
       ...filtered,
     ].slice(0, MAX_HISTORY);
-    this._context.workspaceState.update(HISTORY_KEY, updated);
+    WorkspaceStateManager.setDiffSearchHistory(updated);
   }
 
   private async _executeSearch(searchData: SearchMessage) {

@@ -1,7 +1,7 @@
-import * as vscode from "vscode";
 import { AbsolutePath } from "./pathTypes";
+import { WorkspaceStateManager } from "./extension/workspaceStateManager";
 import { PinnedItem } from "./types";
-import { log } from "./utils/logger";
+import { log } from "./extension/logger";
 import { normalizePath } from "./utils";
 import { normalizeItemId, getItemIdWithNormalizedPath } from "./treeItemConstants";
 
@@ -11,17 +11,14 @@ import { normalizeItemId, getItemIdWithNormalizedPath } from "./treeItemConstant
  */
 export class PinnedItemsManager {
   private pinnedItems: PinnedItem[] = [];
-  private context: vscode.ExtensionContext | undefined;
   private onChangeCallback?: () => void;
 
   /**
-   * Initialize with extension context for state persistence
+   * Initialize with a callback invoked whenever pinned items change.
    */
-  initialize(context: vscode.ExtensionContext, onChangeCallback?: () => void): void {
-    this.context = context;
+  initialize(onChangeCallback?: () => void): void {
     this.onChangeCallback = onChangeCallback;
-    const persistedItems = context.workspaceState.get<PinnedItem[]>("pinnedItems", []);
-    this.pinnedItems = persistedItems;
+    this.pinnedItems = WorkspaceStateManager.getPinnedItems();
   }
 
   /**
@@ -344,8 +341,6 @@ export class PinnedItemsManager {
    * Persist pinned items to workspace state
    */
   private persist(): void {
-    if (this.context) {
-      this.context.workspaceState.update("pinnedItems", this.pinnedItems);
-    }
+    WorkspaceStateManager.setPinnedItems(this.pinnedItems);
   }
 }

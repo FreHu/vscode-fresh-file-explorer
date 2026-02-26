@@ -12,7 +12,8 @@ import {
 } from "./diffSearchTreeItems";
 import { AbsolutePath } from "./pathTypes";
 import { CommitHash } from "./types";
-import { log } from "./utils/logger";
+import { log } from "./extension/logger";
+import { ContextManager } from "./extension/contextManager";
 
 /**
  * Tree data provider for diff search results
@@ -47,7 +48,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     this.pendingMatchesCache = pending;
 
     // Set context for view visibility
-    vscode.commands.executeCommand("setContext", "diffSearchResults.hasResults", matches.length > 0);
+    ContextManager.setDiffSearchHasResults(matches.length > 0);
 
     this._onDidChangeTreeData.fire();
   }
@@ -64,7 +65,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     this.commitGroupsCache = null;
     this.pendingMatchesCache = null;
 
-    vscode.commands.executeCommand("setContext", "diffSearchResults.hasResults", false);
+    ContextManager.setDiffSearchHasResults(false);
     this._onDidChangeTreeData.fire();
   }
 

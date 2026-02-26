@@ -2,7 +2,7 @@ import * as path from "path";
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
 import { FileMetadata, WorkspaceFolderInfo } from "./types";
 import { normalizePath } from "./utils";
-import { log } from "./utils/logger";
+import { log } from "./extension/logger";
 import {
   collectHistoricalChanges,
   collectPendingChanges,

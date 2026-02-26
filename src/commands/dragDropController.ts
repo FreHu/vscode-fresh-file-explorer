@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { FreshFileItem, FreshFilesTreeItem, NoteTreeItem } from "../treeItems";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { FreshFileProvider } from "../freshFileProvider";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { TreeItemContextValues } from "../treeItemConstants";
 
 // MIME types for drag & drop operations

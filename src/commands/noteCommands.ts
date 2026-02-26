@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { FreshFileProvider } from "../freshFileProvider";
 import { NoteTreeItem } from "../treeItems";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 
 export async function handleAddNote(freshFileProvider: FreshFileProvider): Promise<void> {
   const noteText = await vscode.window.showInputBox({

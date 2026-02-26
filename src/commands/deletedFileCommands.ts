@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { getFileFromHistoryAsBuffer } from "../git/gitOperations";
 import { FreshFileItem } from "../treeItems";
 import { normalizePath } from "../utils";

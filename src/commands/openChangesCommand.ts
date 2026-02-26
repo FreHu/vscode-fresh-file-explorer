@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 
 import { FreshFileItem } from "../treeItems";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { gitUri } from "../git/gitOperations";
 import { openFileWithoutDuplicating, openDiffWithoutDuplicating } from "../utils";
 

@@ -3,7 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as vscode from "vscode";
 
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { CommitData, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage } from "../types";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";

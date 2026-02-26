@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { FreshFileItem, FreshFilesTreeItem } from "../treeItems";
-import { log } from "./logger";
+import { log } from "../extension/logger";
 
 /**
  * Helper function to expand tree items - collects all directories first, then expands in batch

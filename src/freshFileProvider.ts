@@ -17,7 +17,7 @@ import {
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "./pathTypes";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "./utils/formatUtils";
-import { log } from "./utils/logger";
+import { log } from "./extension/logger";
 import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem, isPinnedFolder, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./treeItems";
 import { normalizePath } from "./utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
@@ -30,6 +30,8 @@ import { GroupingViewBuilder } from "./groupingViewBuilder";
 import { DataCollector } from "./dataCollector";
 import { findWorkspaceFolderForPath, getRelativeDepth, getParentPathWithinWorkspace } from "./utils/pathUtils";
 import { FreshFileItemSorter } from "./freshFileItemSorter";
+import { ContextManager } from "./extension/contextManager";
+import { WorkspaceStateManager } from "./extension/workspaceStateManager";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -42,7 +44,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // Multi-root workspace support
   workspaceFolders: WorkspaceFolderInfo[] = [];
   private errorToShowInTreeView: string | undefined;
-  private context: vscode.ExtensionContext | undefined;
   private refreshPromise: Promise<void> | undefined;
   private dataLoaded: boolean = false;
   // Set to true once git repos have been discovered (before file loading completes)
@@ -94,7 +95,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.currentTimeWindow = this.timeWindows[0]; // Will be overridden by persisted value
 
     // Set initial context - we're loading
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", true);
+    ContextManager.setLoading(true);
 
     if (this.workspaceFolders.length === 0) {
       log(`FreshFileProvider initialized with no workspace folders`);
@@ -119,22 +120,21 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   /**
-   * Initialize with extension context for state persistence
+   * Initialize managers and load persisted settings.
+   * Must be called after WorkspaceStateManager.initialize().
    */
-  initialize(context: vscode.ExtensionContext): void {
-    this.context = context;
-    
+  initialize(): void {
     // Initialize managers
-    this.pinnedItemsManager.initialize(context, () => this.refreshTreeOnly());
+    this.pinnedItemsManager.initialize(() => this.refreshTreeOnly());
     this.filterManager.initialize(() => this.refreshTreeOnly());
     
     // Load persisted time window selection
-    const persistedDays = context.workspaceState.get<number>("selectedTimeWindowDays");
-    this.openChangesMode = context.workspaceState.get<boolean>("openChangesMode", false);
-    this.groupingMode = context.workspaceState.get<GroupingMode>("groupingMode", DEFAULT_GROUPING_MODE);
-    this.sortOrder = context.workspaceState.get<SortOrder>("sortOrder", "name");
+    const persistedDays = WorkspaceStateManager.getSelectedTimeWindowDays();
+    this.openChangesMode = WorkspaceStateManager.getOpenChangesMode();
+    this.groupingMode = WorkspaceStateManager.getGroupingMode();
+    this.sortOrder = WorkspaceStateManager.getSortOrder();
     // Set initial context for when clause
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.openChangesMode", this.openChangesMode);
+    ContextManager.setOpenChangesMode(this.openChangesMode);
 
     if (persistedDays !== undefined) {
       const found = this.timeWindows.find(tw => tw.type === "historical" && tw.days === persistedDays);
@@ -187,7 +187,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
     const daysText = this.currentTimeWindow.type === "historical" ? ` (${this.currentTimeWindow.days} days)` : "";
     log(`Refreshing files (skipping repo discovery) with time window: ${this.currentTimeWindow.label}${daysText}`);
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", true);
+    ContextManager.setLoading(true);
     this.dataLoaded = false;
     this.freshFiles = new Map();
     this.historicalFiles = new Map();
@@ -212,7 +212,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   hardRefresh(): void {
     const daysText = this.currentTimeWindow.type === "historical" ? ` (${this.currentTimeWindow.days} days)` : "";
     log(`Hard refresh (re-discovering repos) with time window: ${this.currentTimeWindow.label}${daysText}`);
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", true);
+    ContextManager.setLoading(true);
     this.dataLoaded = false;
     this.reposDiscovered = false;
     this.reposLoading.clear();
@@ -266,8 +266,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     log(`Time window changed from ${this.currentTimeWindow.label} to ${timeWindow.label}`);
     this.currentTimeWindow = timeWindow;
     this.filterManager.clearFilters();
-    if (this.context && timeWindow.type === "historical") {
-      this.context.workspaceState.update("selectedTimeWindowDays", timeWindow.days);
+    if (timeWindow.type === "historical") {
+      WorkspaceStateManager.setSelectedTimeWindowDays(timeWindow.days);
     }
     this.refresh(); // soft — repos unchanged
   }
@@ -276,11 +276,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.openChangesMode = !this.openChangesMode;
     log(`Toggled open mode: ${this.openChangesMode ? "changes" : "file"}`);
 
-    if (this.context) {
-      this.context.workspaceState.update("openChangesMode", this.openChangesMode);
-    }
-
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.openChangesMode", this.openChangesMode);
+    WorkspaceStateManager.setOpenChangesMode(this.openChangesMode);
+    ContextManager.setOpenChangesMode(this.openChangesMode);
 
     this.refreshTreeOnly();
   }
@@ -294,10 +291,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     log(`Grouping mode changed from ${this.groupingMode} to ${mode}`);
     this.groupingMode = mode;
 
-    if (this.context) {
-      this.context.workspaceState.update("groupingMode", mode);
-    }
-
+    WorkspaceStateManager.setGroupingMode(mode);
     this.updateGroupingModeMessage();
 
     this.refreshTreeOnly();
@@ -307,10 +301,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     log(`Sort order changed from ${this.sortOrder} to ${order}`);
     this.sortOrder = order;
 
-    if (this.context) {
-      this.context.workspaceState.update("sortOrder", order);
-    }
-
+    WorkspaceStateManager.setSortOrder(order);
     this.refreshTreeOnly();
   }
 
@@ -933,7 +924,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       log(`Discovered ${totalRepos} Git repository(ies) across ${this.workspaceFolders.length} workspace folder(s)`);
 
       if (totalRepos === 0) {
-        vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", false);
+        ContextManager.setLoading(false);
         this.reposDiscovered = true;
         this.dataLoaded = true;
         this._onDidChangeTreeData.fire();
@@ -1027,7 +1018,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       `Loaded ${newFiles.size} total fresh file(s) across ${totalRepos} Git repository(ies)`,
     );
 
-    vscode.commands.executeCommand("setContext", "freshFileExplorer.loading", false);
+    ContextManager.setLoading(false);
     this.heatmapProvider?.fireDidChange();
   }
 

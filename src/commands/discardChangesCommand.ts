@@ -7,7 +7,7 @@ import { findRepoForFile } from "../types";
 import { discardFileChanges } from "../git/gitOperations";
 import { isPathWithinRoot } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { asAbsolutePath } from "../pathTypes";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 

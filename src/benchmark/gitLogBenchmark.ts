@@ -1,5 +1,5 @@
 import { execGitWithArgs, RepoInfo, streamGitLogNameStatus } from "../git/gitOperations";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { Benchmark, BenchmarkInputSpec, BenchmarkInputValues, BenchmarkOutputRow } from "./benchmark";
 
 const sharedInputSpec : BenchmarkInputSpec = {

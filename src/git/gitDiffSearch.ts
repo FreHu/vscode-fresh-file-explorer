@@ -5,7 +5,7 @@ import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { CommitHash, asCommitHash } from "../types";
 import { decodeGitPath, execGitWithArgs } from "./gitOperations";
 import { isPathWithinRoot } from "../utils/pathUtils";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 
 /**

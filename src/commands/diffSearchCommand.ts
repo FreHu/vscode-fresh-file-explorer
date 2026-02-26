@@ -131,7 +131,6 @@ export async function handleGitPickaxe(
   extensionUri: vscode.Uri,
   resultProvider: DiffSearchResultProvider,
   workspaceFolders: readonly vscode.WorkspaceFolder[],
-  context: vscode.ExtensionContext,
 ): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   let pattern = "";
@@ -152,5 +151,5 @@ export async function handleGitPickaxe(
       if (wordRange) { pattern = editor.document.getText(wordRange).trim(); }
     }
   }
-  DiffSearchPanel.createOrShow(extensionUri, resultProvider, workspaceFolders, context, pattern || undefined);
+  DiffSearchPanel.createOrShow(extensionUri, resultProvider, workspaceFolders, pattern || undefined);
 }

@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
-import { log } from "../utils/logger";
+import { log } from "../extension/logger";
 import { createAuthorQuickPick, createCommitQuickPick } from "../utils/quickPick";
 import { setDifference } from "../utils";
 import { AuthorData, CommitDataWithFileCount, CommitHash } from "../types";
+import { ContextManager } from "../extension/contextManager";
 
 /**
  * Interface for a provider that can filter files by author or commit
@@ -22,7 +23,7 @@ export interface FilterProvider {
  * Update the context key for filter visibility
  */
 function updateFilterContext(provider: FilterProvider): void {
-  vscode.commands.executeCommand("setContext", "freshFileExplorer.hasFilters", provider.hasActiveFilters());
+  ContextManager.setHasFilters(provider.hasActiveFilters());
 }
 
 export async function handleFilterByAuthor(filterProvider: FilterProvider): Promise<boolean> {
