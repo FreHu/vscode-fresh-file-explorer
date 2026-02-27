@@ -46,6 +46,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private errorToShowInTreeView: string | undefined;
   private refreshPromise: Promise<void> | undefined;
   private dataLoaded: boolean = false;
+  get isDataLoaded(): boolean { return this.dataLoaded; }
   // Set to true once git repos have been discovered (before file loading completes)
   private reposDiscovered: boolean = false;
   // Normalized absolute paths of repos whose initial (pending) file loading is still in progress

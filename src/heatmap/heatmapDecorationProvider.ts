@@ -2,16 +2,16 @@ import * as vscode from "vscode";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { ConfigService } from "../config/configService";
 import { asAbsolutePath } from "../pathTypes";
+import { computeHeatmapColorId, OUT_OF_WINDOW_COLOR_ID } from "./heatmapUtils";
+import { formatRelativeDateLong } from "../utils/formatUtils";
 
 /**
  * Provides file decorations (text color) for the heatmap feature.
  * Colors files by recency - recent files are bright (cyan/blue), older files are faded (gray).
  * 
- * Uses 8 discrete color buckets distributed exponentially across the current time window,
- * giving finer granularity to recent files.
- * 
- * Skips pending files to avoid conflicts with Git extension's built-in decorations.
- * Files outside the time window (too old) get the most faded color (age8).
+ * Uses 7 discrete color buckets (age1–age7) distributed exponentially across the current time
+ * window, giving finer granularity to recent files. age8 is reserved for files older than the
+ * window so that "oldest tracked file" and "too old to be tracked" are visually distinct.
  */
 export class HeatmapDecorationProvider implements vscode.FileDecorationProvider {
   private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
@@ -40,43 +40,16 @@ export class HeatmapDecorationProvider implements vscode.FileDecorationProvider 
     }
 
     // Skip pending files - let Git extension's decorations show through
-    if (metadata.isPending) {
-      return undefined;
-    }
-
-    // Calculate age in milliseconds
-    const now = Date.now();
-    const fileDate = metadata.date.getTime();
-    const ageMs = now - fileDate;
-
-    // Get the current time window in days
+    // In pending-only mode, no heatmap (all files would be pending which we skip)
     const currentTimeWindow = this.freshFileProvider.currentTimeWindow;
-    if (currentTimeWindow.type === "pending") {
-      // In pending-only mode, no heatmap (all files would be pending which we skip)
+    if (metadata.isPending || currentTimeWindow.type === "pending") {
       return undefined;
     }
 
-    const timeWindowMs = currentTimeWindow.days * 24 * 60 * 60 * 1000;
-
-    // Calculate age fraction (0 = now, 1 = at the edge of time window)
-    let ageFraction = ageMs / timeWindowMs;
-    
-    // Clamp to [0, 1] range
-    ageFraction = Math.max(0, Math.min(1, ageFraction));
-
-    // Apply exponential scaling to give finer granularity to recent files
-    // Using exponent 0.6: this spreads out recent files across more buckets
-    // For a 30-day window, bucket boundaries are roughly: 0, 1, 3, 6, 10, 15, 21, 28 days
-    const scaledFraction = Math.pow(ageFraction, 0.6);
-
-    // Map to bucket 0-7 (age1 through age8)
-    const bucket = Math.min(7, Math.floor(scaledFraction * 8));
-
-    // Return decoration with appropriate color
-    const colorId = `freshFileExplorer.heatmap.age${bucket + 1}`;
+    const colorId = computeHeatmapColorId(metadata.date, currentTimeWindow.days, Date.now());
     return new vscode.FileDecoration(
       undefined, // badge
-      undefined, // tooltip (could add age info here if desired)
+      `last modified ${formatRelativeDateLong(metadata.date)}`,
       new vscode.ThemeColor(colorId)
     );
   }
@@ -86,26 +59,19 @@ export class HeatmapDecorationProvider implements vscode.FileDecorationProvider 
    * or for files outside the time window.
    */
   private provideOutsideWindowDecoration(uri: vscode.Uri, normalizedPath: string): vscode.FileDecoration | undefined {
+    // In pending-only mode there are no historical files, so nothing here should be colored.
+    // Without this guard every workspace file not in freshFiles would get the age8 fallback color.
+    const currentTimeWindow = this.freshFileProvider.currentTimeWindow;
+    if (currentTimeWindow.type === "pending") {
+      return undefined;
+    }
+
     // First, check if this is a directory with files in our time window
     const mostRecentDate = this.freshFileProvider.getMostRecentDateInDirectory(normalizedPath);
     
     if (mostRecentDate) {
       // This is a directory with files - calculate its color based on most recent file
-      const now = Date.now();
-      const ageMs = now - mostRecentDate.getTime();
-
-      const currentTimeWindow = this.freshFileProvider.currentTimeWindow;
-      if (currentTimeWindow.type === "pending") {
-        return undefined;
-      }
-
-      const timeWindowMs = currentTimeWindow.days * 24 * 60 * 60 * 1000;
-      let ageFraction = ageMs / timeWindowMs;
-      ageFraction = Math.max(0, Math.min(1, ageFraction));
-      const scaledFraction = Math.pow(ageFraction, 0.6);
-      const bucket = Math.min(7, Math.floor(scaledFraction * 8));
-
-      const colorId = `freshFileExplorer.heatmap.age${bucket + 1}`;
+      const colorId = computeHeatmapColorId(mostRecentDate, currentTimeWindow.days, Date.now());
       return new vscode.FileDecoration(
         undefined,
         undefined,
@@ -113,13 +79,20 @@ export class HeatmapDecorationProvider implements vscode.FileDecorationProvider 
       );
     }
 
+    // If data hasn't loaded yet, kick off loading and return undefined for now;
+    // fireDidChange() will be called once loading completes and decorations will be re-requested.
+    if (!this.freshFileProvider.isDataLoaded) {
+      return void this.freshFileProvider.ensureDataLoaded();
+    }
+
     // Not a directory with recent files - check if it's a file in our workspace folders
-    // If so, color it with the oldest/most faded color (age8) since it's outside time window
+    // If so, color it with the oldest/most faded color (age8) since it's outside time window.
     if (this.isFileInWorkspace(uri)) {
+      const windowLabel = currentTimeWindow.type === "historical" ? `${currentTimeWindow.days} days` : "current window";
       return new vscode.FileDecoration(
         undefined,
-        undefined,
-        new vscode.ThemeColor('freshFileExplorer.heatmap.age8')
+        `last modified over ${windowLabel} ago`,
+        new vscode.ThemeColor(OUT_OF_WINDOW_COLOR_ID)
       );
     }
 
@@ -153,9 +126,6 @@ export class HeatmapDecorationProvider implements vscode.FileDecorationProvider 
     this._onDidChangeFileDecorations.fire(undefined);
   }
 
-  /**
-   * Dispose of resources
-   */
   dispose(): void {
     this._onDidChangeFileDecorations.dispose();
   }

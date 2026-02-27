@@ -90,6 +90,31 @@ export function formatRelativeDate(date: Date): string {
 }
 
 /**
+ * Format a date as a human-readable relative string with full words, e.g. "3 days ago".
+ * Suitable for tooltips where space is not a concern.
+ */
+export function formatRelativeDateLong(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
+
+  const p = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"} ago`;
+  if (diffSeconds < 60)  { return "just now"; }
+  if (diffMinutes < 60)  { return p(diffMinutes, "minute"); }
+  if (diffHours < 24)    { return p(diffHours, "hour"); }
+  if (diffDays < 7)      { return p(diffDays, "day"); }
+  if (diffDays < 30)     { return p(diffWeeks, "week"); }
+  if (diffMonths < 12)   { return p(diffMonths, "month"); }
+  return p(diffYears, "year");
+}
+
+/**
  * Map of git status codes to human-readable labels.
  */
 const STATUS_LABELS: Record<string, string> = {

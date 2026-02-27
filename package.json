@@ -639,9 +639,9 @@
         "id": "freshFileExplorer.heatmap.age8",
         "description": "Oldest files (heatmap) - most faded",
         "defaults": {
-          "dark": "#B0BEC5",
+          "dark": "#666666",
           "light": "#78909C",
-          "highContrast": "#CFD8DC",
+          "highContrast": "#666666",
           "highContrastLight": "#546E7A"
         }
       }
