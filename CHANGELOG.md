@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.2.0]
+- [NEW] Pathspec can be set per-repo to limit git output
+- [NEW] Scoping to folders
+- [NEW] Right click options to copy file paths, remote url, or folder structure (as bullet points)
+- [PERF] Loading is now in phases - repo discovery, then pending, then historical changes. It should now feel a lot faster (it isn't, but the view is usable long before it has all the data).
+- [PERF] Loading git log now streams output instead of accumulating a potentially giant buffer. It's not faster but will always use almost no memory.
+- [FIX] Heatmap would be incorrect if file explorer was in focus on startup (because we didn't load any data yet)
+
 ## [1.1.3]
 
 - [NEW] Performance benchmark view for measuring load times 
