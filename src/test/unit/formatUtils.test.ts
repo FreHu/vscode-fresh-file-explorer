@@ -208,6 +208,12 @@ suite("Format Utils", () => {
     test("DU → conflict (deleted by us)",  () => assert.strictEqual(getStatusLabel("DU"), "conflict (deleted by us)"));
     test("UD → conflict (deleted by them)", () => assert.strictEqual(getStatusLabel("UD"), "conflict (deleted by them)"));
 
+    // git log --name-status R<score> / C<score> codes
+    test("R078 → renamed",  () => assert.strictEqual(getStatusLabel("R078"), "renamed"));
+    test("R100 → renamed",  () => assert.strictEqual(getStatusLabel("R100"), "renamed"));
+    test("C100 → copied",   () => assert.strictEqual(getStatusLabel("C100"), "copied"));
+    test("C050 → copied",   () => assert.strictEqual(getStatusLabel("C050"), "copied"));
+
     // Unknown codes fall back to lowercase
     test("unknown code is lowercased", () => assert.strictEqual(getStatusLabel("XY"), "xy"));
     test("already lowercase unknown is unchanged", () => assert.strictEqual(getStatusLabel("zz"), "zz"));
