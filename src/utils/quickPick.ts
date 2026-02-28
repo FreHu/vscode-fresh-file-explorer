@@ -122,3 +122,38 @@ export function createTimeWindowQuickPick(
 
   return quickPick;
 }
+
+export type PathFormat = "absolute" | "relative" | "filename";
+
+interface PathFormatPickItem extends vscode.QuickPickItem {
+  value: PathFormat;
+}
+
+/**
+ * Shows a quick pick asking the user which path format to copy.
+ * Returns the chosen format, or undefined if dismissed.
+ */
+export async function showPathFormatQuickPick(placeHolder?: string)
+  : Promise<PathFormat | undefined> {
+  const choice = await vscode.window.showQuickPick<PathFormatPickItem>(
+    [
+      {
+        label: "Filename",
+        description: "e.g., file.ts",
+        value: "filename",
+      },
+      {
+        label: "Absolute path",
+        description: "e.g., C:/workspace/project/src/file.ts",
+        value: "absolute",
+      },
+      {
+        label: "Relative path",
+        description: "e.g., src/commands/file.ts",
+        value: "relative",
+      },
+    ],
+    { placeHolder: placeHolder ?? "Choose path format for clipboard" },
+  );
+  return choice?.value;
+}

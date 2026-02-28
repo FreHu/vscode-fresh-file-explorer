@@ -1,8 +1,11 @@
 import * as vscode from "vscode";
+import * as path from "path";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { ConfigService } from "../config/configService";
 import { log } from "../extension/logger";
 import { optimizeIncludePatterns } from "../utils/patternUtils";
+import { toRelativePaths } from "../utils/pathUtils";
+import { showPathFormatQuickPick } from "../utils/quickPick";
 import { AbsolutePath } from "../pathTypes";
 
 /**
@@ -23,66 +26,6 @@ import { AbsolutePath } from "../pathTypes";
  */
 function getMaxIncludePatternLength(): number {
   return ConfigService.getSearchPatternMaxLength();
-}
-
-/**
- * Converts absolute file paths to workspace-relative paths
- */
-export function convertToRelativePaths(
-  absolutePaths: string[],
-  workspaceFolders: readonly vscode.WorkspaceFolder[],
-): string[];
-
-/**
- * Converts absolute file paths to workspace-relative paths with workspace names
- */
-export function convertToRelativePaths(
-  absolutePaths: string[],
-  workspaceFolders: readonly vscode.WorkspaceFolder[],
-  includeWorkspaceName: true,
-): Array<{ relativePath: string; workspaceName: string }>;
-
-export function convertToRelativePaths(
-  absolutePaths: string[],
-  workspaceFolders: readonly vscode.WorkspaceFolder[],
-  includeWorkspaceName?: boolean,
-): string[] | Array<{ relativePath: string; workspaceName: string }> {
-  if (includeWorkspaceName) {
-    const results: Array<{ relativePath: string; workspaceName: string }> = [];
-    
-    for (const absPath of absolutePaths) {
-      let relativePath = absPath;
-      let workspaceName = "";
-      
-      for (const folder of workspaceFolders) {
-        const folderPath = folder.uri.fsPath.replace(/\\/g, "/");
-        if (absPath.startsWith(folderPath)) {
-          relativePath = absPath.substring(folderPath.length + 1);
-          workspaceName = folder.name;
-          break;
-        }
-      }
-      
-      results.push({ relativePath, workspaceName });
-    }
-    
-    return results;
-  } else {
-    const relativePatterns: string[] = [];
-
-    for (const absPath of absolutePaths) {
-      for (const folder of workspaceFolders) {
-        const folderPath = folder.uri.fsPath.replace(/\\/g, "/");
-        if (absPath.startsWith(folderPath)) {
-          const relativePath = absPath.substring(folderPath.length + 1);
-          relativePatterns.push(relativePath);
-          break;
-        }
-      }
-    }
-
-    return relativePatterns;
-  }
 }
 
 /**
@@ -279,34 +222,20 @@ export async function handleCopyPathsFromSearchResults(): Promise<void> {
   }
 
   // Ask user which format they want
-  const choice = await vscode.window.showQuickPick(
-    [
-      {
-        label: "Workspace-relative paths",
-        description: "e.g., src/commands/searchCommand.ts",
-        value: "relative",
-      },
-      {
-        label: "Absolute paths",
-        description: "Full file system paths",
-        value: "absolute",
-      },
-    ],
-    {
-      placeHolder: "Choose path format for clipboard",
-    },
-  );
+  const format = await showPathFormatQuickPick();
 
-  if (!choice) {
+  if (!format) {
     return;
   }
 
   let pathsToCopy: string[];
 
-  if (choice.value === "absolute") {
+  if (format === "absolute") {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const uris = convertRelativePathsToUris(filePaths, workspaceFolders);
-    pathsToCopy = uris.map(uri => uri.fsPath);
+    pathsToCopy = uris.map(uri => uri.fsPath.replace(/\\/g, "/"));
+  } else if (format === "filename") {
+    pathsToCopy = filePaths.map(f => path.basename(f));
   } else {
     pathsToCopy = filePaths;
   }
@@ -457,7 +386,7 @@ export async function openSearchWithFiles(
     return;
   }
 
-  const relativePatterns = convertToRelativePaths(filePaths, workspaceFolders);
+  const relativePatterns = toRelativePaths(filePaths, workspaceFolders);
   const { batches, oversizedFiles } = batchFilesForSearch(relativePatterns);
 
   if (batches.length === 0) {

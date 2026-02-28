@@ -5,7 +5,8 @@ import { log } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
 import { FileMetadata } from "../types";
 import { isPendingChangesMode } from "../fresh-files/timeWindowUtils";
-import { openSearchWithFiles, convertToRelativePaths } from "./searchCommand";
+import { openSearchWithFiles } from "./searchCommand";
+import { toRelativePathsWithWorkspaceName } from "../utils/pathUtils";
 import { openFileWithoutDuplicating } from "../utils";
 
 interface FreshFileQuickPickItem extends vscode.QuickPickItem {
@@ -354,7 +355,7 @@ export async function handleQuickPickFile(
 
   // Collect file data for later use
   const absPathsArray = Array.from(filesWithMetadata.keys());
-  const pathInfo = convertToRelativePaths(absPathsArray, workspaceFolders, true);
+  const pathInfo = toRelativePathsWithWorkspaceName(absPathsArray, workspaceFolders);
   
   const fileData: Array<{
     absPath: AbsolutePath;

@@ -198,6 +198,22 @@
         "category": "Fresh File Explorer"
       },
       {
+        "command": "freshFileExplorer.copyAbsolutePath",
+        "title": "Copy Absolute Path"
+      },
+      {
+        "command": "freshFileExplorer.copyRelativePath",
+        "title": "Copy Relative Path"
+      },
+      {
+        "command": "freshFileExplorer.copyFilename",
+        "title": "Copy Filename"
+      },
+      {
+        "command": "freshFileExplorer.copySubtreeStructure",
+        "title": "Copy Subtree Structure"
+      },
+      {
         "command": "freshFileExplorer.searchInFoundFiles",
         "title": "Search in Found Files",
         "icon": "$(search-fuzzy)"
@@ -435,6 +451,26 @@
           "group": "9_pin@1"
         },
         {
+          "command": "freshFileExplorer.copyAbsolutePath",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
+          "group": "6_copypath@1"
+        },
+        {
+          "command": "freshFileExplorer.copyRelativePath",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
+          "group": "6_copypath@2"
+        },
+        {
+          "command": "freshFileExplorer.copyFilename",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
+          "group": "6_copypath@3"
+        },
+        {
+          "command": "freshFileExplorer.copySubtreeStructure",
+          "when": "view == freshFileExplorer && viewItem == folder",
+          "group": "6_copypath@4"
+        },
+        {
           "command": "freshFileExplorer.unpinFile",
           "when": "view == freshFileExplorer && viewItem == pinnedFile",
           "group": "9_pin@1"
@@ -553,6 +589,22 @@
         },
         {
           "command": "freshFileExplorer.openCommit",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.copyAbsolutePath",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.copyRelativePath",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.copyFilename",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.copySubtreeStructure",
           "when": "false"
         }
       ]

@@ -30,6 +30,7 @@ import { handleQuickPickFile } from "./commands/quickPickCommand";
 import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
 import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
 import { handleViewOptions } from "./commands/viewOptionsCommand";
+import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, handleCopySubtreeStructure } from "./commands/copyPathCommands";
 import { Commands } from "./commands/constants";
 import { createDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
@@ -254,6 +255,23 @@ function registerCommands(
   // Performance benchmark
   register(Commands.PERF_BENCHMARK, () =>
     PerfBenchmarkPanel.createOrShow(context.extensionUri, vscode.workspace.workspaceFolders || [])
+  );
+
+  // Copy path commands
+  register(Commands.COPY_ABSOLUTE_PATH, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleCopyAbsolutePath(item, selectedItems),
+  );
+
+  register(Commands.COPY_RELATIVE_PATH, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleCopyRelativePath(item, selectedItems),
+  );
+
+  register(Commands.COPY_FILENAME, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleCopyFilename(item, selectedItems),
+  );
+
+  register(Commands.COPY_SUBTREE_STRUCTURE, (item: FreshFileItem) =>
+    handleCopySubtreeStructure(item, freshFileProvider),
   );
 }
 

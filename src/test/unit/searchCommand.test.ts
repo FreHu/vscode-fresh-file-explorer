@@ -1,15 +1,11 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 import {
-  convertToRelativePaths,
   batchFilesForSearch,
   parseFilePathsFromSearchEditor,
 } from "../../commands/searchCommand";
+import { toRelativePaths, toRelativePathsWithWorkspaceName } from "../../utils/pathUtils";
 import { asAbsolutePath } from "../../pathTypes";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeFolder(fsPath: string, name: string): vscode.WorkspaceFolder {
   return {
@@ -21,81 +17,105 @@ function makeFolder(fsPath: string, name: string): vscode.WorkspaceFolder {
 
 const UNIX_FOLDER = makeFolder("/workspace/myproject", "myproject");
 
-// ---------------------------------------------------------------------------
-// convertToRelativePaths
-// ---------------------------------------------------------------------------
-
 suite("searchCommand", () => {
-  suite("convertToRelativePaths", () => {
-    suite("without workspace name", () => {
-      test("strips workspace root prefix", () => {
-        const abs = [asAbsolutePath("/workspace/myproject/src/foo.ts")];
-        const result = convertToRelativePaths(abs, [UNIX_FOLDER]);
-        assert.deepStrictEqual(result, ["src/foo.ts"]);
-      });
-
-      test("multiple files from same folder", () => {
-        const abs = [
-          asAbsolutePath("/workspace/myproject/src/a.ts"),
-          asAbsolutePath("/workspace/myproject/lib/b.ts"),
-        ];
-        const result = convertToRelativePaths(abs, [UNIX_FOLDER]);
-        assert.deepStrictEqual(result, ["src/a.ts", "lib/b.ts"]);
-      });
-
-      test("nested directory path is correctly stripped", () => {
-        const folder = makeFolder("/workspace/myproject", "myproject");
-        const abs = [asAbsolutePath("/workspace/myproject/a/b/c/deep.ts")];
-        const result = convertToRelativePaths(abs, [folder]);
-        assert.deepStrictEqual(result, ["a/b/c/deep.ts"]);
-      });
-
-      test("file not under any workspace folder is dropped", () => {
-        const abs = [asAbsolutePath("/other/project/src/foo.ts")];
-        const result = convertToRelativePaths(abs, [UNIX_FOLDER]);
-        assert.deepStrictEqual(result, []);
-      });
-
-      test("returns empty array for empty input", () => {
-        assert.deepStrictEqual(convertToRelativePaths([], [UNIX_FOLDER]), []);
-      });
+  suite("toRelativePaths", () => {
+    test("strips workspace root prefix", () => {
+      const abs = [asAbsolutePath("/workspace/myproject/src/foo.ts")];
+      const result = toRelativePaths(abs, [UNIX_FOLDER]);
+      assert.deepStrictEqual(result, ["src/foo.ts"]);
     });
 
-    suite("with workspace name", () => {
-      test("returns relativePath and workspaceName", () => {
-        const abs = [asAbsolutePath("/workspace/myproject/src/foo.ts")];
-        const result = convertToRelativePaths(abs, [UNIX_FOLDER], true);
-        assert.deepStrictEqual(result, [{ relativePath: "src/foo.ts", workspaceName: "myproject" }]);
-      });
+    test("multiple files from same folder", () => {
+      const abs = [
+        asAbsolutePath("/workspace/myproject/src/a.ts"),
+        asAbsolutePath("/workspace/myproject/lib/b.ts"),
+      ];
+      const result = toRelativePaths(abs, [UNIX_FOLDER]);
+      assert.deepStrictEqual(result, ["src/a.ts", "lib/b.ts"]);
+    });
 
-      test("file not under any workspace folder gets empty workspaceName", () => {
-        const abs = [asAbsolutePath("/other/project/src/foo.ts")];
-        const result = convertToRelativePaths(abs, [UNIX_FOLDER], true);
-        assert.deepStrictEqual(result, [{
-          relativePath: "/other/project/src/foo.ts",
-          workspaceName: "",
-        }]);
-      });
+    test("nested directory path is correctly stripped", () => {
+      const abs = [asAbsolutePath("/workspace/myproject/a/b/c/deep.ts")];
+      const result = toRelativePaths(abs, [UNIX_FOLDER]);
+      assert.deepStrictEqual(result, ["a/b/c/deep.ts"]);
+    });
 
-      test("multi-root workspace picks correct folder per file", () => {
-        const folderA = makeFolder("/ws/alpha", "alpha");
-        const folderB = makeFolder("/ws/beta",  "beta");
-        const abs = [
-          asAbsolutePath("/ws/alpha/index.ts"),
-          asAbsolutePath("/ws/beta/index.ts"),
-        ];
-        const result = convertToRelativePaths(abs, [folderA, folderB], true);
-        assert.deepStrictEqual(result, [
-          { relativePath: "index.ts", workspaceName: "alpha" },
-          { relativePath: "index.ts", workspaceName: "beta"  },
-        ]);
-      });
+    test("file not under any workspace folder is silently dropped", () => {
+      const abs = [asAbsolutePath("/other/project/src/foo.ts")];
+      const result = toRelativePaths(abs, [UNIX_FOLDER]);
+      assert.deepStrictEqual(result, []);
+    });
+
+    test("returns empty array for empty input", () => {
+      assert.deepStrictEqual(toRelativePaths([], [UNIX_FOLDER]), []);
+    });
+
+    test("does not match folder prefix without separator (prevents false prefix match)", () => {
+      const folder = makeFolder("/ws/proj", "proj");
+      // /ws/proj-other should NOT match /ws/proj
+      const abs = [asAbsolutePath("/ws/proj-other/src/foo.ts")];
+      const result = toRelativePaths(abs, [folder]);
+      assert.deepStrictEqual(result, []);
+    });
+
+    test("multi-root workspace picks correct folder per file", () => {
+      const folderA = makeFolder("/ws/alpha", "alpha");
+      const folderB = makeFolder("/ws/beta", "beta");
+      const abs = [
+        asAbsolutePath("/ws/alpha/index.ts"),
+        asAbsolutePath("/ws/beta/index.ts"),
+      ];
+      const result = toRelativePaths(abs, [folderA, folderB]);
+      assert.deepStrictEqual(result, ["index.ts", "index.ts"]);
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // batchFilesForSearch
-  // ---------------------------------------------------------------------------
+  suite("toRelativePathsWithWorkspaceName", () => {
+    test("returns relativePath and workspaceName", () => {
+      const abs = [asAbsolutePath("/workspace/myproject/src/foo.ts")];
+      const result = toRelativePathsWithWorkspaceName(abs, [UNIX_FOLDER]);
+      assert.deepStrictEqual(result, [{ relativePath: "src/foo.ts", workspaceName: "myproject" }]);
+    });
+
+    test("file not under any workspace folder falls back to original path with empty name", () => {
+      const abs = [asAbsolutePath("/other/project/src/foo.ts")];
+      const result = toRelativePathsWithWorkspaceName(abs, [UNIX_FOLDER]);
+      assert.deepStrictEqual(result, [{ relativePath: "/other/project/src/foo.ts", workspaceName: "" }]);
+    });
+
+    test("output length always matches input length — unmatched files are not dropped", () => {
+      // quickPickCommand zips absPathsArray with pathInfo by position (pathInfo[index]).
+      // If unmatched files were silently dropped, every subsequent index would point
+      // to the wrong file's metadata. The middle file here matches no workspace folder,
+      // but the result must still have 3 entries so positions stay correct.
+      const abs = [
+        asAbsolutePath("/workspace/myproject/src/a.ts"),
+        asAbsolutePath("/outside/b.ts"),
+        asAbsolutePath("/workspace/myproject/src/c.ts"),
+      ];
+      const result = toRelativePathsWithWorkspaceName(abs, [UNIX_FOLDER]);
+      assert.strictEqual(result.length, 3);
+      assert.strictEqual(result[1].workspaceName, "");
+    });
+
+    test("multi-root workspace picks correct folder per file", () => {
+      const folderA = makeFolder("/ws/alpha", "alpha");
+      const folderB = makeFolder("/ws/beta", "beta");
+      const abs = [
+        asAbsolutePath("/ws/alpha/index.ts"),
+        asAbsolutePath("/ws/beta/index.ts"),
+      ];
+      const result = toRelativePathsWithWorkspaceName(abs, [folderA, folderB]);
+      assert.deepStrictEqual(result, [
+        { relativePath: "index.ts", workspaceName: "alpha" },
+        { relativePath: "index.ts", workspaceName: "beta" },
+      ]);
+    });
+
+    test("returns empty array for empty input", () => {
+      assert.deepStrictEqual(toRelativePathsWithWorkspaceName([], [UNIX_FOLDER]), []);
+    });
+  });
 
   suite("batchFilesForSearch", () => {
     test("empty input returns empty batches and oversizedFiles", () => {
@@ -140,10 +160,6 @@ suite("searchCommand", () => {
       assert.ok(r.oversizedFiles.includes(hugeFile));
     });
   });
-
-  // ---------------------------------------------------------------------------
-  // parseFilePathsFromSearchEditor
-  // ---------------------------------------------------------------------------
 
   suite("parseFilePathsFromSearchEditor", () => {
     const TYPICAL_SEARCH_OUTPUT = [

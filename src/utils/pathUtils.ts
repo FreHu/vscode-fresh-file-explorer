@@ -1,4 +1,5 @@
 import * as path from "path";
+import * as vscode from "vscode";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
@@ -27,6 +28,52 @@ export function findWorkspaceFolderForPath(
     }
 
     return undefined;
+}
+
+/**
+ * Converts absolute file paths to workspace-relative paths.
+ * Paths that don't belong to any workspace folder are silently excluded.
+ */
+export function toRelativePaths(
+  absolutePaths: string[],
+  workspaceFolders: readonly vscode.WorkspaceFolder[],
+): string[] {
+  const result: string[] = [];
+  for (const absPath of absolutePaths) {
+    const normalized = normalizePath(absPath);
+    for (const folder of workspaceFolders) {
+      const folderPath = normalizePath(folder.uri.fsPath);
+      if (normalized === folderPath || normalized.startsWith(folderPath + "/")) {
+        result.push(normalized.substring(folderPath.length + 1));
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Converts absolute file paths to workspace-relative paths, paired with workspace names.
+ * Files not matching any workspace folder fall back to the original path with an empty name,
+ * preserving index alignment with the input array.
+ */
+export function toRelativePathsWithWorkspaceName(
+  absolutePaths: string[],
+  workspaceFolders: readonly vscode.WorkspaceFolder[],
+): Array<{ relativePath: string; workspaceName: string }> {
+  return absolutePaths.map(absPath => {
+    const normalized = normalizePath(absPath);
+    for (const folder of workspaceFolders) {
+      const folderPath = normalizePath(folder.uri.fsPath);
+      if (normalized === folderPath || normalized.startsWith(folderPath + "/")) {
+        return {
+          relativePath: normalized.substring(folderPath.length + 1),
+          workspaceName: folder.name,
+        };
+      }
+    }
+    return { relativePath: absPath, workspaceName: "" };
+  });
 }
 
 /**

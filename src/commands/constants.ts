@@ -73,4 +73,10 @@ export const Commands = {
 
   // Performance benchmark panel
   PERF_BENCHMARK: "freshFileExplorer.perfBenchmark",
+
+  // Copy path commands
+  COPY_ABSOLUTE_PATH: "freshFileExplorer.copyAbsolutePath",
+  COPY_RELATIVE_PATH: "freshFileExplorer.copyRelativePath",
+  COPY_FILENAME: "freshFileExplorer.copyFilename",
+  COPY_SUBTREE_STRUCTURE: "freshFileExplorer.copySubtreeStructure",
 } as const;
