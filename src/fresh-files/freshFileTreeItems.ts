@@ -85,6 +85,9 @@ constructor(
     contextValue: string,
     expanded: boolean = true,
     isLoading: boolean = false,
+    pathspec?: string,
+    folderScope?: string,
+    isLoadingHistorical: boolean = false,
   ): FreshFileItem {
     const collapsibleState = isLoading
       ? vscode.TreeItemCollapsibleState.Collapsed
@@ -92,7 +95,9 @@ constructor(
         ? expanded
           ? vscode.TreeItemCollapsibleState.Expanded
           : vscode.TreeItemCollapsibleState.Collapsed
-        : vscode.TreeItemCollapsibleState.None;
+        : isLoadingHistorical
+          ? vscode.TreeItemCollapsibleState.Expanded  // Auto-expand to show history spinner
+          : vscode.TreeItemCollapsibleState.None;
 
     const item = new FreshFileItem(
       uri,
@@ -108,9 +113,9 @@ constructor(
       item.iconPath = new vscode.ThemeIcon("loading~spin");
       item.tooltip = `Loading ${repoName}…`;
     } else {
-      item.description = formatRepoDescription(branchName, fileCount);
+      item.description = formatRepoDescription(branchName, fileCount, pathspec, folderScope);
       item.iconPath = new vscode.ThemeIcon("repo");
-      item.tooltip = formatRepoTooltip(repoName, branchName, fileCount);
+      item.tooltip = formatRepoTooltip(repoName, branchName, fileCount, pathspec, folderScope);
     }
     item.contextValue = contextValue;
 

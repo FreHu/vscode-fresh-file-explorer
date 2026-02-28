@@ -74,6 +74,42 @@ export class WorkspaceStateManager {
     WorkspaceStateManager.ctx().workspaceState.update("pinnedItems", items);
   }
 
+  // ── Repo pathspecs ─────────────────────────────────────────────────────────
+
+  /** Returns the stored pathspec map (normalized repo path → pathspec string). */
+  static getRepoPathspecs(): Record<string, string> {
+    return WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>("repoPathspecs", {});
+  }
+
+  /** Set or clear a pathspec for the given normalized repo path. Passing undefined removes the entry. */
+  static setRepoPathspec(normalizedRepoPath: string, pathspec: string | undefined): void {
+    const map = WorkspaceStateManager.getRepoPathspecs();
+    if (pathspec) {
+      map[normalizedRepoPath] = pathspec;
+    } else {
+      delete map[normalizedRepoPath];
+    }
+    WorkspaceStateManager.ctx().workspaceState.update("repoPathspecs", map);
+  }
+
+  // ── Repo folder scopes ─────────────────────────────────────────────────────
+
+  /** Returns the stored folder scope map (normalized repo path → normalized absolute folder path). */
+  static getRepoFolderScopes(): Record<string, string> {
+    return WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>("repoFolderScopes", {});
+  }
+
+  /** Set or clear a folder scope for the given normalized repo path. Passing undefined removes the entry. */
+  static setRepoFolderScope(normalizedRepoPath: string, normalizedFolderPath: string | undefined): void {
+    const map = WorkspaceStateManager.getRepoFolderScopes();
+    if (normalizedFolderPath) {
+      map[normalizedRepoPath] = normalizedFolderPath;
+    } else {
+      delete map[normalizedRepoPath];
+    }
+    WorkspaceStateManager.ctx().workspaceState.update("repoFolderScopes", map);
+  }
+
   // ── Diff search ──────────────────────────────────────────────────────────────
 
   static getDiffSearchParams(): DiffSearchParams | undefined {
@@ -90,5 +126,39 @@ export class WorkspaceStateManager {
 
   static setDiffSearchHistory(entries: DiffSearchHistoryEntry[]): void {
     WorkspaceStateManager.ctx().workspaceState.update("diffSearchHistory", entries);
+  }
+
+  // ── Pathspec history ──────────────────────────────────────────────────────────
+
+  private static readonly PATHSPEC_HISTORY_LIMIT = 10;
+
+  /** Returns the stored pathspec history array (most recent first). */
+  static getPathspecHistory(): string[] {
+    return WorkspaceStateManager.ctx().workspaceState.get<string[]>("pathspecHistory", []);
+  }
+
+  /** Adds a pathspec to history, removing duplicates and limiting to last 10. */
+  static addPathspecToHistory(pathspec: string): void {
+    if (!pathspec.trim()) {
+      return;
+    }
+    
+    const history = WorkspaceStateManager.getPathspecHistory();
+    
+    // Remove duplicate if exists
+    const filtered = history.filter(p => p !== pathspec);
+    
+    // Add to front
+    filtered.unshift(pathspec);
+    
+    // Limit to 10
+    const limited = filtered.slice(0, WorkspaceStateManager.PATHSPEC_HISTORY_LIMIT);
+    
+    WorkspaceStateManager.ctx().workspaceState.update("pathspecHistory", limited);
+  }
+
+  /** Clears all pathspec history. */
+  static clearPathspecHistory(): void {
+    WorkspaceStateManager.ctx().workspaceState.update("pathspecHistory", []);
   }
 }

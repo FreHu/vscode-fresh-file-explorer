@@ -742,13 +742,18 @@ export async function collectHistoricalChanges(
   repoFullPath: string,
   workspaceRoot: string,
   days: number,
+  pathspec?: string,
 ): Promise<Map<string, FileMetadata>> {
   const files = new Map<string, FileMetadata>();
 
   const sinceDate = `${days}.days.ago`;
 
+  // Build a shared pathspec suffix: ["--", "<pathspec>"] when a pathspec is active.
+  // The "--" separator is required to distinguish pathspecs from revision arguments.
+  const pathspecSuffix: string[] = pathspec ? ["--", pathspec] : [];
+
   // Step 1: Get file statuses using --name-status (streamed to avoid buffering 10+ MB)
-  const statusArgs = ["log", `--since=${sinceDate}`, "--name-status", "--pretty=format:__COMMIT__%h|%an|%aI|%s"];
+  const statusArgs = ["log", `--since=${sinceDate}`, "--name-status", "--pretty=format:__COMMIT__%h|%an|%aI|%s", ...pathspecSuffix];
   log(`Executing git command for status in ${repoRelativePath || "root"}: git ${statusArgs.join(" ")}`);
 
   const fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs());
@@ -758,7 +763,7 @@ export async function collectHistoricalChanges(
   let lineCountsMap = new Map<string, { added: number; deleted: number }>();
 
   if (showLineChanges) {
-    const numstatArgs = ["log", `--since=${sinceDate}`, "--numstat", "--pretty=format:__COMMIT__%h|%an|%aI|%s"];
+    const numstatArgs = ["log", `--since=${sinceDate}`, "--numstat", "--pretty=format:__COMMIT__%h|%an|%aI|%s", ...pathspecSuffix];
     log(`Executing git command for numstat in ${repoRelativePath || "root"}: git ${numstatArgs.join(" ")}`);
     lineCountsMap = await streamGitLogNumstat(numstatArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs());
   }

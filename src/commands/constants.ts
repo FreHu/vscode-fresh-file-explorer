@@ -80,4 +80,11 @@ export const Commands = {
   COPY_FILENAME: "freshFileExplorer.copyFilename",
   COPY_SUBTREE_STRUCTURE: "freshFileExplorer.copySubtreeStructure",
   COPY_REMOTE_URL: "freshFileExplorer.copyRemoteUrl",
+
+  // Pathspec filter
+  SET_REPO_PATHSPEC: "freshFileExplorer.setRepoPathspec",
+
+  // Folder scope (display-only filter, no git reload)
+  SCOPE_TO_FOLDER: "freshFileExplorer.scopeToFolder",
+  CLEAR_FOLDER_SCOPE: "freshFileExplorer.clearFolderScope",
 } as const;

@@ -85,6 +85,15 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // that a pending refresh already happened and skip scheduling a duplicate.
   pendingRefreshVersion: number = 0;
 
+  // Per-repo pathspec filters (normalized repo path → pathspec string).
+  // When active, git log is restricted to the given pathspec for that repo.
+  private repoPathspecs: Map<string, string> = new Map();
+
+  // Per-repo folder scope (normalized repo path → normalized absolute folder path).
+  // Display-only filter: only files under the scoped folder are shown.
+  // Does NOT trigger a git reload — this can only narrow down the data we already have.
+  private repoFolderScopes: Map<string, string> = new Map();
+
   // Historical (committed) file entries cached from the last full refresh.
   // Kept separate from freshFiles so pending-only refreshes can restore them
   // when a file's uncommitted changes are reverted.
@@ -134,6 +143,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.openChangesMode = WorkspaceStateManager.getOpenChangesMode();
     this.groupingMode = WorkspaceStateManager.getGroupingMode();
     this.sortOrder = WorkspaceStateManager.getSortOrder();
+
+    const storedPathspecs = WorkspaceStateManager.getRepoPathspecs();
+    this.repoPathspecs = new Map(Object.entries(storedPathspecs));
+
+    const storedFolderScopes = WorkspaceStateManager.getRepoFolderScopes();
+    this.repoFolderScopes = new Map(Object.entries(storedFolderScopes));
+    
     // Set initial context for when clause
     ContextManager.setOpenChangesMode(this.openChangesMode);
 
@@ -304,6 +320,76 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     WorkspaceStateManager.setSortOrder(order);
     this.refreshTreeOnly();
+  }
+
+  /**
+   * Set or clear the pathspec filter for a repository.
+   * Pass undefined (or empty string) to remove the filter.
+   * Triggers a refresh so git log is re-run with the new pathspec.
+   */
+  setRepoPathspec(normalizedRepoPath: string, pathspec: string | undefined): void {
+    const trimmed = pathspec?.trim();
+    if (trimmed) {
+      log(`Setting pathspec for ${normalizedRepoPath}: ${trimmed}`);
+      this.repoPathspecs.set(normalizedRepoPath, trimmed);
+    } else {
+      log(`Clearing pathspec for ${normalizedRepoPath}`);
+      this.repoPathspecs.delete(normalizedRepoPath);
+    }
+    WorkspaceStateManager.setRepoPathspec(normalizedRepoPath, trimmed || undefined);
+    this.refresh();
+  }
+
+  /** Return the active pathspec for a repo, or undefined if none is set. */
+  getRepoPathspec(normalizedRepoPath: string): string | undefined {
+    return this.repoPathspecs.get(normalizedRepoPath);
+  }
+
+  /**
+   * Scope the display of a repo to a specific folder (display-only, no git reload).
+   * Only files whose path starts with `normalizedFolderPath` will be shown.
+   * Pass undefined to clear the scope.
+   */
+  setFolderScope(normalizedRepoPath: string, normalizedFolderPath: string | undefined): void {
+    if (normalizedFolderPath) {
+      log(`Scoping repo ${normalizedRepoPath} to folder: ${normalizedFolderPath}`);
+      this.repoFolderScopes.set(normalizedRepoPath, normalizedFolderPath);
+    } else {
+      log(`Clearing folder scope for repo ${normalizedRepoPath}`);
+      this.repoFolderScopes.delete(normalizedRepoPath);
+    }
+    WorkspaceStateManager.setRepoFolderScope(normalizedRepoPath, normalizedFolderPath);
+    this.refreshTreeOnly();
+  }
+
+  /** Return the active folder scope for a repo, or undefined if none is set. */
+  getFolderScope(normalizedRepoPath: string): string | undefined {
+    return this.repoFolderScopes.get(normalizedRepoPath);
+  }
+
+  /**
+   * Returns true if the file passes the folder scope filter for its repo.
+   * When no scope is active for the repo, all files pass.
+   */
+  private passesRepoScope(normalizedFilePath: string): boolean {
+    if (this.repoFolderScopes.size === 0) {
+      return true;
+    }
+    // Find which repo this file belongs to, then check its scope
+    for (const folder of this.workspaceFolders) {
+      for (const repoRelPath of folder.gitRepos) {
+        const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
+        const normalizedRepoPath = normalizePath(repoFullPath);
+        if (normalizedFilePath.startsWith(normalizedRepoPath + "/") || normalizedFilePath === normalizedRepoPath) {
+          const scope = this.repoFolderScopes.get(normalizedRepoPath);
+          if (scope === undefined) {
+            return true; // No scope for this repo
+          }
+          return normalizedFilePath.startsWith(scope + "/") || normalizedFilePath === scope;
+        }
+      }
+    }
+    return true;
   }
 
   private updateGroupingModeMessage(): void {
@@ -675,9 +761,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
 
       // Check if no files found — but only when loading is fully complete.
-      // While repos are still loading, fall through to buildRepoView so the
-      // per-repo loading spinners are shown instead of the empty message.
-      if (this.freshFiles.size === 0 && this.reposLoading.size === 0) {
+      // While repos are still loading (pending or historical phase), fall through to
+      // buildRepoView so the per-repo loading spinners are shown instead of the empty message.
+      if (this.freshFiles.size === 0 && this.reposLoading.size === 0 && this.reposLoadingHistorical.size === 0) {
         const message = isPendingChangesMode(this.currentTimeWindow)
           ? "No pending changes"
           : `No files modified in the last ${this.currentTimeWindow.label}`;
@@ -813,13 +899,17 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         const repoName = repo ? repo : folder.name;
         const repoNormalized = normalizePath(repoPath);
 
+        const activeFolderScope = this.repoFolderScopes.get(repoNormalized);
+
         const filesInRepo = Array.from(this.freshFiles.keys()).filter(filePath => {
           const normalized = normalizePath(filePath);
           // File must be in this repo
           if (normalized !== repoNormalized && !normalized.startsWith(repoNormalized + "/")) {
             return false;
           }
-
+          if (activeFolderScope && !normalized.startsWith(activeFolderScope + "/") && normalized !== activeFolderScope) {
+            return false;
+          }
           return true;
         });
 
@@ -828,6 +918,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         const repoUri = vscode.Uri.file(repoPath);
         const branchName = this.repoBranches.get(repoNormalized);
         const isLoading = this.reposLoading.has(repoNormalized);
+        const isLoadingHistorical = this.reposLoadingHistorical.has(repoNormalized);
+        const activePathspec = this.repoPathspecs.get(repoNormalized);
+
+        // Compute a display-friendly folder scope label
+        const folderScopeDisplay = activeFolderScope
+          ? normalizePath(path.relative(repoPath, activeFolderScope))
+          : undefined;
 
         // Respect auto-expand depth setting for repository roots
         const shouldExpand = ConfigService.getAutoExpandDepth() > 0 && fileCount > 0;
@@ -841,6 +938,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           contextValue,
           shouldExpand,
           isLoading,
+          activePathspec,
+          folderScopeDisplay,
+          isLoadingHistorical,
         );
         results.push(repoItem);
       }
@@ -994,9 +1094,25 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           histDays,
           newFiles,
           newHistoricalFiles,
+          this.repoPathspecs.get(normalizedRepoPath),
         );
-        if (repoError && !errorToShow) {
-          errorToShow = repoError;
+        if (repoError) {
+          if (repoError.isPathspecError) {
+            // The active pathspec caused git to fail. Clear it, warn the user, and
+            // trigger a fresh reload so the tree is restored without the bad pathspec.
+            const badPathspec = this.repoPathspecs.get(normalizedRepoPath);
+            log(`Invalid pathspec "${badPathspec}" for ${normalizedRepoPath} — clearing and reloading`, "warn");
+            this.repoPathspecs.delete(normalizedRepoPath);
+            WorkspaceStateManager.setRepoPathspec(normalizedRepoPath, undefined);
+            vscode.window.showWarningMessage(
+              `Invalid pathspec "${badPathspec}" was cleared. The tree will reload without it.`,
+            );
+            // Abort this load and start a fresh one without the bad pathspec.
+            this.refresh();
+            return;
+          } else if (!errorToShow) {
+            errorToShow = repoError.message;
+          }
         }
 
         if (isCancelled()) {
@@ -1031,7 +1147,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     for (const [filePath, metadata] of this.freshFiles) {
       const normalizedFile = normalizePath(filePath);
       if (normalizedFile.startsWith(prefix)) {
-        if (this.filterManager.passesFilters(metadata)) {
+        if (this.filterManager.passesFilters(metadata) && this.passesRepoScope(normalizedFile)) {
           count++;
         }
       }
@@ -1098,6 +1214,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
 
       const normalizedFile = normalizePath(filePath);
+
+      if (!this.passesRepoScope(normalizedFile)) {
+        continue;
+      }
 
       // Check if file is under this parent
       if (normalizedFile === normalizedParent || normalizedFile.startsWith(normalizedParent + "/")) {

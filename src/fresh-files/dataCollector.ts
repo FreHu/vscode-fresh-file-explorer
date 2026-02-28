@@ -53,7 +53,9 @@ export class DataCollector {
 
   /**
    * Collect only the historical (committed) changes for a single repository.
-   * Returns an error message if the repo has no commits or git failed, otherwise undefined.
+   * Returns an error result if the repo has no commits or git failed, otherwise undefined.
+   * When a pathspec is active and git fails, the result includes `isPathspecError: true`
+   * so the caller can clear the invalid pathspec and retry.
    */
   static async collectHistoricalForRepo(
     folder: WorkspaceFolderInfo,
@@ -61,7 +63,8 @@ export class DataCollector {
     days: number,
     targetMap: Map<AbsolutePath, FileMetadata>,
     historicalTargetMap: Map<AbsolutePath, FileMetadata>,
-  ): Promise<string | undefined> {
+    pathspec?: string,
+  ): Promise<{ message: string; isPathspecError: boolean } | undefined> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
     const filesBefore = targetMap.size;
     try {
@@ -70,6 +73,7 @@ export class DataCollector {
         repoFullPath,
         folder.path,
         days,
+        pathspec,
       );
       DataCollector.addFilesToMap(folder, historicalFiles, historicalTargetMap);
       DataCollector.addFilesToMap(folder, historicalFiles, targetMap);
@@ -78,7 +82,10 @@ export class DataCollector {
       if (errorMessage.includes("your current branch does not have any commits yet")) {
         log(`No commits yet in repo ${folder.name}/${repoRelativePath || "root"}`);
         if (targetMap.size === filesBefore) {
-          return "This repository has no commits yet. Add and commit files to see them here.";
+          return {
+            message: "This repository has no commits yet. Add and commit files to see them here.",
+            isPathspecError: false,
+          };
         }
       } else {
         log(
@@ -86,7 +93,10 @@ export class DataCollector {
           "warn",
         );
         if (targetMap.size === filesBefore) {
-          return `Git error: ${errorMessage}`;
+          return {
+            message: `Git error: ${errorMessage}`,
+            isPathspecError: pathspec !== undefined,
+          };
         }
       }
     }

@@ -14,7 +14,7 @@ import {
 suite("Format Utils", () => {
   suite("formatRepoDescription", () => {
     test("should format with branch name and file count", () => {
-      assert.strictEqual(formatRepoDescription("main", 5), "(5) 🔀 main ");
+      assert.strictEqual(formatRepoDescription("main", 5), "(5) 🔀 main");
     });
 
     test("should format without branch name", () => {

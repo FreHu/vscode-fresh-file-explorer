@@ -90,9 +90,11 @@ Both options can be individually disabled.
 ### Filtering
 - **Filter by Author**: Hide files from specific authors
 - **Filter by Commit**: Hide files from specific commits
+- **Pathspec Filter**: Restrict git log to specific files or directories using [git pathspecs](https://css-tricks.com/git-pathspecs-and-how-to-use-them/) (right-click on a repo folder)
+- **Scope to Folder**: Focus on a specific folder within a repo (right-click on any folder)
 - **Clear filters**
-- Filters are temporary and reset when changing time windows
- 
+- Author and commit filters are temporary and reset when changing time windows
+  
 ![filter-commit](img/filter-commit.png)
 
 > **Note:** The extension tracks the _most recent_ commit per file only. If a file was modified by both a filtered author and a non-filtered author within the time window, the file will be hidden entirely (because the most recent commit is what's filtered). This is a deliberate simplification - for deeper history analysis, consider using something like GitLens or learning more than 5 git commands.

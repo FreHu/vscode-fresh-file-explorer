@@ -16,25 +16,41 @@ export function formatGroupDescription(
 }
 
 /**
- * Format repository description with branch name and file count
+ * Format repository description with branch name, file count, and optional active pathspec / folder scope
  */
 export function formatRepoDescription(
-  branchName: string | undefined, fileCount: number): string {
+  branchName: string | undefined, fileCount: number, pathspec?: string, folderScope?: string): string {
+  const filterParts: string[] = [];
+  if (pathspec) {
+    filterParts.push(`👣 ${pathspec}`);
+  }
+  if (folderScope) {
+    filterParts.push(`📁 ${folderScope}`);
+  }
+  const filterSuffix = filterParts.length > 0 ? ` ${filterParts.join(" ")}` : "";
   if (fileCount === 0) {
-    return branchName ? `🔀 ${branchName} (no fresh files)` : "(no fresh files)";
+    return branchName ? `🔀 ${branchName} (no fresh files)${filterSuffix}` : `(no fresh files)${filterSuffix}`;
   } else {
-    return branchName ? `(${fileCount}) 🔀 ${branchName} ` : `(${fileCount})`;
+    return branchName ? `(${fileCount}) 🔀 ${branchName}${filterSuffix}` : `(${fileCount})${filterSuffix}`;
   }
 }
 
 /**
- * Format repository tooltip with name, branch, and file count
+ * Format repository tooltip with name, branch, file count, and optional active pathspec / folder scope
  */
 export function formatRepoTooltip(
-  repoName: string, branchName: string | undefined, fileCount: number): string {
-  return branchName
+  repoName: string, branchName: string | undefined, fileCount: number, pathspec?: string, folderScope?: string): string {
+  const base = branchName
     ? `${repoName} (${branchName})\n${fileCount} file(s) modified`
     : `${repoName}\n${fileCount} file(s) modified`;
+  let result = base;
+  if (pathspec) {
+    result += `\nPathspec filter: ${pathspec}`;
+  }
+  if (folderScope) {
+    result += `\nScoped to folder: ${folderScope}`;
+  }
+  return result;
 }
 
 /**

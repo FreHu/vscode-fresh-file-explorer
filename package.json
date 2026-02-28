@@ -218,6 +218,18 @@
         "title": "Copy Remote URL"
       },
       {
+        "command": "freshFileExplorer.setRepoPathspec",
+        "title": "Set Pathspec Filter"
+      },
+      {
+        "command": "freshFileExplorer.scopeToFolder",
+        "title": "Scope to This Folder"
+      },
+      {
+        "command": "freshFileExplorer.clearFolderScope",
+        "title": "Clear Folder Scope"
+      },
+      {
         "command": "freshFileExplorer.searchInFoundFiles",
         "title": "Search in Found Files",
         "icon": "$(search-fuzzy)"
@@ -480,6 +492,21 @@
           "group": "6_copypath@5"
         },
         {
+          "command": "freshFileExplorer.setRepoPathspec",
+          "when": "view == freshFileExplorer && viewItem =~ /^(workspaceFolder|repoFolder)$/",
+          "group": "7_pathspec@1"
+        },
+        {
+          "command": "freshFileExplorer.scopeToFolder",
+          "when": "view == freshFileExplorer && viewItem == folder",
+          "group": "1_expand@2"
+        },
+        {
+          "command": "freshFileExplorer.clearFolderScope",
+          "when": "view == freshFileExplorer && viewItem =~ /^(workspaceFolder|repoFolder)$/",
+          "group": "7_pathspec@3"
+        },
+        {
           "command": "freshFileExplorer.unpinFile",
           "when": "view == freshFileExplorer && viewItem == pinnedFile",
           "group": "9_pin@1"
@@ -618,6 +645,18 @@
         },
         {
           "command": "freshFileExplorer.copyRemoteUrl",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.setRepoPathspec",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.scopeToFolder",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.clearFolderScope",
           "when": "false"
         }
       ]
