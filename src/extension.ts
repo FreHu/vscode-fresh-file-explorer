@@ -31,6 +31,7 @@ import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
 import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
 import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, handleCopySubtreeStructure } from "./commands/copyPathCommands";
+import { handleCopyRemoteUrl } from "./commands/copyRemoteUrlCommand";
 import { Commands } from "./commands/constants";
 import { createDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
@@ -272,6 +273,10 @@ function registerCommands(
 
   register(Commands.COPY_SUBTREE_STRUCTURE, (item: FreshFileItem) =>
     handleCopySubtreeStructure(item, freshFileProvider),
+  );
+
+  register(Commands.COPY_REMOTE_URL, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleCopyRemoteUrl(item, selectedItems, freshFileProvider),
   );
 }
 

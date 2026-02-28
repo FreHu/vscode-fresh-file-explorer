@@ -214,6 +214,10 @@
         "title": "Copy Subtree Structure"
       },
       {
+        "command": "freshFileExplorer.copyRemoteUrl",
+        "title": "Copy Remote URL"
+      },
+      {
         "command": "freshFileExplorer.searchInFoundFiles",
         "title": "Search in Found Files",
         "icon": "$(search-fuzzy)"
@@ -471,6 +475,11 @@
           "group": "6_copypath@4"
         },
         {
+          "command": "freshFileExplorer.copyRemoteUrl",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
+          "group": "6_copypath@5"
+        },
+        {
           "command": "freshFileExplorer.unpinFile",
           "when": "view == freshFileExplorer && viewItem == pinnedFile",
           "group": "9_pin@1"
@@ -605,6 +614,10 @@
         },
         {
           "command": "freshFileExplorer.copySubtreeStructure",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.copyRemoteUrl",
           "when": "false"
         }
       ]

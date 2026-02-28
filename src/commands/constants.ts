@@ -79,4 +79,5 @@ export const Commands = {
   COPY_RELATIVE_PATH: "freshFileExplorer.copyRelativePath",
   COPY_FILENAME: "freshFileExplorer.copyFilename",
   COPY_SUBTREE_STRUCTURE: "freshFileExplorer.copySubtreeStructure",
+  COPY_REMOTE_URL: "freshFileExplorer.copyRemoteUrl",
 } as const;
