@@ -259,7 +259,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.pendingRefreshVersion++;
     log("Refreshing pending changes only");
     await this.updatePendingFiles();
-    this.heatmapProvider?.fireDidChange();
     this._onDidChangeTreeData.fire();
   }
 
