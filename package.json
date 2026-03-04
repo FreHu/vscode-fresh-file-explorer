@@ -12,13 +12,25 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.2.0",
+  "version": "1.2.1",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
   },
   "categories": [
     "Other"
+  ],
+  "keywords": [
+    "file-explorer",
+    "recent-files",
+    "modified-files",
+    "git",
+    "git-history",
+    "diff-search",
+    "pickaxe",
+    "git-log-l",
+    "heatmap",
+    "gitlens"
   ],
   "main": "./out/extension.js",
   "activationEvents": ["*"],

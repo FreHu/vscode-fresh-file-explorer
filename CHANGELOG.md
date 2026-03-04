@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.2.1]
+- `[FIX]` heatmap flickering
+- `[FIX]` status labels for rename/copy not having proper names
+- `[FIX]` potential inconsistency in commit ordering (author vs committer date)
+
 ## [1.2.0]
 - [NEW] Pathspec can be set per-repo to limit git output
 - [NEW] Scoping to folders
