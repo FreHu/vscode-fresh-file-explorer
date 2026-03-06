@@ -4,6 +4,7 @@ import { initializeLogger, log } from "./extension/logger";
 import { FreshFileItem, FreshFilesTreeItem } from "./fresh-files/freshFileTreeItems";
 import { handleClearFilters, handleFilterByAuthor, handleFilterByCommit } from "./commands/filterCommands";
 import {
+  handleDeleteFile,
   handleExpandAll,
   handleExpandSubtree,
   handleOpenFile,
@@ -215,6 +216,10 @@ function registerCommands(
 
   register(Commands.DISCARD_CHANGES, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
     handleDiscardChanges(item, selectedItems, freshFileProvider),
+  );
+
+  register(Commands.DELETE_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleDeleteFile(item, selectedItems, freshFileProvider, treeView),
   );
 
   register(Commands.CREATE_FILE_NEXT_TO, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>

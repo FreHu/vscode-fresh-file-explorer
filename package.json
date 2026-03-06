@@ -137,6 +137,11 @@
         "icon": "$(discard)"
       },
       {
+        "command": "freshFileExplorer.deleteFile",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
         "command": "freshFileExplorer.createFileNextTo",
         "title": "New File Here",
         "icon": "$(new-file)"
@@ -303,6 +308,11 @@
       {
         "command": "freshFileExplorer.quickPickFile",
         "key": "ctrl+q f"
+      },
+      {
+        "command": "freshFileExplorer.deleteFile",
+        "key": "Delete",
+        "when": "focusedView == freshFileExplorer"
       }
     ],
     "menus": {
@@ -469,6 +479,11 @@
           "command": "freshFileExplorer.discardChanges",
           "when": "view == freshFileExplorer && viewItem == pendingFile",
           "group": "2_modification@1"
+        },
+        {
+          "command": "freshFileExplorer.deleteFile",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
+          "group": "2_modification@2"
         },
         {
           "command": "freshFileExplorer.createFileNextTo",
@@ -646,6 +661,10 @@
         },
         {
           "command": "freshFileExplorer.discardChanges",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.deleteFile",
           "when": "false"
         },
         {

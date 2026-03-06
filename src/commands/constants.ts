@@ -36,6 +36,7 @@ export const Commands = {
   OPEN_CHANGES: "freshFileExplorer.openChanges",
   OPEN_TO_SIDE: "freshFileExplorer.openToSide",
   DISCARD_CHANGES: "freshFileExplorer.discardChanges",
+  DELETE_FILE: "freshFileExplorer.deleteFile",
   REVEAL_IN_SOURCE_CONTROL: "freshFileExplorer.revealInSourceControl",
   TOGGLE_OPEN_MODE: "freshFileExplorer.toggleOpenMode",
   CREATE_FILE_NEXT_TO: "freshFileExplorer.createFileNextTo",

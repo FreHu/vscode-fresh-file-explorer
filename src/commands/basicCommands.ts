@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as path from "path";
 
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
@@ -229,6 +230,69 @@ export function handleRevealInSourceControl(item: FreshFileItem, selectedItems?:
     vscode.commands.executeCommand("workbench.view.scm");
     // The git extension should highlight the file when SCM view opens with the file selected
     vscode.commands.executeCommand("git.openFile", target.resourceUri);
+  }
+}
+
+export async function handleDeleteFile(
+  item: FreshFileItem,
+  selectedItems: FreshFileItem[] | undefined,
+  freshFileProvider: FreshFileProvider,
+  treeView?: vscode.TreeView<FreshFilesTreeItem>,
+): Promise<void> {
+  // When triggered via keybinding, item and selectedItems are undefined.
+  // Fall back to the tree view's current selection.
+  const treeSelection = treeView?.selection.filter((i): i is FreshFileItem => i instanceof FreshFileItem);
+  const allItems = selectedItems && selectedItems.length > 0 ? selectedItems
+    : item ? [item]
+    : treeSelection && treeSelection.length > 0 ? treeSelection
+    : [];
+  // Only delete actual on-disk files — skip deleted files (they don't exist) and directories
+  const targets = allItems.filter(i => i && i.resourceUri && !i.isDeleted && !i.isDirectory);
+
+  if (targets.length === 0) {
+    return;
+  }
+
+  const fileNames = targets.map(i => path.basename(i.resourceUri.fsPath));
+
+  const message =
+    targets.length === 1
+      ? `Are you sure you want to delete this file?`
+      : `Are you sure you want to delete ${targets.length} files?`;
+
+  const fileList = fileNames.map(name => `  • ${name}`).join("\n");
+  const detail = `${fileList}\n\nThe file(s) will be moved to the trash.`;
+
+  const confirm = await vscode.window.showWarningMessage(
+    message,
+    { modal: true, detail },
+    "Delete",
+  );
+
+  if (confirm !== "Delete") {
+    return;
+  }
+
+  const errors: string[] = [];
+  let successCount = 0;
+
+  for (const fileItem of targets) {
+    try {
+      log(`Deleting file: ${fileItem.resourceUri.fsPath}`);
+      await vscode.workspace.fs.delete(fileItem.resourceUri, { useTrash: true });
+      successCount++;
+    } catch (error) {
+      const fileName = path.basename(fileItem.resourceUri.fsPath);
+      log(`Failed to delete ${fileName}: ${error}`, "error");
+      errors.push(fileName);
+    }
+  }
+
+  if (errors.length > 0) {
+    vscode.window.showErrorMessage(`Failed to delete: ${errors.join(", ")}`);
+  }
+  if (successCount > 0) {
+    freshFileProvider.refreshPending();
   }
 }
 
