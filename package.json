@@ -43,7 +43,7 @@
           "id": "pinnedItems",
           "name": "Pinned Items",
           "type": "tree",
-          "icon": "$(pinned)",
+          "icon": "icons/fresh-files.svg",
           "contextualTitle": "Fresh File Explorer",
           "group": "freshfileexplorer@2"
         },
