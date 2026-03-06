@@ -331,6 +331,11 @@
         "command": "freshFileExplorer.clearCompleted",
         "title": "Clear Completed",
         "icon": "$(checklist)"
+      },
+      {
+        "command": "freshFileExplorer.focusSubmoduleRepo",
+        "title": "Focus Submodule Repo",
+        "when": "false"
       }
     ],
     "keybindings": [
