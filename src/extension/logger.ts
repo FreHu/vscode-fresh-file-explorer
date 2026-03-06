@@ -34,7 +34,7 @@ export function showOutputChannel(): void {
  * @param logMessage - Pass `true` to log the display message as-is, or a string to log a different message.
  */
 export function showInfo(displayMessage: string, logMessage?: string | true): void {
-  showInfo(displayMessage);
+  vscode.window.showInformationMessage(displayMessage);
   if (logMessage === true) {
     log(displayMessage);
   } else if (typeof logMessage === "string") {
@@ -47,7 +47,7 @@ export function showInfo(displayMessage: string, logMessage?: string | true): vo
  * @param logMessage - Pass `true` to log the display message as-is, or a string to log a different message.
  */
 export function showWarning(displayMessage: string, logMessage?: string | true): void {
-  showWarning(displayMessage);
+  vscode.window.showWarningMessage(displayMessage);
   if (logMessage === true) {
     log(displayMessage, "warn");
   } else if (typeof logMessage === "string") {
@@ -60,7 +60,7 @@ export function showWarning(displayMessage: string, logMessage?: string | true):
  * @param logMessage - Pass `true` to log the display message as-is, or a string to log a different message.
  */
 export function showError(displayMessage: string, logMessage?: string | true): void {
-  showError(displayMessage);
+  vscode.window.showErrorMessage(displayMessage);
   if (logMessage === true) {
     log(displayMessage, "error");
   } else if (typeof logMessage === "string") {
