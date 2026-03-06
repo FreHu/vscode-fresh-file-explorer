@@ -163,7 +163,15 @@ const STATUS_LABELS: Record<string, string> = {
  * Get a human-readable status label for git status codes
  */
 export function getStatusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status.toLowerCase();
+  if (STATUS_LABELS[status]) {
+    return STATUS_LABELS[status];
+  }
+  // git log --name-status uses R<score> (e.g. R078, R100) for renames
+  // and C<score> (e.g. C100) for copies. Normalise to the base letter.
+  if (status.length > 1 && (status[0] === "R" || status[0] === "C") && /^\d+$/.test(status.slice(1))) {
+    return STATUS_LABELS[status[0]] ?? status[0].toLowerCase();
+  }
+  return status.toLowerCase();
 }
 
 /**
