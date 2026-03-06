@@ -135,17 +135,37 @@ export async function handlePasteFile(
 
   for (const sourceUri of clipboard.uris) {
     const sourceName = path.basename(sourceUri.fsPath);
-    let destUri = vscode.Uri.joinPath(targetDir, sourceName);
+    const normalizedSource = path.normalize(sourceUri.fsPath).toLowerCase();
+    const normalizedTarget = path.normalize(targetDir.fsPath).toLowerCase();
 
-    // Determine if the source and destination paths are the same (pasting into same folder)
+    // Prevent pasting a folder into one of its own subfolders.
+    if (normalizedTarget.startsWith(normalizedSource + path.sep)) {
+      errors.push(`"${sourceName}" cannot be pasted here — the destination is inside the source folder.`);
+      continue;
+    }
+
+    // If pasting a folder into itself, redirect to its parent — same-level copy behavior
+    // (matches VS Code explorer: copy "utils", right-click "utils", paste → "utils copy").
+    const effectiveTargetDir = normalizedTarget === normalizedSource
+      ? vscode.Uri.file(path.dirname(targetDir.fsPath))
+      : targetDir;
+
+    let destUri = vscode.Uri.joinPath(effectiveTargetDir, sourceName);
+
+    // Determine if the source and destination are in the same folder.
     const isSameFolder =
       path.normalize(path.dirname(sourceUri.fsPath)).toLowerCase() ===
-      path.normalize(targetDir.fsPath).toLowerCase();
+      path.normalize(effectiveTargetDir.fsPath).toLowerCase();
+
+    // Cut to the same folder is a no-op — skip silently.
+    if (isSameFolder && clipboard.isCut) {
+      continue;
+    }
 
     try {
       if (isSameFolder && !clipboard.isCut) {
         // Copying into the same directory — always generate a new name
-        destUri = await generateUniqueName(targetDir, sourceName);
+        destUri = await generateUniqueName(effectiveTargetDir, sourceName);
       } else {
         // Check if destination exists; resolve conflict if so
         try {
