@@ -237,8 +237,6 @@ export async function handleDiscardChanges(
   // Execute the chosen action for each file
   const errors: string[] = [];
   let successCount = 0;
-  let anyUntrackedDiscarded = false;
-
   for (const fileItem of pendingItems) {
     try {
       // Find workspace folder and git repo for this file
@@ -269,11 +267,7 @@ export async function handleDiscardChanges(
       const performed = await executeDiscardAction(fileItem, repoLocation, action);
 
       if (performed) {
-        const status = fileItem.status ?? "";
-        const isUntracked = status === "??" || status === "?";
-        if (isUntracked) {
-          anyUntrackedDiscarded = true;
-        }
+
         successCount++;
       }
     } catch (error) {
@@ -289,14 +283,7 @@ export async function handleDiscardChanges(
   if (successCount > 0) {
     const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, pendingItems.map(i => i.resourceUri.fsPath));
     const targetRepoPaths = repoPaths.length > 0 ? repoPaths : undefined;
-    // Discarding an untracked file removes it from disk, which can change the isDeleted
-    // determination of its historical entry in the cache. A full refresh is required
-    // to correctly restore the deleted-file state (icon, context menu, resurrect option).
-    if (anyUntrackedDiscarded) {
-      freshFileProvider.refresh({ targetRepoPaths });
-    } else {
-      freshFileProvider.refreshPending(targetRepoPaths);
-    }
+    freshFileProvider.refreshPending(targetRepoPaths);
   }
 }
 
