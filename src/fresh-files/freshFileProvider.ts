@@ -290,7 +290,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const scopeDesc = targetRepoPaths ? ` for ${targetRepoPaths.length} repo(s)` : "";
     log(`Refreshing pending changes only${scopeDesc}`);
     await this.updatePendingFiles(targetRepoPaths);
-    this.heatmapProvider?.fireDidChange();
     this._onDidChangeTreeData.fire();
   }
 
