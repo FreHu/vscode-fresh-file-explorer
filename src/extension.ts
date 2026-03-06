@@ -169,7 +169,7 @@ function registerCommands(
 
   register(Commands.FILTER_BY_COMMIT, () => handleFilterByCommit(freshFileProvider));
 
-  register(Commands.CLEAR_FILTERS, () => handleClearFilters(freshFileProvider));
+  register(Commands.CLEAR_FILTERS, () => handleClearFilters(freshFileProvider.filterManager));
 
   register(Commands.SEARCH_IN_FRESH_FILES, () => handleSearchInFreshFiles(freshFileProvider));
 

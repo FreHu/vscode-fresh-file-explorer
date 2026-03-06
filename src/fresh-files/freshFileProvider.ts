@@ -93,7 +93,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   openChangesMode: boolean = false;
 
   // Managers for specific concerns
-  private filterManager = new FilterManager();
+  readonly filterManager = new FilterManager();
 
   // Incremented every time refreshPending() runs, so external listeners can detect
   // that a pending refresh already happened and skip scheduling a duplicate.
@@ -523,51 +523,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return Array.from(commitInfo.entries())
       .map(([_, info]) => ({ ...info }))
       .sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort by date descending (newest first)
-  }
-
-  /** Set excluded authors (files by these authors will be hidden) */
-  setExcludedAuthors(authors: Set<string>): void {
-    this.filterManager.setExcludedAuthors(authors);
-  }
-
-  /** Set excluded commits (files from these commits will be hidden) */
-  setExcludedCommits(commits: Set<CommitHash>): void {
-    this.filterManager.setExcludedCommits(commits);
-  }
-
-  /** Clear all filters */
-  clearFilters(): void {
-    this.filterManager.clearFilters();
-  }
-
-  /** Check if any filters are active */
-  hasActiveFilters(): boolean {
-    return this.filterManager.hasActiveFilters();
-  }
-
-  /** Get current filter summary for display */
-  getFilterSummary(): string {
-    return this.filterManager.getFilterSummary();
-  }
-
-  /** Get excluded authors (for external access) */
-  getExcludedAuthors(): Set<string> {
-    return this.filterManager.getExcludedAuthors();
-  }
-
-  /** Get excluded commits (for external access) */
-  getExcludedCommits(): Set<CommitHash> {
-    return this.filterManager.getExcludedCommits();
-  }
-
-  /** Get excluded authors set (for FilterProvider interface compatibility) */
-  get excludedAuthors(): Set<string> {
-    return this.filterManager.getExcludedAuthors();
-  }
-
-  /** Get excluded commits set (for FilterProvider interface compatibility) */
-  get excludedCommits(): Set<CommitHash> {
-    return this.filterManager.getExcludedCommits();
   }
 
   /** Get all visible file paths (excluding deleted files) for search operations */

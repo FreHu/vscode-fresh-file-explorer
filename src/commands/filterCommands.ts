@@ -1,33 +1,21 @@
 import { log, showInfo } from "../extension/logger";
 import { createAuthorQuickPick, createCommitQuickPick } from "../utils/quickPick";
 import { setDifference } from "../utils/collectionUtils";
-import { AuthorData, CommitDataWithFileCount, CommitHash } from "../types";
 import { ContextManager } from "../extension/contextManager";
+import { FilterManager } from "../fresh-files/freshFileFilterManager";
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 
-/**
- * Interface for a provider that can filter files by author or commit
- */
-export interface FilterProvider {
-  getAvailableAuthors(): AuthorData[];
-  getAvailableCommits(): CommitDataWithFileCount[];
-  setExcludedAuthors(authors: Set<string>): void;
-  setExcludedCommits(commits: Set<CommitHash>): void;
-  clearFilters(): void;
-  hasActiveFilters(): boolean;
-  excludedAuthors: Set<string>;
-  excludedCommits: Set<CommitHash>;
-}
 
 /**
  * Update the context key for filter visibility
  */
-function updateFilterContext(provider: FilterProvider): void {
-  ContextManager.setHasFilters(provider.hasActiveFilters());
+function updateFilterContext(filterManager: FilterManager): void {
+  ContextManager.setHasFilters(filterManager.hasActiveFilters());
 }
 
-export async function handleFilterByAuthor(filterProvider: FilterProvider): Promise<boolean> {
+export async function handleFilterByAuthor(dataProvider: FreshFileProvider): Promise<boolean> {
   log("Filter by author command triggered");
-  const authors = filterProvider.getAvailableAuthors();
+  const authors = dataProvider.getAvailableAuthors();
 
   if (authors.length === 0) {
     showInfo("No authors found in current view");
@@ -35,10 +23,11 @@ export async function handleFilterByAuthor(filterProvider: FilterProvider): Prom
   }
 
   return new Promise((resolve) => {
-    const quickPick = createAuthorQuickPick(authors, filterProvider.excludedAuthors);
-    
+    const filterManager = dataProvider.filterManager;
+    const quickPick = createAuthorQuickPick(authors, filterManager.getExcludedAuthors());
+
     let resolved = false;
-    
+
     quickPick.onDidAccept(() => {
       const selected = quickPick.selectedItems;
       const selectedAuthors = new Set(selected.map(i => i.author));
@@ -48,8 +37,8 @@ export async function handleFilterByAuthor(filterProvider: FilterProvider): Prom
         selectedAuthors,
       );
 
-      filterProvider.setExcludedAuthors(excluded);
-      updateFilterContext(filterProvider);
+      filterManager.setExcludedAuthors(excluded);
+      updateFilterContext(filterManager);
 
       quickPick.hide();
       if (!resolved) {
@@ -70,9 +59,9 @@ export async function handleFilterByAuthor(filterProvider: FilterProvider): Prom
   });
 }
 
-export async function handleFilterByCommit(filterProvider: FilterProvider): Promise<boolean> {
+export async function handleFilterByCommit(dataProvider: FreshFileProvider): Promise<boolean> {
   log("Filter by commit command triggered");
-  const commits = filterProvider.getAvailableCommits();
+  const commits = dataProvider.getAvailableCommits();
 
   if (commits.length === 0) {
     showInfo("No commits found in current view");
@@ -80,12 +69,11 @@ export async function handleFilterByCommit(filterProvider: FilterProvider): Prom
   }
 
   return new Promise((resolve) => {
-    // Get currently excluded commits to mark them properly
-    const currentExcluded = (filterProvider as any).excludedCommits || new Set<CommitHash>();
-    const quickPick = createCommitQuickPick(commits, currentExcluded);
-    
+    const filterManager = dataProvider.filterManager;
+    const quickPick = createCommitQuickPick(commits, filterManager.getExcludedCommits());
+
     let resolved = false;
-    
+
     quickPick.onDidAccept(() => {
       const selected = quickPick.selectedItems;
       const selectedHashes = new Set(selected.map(i => i.hash));
@@ -94,8 +82,8 @@ export async function handleFilterByCommit(filterProvider: FilterProvider): Prom
         selectedHashes,
       );
 
-      filterProvider.setExcludedCommits(excluded);
-      updateFilterContext(filterProvider);
+      filterManager.setExcludedCommits(excluded);
+      updateFilterContext(filterManager);
 
       quickPick.hide();
       if (!resolved) {
@@ -116,8 +104,8 @@ export async function handleFilterByCommit(filterProvider: FilterProvider): Prom
   });
 }
 
-export function handleClearFilters(filterProvider: FilterProvider): void {
+export function handleClearFilters(filterManager: FilterManager): void {
   log("Clear filters command triggered");
-  filterProvider.clearFilters();
-  updateFilterContext(filterProvider);
+  filterManager.clearFilters();
+  updateFilterContext(filterManager);
 }
