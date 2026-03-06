@@ -907,6 +907,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    */
   async revealActiveFile(focus: boolean = false): Promise<void> {
     if (!this.treeView || !this.dataLoaded) { return; }
+    // Skip auto-reveal when the view isn't visible
+    if (!focus && !this.treeView.visible) { return; }
     const uri = vscode.window.activeTextEditor?.document.uri;
     if (!uri || uri.scheme !== "file") { return; }
 
