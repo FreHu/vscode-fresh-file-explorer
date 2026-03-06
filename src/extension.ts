@@ -37,6 +37,7 @@ import { handleCopyRemoteUrl } from "./commands/copyRemoteUrlCommand";
 import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } from "./commands/pathspecCommand";
 import { findRepoForAbsolutePath } from "./utils/pathUtils";
 import { normalizePath } from "./utils";
+import { NormalizedRepoPath } from "./pathTypes";
 import { Commands } from "./commands/constants";
 import { createFreshFilesDragAndDropController, createPinnedDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
@@ -133,7 +134,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidSaveTextDocument((document) => {
       log("File saved, refreshing pending changes");
       const result = findRepoForAbsolutePath(freshFileProvider.workspaceFolders, document.uri.fsPath);
-      freshFileProvider.refreshPending(result ? [normalizePath(result.repoFullPath)] : undefined);
+      freshFileProvider.refreshPending(result ? [normalizePath(result.repoFullPath) as NormalizedRepoPath] : undefined);
     }),
   );
 

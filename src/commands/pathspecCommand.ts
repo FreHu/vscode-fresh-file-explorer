@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { asNormalizedRepoPath, NormalizedRepoPath } from "../pathTypes";
 import { normalizePath } from "../utils";
 import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
@@ -17,7 +18,7 @@ export async function handleSetRepoPathspec(
   freshFileProvider: FreshFileProvider,
 ): Promise<void> {
   const repoPath = item.resourceUri.fsPath;
-  const normalizedRepoPath = normalizePath(repoPath);
+  const normalizedRepoPath = asNormalizedRepoPath(repoPath);
 
   // Look up any currently active pathspec for pre-filling the input box.
   const currentPathspec = freshFileProvider.getRepoPathspec(normalizedRepoPath);
@@ -106,7 +107,7 @@ export async function handleSetRepoPathspec(
  * Shows an input box for entering a new pathspec.
  */
 async function showPathspecInputBox(
-  normalizedRepoPath: string,
+  normalizedRepoPath: NormalizedRepoPath,
   currentPathspec: string | undefined,
   freshFileProvider: FreshFileProvider,
 ): Promise<void> {
@@ -187,7 +188,7 @@ export function handleClearFolderScope(
   const itemPath = normalizePath(item.resourceUri.fsPath);
 
   // If the item is a repo root, use it directly; otherwise find the owning repo
-  const repoInfo = findRepoForFolder(itemPath, freshFileProvider) ?? { normalizedRepoPath: itemPath };
+  const repoInfo = findRepoForFolder(itemPath, freshFileProvider) ?? { normalizedRepoPath: itemPath as NormalizedRepoPath };
   log(`Clearing folder scope for repo: ${repoInfo.normalizedRepoPath}`);
   freshFileProvider.setFolderScope(repoInfo.normalizedRepoPath, undefined);
 }
@@ -198,12 +199,12 @@ export function handleClearFolderScope(
 function findRepoForFolder(
   normalizedFolderPath: string,
   freshFileProvider: FreshFileProvider,
-): { normalizedRepoPath: string } | undefined {
+): { normalizedRepoPath: NormalizedRepoPath } | undefined {
   for (const folder of freshFileProvider.workspaceFolders) {
     for (const repoRelPath of folder.gitRepos) {
       const repoFullPath = repoRelPath
-        ? normalizePath(path.join(folder.path, repoRelPath))
-        : normalizePath(folder.path);
+        ? normalizePath(path.join(folder.path, repoRelPath)) as NormalizedRepoPath
+        : normalizePath(folder.path) as NormalizedRepoPath;
       if (
         normalizedFolderPath === repoFullPath ||
         normalizedFolderPath.startsWith(repoFullPath + "/")

@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as v8 from "v8";
 
-import { AbsolutePath } from "../pathTypes";
+import { AbsolutePath, NormalizedRepoPath } from "../pathTypes";
 import { FileMetadata, WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 
@@ -29,7 +29,7 @@ interface CacheEntry {
  * refreshes to restore entries when uncommitted changes are reverted.
  */
 export class HistoricalFileCache {
-  private cache = new Map<string, CacheEntry>();
+  private cache = new Map<NormalizedRepoPath, CacheEntry>();
 
   // Historical (committed) file entries from the last full refresh.
   // Kept separate so pending-only refreshes can restore them when a file's
@@ -46,19 +46,19 @@ export class HistoricalFileCache {
    * Clear cache entries and historical file entries for specific repositories only.
    * Used by targeted refreshes that re-load only changed repos.
    */
-  clearForRepos(normalizedRepoPaths: string[]): void {
+  clearForRepos(normalizedRepoPaths: NormalizedRepoPath[]): void {
     for (const repoPath of normalizedRepoPaths) {
       this.cache.delete(repoPath);
     }
     // Remove historicalFiles entries that belong to the cleared repos.
     for (const absolutePath of this.historicalFiles.keys()) {
-      if (normalizedRepoPaths.some(rp => absolutePath.startsWith(rp + "/") || absolutePath === rp)) {
+      if (normalizedRepoPaths.some(rp => absolutePath.startsWith(rp + "/") || (absolutePath as string) === (rp as string))) {
         this.historicalFiles.delete(absolutePath);
       }
     }
   }
 
-  getEntry(normalizedRepoPath: string): CacheEntry | undefined {
+  getEntry(normalizedRepoPath: NormalizedRepoPath): CacheEntry | undefined {
     return this.cache.get(normalizedRepoPath);
   }
 
@@ -67,7 +67,7 @@ export class HistoricalFileCache {
    * sorted-by-date index used by `filterToWindow`.
    */
   setEntry(
-    normalizedRepoPath: string,
+    normalizedRepoPath: NormalizedRepoPath,
     data: Map<AbsolutePath, FileMetadata>,
     maxDays: number,
     pathspec: string | undefined,
@@ -84,7 +84,7 @@ export class HistoricalFileCache {
    * larger cached window with a smaller one.
    */
   upgradeEntry(
-    normalizedRepoPath: string,
+    normalizedRepoPath: NormalizedRepoPath,
     days: number,
     data: Map<AbsolutePath, FileMetadata>,
     pathspec: string | undefined,
@@ -99,12 +99,12 @@ export class HistoricalFileCache {
   canServeWindow(
     days: number,
     workspaceFolders: WorkspaceFolderInfo[],
-    repoPathspecs: Map<string, string>,
+    repoPathspecs: Map<NormalizedRepoPath, string>,
   ): boolean {
     for (const folder of workspaceFolders) {
       for (const repoRelPath of folder.gitRepos) {
         const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-        const normalizedRepoPath = normalizePath(repoFullPath);
+        const normalizedRepoPath = normalizePath(repoFullPath) as NormalizedRepoPath;
         const entry = this.cache.get(normalizedRepoPath);
         if (!entry || entry.maxDays < days) { return false; }
         if (entry.pathspec !== repoPathspecs.get(normalizedRepoPath)) { return false; }
@@ -143,14 +143,14 @@ export class HistoricalFileCache {
   applyWindowToFiles(
     days: number,
     workspaceFolders: WorkspaceFolderInfo[],
-    repoPathspecs: Map<string, string>,
+    repoPathspecs: Map<NormalizedRepoPath, string>,
     currentFreshFiles: Map<AbsolutePath, FileMetadata>,
   ): Map<AbsolutePath, FileMetadata> {
     const newHistorical = new Map<AbsolutePath, FileMetadata>();
     for (const folder of workspaceFolders) {
       for (const repoRelPath of folder.gitRepos) {
         const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-        const normalizedRepoPath = normalizePath(repoFullPath);
+        const normalizedRepoPath = normalizePath(repoFullPath) as NormalizedRepoPath;
         const entry = this.cache.get(normalizedRepoPath);
         if (!entry) { continue; }
         const filtered = this.filterToWindow(entry.sortedByDate, days);
@@ -195,7 +195,7 @@ export class HistoricalFileCache {
     for (const folder of workspaceFolders) {
       for (const repoRelPath of folder.gitRepos) {
         const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-        const normalizedRepoPath = normalizePath(repoFullPath);
+        const normalizedRepoPath = normalizePath(repoFullPath) as NormalizedRepoPath;
         const repoLabel = repoRelPath || folder.name;
         const entry = this.cache.get(normalizedRepoPath);
         if (entry) {

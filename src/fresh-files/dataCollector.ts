@@ -1,5 +1,5 @@
 import * as path from "path";
-import { AbsolutePath, asAbsolutePath } from "../pathTypes";
+import { AbsolutePath, asAbsolutePath, NormalizedRepoPath, asNormalizedRepoPath } from "../pathTypes";
 import { FileMetadata, WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 import { log } from "../extension/logger";
@@ -10,6 +10,14 @@ import {
   isGitRepository,
 } from "../git/gitOperations";
 
+/** Fully-resolved information about a single Git repository within a workspace folder. */
+export interface RepoInfo {
+  folder: WorkspaceFolderInfo;
+  repoRelPath: string;
+  repoFullPath: string;
+  normalizedRepoPath: NormalizedRepoPath;
+}
+
 /**
  * Handles Git data collection for the Fresh File Explorer.
  * Discovers repositories and collects file metadata from Git.
@@ -19,19 +27,17 @@ export class DataCollector {
    * Discover all Git repositories across workspace folders.
    * Populates `folder.gitRepos` for each folder without loading any files.
    */
-  static async discoverAllRepos(workspaceFolders: WorkspaceFolderInfo[]): Promise<void> {
+  static async discoverAllRepos(workspaceFolders: WorkspaceFolderInfo[]): Promise<RepoInfo[]> {
+    const result: RepoInfo[] = [];
     for (const folder of workspaceFolders) {
-      folder.gitRepos = [];
       const rootIsGit = await isGitRepository(folder.path);
-      if (rootIsGit) {
-        folder.gitRepos.push("");
-      } else {
-        const subRepos = await discoverGitReposInSubdirs(folder.path);
-        for (const repo of subRepos) {
-          folder.gitRepos.push(repo);
-        }
+      const relPaths = rootIsGit ? [""] : await discoverGitReposInSubdirs(folder.path);
+      for (const repoRelPath of relPaths) {
+        const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
+        result.push({ folder, repoRelPath, repoFullPath, normalizedRepoPath: asNormalizedRepoPath(repoFullPath) });
       }
     }
+    return result;
   }
 
   /**

@@ -29,6 +29,18 @@ export function asAbsolutePath(path: string): AbsolutePath {
 }
 
 /**
+ * Branded type for normalized (forward-slash) absolute paths to git repository roots.
+ */
+export type NormalizedRepoPath = string & { readonly __brand: "normalizedRepo" };
+
+/**
+ * Cast a string to NormalizedRepoPath, normalizing path separators to forward slashes.
+ */
+export function asNormalizedRepoPath(path: string): NormalizedRepoPath {
+  return normalizePath(path) as NormalizedRepoPath;
+}
+
+/**
  * Cast a string to RelativePath
  */
 export function asRelativePath(path: string): RelativePath {

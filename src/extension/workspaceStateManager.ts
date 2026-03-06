@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { PinnedItem, SortOrder } from "../types";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "../fresh-files/groupingMode";
 import { DiffSearchParams, DiffSearchHistoryEntry } from "../webview/messages";
+import { NormalizedRepoPath } from "../pathTypes";
 
 /**
  * Centralized manager for all values persisted via `context.workspaceState`.
@@ -77,13 +78,14 @@ export class WorkspaceStateManager {
   // ── Repo pathspecs ─────────────────────────────────────────────────────────
 
   /** Returns the stored pathspec map (normalized repo path → pathspec string). */
-  static getRepoPathspecs(): Record<string, string> {
-    return WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>("repoPathspecs", {});
+  static getRepoPathspecs(): Map<NormalizedRepoPath, string> {
+    const record = WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>("repoPathspecs", {});
+    return new Map(Object.entries(record) as [NormalizedRepoPath, string][]);
   }
 
   /** Set or clear a pathspec for the given normalized repo path. Passing undefined removes the entry. */
-  static setRepoPathspec(normalizedRepoPath: string, pathspec: string | undefined): void {
-    const map = WorkspaceStateManager.getRepoPathspecs();
+  static setRepoPathspec(normalizedRepoPath: NormalizedRepoPath, pathspec: string | undefined): void {
+    const map = WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>("repoPathspecs", {});
     if (pathspec) {
       map[normalizedRepoPath] = pathspec;
     } else {
@@ -92,16 +94,21 @@ export class WorkspaceStateManager {
     WorkspaceStateManager.ctx().workspaceState.update("repoPathspecs", map);
   }
 
+  static clearRepoPathspec(normalizedRepoPath: NormalizedRepoPath): void {
+    return this.setRepoPathspec(normalizedRepoPath, undefined);
+  }
+
   // ── Repo folder scopes ─────────────────────────────────────────────────────
 
   /** Returns the stored folder scope map (normalized repo path → normalized absolute folder path). */
-  static getRepoFolderScopes(): Record<string, string> {
-    return WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>("repoFolderScopes", {});
+  static getRepoFolderScopes(): Map<NormalizedRepoPath, string> {
+    const record = WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>("repoFolderScopes", {});
+    return new Map(Object.entries(record) as [NormalizedRepoPath, string][]);
   }
 
   /** Set or clear a folder scope for the given normalized repo path. Passing undefined removes the entry. */
-  static setRepoFolderScope(normalizedRepoPath: string, normalizedFolderPath: string | undefined): void {
-    const map = WorkspaceStateManager.getRepoFolderScopes();
+  static setRepoFolderScope(normalizedRepoPath: NormalizedRepoPath, normalizedFolderPath: string | undefined): void {
+    const map = WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>("repoFolderScopes", {});
     if (normalizedFolderPath) {
       map[normalizedRepoPath] = normalizedFolderPath;
     } else {

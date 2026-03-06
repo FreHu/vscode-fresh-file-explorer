@@ -8,6 +8,7 @@ import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, forma
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
 import { getRetrogradeInfo, getRetrogradeKey, type Planet } from "../fresh-files/planetaryRetrograde";
+import { type GroupingMode } from "../fresh-files/groupingMode";
 
 /**
  * Calculate total line changes from items with metadata.
@@ -627,6 +628,25 @@ export class GroupingViewBuilder {
         // Sort alphabetically by filename
         filesList.sort((a, b) => path.basename(a.filePath).localeCompare(path.basename(b.filePath)));
         break;
+    }
+  }
+
+  /**
+   * Dispatch to the appropriate grouped view builder for the given grouping mode.
+   * Returns undefined when mode is "fileStructure" (caller handles that case).
+   */
+  static buildForGroupingMode(
+    mode: Exclude<GroupingMode, "fileStructure">,
+    freshFiles: Map<AbsolutePath, FileMetadata>,
+    filterPredicate: (metadata: FileMetadata) => boolean,
+    openChangesMode: boolean,
+    results: FreshFilesTreeItem[],
+  ): FreshFilesTreeItem[] {
+    switch (mode) {
+      case "author":      return GroupingViewBuilder.buildAuthorGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "commitHash":  return GroupingViewBuilder.buildCommitHashGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "moonPhase":   return GroupingViewBuilder.buildMoonPhaseGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "retrograde":  return GroupingViewBuilder.buildRetrogradeGroupedView(freshFiles, filterPredicate, openChangesMode, results);
     }
   }
 }

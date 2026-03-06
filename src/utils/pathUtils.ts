@@ -1,6 +1,6 @@
 import * as path from "path";
 import * as vscode from "vscode";
-import { AbsolutePath, asAbsolutePath } from "../pathTypes";
+import { AbsolutePath, asAbsolutePath, NormalizedRepoPath } from "../pathTypes";
 import { WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 
@@ -71,12 +71,12 @@ export function findRepoForAbsolutePath(
 export function findRepoPathsForFiles(
   workspaceFolders: WorkspaceFolderInfo[],
   absoluteFilePaths: string[],
-): string[] {
-  const result = new Set<string>();
+): NormalizedRepoPath[] {
+  const result = new Set<NormalizedRepoPath>();
   for (const filePath of absoluteFilePaths) {
     const repoResult = findRepoForAbsolutePath(workspaceFolders, filePath);
     if (repoResult) {
-      result.add(normalizePath(repoResult.repoFullPath));
+      result.add(normalizePath(repoResult.repoFullPath) as NormalizedRepoPath);
     }
   }
   return [...result];

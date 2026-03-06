@@ -3,6 +3,7 @@ import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { ConfigService } from "../config/configService";
 import { log } from "../extension/logger";
 import { normalizePath } from "../utils";
+import { NormalizedRepoPath } from "../pathTypes";
 import { BranchName, asBranchName } from "../types";
 
 /**
@@ -20,7 +21,7 @@ export async function setupGitExtensionListener(
     const showBaseBranchSync = ConfigService.getShowBaseBranchSync();
 
     const warnings: string[] = [];
-    const branches = new Map<string, BranchName>();
+    const branches = new Map<NormalizedRepoPath, BranchName>();
 
     for (const repo of api.repositories) {
       const head = repo.state.HEAD;
@@ -29,7 +30,7 @@ export async function setupGitExtensionListener(
       }
 
       // Store branch name for this repo
-      branches.set(normalizePath(repo.rootUri.fsPath), asBranchName(head.name));
+      branches.set(normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath, asBranchName(head.name));
 
       const repoName = api.repositories.length > 1 ? `[${vscode.workspace.asRelativePath(repo.rootUri)}] ` : "";
 
@@ -102,7 +103,7 @@ export async function setupGitExtensionListener(
 
     // Per-repo snapshots: track meaningful state so we can skip refreshes
     // when only remote tracking counts (ahead/behind) change — e.g. on background fetches.
-    const repoSnapshots = new Map<string, RepoSnapshot>();
+    const repoSnapshots = new Map<NormalizedRepoPath, RepoSnapshot>();
 
     function takeSnapshot(repo: Repository): RepoSnapshot {
       return {
@@ -116,7 +117,7 @@ export async function setupGitExtensionListener(
     }
 
     for (const repo of api.repositories) {
-      repoSnapshots.set(normalizePath(repo.rootUri.fsPath), takeSnapshot(repo));
+      repoSnapshots.set(normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath, takeSnapshot(repo));
     }
 
     // Track the pendingRefreshVersion we last acted on, to avoid duplicate
@@ -143,13 +144,13 @@ export async function setupGitExtensionListener(
       const force = pendingForceRefresh;
       pendingForceRefresh = false;
 
-      const reposNeedingFullRefresh = new Set<string>();
-      const reposNeedingPendingRefresh = new Set<string>();
+      const reposNeedingFullRefresh = new Set<NormalizedRepoPath>();
+      const reposNeedingPendingRefresh = new Set<NormalizedRepoPath>();
       let needsBranchOnlyUpdate = false;
 
       if (!force) {
         for (const repo of api.repositories) {
-          const key = normalizePath(repo.rootUri.fsPath);
+          const key = normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath;
           const prev = repoSnapshots.get(key);
           const curr = takeSnapshot(repo);
           if (!prev) {
@@ -181,7 +182,7 @@ export async function setupGitExtensionListener(
 
       // Update snapshots regardless of what we decided
       for (const repo of api.repositories) {
-        repoSnapshots.set(normalizePath(repo.rootUri.fsPath), takeSnapshot(repo));
+        repoSnapshots.set(normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath, takeSnapshot(repo));
       }
 
       if (needsFullRefresh) {
@@ -210,7 +211,7 @@ export async function setupGitExtensionListener(
         // If nothing at all changed, the git extension fired a spurious event — skip entirely.
         let syncChanged = false;
         for (const repo of api.repositories) {
-          const key = normalizePath(repo.rootUri.fsPath);
+          const key = normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath;
           const prev = repoSnapshots.get(key);
           if (!prev || prev.ahead !== repo.state.HEAD?.ahead || prev.behind !== repo.state.HEAD?.behind) {
             syncChanged = true;
@@ -256,7 +257,7 @@ export async function setupGitExtensionListener(
     context.subscriptions.push(
       api.onDidOpenRepository((repo: Repository) => {
         // Snapshot the new repo immediately so first change can be compared
-        repoSnapshots.set(normalizePath(repo.rootUri.fsPath), takeSnapshot(repo));
+        repoSnapshots.set(normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath, takeSnapshot(repo));
         context.subscriptions.push(
           repo.state.onDidChange(() => scheduleRefresh()),
         );
