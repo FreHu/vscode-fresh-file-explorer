@@ -746,7 +746,12 @@ export async function collectHistoricalChanges(
   const pathspecSuffix: string[] = pathspec ? ["--", pathspec] : [];
 
   // Step 1: Get file statuses using --name-status (streamed to avoid buffering 10+ MB)
-  const statusArgs = ["log", `--since=${sinceDate}`, "--name-status", "--pretty=format:__COMMIT__%h|%an|%aI|%s", ...pathspecSuffix];
+  // --author-date-order: sort commits by author date (newest first).
+  // This is required for coherence: --since filters by author date, %aI returns author date,
+  // and our threshold-crossing logic assumes commit dates
+  // arrive in monotonically-decreasing order. Default git log order is by committer date, which
+  // can diverge from author date on rebased or cherry-picked commits and break threshold detection.
+  const statusArgs = ["log", `--since=${sinceDate}`, "--author-date-order", "--name-status", "--pretty=format:__COMMIT__%h|%an|%aI|%s", ...pathspecSuffix];
   log(`Executing git command for status in ${repoRelativePath || "root"}: git ${statusArgs.join(" ")}`);
 
   let fileStatusMap: Map<string, { status: string; commit: CommitData }>;
