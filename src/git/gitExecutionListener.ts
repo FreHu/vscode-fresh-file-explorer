@@ -64,7 +64,7 @@ export async function setupGitExtensionListener(
             const aheadRange = `${targetRef}..${head.name}`;
             const aheadCommits = await repo.log({ maxEntries: 100, range: aheadRange });
             if (aheadCommits.length > 0) {
-              warnings.push(`${repoName}⬆️ ${aheadCommits.length} commit(s) ahead of '${displayName}'`);
+              warnings.push(`${repoName}⬆️ ${aheadCommits.length} commit(s) ahead of base branch '${displayName}'`);
             }
 
             // Count commits in base not in current branch (need to merge/rebase)
