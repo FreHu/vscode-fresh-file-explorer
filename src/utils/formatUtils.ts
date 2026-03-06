@@ -134,7 +134,7 @@ export function formatRelativeDateLong(date: Date): string {
  * Map of git status codes to human-readable labels.
  */
 const STATUS_LABELS: Record<string, string> = {
-  // Standard statuses
+  // Standard statuses (from git log --name-status, single-char)
   M: "modified",
   A: "added",
   D: "deleted",
@@ -143,12 +143,24 @@ const STATUS_LABELS: Record<string, string> = {
   T: "type changed",
   "??": "untracked",
   "!!": "ignored",
-  // Staged + unstaged combinations
-  MM: "modified",
-  AM: "added",
-  AD: "deleted",
-  MD: "deleted",
-  RM: "renamed",
+  // Raw porcelain XY codes — unstaged only (X == ' ')
+  " M": "modified",
+  " D": "deleted",
+  " A": "added",
+  " T": "type changed",
+  // Raw porcelain XY codes — staged only (Y == ' ')
+  "M ": "modified (staged)",
+  "A ": "added (staged)",
+  "D ": "deleted (staged)",
+  "R ": "renamed (staged)",
+  "C ": "copied (staged)",
+  "T ": "type changed (staged)",
+  // Raw porcelain XY codes — staged + unstaged
+  MM: "modified (staged + unstaged)",
+  AM: "added (staged) + modified",
+  AD: "added (staged) + deleted",
+  MD: "modified (staged) + deleted",
+  RM: "renamed (staged) + modified",
   // Merge conflict statuses
   UU: "conflict (both modified)",
   AA: "conflict (both added)",
@@ -165,6 +177,15 @@ const STATUS_LABELS: Record<string, string> = {
 export function getStatusLabel(status: string): string {
   if (STATUS_LABELS[status]) {
     return STATUS_LABELS[status];
+  }
+  // Handle raw XY porcelain codes (e.g. " M", "M ", "A ", " D").
+  // X is the staged position, Y is the working-tree position; one of them may be a space.
+  // Use the non-space character as the canonical label key.
+  if (status.length === 2 && status !== "??" && status !== "!!") {
+    const key = status[1] !== " " ? status[1] : status[0];
+    if (STATUS_LABELS[key]) {
+      return STATUS_LABELS[key];
+    }
   }
   // git log --name-status uses R<score> (e.g. R078, R100) for renames
   // and C<score> (e.g. C100) for copies. Normalise to the base letter.

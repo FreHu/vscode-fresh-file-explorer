@@ -170,11 +170,11 @@ suite("Format Utils", () => {
     test("!! → ignored",     () => assert.strictEqual(getStatusLabel("!!"), "ignored"));
 
     // Staged + unstaged combinations
-    test("MM → modified", () => assert.strictEqual(getStatusLabel("MM"), "modified"));
-    test("AM → added",    () => assert.strictEqual(getStatusLabel("AM"), "added"));
-    test("AD → deleted",  () => assert.strictEqual(getStatusLabel("AD"), "deleted"));
-    test("MD → deleted",  () => assert.strictEqual(getStatusLabel("MD"), "deleted"));
-    test("RM → renamed",  () => assert.strictEqual(getStatusLabel("RM"), "renamed"));
+    test("MM → modified (staged + unstaged)", () => assert.strictEqual(getStatusLabel("MM"), "modified (staged + unstaged)"));
+    test("AM → added (staged) + modified",    () => assert.strictEqual(getStatusLabel("AM"), "added (staged) + modified"));
+    test("AD → added (staged) + deleted",     () => assert.strictEqual(getStatusLabel("AD"), "added (staged) + deleted"));
+    test("MD → modified (staged) + deleted",  () => assert.strictEqual(getStatusLabel("MD"), "modified (staged) + deleted"));
+    test("RM → renamed (staged) + modified",  () => assert.strictEqual(getStatusLabel("RM"), "renamed (staged) + modified"));
 
     // Merge conflict codes
     test("UU → conflict (both modified)",  () => assert.strictEqual(getStatusLabel("UU"), "conflict (both modified)"));
@@ -184,6 +184,18 @@ suite("Format Utils", () => {
     test("UA → conflict (added by them)",  () => assert.strictEqual(getStatusLabel("UA"), "conflict (added by them)"));
     test("DU → conflict (deleted by us)",  () => assert.strictEqual(getStatusLabel("DU"), "conflict (deleted by us)"));
     test("UD → conflict (deleted by them)", () => assert.strictEqual(getStatusLabel("UD"), "conflict (deleted by them)"));
+
+    // Raw XY porcelain codes (unstaged-only: leading space)
+    test(" M → modified", () => assert.strictEqual(getStatusLabel(" M"), "modified"));
+    test(" D → deleted",  () => assert.strictEqual(getStatusLabel(" D"), "deleted"));
+    test(" A → added",    () => assert.strictEqual(getStatusLabel(" A"), "added"));
+    test(" T → type changed", () => assert.strictEqual(getStatusLabel(" T"), "type changed"));
+
+    // Raw XY porcelain codes (staged-only: trailing space)
+    test("M  → modified (staged)", () => assert.strictEqual(getStatusLabel("M "), "modified (staged)"));
+    test("A  → added (staged)",    () => assert.strictEqual(getStatusLabel("A "), "added (staged)"));
+    test("D  → deleted (staged)",  () => assert.strictEqual(getStatusLabel("D "), "deleted (staged)"));
+    test("R  → renamed (staged)",  () => assert.strictEqual(getStatusLabel("R "), "renamed (staged)"));
 
     // git log --name-status R<score> / C<score> codes
     test("R078 → renamed",  () => assert.strictEqual(getStatusLabel("R078"), "renamed"));

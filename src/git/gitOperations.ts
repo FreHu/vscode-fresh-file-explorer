@@ -362,9 +362,11 @@ export async function collectPendingChanges(
 
     // Check if this is a deletion or untracked
     const isDeleted = statusCode.includes("D");
-    const isUntracked = statusCode.trim() === "??";
+    const isUntracked = statusCode === "??";
 
-    filePathMap.set(filePath, { status: statusCode.trim() || "??", relativePath: fileRelativePath });
+    // Store the raw XY code (no trimming) so callers can distinguish staged-only
+    // ("M ", "A ", "D ") from unstaged-only (" M", " D") and mixed ("MM", "AM", etc.)
+    filePathMap.set(filePath, { status: statusCode, relativePath: fileRelativePath });
 
     // Collect tracked, non-deleted files for batch diff
     if (!isDeleted && !isUntracked) {
@@ -932,10 +934,36 @@ export async function getFileFromHistoryAsBuffer(
 }
 
 /**
- * Discard changes to a file (git checkout -- <file> for tracked, rm for untracked)
+ * Returns true if the file has changes staged in the index (X position of XY porcelain code).
+ * Examples: "M ", "MM", "A ", "AM", "D ", "MD", "R ", "RM"
+ */
+export function hasStagedChanges(status: string): boolean {
+  return status.length === 2 && status !== "??" && status !== "!!" && status[0] !== " ";
+}
+
+/**
+ * Returns true if the file has changes in the working tree (Y position of XY porcelain code).
+ * Examples: " M", "MM", "AM", " D", "MD"
+ */
+export function hasUnstagedChanges(status: string): boolean {
+  return status.length === 2 && status !== "??" && status !== "!!" && status[1] !== " ";
+}
+
+/**
+ * Returns true if the file has staged changes but no working-tree changes.
+ * These are the silent no-op cases for `git checkout -- <file>`.
+ * Examples: "M ", "A ", "D ", "R "
+ */
+export function isStagedOnly(status: string): boolean {
+  return hasStagedChanges(status) && !hasUnstagedChanges(status);
+}
+
+/**
+ * Discard working-tree changes to a file (restores from index for tracked files).
+ * For staged-only files ("M ", "A ", etc.) this is a no-op — use discardAllFileChanges instead.
  * @param repoFullPath Full path to the git repository
  * @param filePath Relative path to the file within the repo
- * @param isUntracked Whether the file is untracked (needs rm instead of checkout)
+ * @param isUntracked Whether the file is untracked (needs clean instead of checkout)
  */
 export async function discardFileChanges(
   repoFullPath: string,
@@ -948,11 +976,41 @@ export async function discardFileChanges(
     log(`Discarding untracked file: git ${args.join(" ")}`);
     await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   } else {
-    // For tracked files, use git checkout
+    // For tracked files, use git checkout -- (restores working tree from index)
     const args = ["checkout", "-q", "--", filePath];
-    log(`Discarding changes: git ${args.join(" ")}`);
+    log(`Discarding working-tree changes: git ${args.join(" ")}`);
     await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   }
+}
+
+/**
+ * Discard ALL changes to a file — both staged and working-tree — restoring to HEAD.
+ * Use this when a file has staged changes and you want a full reset.
+ * @param repoFullPath Full path to the git repository
+ * @param filePath Relative path to the file within the repo
+ */
+export async function discardAllFileChanges(
+  repoFullPath: string,
+  filePath: string,
+): Promise<void> {
+  const args = ["restore", "--source=HEAD", "--staged", "--worktree", "--", filePath];
+  log(`Discarding all changes (staged + worktree): git ${args.join(" ")}`);
+  await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+}
+
+/**
+ * Unstage a file's changes — moves staged changes back to the working tree.
+ * Equivalent to `git restore --staged -- <file>`.
+ * @param repoFullPath Full path to the git repository
+ * @param filePath Relative path to the file within the repo
+ */
+export async function unstageFile(
+  repoFullPath: string,
+  filePath: string,
+): Promise<void> {
+  const args = ["restore", "--staged", "--", filePath];
+  log(`Unstaging file: git ${args.join(" ")}`);
+  await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
 }
 
 /**
