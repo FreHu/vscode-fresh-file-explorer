@@ -32,6 +32,7 @@ import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
 import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
 import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, handleCopySubtreeStructure } from "./commands/copyPathCommands";
+import { handleCopyFile, handleCutFile, handlePasteFile } from "./commands/copyPasteCommands";
 import { handleCopyRemoteUrl } from "./commands/copyRemoteUrlCommand";
 import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } from "./commands/pathspecCommand";
 import { Commands } from "./commands/constants";
@@ -280,6 +281,19 @@ function registerCommands(
       vscode.workspace.workspaceFolders || [],
       () => freshFileProvider.getCacheStats(),
     )
+  );
+
+  // File copy/cut/paste
+  register(Commands.COPY_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleCopyFile(item, selectedItems, treeView),
+  );
+
+  register(Commands.CUT_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleCutFile(item, selectedItems, treeView),
+  );
+
+  register(Commands.PASTE_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handlePasteFile(item, selectedItems, freshFileProvider, treeView),
   );
 
   // Copy path commands

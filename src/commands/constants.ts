@@ -75,6 +75,11 @@ export const Commands = {
   // Performance benchmark panel
   PERF_BENCHMARK: "freshFileExplorer.perfBenchmark",
 
+  // File copy/cut/paste
+  COPY_FILE: "freshFileExplorer.copyFile",
+  CUT_FILE: "freshFileExplorer.cutFile",
+  PASTE_FILE: "freshFileExplorer.pasteFile",
+
   // Copy path commands
   COPY_ABSOLUTE_PATH: "freshFileExplorer.copyAbsolutePath",
   COPY_RELATIVE_PATH: "freshFileExplorer.copyRelativePath",

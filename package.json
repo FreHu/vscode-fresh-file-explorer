@@ -212,6 +212,18 @@
         "category": "Fresh File Explorer"
       },
       {
+        "command": "freshFileExplorer.copyFile",
+        "title": "Copy"
+      },
+      {
+        "command": "freshFileExplorer.cutFile",
+        "title": "Cut"
+      },
+      {
+        "command": "freshFileExplorer.pasteFile",
+        "title": "Paste"
+      },
+      {
         "command": "freshFileExplorer.copyAbsolutePath",
         "title": "Copy Absolute Path"
       },
@@ -313,6 +325,21 @@
         "command": "freshFileExplorer.deleteFile",
         "key": "Delete",
         "when": "focusedView == freshFileExplorer"
+      },
+      {
+        "command": "freshFileExplorer.copyFile",
+        "key": "ctrl+c",
+        "when": "focusedView == freshFileExplorer"
+      },
+      {
+        "command": "freshFileExplorer.cutFile",
+        "key": "ctrl+x",
+        "when": "focusedView == freshFileExplorer"
+      },
+      {
+        "command": "freshFileExplorer.pasteFile",
+        "key": "ctrl+v",
+        "when": "focusedView == freshFileExplorer && freshFileExplorer.hasClipboard"
       }
     ],
     "menus": {
@@ -484,6 +511,21 @@
           "command": "freshFileExplorer.deleteFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
           "group": "2_modification@2"
+        },
+        {
+          "command": "freshFileExplorer.copyFile",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder)$/",
+          "group": "2_modification@4"
+        },
+        {
+          "command": "freshFileExplorer.cutFile",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder)$/",
+          "group": "2_modification@5"
+        },
+        {
+          "command": "freshFileExplorer.pasteFile",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder|workspaceFolder|repoFolder)$/ && freshFileExplorer.hasClipboard",
+          "group": "2_modification@6"
         },
         {
           "command": "freshFileExplorer.createFileNextTo",
@@ -708,6 +750,18 @@
         },
         {
           "command": "freshFileExplorer.openCommit",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.copyFile",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.cutFile",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.pasteFile",
           "when": "false"
         },
         {
