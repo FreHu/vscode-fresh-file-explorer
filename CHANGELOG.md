@@ -1,5 +1,39 @@
 # Change Log
 
+## [1.3.0]
+### Vastly improved performance
+  
+#### Percieved performance
+  - Incremental loading (repo discovery, then pending, then historical changes)
+  - Historical changes keep loading in the background up to your maximum configured time window.
+    - You can also choose to fire an incremental update after each historical time window is ready (`freshFileExplorer.incrementalTreeLoading`). You probably don't need to enable this but it helped me make a more impressive gif of the loading process.
+    - Changing time windows after the initial load no longer requires a refresh of git history, barring events like switching branches or pulling changes.
+    - Changing time windows in the quick pick now does a live preview so I can show off how fast it is.
+  
+#### Real performance
+  - Making changes in one repo will not trigger any refreshing in another.
+  - Rendering a large tree is much faster.
+
+### Right click options
+- Copy + paste
+- Delete
+- Expand, copy structure now also available on repo level
+
+### Submodule support
+
+- Includes nested submodules, or the same repo appearing multiple times as submodules of different repos.
+- I still consider this experimental but it's much better than the nothing in the previous version.
+
+### Smaller things
+- `[NEW]` - Reveal active file in tree. `freshFileExplorer.autoReveal` can be configured
+
+- `[CHANGE]` - Pinned items are now a separate view. This was done so that they can properly stay at the top (or moved elsewhere). Previously they would be covered by sticky folders when scrolling down in the tree.
+- `[NERFED]` - Showing added/removed lines (`freshFileExplorer.description.showLineChanges`) now only applies to pending changes. I didn't like the performance impact it had on the entire history.
+- `[FIX]` - Discarding staged files silently doing nothing
+- `[IMPROVED]` - Discard now asks if you want to discard unstaged/discard all/unstage/cancel (if applicable)
+- `[IMPROVED]` - Staged status of files is now shown in the tree
+- `[IMPROVED]` - Recursive expand occasionally failing to expand parts of the tree
+
 ## [1.2.1]
 - `[FIX]` heatmap flickering
 - `[FIX]` status labels for rename/copy not having proper names

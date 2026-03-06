@@ -9,8 +9,6 @@ Easily navigate recent changes based on your pending work and Git history.
 
 - [Features](#features)
   - [Fresh File Explorer](#fresh-file-explorer-1)
-    - [Time Window Selection](#time-window-selection)
-    - [Smart File Tree](#smart-file-tree)
     - [Deleted File Support](#deleted-file-support)
     - [Heatmap Coloring](#heatmap-coloring)
     - [Pinned section](#pinned-section)
@@ -35,37 +33,35 @@ Easily navigate recent changes based on your pending work and Git history.
 # Features 
 ## Fresh File Explorer
 
-![view](/img/view.png)
+Switch between viewing pending changes or files last modified in configurable time periods. 
 
-### Time Window Selection
+The view is a hybrid of File explorer, which sometimes shows too much, and Source control, which sometimes shows too little.
 
-Switch between viewing pending (uncommitted) changes or files modified in configurable time periods.
-Pending Changes mode shows uncommitted changes (esentially what the Source Control view would give you)
-
-![time-windows](img/time-windows.png)
-
-### Smart File Tree
-
-Files are grouped by directory structure, with file counts on folders. Auto-expands to configurable depth.
-
+![loading](img/time-window-switch.gif)
   
 ### Deleted File Support
-- Deleted files appear in the tree, clearly indicated
-- **Exhume**: Open deleted file content in a read-only temp file (default action on clicking a deleted file)
-- **Resurrect**: Restores the exhumed file to its original location
 
+Deleted files appear in the tree where they used to be, ready for necromancy.
+
+- **Exhume**: Click the file to open it in a read-only temp file
+- **Resurrect**: Restores the file to its original location `(git restore)`
+  
 ![resurrect](img/resurrect.png)
+
 
 ### Heatmap Coloring
 
-Toggle heatmap coloring to give files distinct colors based on their most recent edit. Brighter colors = more recent.
+Heatmap coloring gives files distinct colors based on the how recently they were last modified. Brighter colors `->` more recent.
+
+This coloring is toggled in the Fresh Files view, but will also apply to the File Explorer.
 
 ![heatmap](img/heatmap.png)
 
-This coloring is toggled in the Fresh Files view, but will also apply to the File Explorer.
+> Note: the heatmap knows about modification dates based on your selected time window. Anything older than that gets bundled into the last "even older than that" color bucket.
+
 ### Pinned section
 
-At the top the tree, there is a special "pinned items" section. This is for files you want to keep handy independent of whatever the fresh file explorer is showing you. You can pin items with drag&drop or through the right click menu in the file explorer. 
+Adds a special "pinned items" view. This is for files you want to keep handy independent of whatever the fresh file explorer is showing you. You can pin items with drag&drop or through the right click menu in the file explorer. 
 
 ![pinned section](img/pinned.png)
 
@@ -79,11 +75,12 @@ At the top the tree, there is a special "pinned items" section. This is for file
 The pins are stored per workspace.
 
 ### Sync Status Notifications
-![alt text](image-1.png)
+
+![sync status](./img/sync-status.png)
 Displays info at the top of the tree view:
 
-- When you are behind/ahead of the remote (meaning you need to push/pull)
-- When you are behind/ahead of the base branch (meaning you need to merge)
+- When you are **behind/ahead** of the **remote** (meaning you need to push/pull)
+- When you are **behind/ahead** of the **base branch** (meaning you need to merge)
 
 Both options can be individually disabled.
 
@@ -155,13 +152,9 @@ Works with:
 - Folders containing multiple repos in subfolders
 - Multi-root workspaces
 - Worktrees
-
-**Submodules:**
-
-- Submodules are shown in the tree but not their contents.
-- You can also see deleted submodules, but can't exhume them.
-
-I wanted to do more with submodules just for the fun of it but turns out it's not fun at all.
+- Submodules (experimental, might have quirks)
+  
+![submodules](./img/submodules.png)
 
 ---
 
@@ -177,8 +170,9 @@ The extension adds several search features.
 | **Diff Search** | When was `x` ever added or removed? | Git diff history across all commits `(pickaxe)` |
 | **Line / Function History** | What's the full history of this function or code block? | Git log for a specific line range or function name `(log -L)` |
 
-![alt text](image.png)
-### Diff Search
+![History options](./img/history-options.png)
+
+### Diff Search (pickaxe)
 
 Answers the question "when was this string ever added or removed?"
 
@@ -321,6 +315,14 @@ You make a commit but now your "pending changes" view is empty. You've lost the 
 
 Look under `freshfileexplorer.` to see all configurable settings.
 
+# Performance
+
+Unlike File explorer, which just needs the files on your disk, Fresh File explorer must load a part of your git history to work. This is done in one streaming pass on startup, after which the results are cached. The startup time is very close to `O(wait for git)`. Reloads need to happen when switching branches or syncing changes.
+
+![incremental load](./img/incremental-load.gif)
+
+Not looking 5 years back in a large repo will go a long way in terms of performance. But you can.
+
 # Security
 
 I got some feedback around what is essentially an inherent problem with the trustworthiness of extensions in general. It's a valid concern and not one I can solve. 
@@ -330,6 +332,7 @@ All I can give you is some assurrances:
 - Fresh File Explorer contains no telemetry and does not make any web requests. It doesn't ask AI to do anything.
 - The code is right here for you to audit. There are zero runtime dependencies.
 - If you're worried about me getting hacked and malware being pushed through an update, you can disable automatic updates for any extension. You will lose out on new bugs and features, but you will always have the code you at some point chose to trust.
+- The marketplace PATs are not stored on my machine. Github actions handle publishing to both marketplaces (vscode and openVSX). I don't publish to any other marketplace.
 
 Potentially dangerous features: none, really. But for completeness' sake:
 - The only destructive operation the extension can do is [discard pending changes](./src/commands/discardChangesCommand.ts). It works on files you yourself selected and gives you a warning. 
@@ -374,19 +377,6 @@ Because one of those 25 is actually very similar to Fresh File Explorer, some mo
 ![gitlens views](img/gitlens-views.png)
 
 Because one of those 25 is actually very similar to Fresh File Explorer, some more comparison can be found [here](./COMPARISON_WITH_GITLENS.md).
-
-
-# Testimonials
-
-> This is **above average** for a VS Code extension.
->
-> _(a chatbot instructed to pretend to be Linus Torvalds)_se GitLens when**
-- You want 25 views
-
-![gitlens views](img/gitlens-views.png)
-
-Because one of those 25 is actually very similar to Fresh File Explorer, some more comparison can be found [here](./COMPARISON_WITH_GITLENS.md).
-
 
 # Testimonials
 

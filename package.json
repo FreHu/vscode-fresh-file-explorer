@@ -1,7 +1,7 @@
 {
   "name": "fresh-file-explorer",
   "displayName": "Fresh File Explorer",
-  "description": "File explorer for navigating recent work based on Git history and pending changes",
+  "description": "Easily navigate recent changes based on your pending work and Git history.",
   "license": "MIT",
   "pricing": "Free",
   "publisher": "frehu",
@@ -487,27 +487,27 @@
         {
           "command": "freshFileExplorer.openFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
-          "group": "navigation@1"
+          "group": "1_open@1"
         },
         {
           "command": "freshFileExplorer.openChanges",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
-          "group": "navigation@1.5"
+          "group": "1_open@2"
         },
         {
           "command": "freshFileExplorer.openToSide",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
-          "group": "navigation@2"
+          "group": "1_open@3"
         },
         {
           "command": "freshFileExplorer.openCommit",
           "when": "view == freshFileExplorer && viewItem == file",
-          "group": "navigation@2.5"
+          "group": "3_reveal@3"
         },
         {
           "command": "freshFileExplorer.gitLogFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile)$/",
-          "group": "navigation@2.6"
+          "group": "3_reveal@4"
         },
         {
           "command": "freshFileExplorer.expandSubtree",
@@ -517,82 +517,82 @@
         {
           "command": "freshFileExplorer.revealInExplorer",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder|deletedFile)$/",
-          "group": "navigation@3"
+          "group": "3_reveal@1"
         },
         {
           "command": "freshFileExplorer.revealInSourceControl",
           "when": "view == freshFileExplorer && viewItem == pendingFile",
-          "group": "navigation@4"
+          "group": "3_reveal@2"
         },
         {
           "command": "freshFileExplorer.discardChanges",
           "when": "view == freshFileExplorer && viewItem == pendingFile",
-          "group": "2_modification@1"
+          "group": "4_modification@6"
         },
         {
           "command": "freshFileExplorer.deleteFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
-          "group": "2_modification@2"
+          "group": "4_modification@7"
         },
         {
           "command": "freshFileExplorer.copyFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder)$/",
-          "group": "2_modification@4"
+          "group": "4_modification@4"
         },
         {
           "command": "freshFileExplorer.cutFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder)$/",
-          "group": "2_modification@5"
+          "group": "4_modification@3"
         },
         {
           "command": "freshFileExplorer.pasteFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder|workspaceFolder|repoFolder)$/ && freshFileExplorer.hasClipboard",
-          "group": "2_modification@6"
+          "group": "4_modification@5"
         },
         {
           "command": "freshFileExplorer.createFileNextTo",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/ && !freshFileExplorer.loading",
-          "group": "2_modification@2"
+          "group": "4_modification@1"
         },
         {
           "command": "freshFileExplorer.createFileInside",
           "when": "view == freshFileExplorer && viewItem =~ /^(folder|workspaceFolder|repoFolder)$/ && !freshFileExplorer.loading",
-          "group": "2_modification@3"
+          "group": "4_modification@2"
         },
         {
           "command": "freshFileExplorer.resurrect",
           "when": "view == freshFileExplorer && viewItem == deletedFile",
-          "group": "navigation@1"
+          "group": "1_open@1"
         },
         {
           "command": "freshFileExplorer.pinFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile)$/",
-          "group": "9_pin@1"
+          "group": "2_pin@1"
         },
         {
           "command": "freshFileExplorer.copyAbsolutePath",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
-          "group": "6_copypath@1"
+          "group": "5_copypath@1"
         },
         {
           "command": "freshFileExplorer.copyRelativePath",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
-          "group": "6_copypath@2"
+          "group": "5_copypath@2"
         },
         {
           "command": "freshFileExplorer.copyFilename",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
-          "group": "6_copypath@3"
+          "group": "5_copypath@3"
         },
         {
           "command": "freshFileExplorer.copySubtreeStructure",
           "when": "view == freshFileExplorer && viewItem =~ /^(folder|workspaceFolder|repoFolder)$/",
-          "group": "6_copypath@4"
+          "group": "5_copypath@4"
         },
         {
           "command": "freshFileExplorer.copyRemoteUrl",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
-          "group": "6_copypath@5"
+          "group": "5_copypath@5"
         },
         {
           "command": "freshFileExplorer.setRepoPathspec",
@@ -612,62 +612,62 @@
         {
           "command": "freshFileExplorer.unpinFile",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "9_pin@1"
+          "group": "2_pin@1"
         },
         {
           "command": "freshFileExplorer.openFile",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "navigation@1"
+          "group": "1_open@1"
         },
         {
           "command": "freshFileExplorer.openChanges",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "navigation@1.5"
+          "group": "1_open@2"
         },
         {
           "command": "freshFileExplorer.openToSide",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "navigation@2"
+          "group": "1_open@3"
         },
         {
           "command": "freshFileExplorer.openCommit",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "navigation@2.5"
+          "group": "3_reveal@3"
         },
         {
           "command": "freshFileExplorer.gitLogFile",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "navigation@2.6"
+          "group": "3_reveal@4"
         },
         {
           "command": "freshFileExplorer.revealInExplorer",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "navigation@3"
+          "group": "3_reveal@1"
         },
         {
           "command": "freshFileExplorer.revealInSourceControl",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "navigation@4"
+          "group": "3_reveal@2"
         },
         {
           "command": "freshFileExplorer.copyAbsolutePath",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "6_copypath@1"
+          "group": "5_copypath@1"
         },
         {
           "command": "freshFileExplorer.copyRelativePath",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "6_copypath@2"
+          "group": "5_copypath@2"
         },
         {
           "command": "freshFileExplorer.copyFilename",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "6_copypath@3"
+          "group": "5_copypath@3"
         },
         {
           "command": "freshFileExplorer.copyRemoteUrl",
           "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "6_copypath@5"
+          "group": "5_copypath@4"
         },
         {
           "command": "freshFileExplorer.toggleNoteCompleted",
