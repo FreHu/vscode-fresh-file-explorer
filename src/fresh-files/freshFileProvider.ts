@@ -1,8 +1,10 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import * as v8 from "v8";
 
 import { ConfigService } from "../config/configService";
+import { HistoricalFileCache, type CacheRepoStats } from "./historicalFileCache";
+import { FileIndex } from "./fileIndex";
+export type { CacheRepoStats };
 import {
   WorkspaceFolderInfo,
   FileMetadata,
@@ -32,13 +34,6 @@ import { FreshFileItemSorter } from "./freshFileItemSorter";
 import { ContextManager } from "../extension/contextManager";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 
-export interface CacheRepoStats {
-  repoLabel: string;
-  repoPath: string;
-  entryCount: number;
-  sizeBytes: number;
-}
-
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -47,13 +42,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private _freshFiles: Map<AbsolutePath, FileMetadata> = new Map();
   get freshFiles(): Map<AbsolutePath, FileMetadata> { return this._freshFiles; }
 
-  // Path index: normalized parent path → set of normalized direct child paths (files + subdirs).
-  // Rebuilt whenever _freshFiles changes. Turns O(n) buildTree scans into O(children).
-  private _pathIndex: Map<string, Set<string>> = new Map();
-
-  // Per-render-pass directory stats: normalized dir path → {count, mostRecent, lines}.
-  // Built lazily in one O(n) pass on first query; nulled by refreshTreeOnly / _setFreshFiles.
-  private _dirStatsCache: Map<string, { count: number; mostRecent: Date | undefined; linesAdded: number; linesDeleted: number }> | null = null;
+  // Path index + per-render dir-stats cache.
+  private fileIndex = new FileIndex();
   currentTimeWindow: TimeWindow;
   timeWindows: TimeWindow[];
   // Multi-root workspace support
@@ -108,21 +98,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // Does NOT trigger a git reload — this can only narrow down the data we already have.
   private repoFolderScopes: Map<string, string> = new Map();
 
-  // Historical (committed) file entries cached from the last full refresh.
-  // Kept separate from freshFiles so pending-only refreshes can restore them
-  // when a file's uncommitted changes are reverted.
-  private historicalFiles: Map<AbsolutePath, FileMetadata> = new Map();
-
-  // Cache of historical data per repo (normalized repo path → {data, maxDays, pathspec}).
-  // Populated after each full historical load. Allows instant window switching without
-  // re-running git log when switching to a window that is ≤ the cached maxDays.
-  private historicalCache: Map<string, {
-    data: Map<AbsolutePath, FileMetadata>;
-    /** Entries sorted by date ascending — used for O(log n) window filtering. */
-    sortedByDate: ReadonlyArray<readonly [AbsolutePath, FileMetadata]>;
-    maxDays: number;
-    pathspec: string | undefined;
-  }> = new Map();
+  readonly historicalCache = new HistoricalFileCache();
 
   constructor() {
     this.initializeWorkspaceFolders();
@@ -230,8 +206,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     ContextManager.setLoading(true);
     this.dataLoaded = false;
     this._setFreshFiles(new Map());
-    this.historicalFiles = new Map();
-    if (!options?.preserveHistoricalCache) {
+    if (options?.preserveHistoricalCache) {
+      this.historicalCache.historicalFiles = new Map();
+    } else {
       this.historicalCache.clear();
     }
     this.refreshEpoch++;
@@ -262,7 +239,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.reposLoadingHistorical.clear();
     this.refreshEpoch++;
     this._setFreshFiles(new Map());
-    this.historicalFiles = new Map();
     this.historicalCache.clear();
     clearRetrogradeCache();
     this._onDidChangeTreeData.fire();
@@ -275,7 +251,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   /** Refresh the tree display without reloading data from git */
   refreshTreeOnly(): void {
     this._renderPass = { calls: 0, totalMs: 0, totalScanned: 0 };
-    this._dirStatsCache = null; // filters/scopes may have changed
+    this.fileIndex.invalidateStats(); // filters/scopes may have changed
     this._onDidChangeTreeData.fire();
   }
 
@@ -305,7 +281,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     // Rebuild freshFiles from cached historical baseline + new pending entries.
     // This restores historical entries for files whose pending changes were reverted.
-    const merged = new Map<AbsolutePath, FileMetadata>(this.historicalFiles);
+    const merged = new Map<AbsolutePath, FileMetadata>(this.historicalCache.historicalFiles);
     for (const [absolutePath, metadata] of pendingFiles) {
       merged.set(absolutePath, metadata);
     }
@@ -319,11 +295,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     if (timeWindow.type === "historical") {
       WorkspaceStateManager.setSelectedTimeWindowDays(timeWindow.days);
       // Serve from cache if all repos have a valid cached result that covers this window.
-      if (this._canServeFromCache(timeWindow.days)) {
+      if (this.historicalCache.canServeWindow(timeWindow.days, this.workspaceFolders, this.repoPathspecs)) {
         log(`Serving time window ${timeWindow.label} from cache (instant switch)`);
         this.refreshEpoch++; // cancel any in-flight updateFreshFiles
         this.dataLoaded = true;
-        this._applyHistoricalCacheToWindow(timeWindow.days);
+        this._setFreshFiles(this.historicalCache.applyWindowToFiles(timeWindow.days, this.workspaceFolders, this.repoPathspecs, this.freshFiles));
         this.refreshTreeOnly();
         return;
       }
@@ -342,7 +318,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       // Pending files are already present in freshFiles — no git operations needed.
       log(`Serving pending window from existing data (instant switch)`);
       this.refreshEpoch++; // cancel any in-flight updateFreshFiles
-      this._applyPendingOnlyFromExisting();
+      this._setFreshFiles(this.historicalCache.applyPendingOnly(this.freshFiles));
       this.refreshTreeOnly();
       return;
     }
@@ -628,8 +604,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
 
     const parentUri = vscode.Uri.file(parentPath);
-
-    // Create a parent FreshFileItem (directory)
     return FreshFileItem.forDirectory(
       parentUri,
       this.openChangesMode,
@@ -983,28 +957,18 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
           // Update the historical cache incrementally so that a time-window switch
           // to any already-loaded window can be served instantly without re-running git.
-          // Only upgrade — never overwrite a larger cached window with a smaller one.
-          const existing = this.historicalCache.get(normalizedRepoPath);
-          if (!existing || existing.maxDays < days) {
-            const sortedByDate = Array.from(partial.entries()).sort((a, b) => a[1].date.getTime() - b[1].date.getTime());
-            this.historicalCache.set(normalizedRepoPath, {
-              data: partial,
-              sortedByDate,
-              maxDays: days,
-              pathspec: this.repoPathspecs.get(normalizedRepoPath),
-            });
-          }
+          this.historicalCache.upgradeEntry(normalizedRepoPath, days, partial, this.repoPathspecs.get(normalizedRepoPath));
 
           // If the user switched to a smaller window while this load was in-flight,
           // filter the display to that window so we don't over-expose data.
           // If the current window is ≤ days we can serve it from the cache we just wrote.
           const currentDays = this.currentTimeWindow.type === "historical" ? this.currentTimeWindow.days : undefined;
           let displayPartial = partial;
-          if (currentDays !== undefined && currentDays < days && this._canServeFromCache(currentDays)) {
+          if (currentDays !== undefined && currentDays < days && this.historicalCache.canServeWindow(currentDays, this.workspaceFolders, this.repoPathspecs)) {
             log(`Threshold ≤${days}d crossed but current window is ${currentDays}d — filtering display`);
-            const cacheEntry = this.historicalCache.get(normalizedRepoPath);
+            const cacheEntry = this.historicalCache.getEntry(normalizedRepoPath);
             if (cacheEntry) {
-              displayPartial = this.filterCacheToWindow(cacheEntry.sortedByDate, currentDays);
+              displayPartial = this.historicalCache.filterToWindow(cacheEntry.sortedByDate, currentDays);
             }
           }
 
@@ -1057,19 +1021,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
         // Store the full maxDays result in the cache for instant future window switching.
         if (!repoError && fullData.size > 0) {
-          const sortedByDate = Array.from(fullData.entries()).sort((a, b) => a[1].date.getTime() - b[1].date.getTime());
-          this.historicalCache.set(normalizedRepoPath, {
-            data: fullData,
-            sortedByDate,
-            maxDays,
-            pathspec: this.repoPathspecs.get(normalizedRepoPath),
-          });
+          this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoPathspecs.get(normalizedRepoPath));
           log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath} (maxDays=${maxDays})`);
         }
 
         this.reposLoadingHistorical.delete(normalizedRepoPath);
         this._setFreshFiles(new Map(newFiles));
-        this.historicalFiles = new Map(newHistoricalFiles);
+        this.historicalCache.historicalFiles = new Map(newHistoricalFiles);
         this._onDidChangeTreeData.fire();
       }
     }
@@ -1086,227 +1044,51 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.heatmapProvider?.fireDidChange();
   }
 
-  // ---------------------------------------------------------------------------
-  // Path index + per-render directory stats
-  // ---------------------------------------------------------------------------
-
   /**
    * Replace freshFiles, rebuild the path index, and invalidate the stats cache.
    * All internal assignments to freshFiles must go through here.
    */
   private _setFreshFiles(map: Map<AbsolutePath, FileMetadata>): void {
     this._freshFiles = map;
-    this._rebuildPathIndex();
+    this.fileIndex.rebuild(map);
   }
 
-  /**
-   * Build _pathIndex: normalized parent path → set of normalized direct child paths.
-   * Files appear as leaves; intermediate directories are inferred.
-   * Clearing _dirStatsCache is included so the next render pass recomputes stats.
-   */
-  private _rebuildPathIndex(): void {
-    const index = new Map<string, Set<string>>();
-
-    for (const filePath of this._freshFiles.keys()) {
-      const normalized = filePath as string; // AbsolutePath is already forward-slash normalized
-
-      // Register the file in its immediate parent directory.
-      const fileSlash = normalized.lastIndexOf('/');
-      if (fileSlash <= 0) { continue; }
-      const immediateParent = normalized.substring(0, fileSlash);
-      if (!index.has(immediateParent)) { index.set(immediateParent, new Set()); }
-      index.get(immediateParent)!.add(normalized);
-
-      // Walk up the directory chain, registering each dir in its parent.
-      // Stop as soon as a dir is already present (all ancestors are already done).
-      let child = immediateParent;
-      while (true) {
-        const sl = child.lastIndexOf('/');
-        if (sl <= 0) { break; }
-        const parent = child.substring(0, sl);
-        if (!index.has(parent)) { index.set(parent, new Set()); }
-        const parentSet = index.get(parent)!;
-        if (parentSet.has(child)) { break; }
-        parentSet.add(child);
-        child = parent;
-      }
-    }
-
-    this._pathIndex = index;
-    this._dirStatsCache = null;
-  }
-
-  /**
-   * Build (or return cached) per-render directory stats respecting current filters and scopes.
-   * Single O(n) pass; each file propagates its stats up all ancestor directories.
-   * Invalidated by _setFreshFiles() and refreshTreeOnly().
-   */
-  private _ensureDirStatsCache(): Map<string, { count: number; mostRecent: Date | undefined; linesAdded: number; linesDeleted: number }> {
-    if (this._dirStatsCache) { return this._dirStatsCache; }
-
-    const showLineChanges = ConfigService.getDescriptionFormat().showLineChanges;
-    const cache = new Map<string, { count: number; mostRecent: Date | undefined; linesAdded: number; linesDeleted: number }>();
-
-    for (const [filePath, metadata] of this._freshFiles) {
-      if (!this.filterManager.passesFilters(metadata)) { continue; }
-      const normalizedFile = normalizePath(filePath);
-      if (!this.passesRepoScope(normalizedFile)) { continue; }
-
-      // Propagate this file's contribution up every ancestor directory.
-      let current = normalizedFile;
-      while (true) {
-        const sl = current.lastIndexOf('/');
-        if (sl <= 0) { break; }
-        const dir = current.substring(0, sl);
-        let stats = cache.get(dir);
-        if (!stats) {
-          stats = { count: 0, mostRecent: undefined, linesAdded: 0, linesDeleted: 0 };
-          cache.set(dir, stats);
-        }
-        stats.count++;
-        if (!stats.mostRecent || metadata.date > stats.mostRecent) { stats.mostRecent = metadata.date; }
-        if (showLineChanges) {
-          stats.linesAdded += metadata.linesAdded ?? 0;
-          stats.linesDeleted += metadata.linesDeleted ?? 0;
-        }
-        current = dir;
-      }
-    }
-
-    this._dirStatsCache = cache;
-    return cache;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Historical cache helpers
-  // ---------------------------------------------------------------------------
-
-  /** Returns true if every repo has a cached result that covers `days`. */
-  private _canServeFromCache(days: number): boolean {
-    for (const folder of this.workspaceFolders) {
-      for (const repoRelPath of folder.gitRepos) {
-        const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-        const normalizedRepoPath = normalizePath(repoFullPath);
-        const cache = this.historicalCache.get(normalizedRepoPath);
-        if (!cache) { return false; }
-        if (cache.maxDays < days) { return false; }
-        if (cache.pathspec !== this.repoPathspecs.get(normalizedRepoPath)) { return false; }
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Filter cache entries to those modified within the last `days` days.
-   * `sortedByDate` must be sorted ascending by date.
-   * Binary searches for the cutoff, then copies the tail — O(log n + k).
-   */
-  private filterCacheToWindow(
-    sortedByDate: ReadonlyArray<readonly [AbsolutePath, FileMetadata]>,
-    days: number,
-  ): Map<AbsolutePath, FileMetadata> {
-    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    // Find the leftmost index where date >= cutoff (lower bound).
-    let lo = 0, hi = sortedByDate.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (sortedByDate[mid][1].date < cutoff) { lo = mid + 1; } else { hi = mid; }
-    }
-    const result = new Map<AbsolutePath, FileMetadata>();
-    for (let i = lo; i < sortedByDate.length; i++) {
-      result.set(sortedByDate[i][0], sortedByDate[i][1]);
-    }
-    return result;
-  }
-
-  /**
-   * Rebuild freshFiles and historicalFiles from the historical cache, filtered to `days`.
-   * Preserves any pending (uncommitted) entries currently in freshFiles.
-   */
-  private _applyHistoricalCacheToWindow(days: number): void {
-    const newHistorical = new Map<AbsolutePath, FileMetadata>();
-
-    for (const folder of this.workspaceFolders) {
-      for (const repoRelPath of folder.gitRepos) {
-        const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-        const normalizedRepoPath = normalizePath(repoFullPath);
-        const cache = this.historicalCache.get(normalizedRepoPath);
-        if (!cache) { continue; }
-        const filtered = this.filterCacheToWindow(cache.sortedByDate, days);
-        for (const [absPath, metadata] of filtered) {
-          newHistorical.set(absPath, metadata);
-        }
-      }
-    }
-
-    // Start fresh files from historical, then overlay pending entries (pending wins).
-    const newFresh = new Map<AbsolutePath, FileMetadata>(newHistorical);
-    for (const [absPath, metadata] of this.freshFiles) {
-      if (metadata.isPending) {
-        newFresh.set(absPath, metadata);
-      }
-    }
-
-    this.historicalFiles = newHistorical;
-    this._setFreshFiles(newFresh);
-  }
-
-  /**
-   * Switch to pending-only display using entries already present in freshFiles.
-   * In pending mode historicalFiles is empty (refreshPending will re-overlay if needed).
-   */
-  private _applyPendingOnlyFromExisting(): void {
-    const pendingOnly = new Map<AbsolutePath, FileMetadata>();
-    for (const [absPath, metadata] of this.freshFiles) {
-      if (metadata.isPending) {
-        pendingOnly.set(absPath, metadata);
-      }
-    }
-    this.historicalFiles = new Map();
-    this._setFreshFiles(pendingOnly);
-  }
-
-  /**
-   * Return cache memory stats for each known repository.
-   * Uses v8.serialize for accurate byte measurement — call on demand only (not on every load).
-   */
   getCacheStats(): CacheRepoStats[] {
-    const stats: CacheRepoStats[] = [];
-    for (const folder of this.workspaceFolders) {
-      for (const repoRelPath of folder.gitRepos) {
-        const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-        const normalizedRepoPath = normalizePath(repoFullPath);
-        const repoLabel = repoRelPath || folder.name;
-        const cache = this.historicalCache.get(normalizedRepoPath);
-        if (cache) {
-          const sizeBytes = v8.serialize(cache.data).byteLength;
-          stats.push({ repoLabel, repoPath: repoFullPath, entryCount: cache.data.size, sizeBytes });
-        } else {
-          stats.push({ repoLabel, repoPath: repoFullPath, entryCount: 0, sizeBytes: 0 });
-        }
-      }
-    }
-    return stats;
+    return this.historicalCache.getStats(this.workspaceFolders);
+  }
+
+  private _dirStats() {
+    return this.fileIndex.ensureDirStats(
+      this._freshFiles,
+      (m) => this.filterManager.passesFilters(m),
+      (p) => this.passesRepoScope(p),
+      ConfigService.getDescriptionFormat().showLineChanges,
+    );
   }
 
   private countFilesInDirectory(dirPath: string): number {
-    return this._ensureDirStatsCache().get(normalizePath(dirPath))?.count ?? 0;
+    return this._dirStats().get(normalizePath(dirPath))?.count ?? 0;
   }
 
   getMostRecentDateInDirectory(dirPath: string): Date | undefined {
-    return this._ensureDirStatsCache().get(normalizePath(dirPath))?.mostRecent;
+    return this._dirStats().get(normalizePath(dirPath))?.mostRecent;
   }
 
   private buildTree(parentPath: string): FreshFileItem[] {
     const normalizedParent = normalizePath(parentPath);
     // const t0 = performance.now();
 
-    const directChildren = this._pathIndex.get(normalizedParent);
+    const directChildren = this.fileIndex.getDirectChildren(normalizedParent);
     if (!directChildren || directChildren.size === 0) { return []; }
 
     // Build the dir stats cache once (shared across all buildTree calls this render pass).
-    const dirStats = this._ensureDirStatsCache();
     const descriptionFormat = ConfigService.getDescriptionFormat();
+    const dirStats = this.fileIndex.ensureDirStats(
+      this._freshFiles,
+      (m) => this.filterManager.passesFilters(m),
+      (p) => this.passesRepoScope(p),
+      descriptionFormat.showLineChanges,
+    );
     const autoExpandDepth = ConfigService.getAutoExpandDepth();
 
     const items: FreshFileItem[] = [];
