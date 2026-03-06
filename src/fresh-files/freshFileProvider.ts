@@ -98,6 +98,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // Does NOT trigger a git reload — this can only narrow down the data we already have.
   private repoFolderScopes: Map<string, string> = new Map();
 
+  // Target repo paths for the current refresh (undefined = all repos).
+  // Set by refresh() to scope updateFreshFiles() to only specific repos.
+  private _targetRepoPaths: string[] | undefined = undefined;
+
   readonly historicalCache = new HistoricalFileCache();
 
   constructor() {
@@ -196,30 +200,47 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * Falls back to hardRefresh() if repos have never been discovered yet.
    * @param preserveHistoricalCache When true, the historical cache is kept intact (e.g. time-window display switch).
    */
-  refresh(options?: { preserveHistoricalCache?: boolean }): void {
+  refresh(options?: { preserveHistoricalCache?: boolean; targetRepoPaths?: string[] }): void {
     if (!this.reposDiscovered) {
       this.hardRefresh();
       return;
     }
+    const targetRepoPaths = options?.targetRepoPaths;
     const daysText = this.currentTimeWindow.type === "historical" ? ` (${this.currentTimeWindow.days} days)` : "";
-    log(`Refreshing files (skipping repo discovery) with time window: ${this.currentTimeWindow.label}${daysText}`);
+    const scopeDesc = targetRepoPaths ? ` [${targetRepoPaths.length} repo(s)]` : "";
+    log(`Refreshing files${scopeDesc} (skipping repo discovery) with time window: ${this.currentTimeWindow.label}${daysText}`);
     ContextManager.setLoading(true);
     this.dataLoaded = false;
-    this._setFreshFiles(new Map());
-    if (options?.preserveHistoricalCache) {
-      this.historicalCache.historicalFiles = new Map();
-    } else {
-      this.historicalCache.clear();
-    }
+    this._targetRepoPaths = targetRepoPaths;
     this.refreshEpoch++;
     clearRetrogradeCache();
-    // Pre-populate reposLoading so spinner appears on each repo node immediately.
     this.reposLoading.clear();
     this.reposLoadingHistorical.clear();
-    for (const folder of this.workspaceFolders) {
-      for (const repoRelPath of folder.gitRepos) {
-        const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-        this.reposLoading.add(normalizePath(repoFullPath));
+    if (targetRepoPaths) {
+      // Targeted refresh: remove only affected repos' files, keep other repos intact.
+      this._setFreshFiles(fileMapExcludingRepos(this._freshFiles, targetRepoPaths));
+      if (options?.preserveHistoricalCache) {
+        this.historicalCache.historicalFiles = fileMapExcludingRepos(this.historicalCache.historicalFiles, targetRepoPaths);
+      } else {
+        this.historicalCache.clearForRepos(targetRepoPaths);
+      }
+      // Show spinner only for target repos.
+      for (const repoPath of targetRepoPaths) {
+        this.reposLoading.add(repoPath);
+      }
+    } else {
+      this._setFreshFiles(new Map());
+      if (options?.preserveHistoricalCache) {
+        this.historicalCache.historicalFiles = new Map();
+      } else {
+        this.historicalCache.clear();
+      }
+      // Pre-populate reposLoading so spinner appears on each repo node immediately.
+      for (const folder of this.workspaceFolders) {
+        for (const repoRelPath of folder.gitRepos) {
+          const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
+          this.reposLoading.add(normalizePath(repoFullPath));
+        }
       }
     }
     this._onDidChangeTreeData.fire();
@@ -260,32 +281,59 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * Used when working-tree or index changes are detected but no full refresh is required (e.g. new file created).
    * Falls back to a full refresh if data hasn't been loaded yet.
    */
-  async refreshPending(): Promise<void> {
+  async refreshPending(targetRepoPaths?: string[]): Promise<void> {
     if (!this.dataLoaded) {
       this.refresh(); // soft if repos known, hard if first load
       return;
     }
     this.pendingRefreshVersion++;
-    log("Refreshing pending changes only");
-    await this.updatePendingFiles();
+    const scopeDesc = targetRepoPaths ? ` for ${targetRepoPaths.length} repo(s)` : "";
+    log(`Refreshing pending changes only${scopeDesc}`);
+    await this.updatePendingFiles(targetRepoPaths);
     this.heatmapProvider?.fireDidChange();
     this._onDidChangeTreeData.fire();
   }
 
-  private async updatePendingFiles(): Promise<void> {
+  private async updatePendingFiles(targetRepoPaths?: string[]): Promise<void> {
     if (this.workspaceFolders.length === 0) {
       return;
     }
 
-    const pendingFiles = await DataCollector.collectPendingFiles(this.workspaceFolders);
+    if (targetRepoPaths) {
+      // Targeted update: only query the repos that changed.
+      const targetFolders = buildTargetWorkspaceFolders(this.workspaceFolders, targetRepoPaths);
+      const pendingFiles = await DataCollector.collectPendingFiles(targetFolders);
 
-    // Rebuild freshFiles from cached historical baseline + new pending entries.
-    // This restores historical entries for files whose pending changes were reverted.
-    const merged = new Map<AbsolutePath, FileMetadata>(this.historicalCache.historicalFiles);
-    for (const [absolutePath, metadata] of pendingFiles) {
-      merged.set(absolutePath, metadata);
+      // Merge strategy:
+      // 1. Historical baseline for target repos (reset to committed state).
+      // 2. Current freshFiles entries for non-target repos (preserve their state).
+      // 3. Fresh pending entries for target repos (override historical baseline).
+      const merged = new Map<AbsolutePath, FileMetadata>();
+      for (const [absPath, metadata] of this.historicalCache.historicalFiles) {
+        if (fileInTargetRepo(absPath, targetRepoPaths)) {
+          merged.set(absPath, metadata);
+        }
+      }
+      for (const [absPath, metadata] of this._freshFiles) {
+        if (!fileInTargetRepo(absPath, targetRepoPaths)) {
+          merged.set(absPath, metadata);
+        }
+      }
+      for (const [absPath, metadata] of pendingFiles) {
+        merged.set(absPath, metadata);
+      }
+      this._setFreshFiles(merged);
+    } else {
+      const pendingFiles = await DataCollector.collectPendingFiles(this.workspaceFolders);
+
+      // Rebuild freshFiles from cached historical baseline + new pending entries.
+      // This restores historical entries for files whose pending changes were reverted.
+      const merged = new Map<AbsolutePath, FileMetadata>(this.historicalCache.historicalFiles);
+      for (const [absolutePath, metadata] of pendingFiles) {
+        merged.set(absolutePath, metadata);
+      }
+      this._setFreshFiles(merged);
     }
-    this._setFreshFiles(merged);
   }
 
   setTimeWindow(timeWindow: TimeWindow): void {
@@ -896,8 +944,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
 
     // --- Phase 2: Load files per repository (pending first, then historical) ---
-    const newFiles = new Map<AbsolutePath, FileMetadata>();
-    const newHistoricalFiles = new Map<AbsolutePath, FileMetadata>();
+    // When refreshing only specific repos, seed the accumulator maps with the surviving
+    // data from non-target repos so their entries are preserved in the final result.
+    const targetRepoPaths = this._targetRepoPaths;
+    const newFiles = new Map<AbsolutePath, FileMetadata>(targetRepoPaths ? this._freshFiles : []);
+    const newHistoricalFiles = new Map<AbsolutePath, FileMetadata>(targetRepoPaths ? this.historicalCache.historicalFiles : []);
     let errorToShow: string | undefined;
     const pendingOnly = isPendingChangesMode(this.currentTimeWindow);
     const histDays = this.currentTimeWindow.type === "historical" ? this.currentTimeWindow.days : 0;
@@ -927,6 +978,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
         const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
         const normalizedRepoPath = normalizePath(repoFullPath);
+
+        // Skip repos that are not in the targeted set (targeted refresh only).
+        if (targetRepoPaths && !targetRepoPaths.includes(normalizedRepoPath)) {
+          continue;
+        }
 
         // --- Phase 2: Pending changes (fast) ---
         await DataCollector.collectPendingForRepo(folder, repoRelPath, newFiles);
@@ -1026,8 +1082,17 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         }
 
         this.reposLoadingHistorical.delete(normalizedRepoPath);
-        this._setFreshFiles(new Map(newFiles));
-        this.historicalCache.historicalFiles = new Map(newHistoricalFiles);
+        // Historical git log always loads up to maxDays, but we must only display
+        // the currently selected histDays window. Filter before updating the live view
+        // so we don't over-expose data from the wider load.
+        if (histDays < maxDays) {
+          const cutoff = new Date(Date.now() - histDays * 24 * 60 * 60 * 1000);
+          this._setFreshFiles(new Map([...newFiles].filter(([, m]) => m.isPending || m.date >= cutoff)));
+          this.historicalCache.historicalFiles = new Map([...newHistoricalFiles].filter(([, m]) => m.date >= cutoff));
+        } else {
+          this._setFreshFiles(new Map(newFiles));
+          this.historicalCache.historicalFiles = new Map(newHistoricalFiles);
+        }
         this._onDidChangeTreeData.fire();
       }
     }
@@ -1040,6 +1105,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       `Loaded ${newFiles.size} total fresh file(s) across ${totalRepos} Git repository(ies)`,
     );
 
+    this._targetRepoPaths = undefined;
     ContextManager.setLoading(false);
     this.heatmapProvider?.fireDidChange();
   }
@@ -1160,4 +1226,51 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const dirName = path.basename(parentPath);
     log(`buildTree [${dirName}]: ${elapsed.toFixed(1)}ms, ${directChildren.size} children → ${items.length} items | cumulative: ${this._renderPass.calls} calls, ${this._renderPass.totalMs.toFixed(1)}ms`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Module-level helpers for targeted (per-repo) refresh operations
+// ---------------------------------------------------------------------------
+
+/** Returns true if `normalizedFilePath` belongs to any of the given normalized repo paths. */
+function fileInTargetRepo(normalizedFilePath: string, targetRepoPaths: string[]): boolean {
+  return targetRepoPaths.some(rp => normalizedFilePath.startsWith(rp + "/") || normalizedFilePath === rp);
+}
+
+/**
+ * Returns a copy of `map` with all entries whose path belongs to any of
+ * `targetRepoPaths` removed. Used to strip a repo's stale data before reload.
+ */
+function fileMapExcludingRepos<V>(
+  map: Map<AbsolutePath, V>,
+  targetRepoPaths: string[],
+): Map<AbsolutePath, V> {
+  const result = new Map<AbsolutePath, V>();
+  for (const [absPath, value] of map) {
+    if (!fileInTargetRepo(absPath, targetRepoPaths)) {
+      result.set(absPath, value);
+    }
+  }
+  return result;
+}
+
+/**
+ * Returns a filtered copy of `workspaceFolders` that contains only the repos
+ * present in `targetRepoPaths`. Folders with no matching repos are excluded.
+ */
+function buildTargetWorkspaceFolders(
+  workspaceFolders: WorkspaceFolderInfo[],
+  targetRepoPaths: string[],
+): WorkspaceFolderInfo[] {
+  const result: WorkspaceFolderInfo[] = [];
+  for (const folder of workspaceFolders) {
+    const filteredRepos = folder.gitRepos.filter(repoRelPath => {
+      const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
+      return targetRepoPaths.includes(normalizePath(repoFullPath));
+    });
+    if (filteredRepos.length > 0) {
+      result.push({ ...folder, gitRepos: filteredRepos });
+    }
+  }
+  return result;
 }

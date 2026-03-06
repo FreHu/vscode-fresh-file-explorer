@@ -4,6 +4,84 @@ import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 
+/**
+ * Result of finding which git repository a file belongs to
+ */
+export interface RepoLocationResult {
+  repoFullPath: AbsolutePath;
+  repoRelativePath: string; // Empty string if folder root is the repo
+  filePathInRepo: string;
+}
+
+/**
+ * Find which git repository a file belongs to within a workspace folder
+ * @param folder The workspace folder containing git repositories
+ * @param fileRelativePath Path to the file relative to the workspace folder (must be normalized)
+ * @returns Repository location information, or undefined if file doesn't belong to any repo
+ */
+export function findRepoForFile(folder: WorkspaceFolderInfo, fileRelativePath: string): RepoLocationResult | undefined {
+  for (const repo of folder.gitRepos) {
+    if (repo === "") {
+      // Folder root is the repo
+      return {
+        repoFullPath: folder.path,
+        repoRelativePath: "",
+        filePathInRepo: fileRelativePath,
+      };
+    } else if (fileRelativePath.startsWith(repo + "/")) {
+      // File is in a subdirectory repo
+      return {
+        repoFullPath: asAbsolutePath(path.join(folder.path, repo)),
+        repoRelativePath: repo,
+        filePathInRepo: fileRelativePath.substring(repo.length + 1),
+      };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Find which git repository an absolute file path belongs to, searching across all workspace folders.
+ * @returns Repository location information, or undefined if the file isn't inside any known repo
+ */
+export function findRepoForAbsolutePath(
+  workspaceFolders: WorkspaceFolderInfo[],
+  absoluteFilePath: string,
+): RepoLocationResult | undefined {
+  const normalized = normalizePath(absoluteFilePath);
+  for (const folder of workspaceFolders) {
+    const folderNormalized = normalizePath(folder.path);
+    if (!normalized.startsWith(folderNormalized + "/") && normalized !== folderNormalized) {
+      continue;
+    }
+    const relativePath = normalized.substring(folderNormalized.length + 1);
+    const result = findRepoForFile(folder, relativePath);
+    if (result) {
+      return result;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Returns the unique set of normalized repo paths that contain the given absolute file paths.
+ * Files not belonging to any known repo are silently skipped.
+ * Returns an empty array if none of the paths match a repo.
+ */
+export function findRepoPathsForFiles(
+  workspaceFolders: WorkspaceFolderInfo[],
+  absoluteFilePaths: string[],
+): string[] {
+  const result = new Set<string>();
+  for (const filePath of absoluteFilePaths) {
+    const repoResult = findRepoForAbsolutePath(workspaceFolders, filePath);
+    if (repoResult) {
+      result.add(normalizePath(repoResult.repoFullPath));
+    }
+  }
+  return [...result];
+}
+
 /** Returns the depth of an absolute path relative to its containing workspace folder */
 export function getRelativeDepth(
     absolutePath: string, 

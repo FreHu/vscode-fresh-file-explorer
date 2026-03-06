@@ -143,8 +143,8 @@ export async function setupGitExtensionListener(
       const force = pendingForceRefresh;
       pendingForceRefresh = false;
 
-      let needsFullRefresh = force;
-      let needsPendingRefresh = false;
+      const reposNeedingFullRefresh = new Set<string>();
+      const reposNeedingPendingRefresh = new Set<string>();
       let needsBranchOnlyUpdate = false;
 
       if (!force) {
@@ -154,7 +154,7 @@ export async function setupGitExtensionListener(
           const curr = takeSnapshot(repo);
           if (!prev) {
             // Brand-new repo we haven't seen before — force a refresh.
-            needsFullRefresh = true;
+            reposNeedingFullRefresh.add(key);
           } else if (prev.commit !== curr.commit || prev.branch !== curr.branch) {
             // Commit or branch differs — but only treat it as a real change if the
             // previous snapshot had a known state. If both were undefined the git
@@ -163,7 +163,7 @@ export async function setupGitExtensionListener(
             if (prev.commit !== undefined || prev.branch !== undefined) {
               if (prev.commit !== curr.commit) {
                 // Commit changed — files may differ, need full git log refresh.
-                needsFullRefresh = true;
+                reposNeedingFullRefresh.add(key);
               } else {
                 // Only branch name changed with the same commit (e.g. `git checkout -b new-branch`).
                 // No file content changed, so skip git log and just update branch labels / sync warnings.
@@ -171,10 +171,13 @@ export async function setupGitExtensionListener(
               }
             }
           } else if (prev.indexLength !== curr.indexLength || prev.workingTreeLength !== curr.workingTreeLength) {
-            needsPendingRefresh = true;
+            reposNeedingPendingRefresh.add(key);
           }
         }
       }
+
+      const needsFullRefresh = force || reposNeedingFullRefresh.size > 0;
+      const needsPendingRefresh = !needsFullRefresh && reposNeedingPendingRefresh.size > 0;
 
       // Update snapshots regardless of what we decided
       for (const repo of api.repositories) {
@@ -182,9 +185,10 @@ export async function setupGitExtensionListener(
       }
 
       if (needsFullRefresh) {
-        log("Git commit or branch changed, doing full refresh");
+        const scopeDesc = force ? "" : ` for repo(s): ${[...reposNeedingFullRefresh].join(", ")}`;
+        log(`Git commit or branch changed, doing full refresh${scopeDesc}`);
         await updateSyncWarnings(api, true);
-        freshFileProvider.refresh();
+        freshFileProvider.refresh({ targetRepoPaths: force ? undefined : [...reposNeedingFullRefresh] });
       } else if (needsBranchOnlyUpdate) {
         log("New branch created from same commit — updating branch labels and sync warnings only");
         await updateSyncWarnings(api);
@@ -195,9 +199,10 @@ export async function setupGitExtensionListener(
           log("Git working tree changed, but pending refresh already done via file save — skipping");
           await updateSyncWarnings(api, true);
         } else {
-          log("Git working tree or index changed, refreshing pending files only");
+          const scopeDesc = ` for repo(s): ${[...reposNeedingPendingRefresh].join(", ")}`;
+          log(`Git working tree or index changed, refreshing pending files only${scopeDesc}`);
           await updateSyncWarnings(api, true);
-          await freshFileProvider.refreshPending();
+          await freshFileProvider.refreshPending([...reposNeedingPendingRefresh]);
         }
         lastHandledPendingVersion = freshFileProvider.pendingRefreshVersion;
       } else {

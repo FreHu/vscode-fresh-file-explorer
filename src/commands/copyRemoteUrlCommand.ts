@@ -5,7 +5,7 @@ import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { execGitWithArgs } from "../git/gitOperations";
 import { asAbsolutePath } from "../pathTypes";
-import { findRepoForFile } from "../types";
+import { findRepoForFile } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 import { log, showWarning } from "../extension/logger";

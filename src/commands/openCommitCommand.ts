@@ -6,7 +6,7 @@ import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log, showError, showInfo } from "../extension/logger";
 import { gitUri, getCommitChanges, getCommitParent, getCommitSubject } from "../git/gitOperations";
 import { asAbsolutePath } from "../pathTypes";
-import { findRepoForFile } from "../types";
+import { findRepoForFile } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 

@@ -5,6 +5,7 @@ import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { showError } from "../extension/logger";
 import { setClipboard, getClipboard, clearClipboard } from "./copyPasteService";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
+import { findRepoPathsForFiles } from "../utils/pathUtils";
 
 function getItems(
   item: FreshFileItem,
@@ -182,5 +183,11 @@ export async function handlePasteFile(
   }
 
   // Refresh the tree so newly created/moved files appear
-  provider.refreshPending();
+  // A cut (move) may affect both the source and destination repos.
+  const affectedPaths = [
+    targetDir.fsPath,
+    ...(clipboard.isCut ? clipboard.uris.map(u => u.fsPath) : []),
+  ];
+  const repoPaths = findRepoPathsForFiles(provider.workspaceFolders, affectedPaths);
+  provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
 }

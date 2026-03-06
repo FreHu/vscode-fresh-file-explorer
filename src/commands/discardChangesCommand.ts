@@ -3,7 +3,7 @@ import * as path from "path";
 
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
-import { findRepoForFile } from "../types";
+import { findRepoForFile, isPathWithinRoot, findWorkspaceFolderForPath, findRepoPathsForFiles } from "../utils/pathUtils";
 import {
   discardFileChanges,
   discardAllFileChanges,
@@ -11,11 +11,9 @@ import {
   hasStagedChanges,
   hasUnstagedChanges,
 } from "../git/gitOperations";
-import { isPathWithinRoot } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
 import { log, showError, showInfo } from "../extension/logger";
 import { asAbsolutePath } from "../pathTypes";
-import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 
 type DiscardAction = "everything" | "discard-unstaged-only" | "unstage-only";
 
@@ -289,13 +287,15 @@ export async function handleDiscardChanges(
     showError(`Failed to discard: ${errors.join(", ")}`);
   }
   if (successCount > 0) {
+    const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, pendingItems.map(i => i.resourceUri.fsPath));
+    const targetRepoPaths = repoPaths.length > 0 ? repoPaths : undefined;
     // Discarding an untracked file removes it from disk, which can change the isDeleted
     // determination of its historical entry in the cache. A full refresh is required
     // to correctly restore the deleted-file state (icon, context menu, resurrect option).
     if (anyUntrackedDiscarded) {
-      freshFileProvider.refresh();
+      freshFileProvider.refresh({ targetRepoPaths });
     } else {
-      freshFileProvider.refreshPending();
+      freshFileProvider.refreshPending(targetRepoPaths);
     }
   }
 }

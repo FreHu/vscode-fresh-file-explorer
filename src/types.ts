@@ -1,5 +1,4 @@
-import * as path from "path";
-import { AbsolutePath, asAbsolutePath } from "./pathTypes";
+import { AbsolutePath } from "./pathTypes";
 
 /**
  * Branded type for Git commit hashes
@@ -130,38 +129,4 @@ export interface AuthorData {
   fileCount: number;
 }
 
-/**
- * Result of finding which git repository a file belongs to
- */
-export interface RepoLocationResult {
-  repoFullPath: AbsolutePath;
-  repoRelativePath: string; // Empty string if folder root is the repo
-  filePathInRepo: string;
-}
 
-/**
- * Find which git repository a file belongs to within a workspace folder
- * @param folder The workspace folder containing git repositories
- * @param fileRelativePath Path to the file relative to the workspace folder (must be normalized)
- * @returns Repository location information, or undefined if file doesn't belong to any repo
- */
-export function findRepoForFile(folder: WorkspaceFolderInfo, fileRelativePath: string): RepoLocationResult | undefined {
-  for (const repo of folder.gitRepos) {
-    if (repo === "") {
-      // Folder root is the repo
-      return {
-        repoFullPath: folder.path,
-        repoRelativePath: "",
-        filePathInRepo: fileRelativePath,
-      };
-    } else if (fileRelativePath.startsWith(repo + "/")) {
-      // File is in a subdirectory repo
-      return {
-        repoFullPath: asAbsolutePath(path.join(folder.path, repo)),
-        repoRelativePath: repo,
-        filePathInRepo: fileRelativePath.substring(repo.length + 1),
-      };
-    }
-  }
-  return undefined;
-}

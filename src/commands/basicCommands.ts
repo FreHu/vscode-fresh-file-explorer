@@ -9,6 +9,7 @@ import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../fresh-files/groupingMode";
 import { SortOrder } from "../types";
 import { openFileWithoutDuplicating } from "../utils";
+import { findRepoPathsForFiles } from "../utils/pathUtils";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
@@ -292,7 +293,8 @@ export async function handleDeleteFile(
     vscode.window.showErrorMessage(`Failed to delete: ${errors.join(", ")}`);
   }
   if (successCount > 0) {
-    freshFileProvider.refreshPending();
+    const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, targets.map(i => i.resourceUri.fsPath));
+    freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
   }
 }
 

@@ -4,9 +4,8 @@ import { log, showError } from "../extension/logger";
 import { getFileFromHistoryAsBuffer } from "../git/gitOperations";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { normalizePath } from "../utils";
-import { findRepoForFile } from "../types";
+import { findRepoForFile, findWorkspaceFolderForPath, findRepoPathsForFiles } from "../utils/pathUtils";
 import { asAbsolutePath } from "../pathTypes";
-import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 
 /**
@@ -171,7 +170,8 @@ export async function handleResurrect(
       // Open the single resurrected file
       await vscode.commands.executeCommand("vscode.open", deletedItems[0].resourceUri);
     }
-    await provider.refreshPending();
+    const repoPaths = findRepoPathsForFiles(provider.workspaceFolders, deletedItems.map(i => i.resourceUri.fsPath));
+    await provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
   }
 
   if (errors.length > 0) {

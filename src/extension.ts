@@ -35,6 +35,8 @@ import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, han
 import { handleCopyFile, handleCutFile, handlePasteFile } from "./commands/copyPasteCommands";
 import { handleCopyRemoteUrl } from "./commands/copyRemoteUrlCommand";
 import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } from "./commands/pathspecCommand";
+import { findRepoForAbsolutePath } from "./utils/pathUtils";
+import { normalizePath } from "./utils";
 import { Commands } from "./commands/constants";
 import { createFreshFilesDragAndDropController, createPinnedDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
@@ -128,9 +130,10 @@ export async function activate(context: vscode.ExtensionContext) {
   // but the delay is extremely noticeable (1-2s)
   // this is pretty much instant
   context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument(() => {
+    vscode.workspace.onDidSaveTextDocument((document) => {
       log("File saved, refreshing pending changes");
-      freshFileProvider.refreshPending();
+      const result = findRepoForAbsolutePath(freshFileProvider.workspaceFolders, document.uri.fsPath);
+      freshFileProvider.refreshPending(result ? [normalizePath(result.repoFullPath)] : undefined);
     }),
   );
 

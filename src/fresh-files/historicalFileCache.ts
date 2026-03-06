@@ -42,6 +42,22 @@ export class HistoricalFileCache {
     this.historicalFiles = new Map();
   }
 
+  /**
+   * Clear cache entries and historical file entries for specific repositories only.
+   * Used by targeted refreshes that re-load only changed repos.
+   */
+  clearForRepos(normalizedRepoPaths: string[]): void {
+    for (const repoPath of normalizedRepoPaths) {
+      this.cache.delete(repoPath);
+    }
+    // Remove historicalFiles entries that belong to the cleared repos.
+    for (const absolutePath of this.historicalFiles.keys()) {
+      if (normalizedRepoPaths.some(rp => absolutePath.startsWith(rp + "/") || absolutePath === rp)) {
+        this.historicalFiles.delete(absolutePath);
+      }
+    }
+  }
+
   getEntry(normalizedRepoPath: string): CacheEntry | undefined {
     return this.cache.get(normalizedRepoPath);
   }
