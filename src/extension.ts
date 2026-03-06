@@ -256,7 +256,11 @@ function registerCommands(
 
   // Performance benchmark
   register(Commands.PERF_BENCHMARK, () =>
-    PerfBenchmarkPanel.createOrShow(context.extensionUri, vscode.workspace.workspaceFolders || [])
+    PerfBenchmarkPanel.createOrShow(
+      context.extensionUri,
+      vscode.workspace.workspaceFolders || [],
+      () => freshFileProvider.getCacheStats(),
+    )
   );
 
   // Copy path commands

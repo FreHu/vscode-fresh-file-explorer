@@ -47,7 +47,8 @@ export class ConfigService {
    * Get the time window day values
    */
   static getTimeWindowDays(): number[] {
-    return vscode.workspace.getConfiguration().get<number[]>(ConfigKeys.TIME_WINDOWS, DEFAULT_TIME_WINDOW_DAYS);
+    const days = vscode.workspace.getConfiguration().get<number[]>(ConfigKeys.TIME_WINDOWS, DEFAULT_TIME_WINDOW_DAYS);
+    return [...days].sort((a, b) => a - b);
   }
 
   /**
@@ -76,6 +77,13 @@ export class ConfigService {
    */
   static getOpenSearchInEditor(): boolean {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.OPEN_SEARCH_IN_EDITOR, false);
+  }
+
+  /**
+   * Get whether to progressively update the tree at each time window threshold during history loading
+   */
+  static getincrementalTreeLoading(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.INCREMENTAL_TREE_LOADING, true);
   }
 
   /**

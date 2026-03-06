@@ -211,6 +211,17 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
 
     <div class="status" id="statsStatus" style="display:none;"></div>
     <div id="statsSection" style="display:none;"></div>
+
+    <hr class="section-divider">
+
+    <div style="display:flex; align-items:baseline; gap:12px; margin-bottom:12px;">
+      <h2 style="margin:0;">Cache Stats</h2>
+      <button id="cacheStatsBtn">Load Cache Stats</button>
+    </div>
+    <p class="help-text">Per-repository entry count and actual memory usage of the git log cache.</p>
+
+    <div class="status" id="cacheStatsStatus" style="display:none;"></div>
+    <div id="cacheStatsSection" style="display:none;"></div>
   </div>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

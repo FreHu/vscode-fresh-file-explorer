@@ -213,7 +213,7 @@ export function execGitInDirBuffer(
  */
 export async function isGitRepository(dirPath: string): Promise<boolean> {
   try {
-    await execGitInDir("git rev-parse --git-dir", dirPath);
+    await execGitInDir("git rev-parse --git-dir", dirPath, { timeout: ConfigService.getGitTimeoutMs() });
     return true;
   } catch {
     return false;
@@ -603,6 +603,70 @@ export function streamGitLogNameStatus(
 }
 
 /**
+ * Like `streamGitLogNameStatus` but fires `onThresholdCrossed` each time the stream
+ * crosses into commits older than a configured day threshold.
+ *
+ * Since git log streams newest-first, when we encounter the first commit whose date
+ * is older than `now - days`, every file touched within that window is already in the
+ * map — we therefore snapshot the map and fire the callback for that threshold.
+ *
+ * @param thresholds  Day values, sorted **ascending** (e.g. [7, 14, 30]).
+ * @param now         Reference timestamp (should be Date.now() at call time).
+ * @param onThresholdCrossed  Called synchronously with the snapshot at each crossing.
+ */
+export function streamGitLogNameStatusWithProgress(
+  args: string[],
+  cwd: string,
+  repoRelativePath: string,
+  timeout: number | undefined,
+  thresholds: number[],
+  now: Date,
+  onThresholdCrossed: (days: number, snapshot: Map<string, { status: string; commit: CommitData }>) => void,
+): Promise<Map<string, { status: string; commit: CommitData }>> {
+  const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
+  // Work through thresholds ascending so smaller windows fire first.
+  const remaining = [...thresholds].sort((a, b) => a - b);
+
+  const baseProcessLine = createNameStatusLineProcessor(repoRelativePath, (relativePath, status, commit) => {
+    if (!fileStatusMap.has(relativePath)) {
+      fileStatusMap.set(relativePath, { status, commit });
+    }
+  });
+
+  const processLine = (rawLine: string) => {
+    const line = rawLine.trim();
+    // Intercept commit headers to detect threshold crossings BEFORE the file entries
+    // for this (older) commit are added to the map.
+    if (line.startsWith("__COMMIT__") && remaining.length > 0) {
+      const parts = line.substring("__COMMIT__".length).split("|");
+      if (parts.length >= 3) {
+        const commitDate = new Date(parts[2]);
+        // Thresholds are ascending; fire each one whose cutoff the commit date crosses.
+        while (remaining.length > 0) {
+          const days = remaining[0];
+          const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+          if (commitDate < cutoff) {
+            remaining.shift();
+            onThresholdCrossed(days, new Map(fileStatusMap));
+          } else {
+            break; // Remaining thresholds are larger; this commit is still within them.
+          }
+        }
+      }
+    }
+    baseProcessLine(rawLine);
+  };
+
+  return spawnGitLines(args, cwd, timeout, processLine).then(() => {
+    // Fire any thresholds that were never crossed (repo history shorter than the window).
+    for (const days of remaining) {
+      onThresholdCrossed(days, new Map(fileStatusMap));
+    }
+    return fileStatusMap;
+  });
+}
+
+/**
  * Stateful line processor for `git log --numstat` output.
  * Skips `__COMMIT__` header lines; calls onEntry for data lines.
  */
@@ -649,22 +713,6 @@ export function parseGitLogNumstat(
     processLine(line);
   }
   return map;
-}
-
-/** Streaming `git log --numstat`. Workspace-relative keys, first-wins dedup. */
-export function streamGitLogNumstat(
-  args: string[],
-  cwd: string,
-  repoRelativePath: string,
-  timeout: number | undefined,
-): Promise<Map<string, { added: number; deleted: number }>> {
-  const map = new Map<string, { added: number; deleted: number }>();
-  const processLine = createNumstatLineProcessor(repoRelativePath, (rel, added, deleted) => {
-    if (!map.has(rel)) {
-      map.set(rel, { added, deleted });
-    }
-  });
-  return spawnGitLines(args, cwd, timeout, processLine).then(() => map);
 }
 
 /** Pure parse of `git diff --numstat` output (no commit headers). Repo-relative keys. */
@@ -730,11 +778,49 @@ export function streamGitDiffNumstat(
 }
 
 /**
- * Collect historical changes from git log within a time window
- * @param repoRelativePath Path relative to workspace root (empty string for root)
- * @param repoFullPath Full filesystem path to the repository
- * @param workspaceRoot The workspace root path
- * @param days Number of days to look back
+ * Build a FileMetadata map from a raw name-status snapshot, running fileExists checks.
+ * Line counts are omitted (not available until the numstat pass).
+ */
+async function buildPartialMetadataMap(
+  snapshot: Map<string, { status: string; commit: CommitData }>,
+  workspaceRoot: string,
+): Promise<Map<string, FileMetadata>> {
+  const entries = Array.from(snapshot.entries());
+  const existsResults = await Promise.all(
+    entries.map(([fileRelativePath]) => fileExists(path.join(workspaceRoot, fileRelativePath))),
+  );
+  const result = new Map<string, FileMetadata>();
+  for (let i = 0; i < entries.length; i++) {
+    const [fileRelativePath, statusInfo] = entries[i];
+    const existsOnDisk = existsResults[i];
+    const isDeleted = statusInfo.status === "D";
+    if (existsOnDisk || isDeleted) {
+      result.set(fileRelativePath, {
+        date: statusInfo.commit.date,
+        author: statusInfo.commit.author,
+        commitHash: statusInfo.commit.hash,
+        commitMessage: statusInfo.commit.message,
+        status: statusInfo.status,
+        isDeleted: !existsOnDisk,
+        isPending: false,
+      });
+    }
+  }
+  return result;
+}
+
+/**
+ * Collect historical changes from git log within a time window.
+ *
+ * @param repoRelativePath  Path relative to workspace root (empty string for root)
+ * @param repoFullPath      Full filesystem path to the repository
+ * @param workspaceRoot     The workspace root path
+ * @param days              Number of days to look back (the maximum window to load)
+ * @param pathspec          Optional git pathspec to restrict which files are included
+ * @param thresholds        Optional sorted-ascending day values at which incremental
+ *                          snapshots should be emitted via `onThresholdCrossed`.
+ * @param onThresholdCrossed Called (fire-and-forget async) with a partial FileMetadata
+ *                           map each time the stream crosses a threshold boundary.
  * @returns Map of file paths (relative to workspace) to file metadata including commit info
  */
 export async function collectHistoricalChanges(
@@ -743,6 +829,8 @@ export async function collectHistoricalChanges(
   workspaceRoot: string,
   days: number,
   pathspec?: string,
+  thresholds?: number[],
+  onThresholdCrossed?: (days: number, partial: Map<string, FileMetadata>) => void,
 ): Promise<Map<string, FileMetadata>> {
   const files = new Map<string, FileMetadata>();
 
@@ -756,19 +844,24 @@ export async function collectHistoricalChanges(
   const statusArgs = ["log", `--since=${sinceDate}`, "--name-status", "--pretty=format:__COMMIT__%h|%an|%aI|%s", ...pathspecSuffix];
   log(`Executing git command for status in ${repoRelativePath || "root"}: git ${statusArgs.join(" ")}`);
 
-  const fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs());
-
-  // Step 2: Get line counts using --numstat (only if feature is enabled)
-  const showLineChanges = ConfigService.getDescriptionFormat().showLineChanges;
-  let lineCountsMap = new Map<string, { added: number; deleted: number }>();
-
-  if (showLineChanges) {
-    const numstatArgs = ["log", `--since=${sinceDate}`, "--numstat", "--pretty=format:__COMMIT__%h|%an|%aI|%s", ...pathspecSuffix];
-    log(`Executing git command for numstat in ${repoRelativePath || "root"}: git ${numstatArgs.join(" ")}`);
-    lineCountsMap = await streamGitLogNumstat(numstatArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs());
+  let fileStatusMap: Map<string, { status: string; commit: CommitData }>;
+  if (thresholds && thresholds.length > 0 && onThresholdCrossed) {
+    const now = new Date();
+    fileStatusMap = await streamGitLogNameStatusWithProgress(
+      statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs(),
+      thresholds, now,
+      (thresholdDays, snapshot) => {
+        // Fire-and-forget: build FileMetadata for the snapshot and call the outer callback.
+        buildPartialMetadataMap(snapshot, workspaceRoot).then(partial => {
+          onThresholdCrossed(thresholdDays, partial);
+        }).catch(() => { /* ignore — best-effort incremental update */ });
+      },
+    );
+  } else {
+    fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs());
   }
 
-  // Step 3: Merge status and line counts
+  // Step 2: Merge status into FileMetadata
   const fileStatusEntries = Array.from(fileStatusMap.entries());
 
   // ideally look into an approach that avoids having to do this check
@@ -787,8 +880,6 @@ export async function collectHistoricalChanges(
     // 1. It exists on disk (normal case)
     // 2. It was deleted in this commit and still doesn't exist (historical deletion)
     if (existsOnDisk || isDeleted) {
-      const lineCounts = lineCountsMap.get(fileRelativePath);
-
       files.set(fileRelativePath, {
         date: statusInfo.commit.date,
         author: statusInfo.commit.author,
@@ -797,8 +888,6 @@ export async function collectHistoricalChanges(
         status: statusInfo.status,
         isDeleted: !existsOnDisk,
         isPending: false,
-        linesAdded: lineCounts?.added,
-        linesDeleted: lineCounts?.deleted,
       });
     }
   }
@@ -819,7 +908,7 @@ export async function getFileFromHistory(repoFullPath: string, filePath: string,
   const args = ["show", `${ref}:${filePath}`];
   log(`Exhuming file from history: git ${args.join(" ")}`);
 
-  return await execGitWithArgs(args, repoFullPath);
+  return await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
 }
 
 /**
@@ -839,7 +928,7 @@ export async function getFileFromHistoryAsBuffer(
   const args = ["show", `${ref}:${filePath}`];
   log(`Exhuming file from history (binary): git ${args.join(" ")}`);
 
-  return await execGitWithArgsBuffer(args, repoFullPath);
+  return await execGitWithArgsBuffer(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
 }
 
 /**
@@ -857,12 +946,12 @@ export async function discardFileChanges(
     // For untracked files, use git clean
     const args = ["clean", "-f", "--", filePath];
     log(`Discarding untracked file: git ${args.join(" ")}`);
-    await execGitWithArgs(args, repoFullPath);
+    await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   } else {
     // For tracked files, use git checkout
     const args = ["checkout", "-q", "--", filePath];
     log(`Discarding changes: git ${args.join(" ")}`);
-    await execGitWithArgs(args, repoFullPath);
+    await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   }
 }
 
@@ -902,7 +991,7 @@ export async function getCommitChanges(repoFullPath: string, commitHash: string)
   const args = ["diff-tree", "-r", "--no-commit-id", "--name-status", "--root", "-z", commitHash];
   log(`Getting commit changes: git ${args.join(" ")}`);
 
-  const output = await execGitWithArgs(args, repoFullPath);
+  const output = await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   if (!output.trim()) {
     return [];
   }
@@ -956,7 +1045,7 @@ export async function getCommitChanges(repoFullPath: string, commitHash: string)
 export async function getCommitParent(repoFullPath: string, commitHash: string): Promise<string | undefined> {
   try {
     const args = ["rev-parse", `${commitHash}^`];
-    const output = await execGitWithArgs(args, repoFullPath);
+    const output = await execGitWithArgs(args, repoFullPath, { timeout: 5000 });
     const parent = output.trim();
     return parent || undefined;
   } catch {
@@ -970,6 +1059,6 @@ export async function getCommitParent(repoFullPath: string, commitHash: string):
  */
 export async function getCommitSubject(repoFullPath: string, commitHash: string): Promise<string> {
   const args = ["log", "-1", "--format=%s", commitHash];
-  const output = await execGitWithArgs(args, repoFullPath);
+  const output = await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   return output.trim();
 }

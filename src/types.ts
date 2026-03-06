@@ -131,20 +131,6 @@ export interface AuthorData {
 }
 
 /**
- * Common interface for providers that need workspace folder management
- */
-export interface WorkspaceFolderProvider {
-  workspaceFolders: WorkspaceFolderInfo[];
-}
-
-/**
- * Common interface for providers that can be refreshed
- */
-export interface RefreshableProvider {
-  refresh(): void;
-}
-
-/**
  * Result of finding which git repository a file belongs to
  */
 export interface RepoLocationResult {

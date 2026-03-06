@@ -19,6 +19,9 @@ export const ConfigKeys = {
   SEARCH_PATTERN_MAX_LENGTH: "freshFileExplorer.searchPatternMaxLength",
   OPEN_SEARCH_IN_EDITOR: "freshFileExplorer.openSearchInEditor",
 
+  // History loading
+  INCREMENTAL_TREE_LOADING: "freshFileExplorer.incrementalTreeLoading",
+
   // Heatmap settings
   HEATMAP_ENABLED: "freshFileExplorer.heatmap.enabled",
 } as const;

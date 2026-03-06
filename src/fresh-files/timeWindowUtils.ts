@@ -23,9 +23,8 @@ export function buildTimeWindows(dayValues: number[]): TimeWindow[] {
   // Always start with pending changes
   const windows: TimeWindow[] = [{ type: "pending", label: "Pending changes" }];
 
-  // Add configured day windows, sorted
-  const sortedDays = [...dayValues].sort((a, b) => a - b);
-  for (const days of sortedDays) {
+  // Add configured day windows, sorted ascending (sort defensively even if caller already sorted)
+  for (const days of [...dayValues].sort((a, b) => a - b)) {
     if (days > 0) {
       windows.push({ type: "historical", label: formatDaysLabel(days), days });
     }

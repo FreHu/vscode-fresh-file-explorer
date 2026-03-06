@@ -97,53 +97,6 @@ export function createGitLogStreamBenchmark(repos: RepoInfo[]): Benchmark {
     };
 }
 
-export function createGitNumstatBenchmark(repos: RepoInfo[]): Benchmark {
-    return {
-        name: "Git Log (buffered, --numstat)",
-        inputSpec: sharedInputSpec,
-        outputSpec: {
-            columns: [
-                { name: "repo",      type: "string" },
-                { name: "days",      type: "number" },
-                { name: "elapsedMs", type: "number", format: "duration-ms", comparison: "ratioWithPrevious" },
-                { name: "lines",     type: "number" },  // raw output line count (additions+deletions rows)
-                { name: "bytes",     type: "number", format: "bytes", comparison: "ratioWithPrevious" },
-                { name: "error",     type: "string", role: "error" },
-            ],
-        },
-        async run(inputs: BenchmarkInputValues): Promise<BenchmarkOutputRow[]> {
-            const days = inputs["days"] as number;
-            const pathspec = inputs["pathspec"] as string;
-            const args = buildArgs(days, "--numstat", pathspec);
-            return Promise.all(repos.map(async repo => {
-                log(`[git-numstat-benchmark] git ${args.join(" ")} in ${repo.name}`);
-                const start = Date.now();
-                try {
-                    const output = await execGitWithArgs(args, repo.path);
-                    return { 
-                        repo: repo.name, 
-                        days, 
-                        elapsedMs: Date.now() - start, 
-                        lines: output ? output.split("\n").length : 0, 
-                        bytes: Buffer.byteLength(output, "utf8"), 
-                        error: "" 
-                    };
-                } catch (err: any) {
-                    return { 
-                        repo: repo.name, 
-                        days, 
-                        elapsedMs: Date.now() - start, 
-                        lines: 0, 
-                        bytes: 0, 
-                        error: String(err) 
-                    };
-                }
-            }));
-        },
-    };
-}
-
-
 function buildArgs(days: number, modeFlag: string, pathspec: string): string[] {
     return [
         "log",

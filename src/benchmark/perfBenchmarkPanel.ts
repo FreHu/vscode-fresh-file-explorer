@@ -5,7 +5,8 @@ import { execGitWithArgs, discoverReposInWorkspace } from "../git/gitOperations"
 import { getWebviewHtml } from "./perfBenchmarkPanelUI";
 import { Benchmark, BenchmarkInputValues } from "../benchmark/benchmark";
 import { RepoInfo } from "../git/gitOperations";
-import { createGitLogBenchmark, createGitLogStreamBenchmark, createGitNumstatBenchmark } from "../benchmark/gitLogBenchmark";
+import { createGitLogBenchmark, createGitLogStreamBenchmark } from "../benchmark/gitLogBenchmark";
+import { CacheRepoStats } from "../fresh-files/freshFileProvider";
 
 /**
  * Expands multi-value params (comma-separated strings) into a flat list of
@@ -46,10 +47,15 @@ export class PerfBenchmarkPanel {
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private readonly _workspaceFolders: readonly vscode.WorkspaceFolder[];
+  private readonly _getCacheStats: () => CacheRepoStats[];
   private _disposables: vscode.Disposable[] = [];
   private _benchmarks: Benchmark[] = [];
 
-  public static createOrShow(extensionUri: vscode.Uri, workspaceFolders: readonly vscode.WorkspaceFolder[]) {
+  public static createOrShow(
+    extensionUri: vscode.Uri,
+    workspaceFolders: readonly vscode.WorkspaceFolder[],
+    getCacheStats: () => CacheRepoStats[],
+  ) {
     const column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
 
     if (PerfBenchmarkPanel.currentPanel) {
@@ -68,17 +74,19 @@ export class PerfBenchmarkPanel {
       },
     );
 
-    PerfBenchmarkPanel.currentPanel = new PerfBenchmarkPanel(panel, extensionUri, workspaceFolders);
+    PerfBenchmarkPanel.currentPanel = new PerfBenchmarkPanel(panel, extensionUri, workspaceFolders, getCacheStats);
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     workspaceFolders: readonly vscode.WorkspaceFolder[],
+    getCacheStats: () => CacheRepoStats[],
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
     this._workspaceFolders = workspaceFolders;
+    this._getCacheStats = getCacheStats;
 
     this._panel.webview.html = this._getHtml();
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
@@ -96,7 +104,6 @@ export class PerfBenchmarkPanel {
     this._benchmarks = [
       createGitLogBenchmark(repos),
       createGitLogStreamBenchmark(repos),
-      createGitNumstatBenchmark(repos),
     ];
     this._sendBenchmarkSpecs();
   }
@@ -116,6 +123,8 @@ export class PerfBenchmarkPanel {
       await this._runBenchmark(message as RunMessage);
     } else if (message.command === "getStats") {
       await this._sendStats();
+    } else if (message.command === "getCacheStats") {
+      this._sendCacheStats();
     }
   }
 
@@ -184,6 +193,15 @@ export class PerfBenchmarkPanel {
       vscode.Uri.joinPath(this._extensionUri, "media", "perfBenchmarkPanel.js"),
     ).toString();
     return getWebviewHtml(webview.cspSource, scriptUri);
+  }
+
+  private _sendCacheStats(): void {
+    try {
+      const stats = this._getCacheStats();
+      this._panel.webview.postMessage({ command: "cacheStats", stats });
+    } catch (err: any) {
+      this._panel.webview.postMessage({ command: "cacheStatsError", message: String(err) });
+    }
   }
 
   public dispose() {

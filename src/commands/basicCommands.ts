@@ -16,14 +16,28 @@ export function handleRefresh(freshFileProvider: FreshFileProvider): void {
 
 export async function handleSetTimeWindow(freshFileProvider: FreshFileProvider): Promise<void> {
   log("Set time window command triggered");
+  const originalTimeWindow = freshFileProvider.currentTimeWindow;
   const quickPick = createTimeWindowQuickPick(freshFileProvider.timeWindows, freshFileProvider.currentTimeWindow);
 
-  quickPick.onDidAccept(() => {
-    const selected = quickPick.selectedItems[0];
-    if (selected && selected.timeWindow !== freshFileProvider.currentTimeWindow) {
-      freshFileProvider.setTimeWindow(selected.timeWindow);
+  let accepted = false;
+
+  quickPick.onDidChangeActive(items => {
+    const item = items[0];
+    if (item && item.timeWindow !== freshFileProvider.currentTimeWindow) {
+      freshFileProvider.setTimeWindow(item.timeWindow);
     }
+  });
+
+  quickPick.onDidAccept(() => {
+    accepted = true;
     quickPick.hide();
+  });
+
+  quickPick.onDidHide(() => {
+    if (!accepted) {
+      freshFileProvider.setTimeWindow(originalTimeWindow);
+    }
+    quickPick.dispose();
   });
 
   quickPick.show();

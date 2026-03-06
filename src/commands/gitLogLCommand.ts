@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as nodePath from "path";
 import { execGitWithArgs } from "../git/gitOperations";
+import { ConfigService } from "../config/configService";
 import { parseGitLogL } from "../git/gitLogLParser";
 import { GitLogLPanel } from "../logL/gitLogLPanel";
 import { log } from "../extension/logger";
@@ -89,7 +90,7 @@ export async function handleGitLogL(): Promise<void> {
 
   try {
     const args = ["log", "-L", lArg];
-    const rawOutput = await execGitWithArgs(args, repoRoot, { timeout: 30000 });
+    const rawOutput = await execGitWithArgs(args, repoRoot, { timeout: ConfigService.getGitTimeoutMs() });
     const commits = parseGitLogL(rawOutput);
     log(`git log -L: parsed ${commits.length} commits`, "info");
 
@@ -145,7 +146,7 @@ export async function handlegitLogFile(item?: FreshFileItem): Promise<void> {
     const rawOutput = await execGitWithArgs(
       args,
       repoRoot,
-      { timeout: 30000 },
+      { timeout: ConfigService.getGitTimeoutMs() },
     );
     const commits = parseGitLogL(rawOutput);
     log(`git log file: parsed ${commits.length} commits`, "info");

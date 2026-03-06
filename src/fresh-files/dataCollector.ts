@@ -53,38 +53,64 @@ export class DataCollector {
 
   /**
    * Collect only the historical (committed) changes for a single repository.
-   * Returns an error result if the repo has no commits or git failed, otherwise undefined.
-   * When a pathspec is active and git fails, the result includes `isPathspecError: true`
-   * so the caller can clear the invalid pathspec and retry.
+   *
+   * @param maxDays          The maximum number of days to load from git log.
+   * @param thresholds       Optional sorted-ascending day values at which incremental
+   *                         tree updates should fire via `onThresholdCrossed`.
+   * @param onThresholdCrossed Called with a partial AbsolutePath-keyed map each time
+   *                           the git log stream crosses a threshold boundary.
    */
   static async collectHistoricalForRepo(
     folder: WorkspaceFolderInfo,
     repoRelativePath: string,
-    days: number,
+    maxDays: number,
     targetMap: Map<AbsolutePath, FileMetadata>,
     historicalTargetMap: Map<AbsolutePath, FileMetadata>,
     pathspec?: string,
-  ): Promise<{ message: string; isPathspecError: boolean } | undefined> {
+    thresholds?: number[],
+    onThresholdCrossed?: (days: number, partial: Map<AbsolutePath, FileMetadata>) => void,
+  ): Promise<{ error: { message: string; isPathspecError: boolean } | undefined; fullData: Map<AbsolutePath, FileMetadata> }> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
     const filesBefore = targetMap.size;
+
+    // Wrap the caller's onThresholdCrossed to convert workspace-relative paths to AbsolutePaths.
+    const wrappedOnThreshold = onThresholdCrossed
+      ? (days: number, partial: Map<string, FileMetadata>) => {
+          const absoluteMap = new Map<AbsolutePath, FileMetadata>();
+          for (const [filePath, metadata] of partial) {
+            absoluteMap.set(asAbsolutePath(normalizePath(path.join(folder.path, filePath))), metadata);
+          }
+          onThresholdCrossed(days, absoluteMap);
+        }
+      : undefined;
+
     try {
       const historicalFiles = await collectHistoricalChanges(
         repoRelativePath,
         repoFullPath,
         folder.path,
-        days,
+        maxDays,
         pathspec,
+        thresholds,
+        wrappedOnThreshold,
       );
       DataCollector.addFilesToMap(folder, historicalFiles, historicalTargetMap);
       DataCollector.addFilesToMap(folder, historicalFiles, targetMap);
+
+      // Build the per-repo AbsolutePath-keyed map for caching.
+      const fullData = new Map<AbsolutePath, FileMetadata>();
+      for (const [filePath, metadata] of historicalFiles) {
+        fullData.set(asAbsolutePath(normalizePath(path.join(folder.path, filePath))), metadata);
+      }
+      return { error: undefined, fullData };
     } catch (error) {
       const errorMessage = String(error);
       if (errorMessage.includes("your current branch does not have any commits yet")) {
         log(`No commits yet in repo ${folder.name}/${repoRelativePath || "root"}`);
         if (targetMap.size === filesBefore) {
           return {
-            message: "This repository has no commits yet. Add and commit files to see them here.",
-            isPathspecError: false,
+            error: { message: "This repository has no commits yet. Add and commit files to see them here.", isPathspecError: false },
+            fullData: new Map(),
           };
         }
       } else {
@@ -94,13 +120,13 @@ export class DataCollector {
         );
         if (targetMap.size === filesBefore) {
           return {
-            message: `Git error: ${errorMessage}`,
-            isPathspecError: pathspec !== undefined,
+            error: { message: `Git error: ${errorMessage}`, isPathspecError: pathspec !== undefined },
+            fullData: new Map(),
           };
         }
       }
     }
-    return undefined;
+    return { error: undefined, fullData: new Map() };
   }
 
   /**

@@ -4,21 +4,17 @@ import { log } from "../extension/logger";
 import { getFileFromHistoryAsBuffer } from "../git/gitOperations";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { normalizePath } from "../utils";
-import { WorkspaceFolderProvider, RefreshableProvider, findRepoForFile } from "../types";
+import { findRepoForFile } from "../types";
 import { asAbsolutePath } from "../pathTypes";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
-
-/**
- * Interface for a provider that can work with deleted files
- */
-export interface DeletedFileProvider extends WorkspaceFolderProvider, RefreshableProvider {}
+import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 
 /**
  * Helper function to get deleted file content as Buffer (for binary/non-UTF8 files)
  */
 async function getDeletedFileContentAsBuffer(
   item: FreshFileItem,
-  provider: DeletedFileProvider,
+  provider: FreshFileProvider,
 ): Promise<{ content: Buffer; relativePath: string } | undefined> {
   const workspaceFolders = provider.workspaceFolders;
   if (workspaceFolders.length === 0) {
@@ -47,7 +43,7 @@ async function getDeletedFileContentAsBuffer(
   return { content, relativePath };
 }
 
-export async function handleExhume(item: FreshFileItem, provider: DeletedFileProvider): Promise<void> {
+export async function handleExhume(item: FreshFileItem, provider: FreshFileProvider): Promise<void> {
   if (!item || !item.resourceUri || !item.isDeleted) {
     return;
   }
@@ -88,7 +84,7 @@ export async function handleExhume(item: FreshFileItem, provider: DeletedFilePro
 export async function handleResurrect(
   item: FreshFileItem,
   selectedItems: FreshFileItem[] | undefined,
-  provider: DeletedFileProvider,
+  provider: FreshFileProvider,
 ): Promise<void> {
   const workspaceFolders = provider.workspaceFolders;
   if (workspaceFolders.length === 0) {
@@ -182,7 +178,7 @@ export async function handleResurrect(
       // Open the single resurrected file
       await vscode.commands.executeCommand("vscode.open", deletedItems[0].resourceUri);
     }
-    provider.refresh();
+    await provider.refreshPending();
   }
 
   if (errors.length > 0) {

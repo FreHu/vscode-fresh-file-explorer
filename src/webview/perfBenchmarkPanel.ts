@@ -8,6 +8,9 @@ const resultsDiv      = document.getElementById("results")     as HTMLDivElement
 const statsBtn        = document.getElementById("statsBtn")    as HTMLButtonElement;
 const statsStatus     = document.getElementById("statsStatus") as HTMLDivElement;
 const statsSection    = document.getElementById("statsSection") as HTMLDivElement;
+const cacheStatsBtn     = document.getElementById("cacheStatsBtn")     as HTMLButtonElement;
+const cacheStatsStatus  = document.getElementById("cacheStatsStatus")  as HTMLDivElement;
+const cacheStatsSection = document.getElementById("cacheStatsSection") as HTMLDivElement;
 
 
 import type { 
@@ -29,6 +32,8 @@ interface ResultsMessage    { command: "results";    columns: BenchmarkColumnSpe
 interface ErrorMessage      { command: "error";      message: string; }
 interface StatsMessage      { command: "stats";      stats: RepoStats[]; }
 interface StatsErrMessage   { command: "statsError"; message: string; }
+interface CacheStatsMessage { command: "cacheStats";      stats: CacheRepoStats[]; }
+interface CacheStatsErrMsg  { command: "cacheStatsError"; message: string; }
 
 interface RepoStats {
   repoLabel: string;
@@ -40,6 +45,13 @@ interface RepoStats {
   hasCommitGraph: boolean;
   commitGraphPath: string;
   error?: string;
+}
+
+interface CacheRepoStats {
+  repoLabel: string;
+  repoPath: string;
+  entryCount: number;
+  sizeBytes: number;
 }
 
 let benchmarks: SerializableBenchmark[] = [];
@@ -114,9 +126,15 @@ statsBtn.addEventListener("click", () => {
   showStatsStatus("Loading…", "info");
   vscode.postMessage({ command: "getStats" });
 });
+cacheStatsBtn.addEventListener("click", () => {
+  cacheStatsBtn.disabled = true;
+  cacheStatsSection.style.display = "none";
+  cacheStatsSection.innerHTML = "";
+  showCacheStatsStatus("Loading\u2026", "info");
+  vscode.postMessage({ command: "getCacheStats" });
+});
 
-
-window.addEventListener("message", (event: MessageEvent<BenchmarksMessage | ResultsMessage | ErrorMessage | StatsMessage | StatsErrMessage>) => {
+window.addEventListener("message", (event: MessageEvent<BenchmarksMessage | ResultsMessage | ErrorMessage | StatsMessage | StatsErrMessage | CacheStatsMessage | CacheStatsErrMsg>) => {
   const msg = event.data;
   if (msg.command === "benchmarks") {
     benchmarks = msg.benchmarks;
@@ -151,6 +169,14 @@ window.addEventListener("message", (event: MessageEvent<BenchmarksMessage | Resu
   if (msg.command === "stats") {
     renderStats(msg.stats);
     statsBtn.disabled = false;
+  }
+  if (msg.command === "cacheStatsError") {
+    showCacheStatsStatus(msg.message, "error");
+    cacheStatsBtn.disabled = false;
+  }
+  if (msg.command === "cacheStats") {
+    renderCacheStats(msg.stats);
+    cacheStatsBtn.disabled = false;
   }
 });
 
@@ -330,3 +356,58 @@ function showStatsStatus(message: string, type: "info" | "error") {
 }
 
 function hideStatsStatus() { statsStatus.style.display = "none"; }
+
+function showCacheStatsStatus(message: string, type: "info" | "error") {
+  cacheStatsStatus.textContent = message;
+  cacheStatsStatus.style.color = type === "error" ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)";
+  cacheStatsStatus.style.display = "";
+}
+
+function hideCacheStatsStatus() { cacheStatsStatus.style.display = "none"; }
+
+function renderCacheStats(stats: CacheRepoStats[]) {
+  hideCacheStatsStatus();
+  cacheStatsSection.innerHTML = "";
+
+  if (stats.length === 0 || stats.every(s => s.entryCount === 0)) {
+    const msg = document.createElement("p");
+    msg.style.color = "var(--vscode-descriptionForeground)";
+    msg.textContent = "Cache is empty. Load the tree first to populate the cache.";
+    cacheStatsSection.appendChild(msg);
+    cacheStatsSection.style.display = "";
+    return;
+  }
+
+  for (const s of stats) {
+    const block = document.createElement("div");
+    block.style.marginBottom = "24px";
+
+    if (stats.length > 1) {
+      const heading = document.createElement("h3");
+      heading.style.margin = "0 0 8px";
+      heading.style.fontSize = "1em";
+      heading.textContent = s.repoLabel;
+      block.appendChild(heading);
+    }
+
+    const rows: [string, string][] = [
+      ["Cached entries", s.entryCount.toLocaleString()],
+      ["Cache size",     formatNumber(s.sizeBytes, "bytes")],
+    ];
+
+    const table = document.createElement("table");
+    table.className = "stats-table";
+    const tbody = table.createTBody();
+    for (const [label, value] of rows) {
+      const tr = tbody.insertRow();
+      const tdLabel = tr.insertCell();
+      const tdValue = tr.insertCell();
+      tdLabel.textContent = label;
+      tdValue.textContent = value;
+    }
+    block.appendChild(table);
+    cacheStatsSection.appendChild(block);
+  }
+
+  cacheStatsSection.style.display = "";
+}

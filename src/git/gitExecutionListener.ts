@@ -145,6 +145,7 @@ export async function setupGitExtensionListener(
 
       let needsFullRefresh = force;
       let needsPendingRefresh = false;
+      let needsBranchOnlyUpdate = false;
 
       if (!force) {
         for (const repo of api.repositories) {
@@ -160,7 +161,14 @@ export async function setupGitExtensionListener(
             // extension simply hadn't finished initialising when we snapshotted it;
             // the in-progress load will naturally capture the correct state.
             if (prev.commit !== undefined || prev.branch !== undefined) {
-              needsFullRefresh = true;
+              if (prev.commit !== curr.commit) {
+                // Commit changed — files may differ, need full git log refresh.
+                needsFullRefresh = true;
+              } else {
+                // Only branch name changed with the same commit (e.g. `git checkout -b new-branch`).
+                // No file content changed, so skip git log and just update branch labels / sync warnings.
+                needsBranchOnlyUpdate = true;
+              }
             }
           } else if (prev.indexLength !== curr.indexLength || prev.workingTreeLength !== curr.workingTreeLength) {
             needsPendingRefresh = true;
@@ -177,6 +185,9 @@ export async function setupGitExtensionListener(
         log("Git commit or branch changed, doing full refresh");
         await updateSyncWarnings(api, true);
         freshFileProvider.refresh();
+      } else if (needsBranchOnlyUpdate) {
+        log("New branch created from same commit — updating branch labels and sync warnings only");
+        await updateSyncWarnings(api);
       } else if (needsPendingRefresh) {
         // Check if a file-save-triggered refreshPending() already ran while
         // the debounce was counting down. If so, just re-snapshot and skip.

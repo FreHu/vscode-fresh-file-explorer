@@ -120,6 +120,11 @@ export function createTimeWindowQuickPick(
   quickPick.canSelectMany = false;
   quickPick.placeholder = "Select time window for fresh files";
 
+  const currentItem = items.find(i => i.description === "(current)");
+  if (currentItem) {
+    quickPick.activeItems = [currentItem];
+  }
+
   return quickPick;
 }
 

@@ -781,7 +781,7 @@
         "freshFileExplorer.description.showLineChanges": {
           "type": "boolean",
           "default": false,
-          "description": "Show line additions/deletions (+/-) in file descriptions. This requires an additional call to git log and may slow down loading for large repositories."
+          "description": "Show line additions/deletions (+/-) in file descriptions for pending changes."
         },
         "freshFileExplorer.autoExpandDepth": {
           "type": "number",
@@ -806,7 +806,12 @@
             90,
             180
           ],
-          "description": "List of day values for time window options. 'Pending changes' is always available."
+          "description": "List of day values for time window options (e.g. 14 = up to 14 days ago). 'Pending changes' is always available. Commit history up to your highest defined time window will be preloaded in the background to enable near instant switching between windows."
+        },
+        "freshFileExplorer.incrementalTreeLoading": {
+          "type": "boolean",
+          "default": false,
+          "description": "Update the fresh file tree progressively, adding data for each configured time window as it becomes available. When disabled, updates fire when repositories are found, when pending changes are ready, and when your selected time window is ready."
         },
         "freshFileExplorer.gitTimeout": {
           "type": "number",
@@ -830,7 +835,7 @@
           "default": 4000,
           "minimum": 1000,
           "maximum": 500000,
-          "description": "Maximum length for search include pattern per batch. When exceeded, files are split into multiple search editor tabs."
+          "description": "Maximum length for search include pattern per batch. When exceeded, files are split into multiple search editor tabs. This affects features 'search in fresh files' and 'search in found files' in cases where the search covers a large number of files."
         },
         "freshFileExplorer.openSearchInEditor": {
           "type": "boolean",
