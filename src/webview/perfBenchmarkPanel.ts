@@ -139,13 +139,20 @@ window.addEventListener("message", (event: MessageEvent<BenchmarksMessage | Resu
   if (msg.command === "benchmarks") {
     benchmarks = msg.benchmarks;
     benchmarkSelect.innerHTML = "";
-    for (const bm of benchmarks) {
+    if (benchmarks.length === 0) {
       const opt = document.createElement("option");
-      opt.value = bm.name;
-      opt.textContent = bm.name;
+      opt.textContent = "No benchmarks defined";
+      opt.disabled = true;
+      opt.selected = true;
       benchmarkSelect.appendChild(opt);
-    }
-    if (benchmarks.length > 0) {
+      inputFormDiv.innerHTML = `<p class="help-text" style="font-style:italic;">No benchmarks are currently defined. Add a <code>Benchmark</code> to <code>PerfBenchmarkPanel._initialize()</code> to run one here.</p>`;
+    } else {
+      for (const bm of benchmarks) {
+        const opt = document.createElement("option");
+        opt.value = bm.name;
+        opt.textContent = bm.name;
+        benchmarkSelect.appendChild(opt);
+      }
       renderInputForm(benchmarks[0]);
       runBtn.disabled = false;
     }

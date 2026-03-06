@@ -1,7 +1,8 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { parseGitLogNameStatus } from "../../git/gitOperations";
+import { createNameStatusLineProcessor } from "../../git/gitOperations";
+import type { CommitData } from "../../types";
 
 // ---------------------------------------------------------------------------
 // Fixture: real git log --name-status output from this repository
@@ -19,6 +20,15 @@ const FIXTURE = fs.readFileSync(
 
 function lines(...strs: string[]): string {
   return strs.join("\n");
+}
+
+function parseGitLogNameStatus(raw: string, repoRelativePath: string): Map<string, { status: string; commit: CommitData }> {
+  const map = new Map<string, { status: string; commit: CommitData }>();
+  const processLine = createNameStatusLineProcessor(repoRelativePath, (relativePath, status, commit) => {
+    if (!map.has(relativePath)) map.set(relativePath, { status, commit });
+  });
+  for (const line of raw.split("\n")) processLine(line);
+  return map;
 }
 
 // ---------------------------------------------------------------------------

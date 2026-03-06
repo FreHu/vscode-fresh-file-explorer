@@ -5,7 +5,6 @@ import { execGitWithArgs, discoverReposInWorkspace } from "../git/gitOperations"
 import { getWebviewHtml } from "./perfBenchmarkPanelUI";
 import { Benchmark, BenchmarkInputValues } from "../benchmark/benchmark";
 import { RepoInfo } from "../git/gitOperations";
-import { createGitLogBenchmark, createGitLogStreamBenchmark } from "../benchmark/gitLogBenchmark";
 import { CacheRepoStats } from "../fresh-files/freshFileProvider";
 
 /**
@@ -100,10 +99,8 @@ export class PerfBenchmarkPanel {
   }
 
   private async _initialize() {
-    const repos = await discoverReposInWorkspace(this._workspaceFolders, this._workspaceFolders.length);
     this._benchmarks = [
-      createGitLogBenchmark(repos),
-      createGitLogStreamBenchmark(repos),
+      // Add Benchmark instances here.
     ];
     this._sendBenchmarkSpecs();
   }

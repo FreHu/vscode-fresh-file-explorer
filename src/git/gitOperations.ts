@@ -459,10 +459,8 @@ export async function collectPendingChanges(
  * Stateful line processor for `git log --name-status` output.
  * Calls `onFileEntry` for every file entry parsed, passing the workspace-relative
  * path, the git status code, and the enclosing commit.
- * Extracted for testability — both `parseGitLogNameStatus` and
- * `streamGitLogNameStatus` use this.
  */
-function createNameStatusLineProcessor(
+export function createNameStatusLineProcessor(
   repoRelativePath: string,
   onFileEntry: (relativePath: string, status: string, commit: CommitData) => void,
 ): (line: string) => void {
@@ -513,35 +511,6 @@ function createNameStatusLineProcessor(
   };
 }
 
-/**
- * Parse raw `git log --name-status` text into a map of file paths to their
- * most-recent (first-seen) commit info.
- * Pure function with no I/O — suitable for unit testing.
- *
- * @param raw              Full text output from git.
- * @param repoRelativePath Repo root relative to workspace root (empty for root repo).
- */
-export function parseGitLogNameStatus(
-  raw: string,
-  repoRelativePath: string,
-): Map<string, { status: string; commit: CommitData }> {
-  const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
-  const processLine = createNameStatusLineProcessor(repoRelativePath, (relativePath, status, commit) => {
-    if (!fileStatusMap.has(relativePath)) {
-      fileStatusMap.set(relativePath, { status, commit });
-    }
-  });
-  for (const line of raw.split("\n")) {
-    processLine(line);
-  }
-  return fileStatusMap;
-}
-
-/**
- * Execute `git log --name-status` and stream/parse output line-by-line.
- * Avoids buffering the entire output in memory, which can reach 10+ MB on
- * large repositories.
- */
 /**
  * Spawn `git` with the given args and call `onLine` for every complete line of
  * stdout output. Handles the line-buffer split, stderr collection, error and
@@ -669,16 +638,15 @@ export function streamGitLogNameStatusWithProgress(
 }
 
 /**
- * Stateful line processor for `git log --numstat` output.
- * Skips `__COMMIT__` header lines; calls onEntry for data lines.
+ * Stateful line processor for `git diff --numstat` output (no commit headers).
+ * Calls `onEntry` for each valid, non-binary line.
  */
-function createNumstatLineProcessor(
-  repoRelativePath: string,
-  onEntry: (relativePath: string, added: number, deleted: number) => void,
+export function createDiffNumstatLineProcessor(
+  onEntry: (fileName: string, added: number, deleted: number) => void,
 ): (line: string) => void {
   return function processLine(rawLine: string) {
     const line = rawLine.trim();
-    if (!line || line.startsWith("__COMMIT__")) {
+    if (!line) {
       return;
     }
     const parts = line.split("\t");
@@ -695,55 +663,8 @@ function createNumstatLineProcessor(
       return;
     }
     const fileName = decodeGitPath(filePath);
-    const fileRelativePath = repoRelativePath ? repoRelativePath + "/" + fileName : fileName;
-    onEntry(fileRelativePath, added, deleted);
+    onEntry(fileName, added, deleted);
   };
-}
-
-/** Pure parse of `git log --numstat` output. Workspace-relative keys, first-wins dedup. */
-export function parseGitLogNumstat(
-  raw: string,
-  repoRelativePath: string,
-): Map<string, { added: number; deleted: number }> {
-  const map = new Map<string, { added: number; deleted: number }>();
-  const processLine = createNumstatLineProcessor(repoRelativePath, (rel, added, deleted) => {
-    if (!map.has(rel)) {
-      map.set(rel, { added, deleted });
-    }
-  });
-  for (const line of raw.split("\n")) {
-    processLine(line);
-  }
-  return map;
-}
-
-/** Pure parse of `git diff --numstat` output (no commit headers). Repo-relative keys. */
-export function parseGitDiffNumstat(raw: string): Map<string, { added: number; deleted: number }> {
-  const map = new Map<string, { added: number; deleted: number }>();
-  for (const rawLine of raw.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) {
-      continue;
-    }
-    const parts = line.split("\t");
-    if (parts.length !== 3) {
-      continue;
-    }
-    const [additions, deletions, filePath] = parts;
-    if (additions === "-" || deletions === "-") {
-      continue; // binary
-    }
-    const added = parseInt(additions, 10);
-    const deleted = parseInt(deletions, 10);
-    if (isNaN(added) || isNaN(deleted)) {
-      continue;
-    }
-    const fileName = decodeGitPath(filePath);
-    if (!map.has(fileName)) {
-      map.set(fileName, { added, deleted });
-    }
-  }
-  return map;
 }
 
 /** Streaming `git diff --numstat`. Repo-relative keys. */
@@ -753,29 +674,11 @@ export function streamGitDiffNumstat(
   timeout: number | undefined,
 ): Promise<Map<string, { added: number; deleted: number }>> {
   const map = new Map<string, { added: number; deleted: number }>();
-  const processLine = (rawLine: string) => {
-    const line = rawLine.trim();
-    if (!line) {
-      return;
-    }
-    const parts = line.split("\t");
-    if (parts.length !== 3) {
-      return;
-    }
-    const [additions, deletions, filePath] = parts;
-    if (additions === "-" || deletions === "-") {
-      return; // binary
-    }
-    const added = parseInt(additions, 10);
-    const deleted = parseInt(deletions, 10);
-    if (isNaN(added) || isNaN(deleted)) {
-      return;
-    }
-    const fileName = decodeGitPath(filePath);
+  const processLine = createDiffNumstatLineProcessor((fileName, added, deleted) => {
     if (!map.has(fileName)) {
       map.set(fileName, { added, deleted });
     }
-  };
+  });
   return spawnGitLines(args, cwd, timeout, processLine).then(() => map);
 }
 
