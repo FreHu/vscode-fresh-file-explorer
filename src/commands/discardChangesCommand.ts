@@ -7,7 +7,7 @@ import { findRepoForFile } from "../types";
 import { discardFileChanges } from "../git/gitOperations";
 import { isPathWithinRoot } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
-import { log } from "../extension/logger";
+import { log, showError, showInfo } from "../extension/logger";
 import { asAbsolutePath } from "../pathTypes";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 
@@ -18,10 +18,8 @@ export async function handleDiscardChanges(
   selectedItems: FreshFileItem[] | undefined,
   freshFileProvider: FreshFileProvider,
 ): Promise<void> {
-  if (freshFileProvider.workspaceFolders.length === 0) {
-    vscode.window.showErrorMessage("No workspace folder open");
-    return;
-  }
+
+  if (freshFileProvider.warnIfNoWorkspaceFolders()) return undefined;
 
   // Get items to discard - ONLY from explicit selection, filter to pending files only
   const allItems = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
@@ -30,7 +28,7 @@ export async function handleDiscardChanges(
   if (pendingItems.length === 0) {
     // this is not supposed to be reachable as the discard menu action should be visible only for pending changes.
     // but perhaps a keybind could do it if there was one
-    vscode.window.showInformationMessage("Discard changes is only available for modified files in pending changes.");
+    showInfo("Discard changes is only available for modified files in pending changes.");
     return;
   }
 
@@ -95,7 +93,7 @@ export async function handleDiscardChanges(
     }
 
     if (errors.length > 0) {
-      vscode.window.showErrorMessage(`Failed to discard: ${errors.join(", ")}`);
+      showError(`Failed to discard: ${errors.join(", ")}`);
     }
     if (successCount > 0) {
       // Discarding an untracked file removes it from disk, which can change the isDeleted

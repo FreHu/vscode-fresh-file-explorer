@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
-import { log } from "../extension/logger";
+import { log, showError } from "../extension/logger";
 import { asAbsolutePath } from "../pathTypes";
 import { findWorkspaceFolderForPath, isPathWithinRoot } from "../utils/pathUtils";
 
@@ -73,8 +73,8 @@ async function createFilesInDirectory(
 ): Promise<void> {
   // Validate target directory is within workspace
   if (!isPathWithinRoot(asAbsolutePath(targetDir), asAbsolutePath(workspaceRootPath))) {
-    vscode.window.showErrorMessage("Cannot create file outside workspace");
-    log(`Path traversal attempt blocked: ${targetDir}`, "warn");
+    showError("Cannot create file outside workspace", 
+      `Path traversal attempt blocked: ${targetDir}`);
     return;
   }
 
@@ -96,7 +96,7 @@ async function createFilesInDirectory(
 
   const resolved = resolveInputToPaths(input, targetDir, workspaceRootPath);
   if (resolved.kind === "error") {
-    vscode.window.showErrorMessage(resolved.message);
+    showError(resolved.message);
     if (resolved.isTraversalAttempt) {
       log(`Path traversal attempt blocked: ${resolved.message}`, "warn");
     }
@@ -111,7 +111,7 @@ async function createFilesInDirectory(
   // Check existence for all resolved paths before creating any
   for (const filePath of filePaths) {
     if (fs.existsSync(filePath)) {
-      vscode.window.showErrorMessage(`File already exists: ${path.basename(filePath)}`);
+      showError(`File already exists: ${path.basename(filePath)}`);
       return;
     }
   }
@@ -151,16 +151,14 @@ export async function handleCreateFileNextTo(
 
     const folder = findWorkspaceFolderForPath(asAbsolutePath(targetPath), provider.workspaceFolders);
     if (!folder) {
-      vscode.window.showErrorMessage("Could not determine workspace folder for this item");
-      log(`Failed to find workspace folder for ${targetPath}`, "error");
+      showError(`Could not determine workspace folder for ${targetPath}`, true);
       return;
     }
 
     await createFilesInDirectory(targetDir, folder.path, provider);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    vscode.window.showErrorMessage(`Failed to create file: ${errorMsg}`);
-    log(`Error creating file: ${errorMsg}`, "error");
+    showError(`Failed to create file: ${errorMsg}`, true);
   }
 }
 
@@ -177,15 +175,13 @@ export async function handleCreateFileInside(
 
     const folder = findWorkspaceFolderForPath(asAbsolutePath(targetDir), provider.workspaceFolders);
     if (!folder) {
-      vscode.window.showErrorMessage("Could not determine workspace folder for this folder");
-      log(`Failed to find workspace folder for ${targetDir}`, "error");
+      showError(`Could not determine workspace folder for folder ${targetDir}`, true);
       return;
     }
 
     await createFilesInDirectory(targetDir, folder.path, provider);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    vscode.window.showErrorMessage(`Failed to create file: ${errorMsg}`);
-    log(`Error creating file: ${errorMsg}`, "error");
+    showError(`Failed to create file: ${errorMsg}`, true);
   }
 }

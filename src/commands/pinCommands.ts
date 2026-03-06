@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
+import { showWarning } from "../extension/logger";
 
 /**
  * Pin file(s) to the pinned items folder
@@ -37,7 +38,7 @@ export async function handlePinFile(
   }
 
   if (filePaths.length === 0) {
-    vscode.window.showWarningMessage("No files selected to pin");
+    showWarning("No files selected to pin");
     return;
   }
 
@@ -58,7 +59,7 @@ export function handleUnpinFile(
   const pinnedFiles = items.filter(i => i.contextValue === "pinnedFile");
 
   if (pinnedFiles.length === 0) {
-    vscode.window.showWarningMessage("No pinned files selected");
+    showWarning("No pinned files selected");
     return;
   }
 

@@ -4,6 +4,7 @@ import { DiffSearchResultProvider } from "../diff-search/diffSearchResultProvide
 import { DiffSearchMatchItem } from "../diff-search/diffSearchTreeItems";
 import { gitUri } from "../git/gitOperations";
 import { DiffSearchPanel } from "../diff-search/diffSearchPanel";
+import { showError, showInfo } from "../extension/logger";
 
 /**
  * Open a diff match in the editor
@@ -111,7 +112,7 @@ export async function handleOpenDiffMatch(matchItem: DiffSearchMatchItem): Promi
     }
 
   } catch (error: any) {
-    vscode.window.showErrorMessage(`Failed to open diff: ${error.message || error}`);
+    showError(`Failed to open diff: ${error.message || error}`);
   }
 }
 
@@ -120,7 +121,7 @@ export async function handleOpenDiffMatch(matchItem: DiffSearchMatchItem): Promi
  */
 export async function handleClearDiffSearch(diffSearchResultProvider: DiffSearchResultProvider): Promise<void> {
   diffSearchResultProvider.clear();
-  vscode.window.showInformationMessage("Diff search results cleared");
+  showInfo("Diff search results cleared");
 }
 
 /**
@@ -140,7 +141,7 @@ export async function handleGitPickaxe(
       const lines = selected.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       if (lines.length > 1) {
         pattern = lines[0];
-        vscode.window.showInformationMessage(
+        showInfo(
           "Diff search is line-by-line — multiline selection was reduced to the first line."
         );
       } else {

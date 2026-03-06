@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
-import { log } from "../extension/logger";
+import { log, showInfo, showWarning } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
 import { FileMetadata } from "../types";
 import { isPendingChangesMode } from "../fresh-files/timeWindowUtils";
@@ -334,22 +334,20 @@ export async function handleQuickPickFile(
   );
 
   if (!dataAvailable) {
-    vscode.window.showInformationMessage("No Git repositories found in workspace");
-    log("Quick pick: No Git repositories available");
+    showInfo("No Git repositories found in workspace", "Quick pick: No Git repositories available");
     return;
   }
 
   const filesWithMetadata = provider.getVisibleFilesWithMetadata();
 
   if (filesWithMetadata.size === 0) {
-    vscode.window.showInformationMessage("No files available in Fresh File Explorer");
-    log("Quick pick: No files available");
+    showInfo("No files available in Fresh File Explorer", "Quick pick: No files available");
     return;
   }
 
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
-    vscode.window.showWarningMessage("No workspace folder open");
+    showWarning("No workspace folder open");
     return;
   }
 

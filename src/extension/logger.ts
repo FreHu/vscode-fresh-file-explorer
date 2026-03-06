@@ -28,3 +28,42 @@ export const logLevelIcons: Map<string, string> = new Map([
 export function showOutputChannel(): void {
   outputChannel?.show();
 }
+
+/**
+ * Shows an information message to the user, and optionally logs it.
+ * @param logMessage - Pass `true` to log the display message as-is, or a string to log a different message.
+ */
+export function showInfo(displayMessage: string, logMessage?: string | true): void {
+  showInfo(displayMessage);
+  if (logMessage === true) {
+    log(displayMessage);
+  } else if (typeof logMessage === "string") {
+    log(logMessage);
+  }
+}
+
+/**
+ * Shows a warning message to the user, and optionally logs it.
+ * @param logMessage - Pass `true` to log the display message as-is, or a string to log a different message.
+ */
+export function showWarning(displayMessage: string, logMessage?: string | true): void {
+  showWarning(displayMessage);
+  if (logMessage === true) {
+    log(displayMessage, "warn");
+  } else if (typeof logMessage === "string") {
+    log(logMessage, "warn");
+  }
+}
+
+/**
+ * Shows an error message to the user, and optionally logs it.
+ * @param logMessage - Pass `true` to log the display message as-is, or a string to log a different message.
+ */
+export function showError(displayMessage: string, logMessage?: string | true): void {
+  showError(displayMessage);
+  if (logMessage === true) {
+    log(displayMessage, "error");
+  } else if (typeof logMessage === "string") {
+    log(logMessage, "error");
+  }
+}

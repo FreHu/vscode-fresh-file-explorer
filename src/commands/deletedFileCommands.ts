@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { log } from "../extension/logger";
+import { log, showError } from "../extension/logger";
 import { getFileFromHistoryAsBuffer } from "../git/gitOperations";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { normalizePath } from "../utils";
@@ -16,15 +16,12 @@ async function getDeletedFileContentAsBuffer(
   item: FreshFileItem,
   provider: FreshFileProvider,
 ): Promise<{ content: Buffer; relativePath: string } | undefined> {
-  const workspaceFolders = provider.workspaceFolders;
-  if (workspaceFolders.length === 0) {
-    vscode.window.showErrorMessage("No workspace folder open");
-    return undefined;
-  }
+
+  if (provider.warnIfNoWorkspaceFolders()) return undefined;
 
   const folder = findWorkspaceFolderForPath(asAbsolutePath(item.resourceUri.fsPath), provider.workspaceFolders);
   if (!folder) {
-    vscode.window.showErrorMessage("Could not determine workspace folder for file");
+    showError("Could not determine workspace folder for file");
     return undefined;
   }
 
@@ -76,8 +73,7 @@ export async function handleExhume(item: FreshFileItem, provider: FreshFileProvi
     log(`Opened deleted file from temp: ${tempFile}`);
   } catch (error) {
     const errorMsg = String(error);
-    log(`Failed to view deleted file: ${errorMsg}`, "error");
-    vscode.window.showErrorMessage(`Failed to view deleted file: ${errorMsg}`);
+    showError(`Failed to view deleted file: ${errorMsg}`, true);
   }
 }
 
@@ -86,11 +82,8 @@ export async function handleResurrect(
   selectedItems: FreshFileItem[] | undefined,
   provider: FreshFileProvider,
 ): Promise<void> {
-  const workspaceFolders = provider.workspaceFolders;
-  if (workspaceFolders.length === 0) {
-    vscode.window.showErrorMessage("No workspace folder open");
-    return;
-  }
+
+  if (provider.warnIfNoWorkspaceFolders()) return;
 
   // Get items to resurrect - filter to deleted files only
   const allItems = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
@@ -182,6 +175,6 @@ export async function handleResurrect(
   }
 
   if (errors.length > 0) {
-    vscode.window.showErrorMessage(`Failed to resurrect file(s): ${errors.join(", ")}`);
+    showError(`Failed to resurrect file(s): ${errors.join(", ")}`);
   }
 }

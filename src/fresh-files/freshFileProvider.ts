@@ -18,7 +18,7 @@ import {
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "../utils/formatUtils";
-import { log } from "../extension/logger";
+import { log, showWarning } from "../extension/logger";
 import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem, isPinnedFolder, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
@@ -135,17 +135,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Set initial context - we're loading
     ContextManager.setLoading(true);
 
-    if (this.workspaceFolders.length === 0) {
-      log(`FreshFileProvider initialized with no workspace folders`);
-    } else if (this.workspaceFolders.length === 1) {
-      log(`FreshFileProvider initialized with workspace: ${this.workspaceFolders[0].name}`);
-    } else {
       log(
         `FreshFileProvider initialized with ${this.workspaceFolders.length} workspace folders: ${this.workspaceFolders
           .map(f => f.name)
           .join(", ")}`,
       );
-    }
   }
 
   initializeWorkspaceFolders(): void {
@@ -157,6 +151,17 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }));
   }
 
+  /** Shows warning if workspace folders are empty. If warning was shown, returns true */
+  warnIfNoWorkspaceFolders(): boolean {
+    const workspaceFolders = this.workspaceFolders;
+    if (workspaceFolders.length === 0) {
+      showWarning("No workspace folder open");
+      return true;
+    }
+
+    return false;
+  }
+
   /**
    * Initialize managers and load persisted settings.
    * Must be called after WorkspaceStateManager.initialize().
@@ -165,7 +170,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Initialize managers
     this.pinnedItemsManager.initialize(() => this.refreshTreeOnly());
     this.filterManager.initialize(() => this.refreshTreeOnly());
-    
+
     // Load persisted time window selection
     const persistedDays = WorkspaceStateManager.getSelectedTimeWindowDays();
     this.openChangesMode = WorkspaceStateManager.getOpenChangesMode();
@@ -177,7 +182,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     const storedFolderScopes = WorkspaceStateManager.getRepoFolderScopes();
     this.repoFolderScopes = new Map(Object.entries(storedFolderScopes));
-    
+
     // Set initial context for when clause
     ContextManager.setOpenChangesMode(this.openChangesMode);
 
@@ -910,7 +915,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Future consideration: A flat list view mode would be added here
     // It would bypass buildTree() and create a single sorted array from freshFiles.values()
     // The sortOrder state would be reused for consistent sorting behavior
-    
+
     // If grouping by author, build a different structure
     if (this.groupingMode === "author") {
       return GroupingViewBuilder.buildAuthorGroupedView(
@@ -1018,10 +1023,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         // File
         const filePath = asAbsolutePath(pinnedItem.id);
         const uri = vscode.Uri.file(filePath);
-        
+
         // Check if file exists in freshFiles to get metadata
         const metadata = this.freshFiles.get(filePath);
-        
+
         // Create file item
         const item = FreshFileItem.forFile(
           uri,
@@ -1034,7 +1039,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
         // Mark as pinned file for context menu
         item.contextValue = TreeItemContextValues.PINNED_FILE;
-        
+
         // Use unique ID to allow same file in both pinned and regular view
         item.id = createPinnedFileId(uri.fsPath);
 
@@ -1048,7 +1053,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           const dirPath = path.dirname(filePath);
           item.description = normalizePath(dirPath);
         }
-        
+
         // Tooltip shows git metadata if available
         if (metadata) {
           item.tooltip = formatFileTooltip(metadata);
@@ -1127,8 +1132,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const incrementalLoading = ConfigService.getincrementalTreeLoading();
     const thresholds = !pendingOnly
       ? (incrementalLoading
-          ? historicalWindows.map(tw => tw.days).filter(d => d <= histDays)
-          : [histDays])
+        ? historicalWindows.map(tw => tw.days).filter(d => d <= histDays)
+        : [histDays])
       : [];
 
     for (const folder of this.workspaceFolders) {
@@ -1226,7 +1231,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
             log(`Invalid pathspec "${badPathspec}" for ${normalizedRepoPath} — clearing and reloading`, "warn");
             this.repoPathspecs.delete(normalizedRepoPath);
             WorkspaceStateManager.setRepoPathspec(normalizedRepoPath, undefined);
-            vscode.window.showWarningMessage(
+            showWarning(
               `Invalid pathspec "${badPathspec}" was cleared. The tree will reload without it.`,
             );
             // Abort this load and start a fresh one without the bad pathspec.

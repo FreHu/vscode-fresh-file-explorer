@@ -3,7 +3,7 @@ import * as path from "path";
 
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
-import { log } from "../extension/logger";
+import { log, showError, showInfo } from "../extension/logger";
 import { gitUri, getCommitChanges, getCommitParent, getCommitSubject } from "../git/gitOperations";
 import { asAbsolutePath } from "../pathTypes";
 import { findRepoForFile } from "../types";
@@ -55,7 +55,7 @@ export async function handleOpenCommit(
     // Get the list of changed files
     const changes = await getCommitChanges(repoRoot, commitHash);
     if (changes.length === 0) {
-      vscode.window.showInformationMessage(`No changes found in commit ${shortHash}.`);
+      showInfo(`No changes found in commit ${shortHash}.`);
       return;
     }
 
@@ -135,7 +135,6 @@ export async function handleOpenCommit(
       reveal,
     });
   } catch (error: any) {
-    log(`Failed to open commit ${commitHash}: ${error.message}`, "error");
-    vscode.window.showErrorMessage(`Failed to open commit: ${error.message}`);
+    showError(`Failed to open commit: ${error.message}`, `Failed to open commit ${commitHash}: ${error.message}`);
   }
 }

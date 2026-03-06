@@ -1,5 +1,4 @@
-import * as vscode from "vscode";
-import { log } from "../extension/logger";
+import { log, showInfo } from "../extension/logger";
 import { createAuthorQuickPick, createCommitQuickPick } from "../utils/quickPick";
 import { setDifference } from "../utils/collectionUtils";
 import { AuthorData, CommitDataWithFileCount, CommitHash } from "../types";
@@ -31,7 +30,7 @@ export async function handleFilterByAuthor(filterProvider: FilterProvider): Prom
   const authors = filterProvider.getAvailableAuthors();
 
   if (authors.length === 0) {
-    vscode.window.showInformationMessage("No authors found in current view");
+    showInfo("No authors found in current view");
     return false;
   }
 
@@ -76,7 +75,7 @@ export async function handleFilterByCommit(filterProvider: FilterProvider): Prom
   const commits = filterProvider.getAvailableCommits();
 
   if (commits.length === 0) {
-    vscode.window.showInformationMessage("No commits found in current view");
+    showInfo("No commits found in current view");
     return false;
   }
 

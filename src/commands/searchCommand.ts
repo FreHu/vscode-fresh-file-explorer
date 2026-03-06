@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { ConfigService } from "../config/configService";
-import { log } from "../extension/logger";
+import { log, showError, showInfo, showWarning } from "../extension/logger";
 import { optimizeIncludePatterns } from "../utils/patternUtils";
 import { toRelativePaths } from "../utils/pathUtils";
 import { showPathFormatQuickPick } from "../utils/quickPick";
@@ -207,7 +207,7 @@ export async function handleCopyPathsFromSearchResults(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
 
   if (!editor || editor.document.uri.scheme !== "search-editor") {
-    vscode.window.showWarningMessage("This command must be run from a Search Editor");
+    showWarning("This command must be run from a Search Editor");
     return;
   }
 
@@ -215,7 +215,7 @@ export async function handleCopyPathsFromSearchResults(): Promise<void> {
   const filePaths = parseFilePathsFromSearchEditor(text);
 
   if (filePaths.length === 0) {
-    vscode.window.showWarningMessage(
+    showWarning(
       "No file paths found in the search results. Run the search first.",
     );
     return;
@@ -243,10 +243,7 @@ export async function handleCopyPathsFromSearchResults(): Promise<void> {
   const clipboardText = pathsToCopy.join("\n");
   await vscode.env.clipboard.writeText(clipboardText);
 
-  log(`Copied ${pathsToCopy.length} file path(s) to clipboard`);
-  vscode.window.showInformationMessage(
-    `Copied ${pathsToCopy.length} file path(s) to clipboard`,
-  );
+  showInfo(`Copied ${pathsToCopy.length} file path(s) to clipboard`, true);
 }
 
 /** * Opens all files from the current search editor's results.
@@ -255,7 +252,7 @@ export async function handleOpenAllFoundFiles(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
 
   if (!editor || editor.document.uri.scheme !== "search-editor") {
-    vscode.window.showWarningMessage("This command must be run from a Search Editor");
+    showWarning("This command must be run from a Search Editor");
     return;
   }
 
@@ -263,7 +260,7 @@ export async function handleOpenAllFoundFiles(): Promise<void> {
   const filePaths = parseFilePathsFromSearchEditor(text);
 
   if (filePaths.length === 0) {
-    vscode.window.showWarningMessage(
+    showWarning(
       "No file paths found in the search results. Run the search first.",
     );
     return;
@@ -305,7 +302,7 @@ export async function handleOpenAllFoundFiles(): Promise<void> {
 
   if (failedCount > 0) {
     const message = `Opened ${openedCount} file(s)${failedCount > 0 ? ` (${failedCount} failed)` : ""}`;
-    vscode.window.showWarningMessage(message);
+    showWarning(message);
   }
 }
 
@@ -317,7 +314,7 @@ export async function handlesearchInFoundFiles(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
 
   if (!editor || editor.document.uri.scheme !== "search-editor") {
-    vscode.window.showWarningMessage("This command must be run from a Search Editor");
+    showWarning("This command must be run from a Search Editor");
     return;
   }
 
@@ -325,7 +322,7 @@ export async function handlesearchInFoundFiles(): Promise<void> {
   const filePaths = parseFilePathsFromSearchEditor(text);
 
   if (filePaths.length === 0) {
-    vscode.window.showWarningMessage(
+    showWarning(
       "No file paths found in the search results.",
     );
     return;
@@ -338,7 +335,7 @@ export async function handlesearchInFoundFiles(): Promise<void> {
   const { batches, oversizedFiles } = batchFilesForSearch(filePaths);
 
   if (batches.length === 0) {
-    vscode.window.showErrorMessage("Unable to create search patterns for the given files");
+    showError("Unable to create search patterns for the given files");
     return;
   }
 
@@ -364,7 +361,7 @@ export async function handlesearchInFoundFiles(): Promise<void> {
     if (oversizedFiles.length > 0) {
       message += ` (${oversizedFiles.length} file(s) with very long paths may not be included)`;
     }
-    vscode.window.showInformationMessage(message);
+    showInfo(message);
   }
 }
 
@@ -377,12 +374,12 @@ export async function openSearchWithFiles(
   workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined,
 ): Promise<void> {
   if (filePaths.length === 0) {
-    vscode.window.showWarningMessage("No files to search");
+    showWarning("No files to search");
     return;
   }
 
   if (!workspaceFolders) {
-    vscode.window.showWarningMessage("No workspace folder open");
+    showWarning("No workspace folder open");
     return;
   }
 
@@ -390,7 +387,7 @@ export async function openSearchWithFiles(
   const { batches, oversizedFiles } = batchFilesForSearch(relativePatterns);
 
   if (batches.length === 0) {
-    vscode.window.showErrorMessage("Unable to create search patterns for the given files");
+    showError("Unable to create search patterns for the given files");
     return;
   }
 
@@ -404,7 +401,7 @@ export async function openSearchWithFiles(
     if (oversizedFiles.length > 0) {
       const fileList = oversizedFiles.slice(0, 3).join("\n");
       const moreText = oversizedFiles.length > 3 ? `\n...and ${oversizedFiles.length - 3} more` : "";
-      vscode.window.showWarningMessage(
+      showWarning(
         `${oversizedFiles.length} file(s) may not be searchable due to very long paths:\n${fileList}${moreText}`
       );
     }
@@ -435,6 +432,6 @@ export async function openSearchWithFiles(
       message += `\n\nNote: ${oversizedFiles.length} file(s) with very long paths may fail to search. Consider shortening your workspace path or folder structure.`;
     }
     
-    vscode.window.showInformationMessage(message);
+    showInfo(message);
   }
 }

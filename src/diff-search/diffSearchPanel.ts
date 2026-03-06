@@ -3,7 +3,7 @@ import { DiffSearchResultProvider } from "./diffSearchResultProvider";
 import { DiffMatch, searchHistoricalDiffs, searchPendingDiffs } from "./diffSearchParser";
 import { discoverReposInWorkspace } from "../git/gitOperations";
 import { AbsolutePath } from "../pathTypes";
-import { log } from "../extension/logger";
+import { log, showError, showInfo, showWarning } from "../extension/logger";
 import { formatGitCommand } from "../utils/formatUtils";
 import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
 import { DiffSearchParams, DiffSearchHistoryEntry } from "../webview/messages";
@@ -168,7 +168,7 @@ export class DiffSearchPanel {
     const sinceDays = days ?? -1; // null → -1 (unlimited)
 
     if (!pattern.trim()) {
-      vscode.window.showWarningMessage("Please enter a search pattern");
+      showWarning("Please enter a search pattern");
       return;
     }
 
@@ -177,7 +177,7 @@ export class DiffSearchPanel {
       try {
         new RegExp(pattern);
       } catch (error: any) {
-        vscode.window.showErrorMessage(`Invalid regex: ${error.message}`);
+        showError(`Invalid regex: ${error.message}`);
         return;
       }
     }
@@ -307,7 +307,7 @@ export class DiffSearchPanel {
           count: 0,
           gitCommand: buildSearchGitCommand(searchData),
         });
-        vscode.window.showInformationMessage(`Diff search complete: No matches found for "${pattern}"`);
+        showInfo(`Diff search complete: No matches found for "${pattern}"`);
       } else {
         this._panel.webview.postMessage({
           command: "searchComplete",
@@ -320,14 +320,13 @@ export class DiffSearchPanel {
         const uniqueCommits = countUniqueCommits(allMatches);
         
         if (uniqueCommits > 0) {
-          vscode.window.showInformationMessage(`Diff search complete: Found ${totalMatchCount} matches in ${uniqueCommits} commits`);
+          showInfo(`Diff search complete: Found ${totalMatchCount} matches in ${uniqueCommits} commits`);
         } else {
-          vscode.window.showInformationMessage(`Diff search complete: Found ${totalMatchCount} matches in pending changes`);
+          showInfo(`Diff search complete: Found ${totalMatchCount} matches in pending changes`);
         }
       }
     } catch (error: any) {
-      log(`Diff search error: ${error}`, "error");
-      vscode.window.showErrorMessage(`Search failed: ${error.message || error}`);
+      showError(`Search failed: ${error.message || error}`, `Diff search error: ${error}`);
       this._panel.webview.postMessage({
         command: "searchComplete",
         message: `Error: ${error.message || error}`,

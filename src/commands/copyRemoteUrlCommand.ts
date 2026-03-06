@@ -8,7 +8,7 @@ import { asAbsolutePath } from "../pathTypes";
 import { findRepoForFile } from "../types";
 import { normalizePath } from "../utils";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
-import { log } from "../extension/logger";
+import { log, showWarning } from "../extension/logger";
 
 /**
  * Normalize a Git remote URL to a plain HTTPS URL without credentials or .git suffix.
@@ -203,7 +203,7 @@ export async function handleCopyRemoteUrl(
   }
 
   if (failed.length > 0) {
-    vscode.window.showWarningMessage(
+    showWarning(
       `Copy Remote URL: could not resolve URL for: ${failed.join(", ")}`,
     );
   }

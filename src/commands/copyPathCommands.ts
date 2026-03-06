@@ -6,6 +6,7 @@ import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { toRelativePaths } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
 import { showPathFormatQuickPick } from "../utils/quickPick";
+import { showInfo } from "../extension/logger";
 
 function getItems(item: FreshFileItem, selectedItems: FreshFileItem[] | undefined): FreshFileItem[] {
   return selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
@@ -123,7 +124,7 @@ export async function handleCopySubtreeStructure(
     .sort();
 
   if (filesInSubtree.length === 0) {
-    vscode.window.showInformationMessage("No files found in this folder");
+    showInfo("No files found in this folder");
     return;
   }
 

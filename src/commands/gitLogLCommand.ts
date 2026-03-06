@@ -4,7 +4,7 @@ import { execGitWithArgs } from "../git/gitOperations";
 import { ConfigService } from "../config/configService";
 import { parseGitLogL } from "../git/gitLogLParser";
 import { GitLogLPanel } from "../logL/gitLogLPanel";
-import { log } from "../extension/logger";
+import { log, showWarning, showError } from "../extension/logger";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { formatGitCommand, escapeRegex, toForwardSlashes } from "../utils/formatUtils";
 export { formatGitCommand };
@@ -41,13 +41,13 @@ export function buildLArg(spec: LArgSpec): { lArg: string; label: string } {
 export async function handleGitLogL(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    vscode.window.showWarningMessage("No active editor.");
+    showWarning("No active editor.");
     return;
   }
 
   const fileUri = editor.document.uri;
   if (fileUri.scheme !== "file") {
-    vscode.window.showWarningMessage("git log -L only works on files on disk.");
+    showWarning("git log -L only works on files on disk.");
     return;
   }
 
@@ -56,7 +56,7 @@ export async function handleGitLogL(): Promise<void> {
   // Find the git repo root for this file
   const repoRoot = await findGitRoot(filePath);
   if (!repoRoot) {
-    vscode.window.showWarningMessage(`Could not find a git repository for: ${filePath}`);
+    showWarning(`Could not find a git repository for: ${filePath}`);
     return;
   }
 
@@ -79,7 +79,7 @@ export async function handleGitLogL(): Promise<void> {
   } else {
     const funcName = getSelectedWordOrText(editor);
     if (!funcName) {
-      vscode.window.showWarningMessage(
+      showWarning(
         "Could not determine a function name. Place the cursor on a name or select text."
       );
       return;
@@ -100,11 +100,10 @@ export async function handleGitLogL(): Promise<void> {
     GitLogLPanel.createOrShow(extensionUri, repoRoot, filePath, lArg, label, commits, formatGitCommand(args), "logL");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    log(`git log -L error: ${message}`, "error");
     if (message.includes("There is no path")) {
-      vscode.window.showWarningMessage("This file has no git history yet — it may be untracked or not yet committed.");
+      showWarning("This file has no git history yet — it may be untracked or not yet committed.", `git log -L error: ${message}`);
     } else {
-      vscode.window.showErrorMessage(`git log -L failed: ${message}`);
+      showError(`git log -L failed: ${message}`, `git log -L error: ${message}`);
     }
   }
 }
@@ -123,7 +122,7 @@ export async function handlegitLogFile(item?: FreshFileItem): Promise<void> {
   } else {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.uri.scheme !== "file") {
-      vscode.window.showWarningMessage("No file to trace history for.");
+      showWarning("No file to trace history for.");
       return;
     }
     filePath = editor.document.uri.fsPath;
@@ -131,7 +130,7 @@ export async function handlegitLogFile(item?: FreshFileItem): Promise<void> {
 
   const repoRoot = await findGitRoot(filePath);
   if (!repoRoot) {
-    vscode.window.showWarningMessage(`Could not find a git repository for: ${filePath}`);
+    showWarning(`Could not find a git repository for: ${filePath}`);
     return;
   }
 
@@ -152,7 +151,7 @@ export async function handlegitLogFile(item?: FreshFileItem): Promise<void> {
     log(`git log file: parsed ${commits.length} commits`, "info");
 
     if (commits.length === 0) {
-      vscode.window.showWarningMessage("This file has no git history yet — it may be untracked or not yet committed.");
+      showWarning("This file has no git history yet — it may be untracked or not yet committed.");
       return;
     }
 
@@ -163,8 +162,7 @@ export async function handlegitLogFile(item?: FreshFileItem): Promise<void> {
     GitLogLPanel.createOrShow(extensionUri, repoRoot, filePath, lArg, label, commits, formatGitCommand(args), "fileHistory");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    log(`git log file error: ${message}`, "error");
-    vscode.window.showErrorMessage(`git log failed: ${message}`);
+    showError(`git log failed: ${message}`, `git log file error: ${message}`);
   }
 }
 

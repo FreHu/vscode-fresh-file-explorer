@@ -3,7 +3,7 @@ import * as path from "path";
 import { execGitWithArgs, gitUri, getCommitParent, getCommitChanges, getCommitSubject } from "../git/gitOperations";
 import { GitLogLCommit } from "../git/gitLogLParser";
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
-import { log } from "../extension/logger";
+import { log, showError, showInfo } from "../extension/logger";
 
 /**
  * Manages the Git Log -L webview panel (one per unique query).
@@ -170,8 +170,7 @@ export class GitLogLPanel {
       await vscode.commands.executeCommand("vscode.diff", uriA, uriB, title);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      log(`git log -L diff error: ${message}`, "error");
-      vscode.window.showErrorMessage(`Could not open diff: ${message}`);
+      showError(`Could not open diff: ${message}`, `git log -L diff error: ${message}`);
     }
   }
 
@@ -184,7 +183,7 @@ export class GitLogLPanel {
 
       const changes = await getCommitChanges(this._repoRoot, hash);
       if (changes.length === 0) {
-        vscode.window.showInformationMessage(`No changes found in commit ${shortHash}.`);
+        showInfo(`No changes found in commit ${shortHash}.`);
         return;
       }
 
@@ -223,8 +222,7 @@ export class GitLogLPanel {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      log(`git log -L open commit error: ${message}`, "error");
-      vscode.window.showErrorMessage(`Failed to open commit: ${message}`);
+      showError(`Failed to open commit: ${message}`, `git log -L open commit error: ${message}`);
     }
   }
 
@@ -237,7 +235,7 @@ export class GitLogLPanel {
       await vscode.window.showTextDocument(uri, { preview: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      vscode.window.showErrorMessage(`Could not open file: ${message}`);
+      showError(`Could not open file: ${message}`);
     }
   }
 

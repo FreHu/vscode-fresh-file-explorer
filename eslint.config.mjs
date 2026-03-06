@@ -41,7 +41,7 @@ export default [{
             ignoreRestSiblings: true,
         }],
 
-        curly: "warn",
+        curly: "off",
         eqeqeq: "warn",
         "no-throw-literal": "warn",
         semi: "warn",
