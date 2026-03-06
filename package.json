@@ -20,6 +20,18 @@
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "file-explorer",
+    "recent-files",
+    "modified-files",
+    "git",
+    "git-history",
+    "diff-search",
+    "pickaxe",
+    "git-log-l",
+    "heatmap",
+    "gitlens"
+  ],
   "main": "./out/extension.js",
   "activationEvents": ["*"],
   "capabilities": {
