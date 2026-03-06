@@ -20,24 +20,32 @@ export interface RepoLocationResult {
  * @returns Repository location information, or undefined if file doesn't belong to any repo
  */
 export function findRepoForFile(folder: WorkspaceFolderInfo, fileRelativePath: string): RepoLocationResult | undefined {
+  let best: RepoLocationResult | undefined;
+  let bestLen = -1;
+
   for (const repo of folder.gitRepos) {
     if (repo === "") {
-      // Folder root is the repo
-      return {
-        repoFullPath: folder.path,
-        repoRelativePath: "",
-        filePathInRepo: fileRelativePath,
-      };
-    } else if (fileRelativePath.startsWith(repo + "/")) {
-      // File is in a subdirectory repo
-      return {
+      // Folder root is the repo — matches everything, but only use as fallback
+      if (bestLen < 0) {
+        best = {
+          repoFullPath: folder.path,
+          repoRelativePath: "",
+          filePathInRepo: fileRelativePath,
+        };
+        bestLen = 0;
+      }
+    } else if (fileRelativePath.startsWith(repo + "/") && repo.length > bestLen) {
+      // File is in a subdirectory repo (submodule case) — prefer the deepest match
+      best = {
         repoFullPath: asAbsolutePath(path.join(folder.path, repo)),
         repoRelativePath: repo,
         filePathInRepo: fileRelativePath.substring(repo.length + 1),
       };
+      bestLen = repo.length;
     }
   }
-  return undefined;
+
+  return best;
 }
 
 /**

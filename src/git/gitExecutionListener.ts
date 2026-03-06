@@ -25,7 +25,8 @@ export async function setupGitExtensionListener(
 
     for (const repo of api.repositories) {
       const head = repo.state.HEAD;
-      if (!head?.name) {
+      // Skip detached HEADs and tag checkouts (type 0 = local branch; undefined = assume branch for safety)
+      if (!head?.name || (head.type !== undefined && head.type !== 0)) {
         continue;
       }
 
@@ -287,6 +288,7 @@ interface UpstreamRef {
 
 interface Branch {
   name?: string;
+  type?: number; // RefType: 0 = Head (branch), 1 = RemoteHead, 2 = Tag
   commit?: string;
   upstream?: UpstreamRef;
   ahead?: number;

@@ -8,6 +8,7 @@ import {
   collectPendingChanges,
   discoverGitReposInSubdirs,
   isGitRepository,
+  readGitModulesSubmodulePaths,
 } from "../git/gitOperations";
 
 /** Fully-resolved information about a single Git repository within a workspace folder. */
@@ -16,6 +17,8 @@ export interface RepoInfo {
   repoRelPath: string;
   repoFullPath: string;
   normalizedRepoPath: NormalizedRepoPath;
+  /** True when this repo was discovered as a git submodule of another repo. */
+  isSubmodule?: boolean;
 }
 
 /**
@@ -35,9 +38,42 @@ export class DataCollector {
       for (const repoRelPath of relPaths) {
         const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
         result.push({ folder, repoRelPath, repoFullPath, normalizedRepoPath: asNormalizedRepoPath(repoFullPath) });
+        await DataCollector.collectSubmoduleRepos(folder, repoFullPath, repoRelPath, result);
       }
     }
     return result;
+  }
+
+  /**
+   * Recursively discover submodules within a repo and append them as
+   * top-level RepoInfo entries. Skips uninitialized (empty) submodule directories.
+   */
+  private static async collectSubmoduleRepos(
+    folder: WorkspaceFolderInfo,
+    repoFullPath: string,
+    repoRelPath: string,
+    result: RepoInfo[],
+  ): Promise<void> {
+    const submodulePaths = await readGitModulesSubmodulePaths(repoFullPath);
+    for (const submoduleRelPath of submodulePaths) {
+      const submoduleFullPath = path.join(repoFullPath, submoduleRelPath);
+      const isInitialized = await isGitRepository(submoduleFullPath);
+      if (!isInitialized) {
+        log(`Skipping uninitialized submodule: ${submoduleRelPath}`);
+        continue;
+      }
+      const submoduleRepoRelPath = repoRelPath ? `${repoRelPath}/${submoduleRelPath}` : submoduleRelPath;
+      result.push({
+        folder,
+        repoRelPath: submoduleRepoRelPath,
+        repoFullPath: submoduleFullPath,
+        normalizedRepoPath: asNormalizedRepoPath(submoduleFullPath),
+        isSubmodule: true,
+      });
+
+      // Recurse to discover nested submodules
+      await DataCollector.collectSubmoduleRepos(folder, submoduleFullPath, submoduleRepoRelPath, result);
+    }
   }
 
   /**

@@ -107,6 +107,10 @@ constructor(
       fileCount,
     );
 
+    // Use a distinct id prefix so repo-root nodes never clash with directory nodes
+    // that share the same path (e.g. a submodule directory inside the parent repo tree).
+    item.id = "repo:" + uri.fsPath;
+
     item.label = repoName;
     if (isLoading) {
       item.description = "loading…";
@@ -232,7 +236,34 @@ export class NoteTreeItem extends vscode.TreeItem {
   }
 }
 
-export type FreshFilesTreeItem = FreshFileItem | MessageTreeItem | NoteTreeItem;
+/**
+ * Tree item representing a submodule directory entry inside a parent repo's tree.
+ * Uses a plain string label (no file URI)
+ */
+export class SubmoduleEntryItem extends vscode.TreeItem {
+  readonly isDirectory = false;
+  constructor(
+    public readonly submoduleFsPath: string,
+    parentPath: string,
+  ) {
+    const name = path.basename(submoduleFsPath);
+    super(name, vscode.TreeItemCollapsibleState.None);
+    // ID must be unique across the whole tree — include parent path to distinguish
+    // the same submodule appearing under multiple parent repos.
+    this.id = `submodule-entry:${parentPath}/${name}`;
+    this.description = "submodule";
+    this.tooltip = `Submodule: ${submoduleFsPath}`;
+    this.iconPath = new vscode.ThemeIcon("repo");
+    this.contextValue = "submoduleEntry";
+    this.command = {
+      command: Commands.FOCUS_SUBMODULE_REPO,
+      title: "Focus Submodule",
+      arguments: [submoduleFsPath],
+    };
+  }
+}
+
+export type FreshFilesTreeItem = FreshFileItem | MessageTreeItem | NoteTreeItem | SubmoduleEntryItem;
 
 /** Type guards for specific FreshFileItem contextValue variants */
 export function isPinnedFolder(el: FreshFilesTreeItem): el is FreshFileItem {

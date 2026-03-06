@@ -1,6 +1,14 @@
 import * as path from "path";
-import { FreshFileItem } from "./freshFileTreeItems";
+import { FreshFileItem, SubmoduleEntryItem } from "./freshFileTreeItems";
 import { SortOrder } from "../types";
+
+type SortableItem = FreshFileItem | SubmoduleEntryItem;
+
+function itemName(item: SortableItem): string {
+  return item instanceof SubmoduleEntryItem
+    ? path.basename(item.submoduleFsPath)
+    : path.basename(item.resourceUri.fsPath);
+}
 
 export class FreshFileItemSorter {
   /**
@@ -9,10 +17,10 @@ export class FreshFileItemSorter {
    * @param getAuthor Returns the author string for an item (empty string for directories).
    */
   static sort(
-    items: FreshFileItem[],
+    items: SortableItem[],
     sortOrder: SortOrder,
-    getDate: (item: FreshFileItem) => Date | undefined,
-    getAuthor: (item: FreshFileItem) => string,
+    getDate: (item: SortableItem) => Date | undefined,
+    getAuthor: (item: SortableItem) => string,
   ): void {
     items.sort((a, b) => {
       // For date sorting, don't separate directories and files.
@@ -35,7 +43,7 @@ export class FreshFileItemSorter {
           if (dateDiff !== 0) { return dateDiff; }
 
           // Tiebreaker: alphabetical by filename
-          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
+          return itemName(a).localeCompare(itemName(b));
         }
 
         case "author": {
@@ -43,13 +51,13 @@ export class FreshFileItemSorter {
           if (authorCompare !== 0) { return authorCompare; }
 
           // Tiebreaker: alphabetical by filename
-          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
+          return itemName(a).localeCompare(itemName(b));
         }
 
         case "name":
         default:
           // Alphabetical by filename (directories already sorted first above)
-          return path.basename(a.resourceUri.fsPath).localeCompare(path.basename(b.resourceUri.fsPath));
+          return itemName(a).localeCompare(itemName(b));
       }
     });
   }

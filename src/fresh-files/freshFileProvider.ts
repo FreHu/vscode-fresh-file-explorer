@@ -21,7 +21,7 @@ import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindow
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "../utils/formatUtils";
 import { log, showWarning } from "../extension/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, SubmoduleEntryItem, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
@@ -34,6 +34,7 @@ import { findWorkspaceFolderForPath, getRelativeDepth, getParentPathWithinWorksp
 import { FreshFileItemSorter } from "./freshFileItemSorter";
 import { ContextManager } from "../extension/contextManager";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { Commands } from "../commands/constants";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -105,6 +106,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   // Cached resolved repo list, populated after discovery and cleared on hard refresh.
   private _resolvedRepos: RepoInfo[] = [];
+
+  // Cache of the most-recently returned repo root FreshFileItem instances, keyed by id.
+  // Populated in buildRepoView so revealSubmoduleRepo can pass the exact same object
+  // instances that VS Code already registered (reveal() rejects freshly constructed duplicates).
+  private _repoItemCache: Map<string, FreshFileItem> = new Map();
 
   readonly historicalCache = new HistoricalFileCache();
 
@@ -253,6 +259,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.dataLoaded = false;
     this.reposDiscovered = false;
     this._resolvedRepos = [];
+    this._repoItemCache.clear();
     this.reposLoading.clear();
     this.reposLoadingHistorical.clear();
     this.refreshEpoch++;
@@ -838,6 +845,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         folderScopeDisplay,
         isLoadingHistorical,
       );
+      this._repoItemCache.set(repoItem.id!, repoItem);
       results.push(repoItem);
     }
     return results;
@@ -858,6 +866,33 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   /** All repos across all workspace folders with pre-computed absolute and normalized paths. */
   private get resolvedRepos(): RepoInfo[] {
     return this._resolvedRepos;
+  }
+
+  /** Set of normalized absolute paths that are submodule repository roots. */
+  private get submoduleRootPaths(): Set<AbsolutePath> {
+    const set = new Set<AbsolutePath>();
+    for (const repo of this._resolvedRepos) {
+      if (repo.isSubmodule) {
+        set.add(asAbsolutePath(normalizePath(repo.repoFullPath)));
+      }
+    }
+    return set;
+  }
+
+  /**
+   * Reveal and focus the repo node in the tree view that corresponds to
+   * the given submodule file-system path.
+   *
+   * Uses the cached item instance from the last buildRepoView pass so that VS Code
+   * receives the exact same object it already registered — constructing a new item
+   * with the same id causes an "already registered" error.
+   */
+  async revealSubmoduleRepo(fsPath: string): Promise<void> {
+    if (!this.treeView) { return; }
+    const repoItem = this._repoItemCache.get(`repo:${fsPath}`);
+    if (repoItem) {
+      await this.treeView.reveal(repoItem, { select: true, focus: true });
+    }
   }
 
   /** Returns true if a file passes the current visibility filters. */
@@ -1139,7 +1174,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return this._dirStats().get(asAbsolutePath(dirPath))?.mostRecent;
   }
 
-  private buildTree(parentPath: string): FreshFileItem[] {
+  private buildTree(parentPath: string): (FreshFileItem | SubmoduleEntryItem)[] {
     const normalizedParent = asAbsolutePath(parentPath);
 
     const directChildren = this.fileIndex.getDirectChildren(normalizedParent);
@@ -1155,7 +1190,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     );
     const autoExpandDepth = ConfigService.getAutoExpandDepth();
 
-    const items: FreshFileItem[] = [];
+    const items: (FreshFileItem | SubmoduleEntryItem)[] = [];
 
     for (const childPath of directChildren) {
       const isFile = this._freshFiles.has(childPath);
@@ -1167,6 +1202,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         const metadata = this._freshFiles.get(childPath)!;
         if (!this.filterManager.passesFilters(metadata)) { continue; }
         if (!this.passesRepoScope(childPath)) { continue; }
+
+        // Submodule roots are shown as a custom entry (no file URI) to work around weirdness with duplicates in the tree
+        if (this.submoduleRootPaths.has(childPath)) {
+          items.push(new SubmoduleEntryItem(fullPath, parentPath));
+          continue;
+        }
 
         const item = FreshFileItem.forFile(
           uri, this.openChangesMode,
@@ -1201,12 +1242,22 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     FreshFileItemSorter.sort(
       items,
       this.sortOrder,
-      (item) => item.isDirectory
-        ? dirStats.get(asAbsolutePath(item.resourceUri.fsPath))?.mostRecent
-        : this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.date,
-      (item) => item.isDirectory
-        ? ""
-        : (this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.author || ""),
+      (item) => {
+        if (item instanceof SubmoduleEntryItem) {
+          return this._freshFiles.get(asAbsolutePath(item.submoduleFsPath))?.date;
+        }
+        return item.isDirectory
+          ? dirStats.get(asAbsolutePath(item.resourceUri.fsPath))?.mostRecent
+          : this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.date;
+      },
+      (item) => {
+        if (item instanceof SubmoduleEntryItem) {
+          return this._freshFiles.get(asAbsolutePath(item.submoduleFsPath))?.author || "";
+        }
+        return item.isDirectory
+          ? ""
+          : (this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.author || "");
+      },
     );
 
     return items;

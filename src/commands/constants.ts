@@ -93,4 +93,7 @@ export const Commands = {
   // Folder scope (display-only filter, no git reload)
   SCOPE_TO_FOLDER: "freshFileExplorer.scopeToFolder",
   CLEAR_FOLDER_SCOPE: "freshFileExplorer.clearFolderScope",
+
+  // Submodule navigation
+  FOCUS_SUBMODULE_REPO: "freshFileExplorer.focusSubmoduleRepo",
 } as const;

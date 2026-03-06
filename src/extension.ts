@@ -207,6 +207,8 @@ function registerCommands(
       handleOpenFile(item, selectedItems, options),
   );
 
+  register(Commands.FOCUS_SUBMODULE_REPO, (fsPath: string) => freshFileProvider.revealSubmoduleRepo(fsPath));
+
   register(
     Commands.OPEN_CHANGES,
     (item: FreshFileItem, selectedItems?: FreshFileItem[], options?: { preserveFocus?: boolean }) =>

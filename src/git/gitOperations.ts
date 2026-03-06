@@ -221,6 +221,31 @@ export async function isGitRepository(dirPath: string): Promise<boolean> {
 }
 
 /**
+ * Parse a .gitmodules file and return the relative paths of all submodules.
+ * Returns an empty array if no .gitmodules file exists or it cannot be read.
+ */
+export async function readGitModulesSubmodulePaths(repoPath: string): Promise<string[]> {
+  const gitModulesPath = path.join(repoPath, ".gitmodules");
+  let content: string;
+  try {
+    content = await fs.promises.readFile(gitModulesPath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  const paths: string[] = [];
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^\s*path\s*=\s*(.+)\s*$/);
+    if (match) {
+      paths.push(match[1].trim());
+    }
+  }
+
+  log(`Found ${paths.length} submodule(s) in ${repoPath}: ${paths.join(", ")}`);
+  return paths;
+}
+
+/**
  * Check if a file exists on disk
  */
 export function fileExists(filePath: string): Promise<boolean> {
