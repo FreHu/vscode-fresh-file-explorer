@@ -6,7 +6,8 @@ import { parseGitLogL } from "../git/gitLogLParser";
 import { GitLogLPanel } from "../logL/gitLogLPanel";
 import { log, showWarning, showError } from "../extension/logger";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
-import { formatGitCommand, escapeRegex, toForwardSlashes } from "../utils/formatUtils";
+import { formatGitCommand, escapeRegex } from "../utils/formatUtils";
+import { normalizePath } from "../utils";
 export { formatGitCommand };
 
 export type LArgSpec =
@@ -65,7 +66,7 @@ export async function handleGitLogL(): Promise<void> {
   const isMultiLine = selection.start.line !== selection.end.line;
 
   // Path relative to the repo root (git expects forward slashes)
-  const relativePath = toForwardSlashes(nodePath.relative(repoRoot, filePath));
+  const relativePath = normalizePath(nodePath.relative(repoRoot, filePath));
   const fileName = nodePath.basename(filePath);
 
   let lArg: string;
@@ -134,7 +135,7 @@ export async function handlegitLogFile(item?: FreshFileItem): Promise<void> {
     return;
   }
 
-  const relativePath = toForwardSlashes(nodePath.relative(repoRoot, filePath));
+  const relativePath = normalizePath(nodePath.relative(repoRoot, filePath));
   const label = nodePath.basename(filePath);
   const lArg = `file:${relativePath}`; // used as panel dedup key only
 

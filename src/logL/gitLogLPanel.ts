@@ -4,6 +4,7 @@ import { execGitWithArgs, gitUri, getCommitParent, getCommitChanges, getCommitSu
 import { GitLogLCommit } from "../git/gitLogLParser";
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
 import { log, showError, showInfo } from "../extension/logger";
+import { normalizePath } from "../utils";
 
 /**
  * Manages the Git Log -L webview panel (one per unique query).
@@ -108,7 +109,7 @@ export class GitLogLPanel {
     for (const c of commits) {
       if (c.filePathAtCommit) { this._filePathByHash.set(c.hash, c.filePathAtCommit); }
     }
-    const currentRelative = toForwardSlashes(path.relative(this._repoRoot, this._filePath));
+    const currentRelative = normalizePath(path.relative(this._repoRoot, this._filePath));
     // Commits are newest-first. For each commit, the "newer neighbour" is the
     // commit at index i-1 (or currentRelative for the first entry). Only show
     // the rename badge when the path actually changes at this boundary.
@@ -244,7 +245,7 @@ export class GitLogLPanel {
    * read-only document backed by a ContentProvider registered in extension.ts.
    */
   private async _getGitShowUri(hash: string, displayName: string, filePathAtCommit?: string | null): Promise<vscode.Uri> {
-    const relativePath = filePathAtCommit ?? toForwardSlashes(path.relative(this._repoRoot, this._filePath));
+    const relativePath = filePathAtCommit ?? normalizePath(path.relative(this._repoRoot, this._filePath));
     const content = await execGitWithArgs(
       ["show", `${hash}:${relativePath}`],
       this._repoRoot,
@@ -282,8 +283,4 @@ export class GitLogLContentProvider implements vscode.TextDocumentContentProvide
   provideTextDocumentContent(uri: vscode.Uri): string {
     return this._store.get(uri.toString()) ?? "";
   }
-}
-
-function toForwardSlashes(p: string): string {
-  return p.replace(/\\/g, "/");
 }

@@ -341,13 +341,6 @@ export function escapeRegex(s: string): string {
 }
 
 /**
- * Convert all backslashes in a path to forward slashes.
- */
-export function toForwardSlashes(p: string): string {
-  return p.replace(/\\/g, "/");
-}
-
-/**
  * Format a git argument list as a human-readable command string.
  * Args containing spaces or special characters are single-quoted.
  */

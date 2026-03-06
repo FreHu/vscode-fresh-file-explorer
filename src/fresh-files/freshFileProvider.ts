@@ -135,11 +135,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Set initial context - we're loading
     ContextManager.setLoading(true);
 
-      log(
-        `FreshFileProvider initialized with ${this.workspaceFolders.length} workspace folders: ${this.workspaceFolders
-          .map(f => f.name)
-          .join(", ")}`,
-      );
+    log(
+      `FreshFileProvider initialized with ${this.workspaceFolders.length} workspace folders: ${this.workspaceFolders
+        .map(f => f.name)
+        .join(", ")}`,
+    );
   }
 
   initializeWorkspaceFolders(): void {

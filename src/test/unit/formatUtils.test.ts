@@ -5,7 +5,6 @@ import {
   formatDirectoryTooltip,
   formatRelativeDate,
   escapeRegex,
-  toForwardSlashes,
   getStatusLabel,
   truncate,
   formatLineChanges,
@@ -156,28 +155,6 @@ suite("Format Utils", () => {
 
     test("returns empty string for empty input", () => {
       assert.strictEqual(escapeRegex(""), "");
-    });
-  });
-
-  suite("toForwardSlashes", () => {
-    test("converts backslashes to forward slashes", () => {
-      assert.strictEqual(toForwardSlashes("src\\utils\\file.ts"), "src/utils/file.ts");
-    });
-
-    test("leaves forward slashes unchanged", () => {
-      assert.strictEqual(toForwardSlashes("src/utils/file.ts"), "src/utils/file.ts");
-    });
-
-    test("handles mixed separators", () => {
-      assert.strictEqual(toForwardSlashes("src\\utils/file.ts"), "src/utils/file.ts");
-    });
-
-    test("handles empty string", () => {
-      assert.strictEqual(toForwardSlashes(""), "");
-    });
-
-    test("handles UNC-style double backslash prefix", () => {
-      assert.strictEqual(toForwardSlashes("\\\\server\\share"), "//server/share");
     });
   });
 

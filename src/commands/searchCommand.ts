@@ -7,6 +7,7 @@ import { optimizeIncludePatterns } from "../utils/patternUtils";
 import { toRelativePaths } from "../utils/pathUtils";
 import { showPathFormatQuickPick } from "../utils/quickPick";
 import { AbsolutePath } from "../pathTypes";
+import { normalizePath } from "../utils";
 
 /**
  * Gets the maximum safe length for the include pattern to avoid ENAMETOOLONG errors.
@@ -233,7 +234,7 @@ export async function handleCopyPathsFromSearchResults(): Promise<void> {
   if (format === "absolute") {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const uris = convertRelativePathsToUris(filePaths, workspaceFolders);
-    pathsToCopy = uris.map(uri => uri.fsPath.replace(/\\/g, "/"));
+    pathsToCopy = uris.map(uri => normalizePath(uri.fsPath));
   } else if (format === "filename") {
     pathsToCopy = filePaths.map(f => path.basename(f));
   } else {
