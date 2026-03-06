@@ -147,15 +147,8 @@ export class DataCollector {
       return { error: undefined, fullData };
     } catch (error) {
       const errorMessage = String(error);
-      if (errorMessage.includes("your current branch does not have any commits yet")) {
-        log(`No commits yet in repo ${folder.name}/${repoRelativePath || "root"}`);
-        if (targetMap.size === filesBefore) {
-          return {
-            error: { message: "This repository has no commits yet. Add and commit files to see them here.", isPathspecError: false },
-            fullData: new Map(),
-          };
-        }
-      } else {
+      // no commits is fine - we'll end up showing "no fresh files" (or there might be pending changes)
+      if (!errorMessage.includes("does not have any commits yet")) {
         log(
           `Failed to get historical changes from ${folder.name}/${repoRelativePath || "root"}: ${errorMessage}`,
           "warn",

@@ -41,7 +41,6 @@ export class FilterManager {
   clearFilters(): void {
     this.excludedAuthors.clear();
     this.excludedCommits.clear();
-    log("Filters cleared");
     this.onChangeCallback?.();
   }
 

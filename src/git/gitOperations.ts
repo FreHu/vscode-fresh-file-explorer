@@ -137,83 +137,11 @@ export function decodeGitPath(gitPath: string): string {
 }
 
 /**
- * Execute a git command in a specific directory
- * @param command The git command to execute
- * @param cwd The working directory
- * @param options Optional settings: maxBuffer, timeout (ms), signal for cancellation
- */
-export function execGitInDir(
-  command: string,
-  cwd: string,
-  options: { maxBuffer?: number; timeout?: number; signal?: AbortSignal } = {},
-): Promise<string> {
-  const { maxBuffer = 50 * 1024 * 1024, timeout, signal } = options;
-  return new Promise((resolve, reject) => {
-    const child = cp.exec(command, { cwd, maxBuffer, timeout }, (error, stdout, stderr) => {
-      if (error) {
-        if (error.killed) {
-          reject("Git operation timed out");
-        } else {
-          const errorMsg = stderr || error.message;
-          reject(errorMsg);
-        }
-        return;
-      }
-      resolve(stdout);
-    });
-
-    // Support cancellation via AbortSignal
-    if (signal) {
-      signal.addEventListener("abort", () => {
-        child.kill();
-        reject("Git operation cancelled");
-      });
-    }
-  });
-}
-
-/**
- * Execute a git command and return raw buffer (for binary files)
- * @param command The git command to execute
- * @param cwd The working directory
- * @param options Optional settings: maxBuffer, timeout (ms), signal for cancellation
- */
-export function execGitInDirBuffer(
-  command: string,
-  cwd: string,
-  options: { maxBuffer?: number; timeout?: number; signal?: AbortSignal } = {},
-): Promise<Buffer> {
-  const { maxBuffer = 50 * 1024 * 1024, timeout, signal } = options;
-  return new Promise((resolve, reject) => {
-    const child = cp.exec(command, { cwd, maxBuffer, timeout, encoding: "buffer" }, (error, stdout, stderr) => {
-      if (error) {
-        if (error.killed) {
-          reject("Git operation timed out");
-        } else {
-          const errorMsg = stderr?.toString() || error.message;
-          reject(errorMsg);
-        }
-        return;
-      }
-      resolve(stdout as Buffer);
-    });
-
-    // Support cancellation via AbortSignal
-    if (signal) {
-      signal.addEventListener("abort", () => {
-        child.kill();
-        reject("Git operation cancelled");
-      });
-    }
-  });
-}
-
-/**
  * Check if a directory is a git repository
  */
 export async function isGitRepository(dirPath: string): Promise<boolean> {
   try {
-    await execGitInDir("git rev-parse --git-dir", dirPath, { timeout: ConfigService.getGitTimeoutMs() });
+    await execGitWithArgs(["rev-parse", "--git-dir"], dirPath, { timeout: ConfigService.getGitTimeoutMs() });
     return true;
   } catch {
     return false;
@@ -343,7 +271,7 @@ export async function collectPendingChanges(
   // Get current user name for pending changes
   let currentUserName: string | undefined;
   try {
-    const userNameOutput = await execGitInDir("git config user.name", repoFullPath, { timeout: 1000 });
+    const userNameOutput = await execGitWithArgs(["config", "user.name"], repoFullPath, { timeout: 1000 });
     currentUserName = userNameOutput.trim() || undefined;
   } catch (error) {
     // If we can't get the user name, leave it undefined
@@ -353,10 +281,9 @@ export async function collectPendingChanges(
   // Get all modified, added, deleted, and untracked files using git status
   // --porcelain gives machine-readable output
   // -uall shows individual untracked files (not just directories)
-  const gitCommand = "git status --porcelain -uall";
   log(`Executing git status in ${repoRelativePath || "root"}`);
 
-  const output = await execGitInDir(gitCommand, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+  const output = await execGitWithArgs(["status", "--porcelain", "-uall"], repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   const lines = output.split("\n").filter(line => line.length > 0);
   const now = new Date();
 

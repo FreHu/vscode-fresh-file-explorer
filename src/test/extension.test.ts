@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
-import { Commands } from "../commands/constants";
-import { ConfigKeys } from "../config/constants";
+import { Commands } from "../commands/commandConstants";
+import { ConfigKeys } from "../config/configKeyConstants";
 
 suite("Extension Integration Tests", () => {
   const extensionId = "frehu.fresh-file-explorer";

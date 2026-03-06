@@ -120,12 +120,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     // Set initial context - we're loading
     ContextManager.setLoading(true);
-
-    log(
-      `FreshFileProvider initialized with ${this.workspaceFolders.length} workspace folders: ${this.workspaceFolders
-        .map(f => f.name)
-        .join(", ")}`,
-    );
   }
 
   initializeWorkspaceFolders(): void {
@@ -213,7 +207,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
     const targetRepoPaths = options?.targetRepoPaths;
     const scopeDesc = targetRepoPaths ? ` [${targetRepoPaths.length} repo(s)]` : "";
-    log(`Refreshing files${scopeDesc} (skipping repo discovery) with time window: ${this.currentTimeWindow.label}`);
+    log(`Refresh of files in ${scopeDesc} with time window: ${this.currentTimeWindow.label}`);
     ContextManager.setLoading(true);
     this.dataLoaded = false;
     this._targetRepoPaths = targetRepoPaths;
@@ -253,7 +247,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * Use this when the repo list may have changed (refresh button, workspace folder change).
    */
   hardRefresh(): void {
-    log(`Hard refresh (re-discovering repos) with time window: ${this.currentTimeWindow.label}`);
+    log(`Hard refresh (repo discovery + history) with time window: ${this.currentTimeWindow.label}`);
     ContextManager.setLoading(true);
     this.dataLoaded = false;
     this.reposDiscovered = false;
@@ -338,17 +332,18 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   setTimeWindow(timeWindow: TimeWindow): void {
-    log(`Time window changed from ${this.currentTimeWindow.label} to ${timeWindow.label}`);
+    log(`Time window: ${this.currentTimeWindow.label} -> ${timeWindow.label}`);
     this.currentTimeWindow = timeWindow;
     this.filterManager.clearFilters();
     if (timeWindow.type === "historical") {
       WorkspaceStateManager.setSelectedTimeWindowDays(timeWindow.days);
       // Serve from cache if all repos have a valid cached result that covers this window.
       if (this.historicalCache.canServeWindow(timeWindow.days, this.workspaceFolders, this.repoPathspecs)) {
-        log(`Serving time window ${timeWindow.label} from cache`);
+        log(`Using cache to serve time window ${timeWindow.label}`);
         this.refreshEpoch++; // cancel any in-flight updateFreshFiles
         this.dataLoaded = true;
-        this._setFreshFiles(this.historicalCache.applyWindowToFiles(timeWindow.days, this.workspaceFolders, this.repoPathspecs, this.freshFiles));
+        this._setFreshFiles(this.historicalCache
+          .applyWindowToFiles(timeWindow.days, this.workspaceFolders, this.repoPathspecs, this.freshFiles));
         this.refreshTreeOnly();
         return;
       }
@@ -357,7 +352,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       // the incremental cache updates will apply the new window as each threshold is crossed.
       const configuredMaxDays = Math.max(0, ...this.historicalTimeWindows.map(tw => tw.days));
       if (this.refreshPromise && configuredMaxDays >= timeWindow.days) {
-        log(`Time window set to ${timeWindow.label} — in-flight load (maxDays=${configuredMaxDays}) will cover it, not cancelling`);
+        log(`Time window set to ${timeWindow.label} — will be covered by in-flight load`);
         this.refreshTreeOnly();
         return;
       }
@@ -720,17 +715,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       // Always show sync warnings at the top
       if (this.syncWarnings.length > 0) {
         results.push(...this.syncWarnings.map(w => new MessageTreeItem(w, "warning")));
-      }
-
-      // Check if no files found — but only when loading is fully complete.
-      // While repos are still loading (pending or historical phase), fall through to
-      // buildRepoView so the per-repo loading spinners are shown instead of the empty message.
-      if (this.freshFiles.size === 0 && this.reposLoading.size === 0 && this.reposLoadingHistorical.size === 0) {
-        const message = isPendingChangesMode(this.currentTimeWindow)
-          ? "No pending changes"
-          : `No files modified in the last ${this.currentTimeWindow.label}`;
-        results.push(new MessageTreeItem(message, "info"));
-        return results;
       }
 
       // Show root folder node only if there is a single workspace folder and a single repo
@@ -1156,9 +1140,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           merged.set(absPath, metadata);
         }
       }
-      this._setFreshFiles(merged);
-      this._onDidChangeTreeData.fire();
-      log(`Incremental update for ${normalizedRepoPath}: ${partial.size} file(s) at ≤${days}d`);
+      if (partial.size > 0) {
+        this._setFreshFiles(merged);
+        this._onDidChangeTreeData.fire();
+        log(`Incremental update for ${normalizedRepoPath}: ${partial.size} file(s) at ≤${days}d`);
+      } else log(`Incremental update skipped (no changes at ≤${days}d)`);
+
     };
 
     const { error: repoError, fullData } = await DataCollector.collectHistoricalForRepo(
@@ -1174,7 +1161,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     if (!repoError && fullData.size > 0) {
       this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoPathspecs.get(normalizedRepoPath));
-      log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath} (maxDays=${maxDays})`);
+      log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath}`);
     }
 
     this.reposLoadingHistorical.delete(normalizedRepoPath);

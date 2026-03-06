@@ -38,7 +38,7 @@ import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } fr
 import { findRepoForAbsolutePath } from "./utils/pathUtils";
 import { normalizePath } from "./utils";
 import { NormalizedRepoPath } from "./pathTypes";
-import { Commands } from "./commands/constants";
+import { Commands } from "./commands/commandConstants";
 import { createFreshFilesDragAndDropController, createPinnedDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
 import { DiffSearchResultProvider } from "./diff-search/diffSearchResultProvider";
@@ -54,7 +54,7 @@ import { ConfigService } from "./config/configService";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
-  log("Fresh File Explorer extension activating");
+  log("Fresh File Explorer activating");
 
   WorkspaceStateManager.initialize(context);
 
@@ -152,11 +152,11 @@ export async function activate(context: vscode.ExtensionContext) {
   // The git extension exposes an API we can use
   setupGitExtensionListener(context, freshFileProvider);
 
-  log("Fresh File Explorer extension activated successfully");
+  log("Fresh File Explorer activated");
 }
 
 export function deactivate() {
-  log("Fresh File Explorer extension deactivating");
+  log("Fresh File Explorer deactivating");
 }
 
 function registerCommands(

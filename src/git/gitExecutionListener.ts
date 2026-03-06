@@ -148,6 +148,8 @@ export async function setupGitExtensionListener(
       const reposNeedingFullRefresh = new Set<NormalizedRepoPath>();
       const reposNeedingPendingRefresh = new Set<NormalizedRepoPath>();
       let needsBranchOnlyUpdate = false;
+      // Tracked before snapshot update so the else-branch sync check can use pre-update values.
+      let aheadBehindChanged = false;
 
       if (!force) {
         for (const repo of api.repositories) {
@@ -174,6 +176,9 @@ export async function setupGitExtensionListener(
             }
           } else if (prev.indexLength !== curr.indexLength || prev.workingTreeLength !== curr.workingTreeLength) {
             reposNeedingPendingRefresh.add(key);
+          } else if (prev.ahead !== curr.ahead || prev.behind !== curr.behind) {
+            // Only remote sync counts changed (e.g. background fetch). No file or index change.
+            aheadBehindChanged = true;
           }
         }
       }
@@ -203,27 +208,24 @@ export async function setupGitExtensionListener(
         } else {
           const scopeDesc = ` for repo(s): ${[...reposNeedingPendingRefresh].join(", ")}`;
           log(`Git working tree or index changed, refreshing pending files only${scopeDesc}`);
-          await updateSyncWarnings(api, true);
+          if (needsBranchOnlyUpdate) {
+            // Branch rename co-occurring with a working-tree change in another repo —
+            // run a full sync warning update so branch labels are refreshed too.
+            await updateSyncWarnings(api);
+          } else {
+            await updateSyncWarnings(api, true);
+          }
           await freshFileProvider.refreshPending([...reposNeedingPendingRefresh]);
         }
         lastHandledPendingVersion = freshFileProvider.pendingRefreshVersion;
       } else {
         // Check whether ahead/behind counts actually changed (background fetch).
         // If nothing at all changed, the git extension fired a spurious event — skip entirely.
-        let syncChanged = false;
-        for (const repo of api.repositories) {
-          const key = normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath;
-          const prev = repoSnapshots.get(key);
-          if (!prev || prev.ahead !== repo.state.HEAD?.ahead || prev.behind !== repo.state.HEAD?.behind) {
-            syncChanged = true;
-            break;
-          }
-        }
-        if (syncChanged) {
+        if (aheadBehindChanged) {
           log("Git remote sync counts changed, updating sync warnings only");
           await updateSyncWarnings(api);
         } else {
-          log("Git state event fired but nothing changed, skipping");
+          log("Git state event ignored - no reason to do any update");
         }
       }
     };

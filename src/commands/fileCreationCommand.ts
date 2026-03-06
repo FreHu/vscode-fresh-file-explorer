@@ -98,6 +98,8 @@ async function createFilesInDirectory(
   if (resolved.kind === "error") {
     showError(resolved.message);
     if (resolved.isTraversalAttempt) {
+      // this is not really a "traversal attack" - the user entered the path into the input box.
+      // but we still prevent them from going outside their own workspace
       log(`Path traversal attempt blocked: ${resolved.message}`, "warn");
     }
     return;

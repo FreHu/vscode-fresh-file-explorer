@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { Commands } from "../commands/constants";
+import { Commands } from "../commands/commandConstants";
 import { formatRepoDescription, formatRepoTooltip } from "../utils/formatUtils";
 import { CommitHash } from "../types";
 import { TreeItemContextValues, createNoteId } from "./treeItemConstants";

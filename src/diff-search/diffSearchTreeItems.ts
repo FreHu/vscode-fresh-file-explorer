@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { AbsolutePath } from "../pathTypes";
 import { CommitHash } from "../types";
-import { Commands } from "../commands/constants";
+import { Commands } from "../commands/commandConstants";
 import { formatRelativeDate } from "../utils/formatUtils";
 
 /**

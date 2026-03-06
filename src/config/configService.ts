@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { DescriptionFormat, DEFAULT_DESCRIPTION_FORMAT } from "../types";
 import { DEFAULT_TIME_WINDOW_DAYS } from "../fresh-files/timeWindowUtils";
-import { ConfigKeys } from "./constants";
+import { ConfigKeys } from "./configKeyConstants";
 
 /**
  * Centralized configuration service for Fresh File Explorer settings
