@@ -489,7 +489,7 @@
         },
         {
           "command": "freshFileExplorer.expandSubtree",
-          "when": "view == freshFileExplorer && viewItem == folder",
+          "when": "view == freshFileExplorer && viewItem =~ /^(folder|workspaceFolder|repoFolder)$/",
           "group": "1_expand@1"
         },
         {
@@ -564,7 +564,7 @@
         },
         {
           "command": "freshFileExplorer.copySubtreeStructure",
-          "when": "view == freshFileExplorer && viewItem == folder",
+          "when": "view == freshFileExplorer && viewItem =~ /^(folder|workspaceFolder|repoFolder)$/",
           "group": "6_copypath@4"
         },
         {
