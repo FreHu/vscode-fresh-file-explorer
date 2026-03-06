@@ -102,6 +102,7 @@ Context values control context menu visibility in `package.json`:
 | `folder`          | Directory                 | Expand Subtree           |
 | `workspaceFolder` | Root when single repo     | -                        |
 | `repoFolder`      | Repo root when multi-repo | -                        |
+| `pinnedFile`      | Any pinned file           | Open, Copy Path, Unpin   |
 
 **Rule**: When adding new context menu items, update both `package.json` menus and ensure correct `contextValue` is set in `FreshFileItem` constructor.
 

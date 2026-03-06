@@ -586,11 +586,6 @@
           "group": "navigation@4"
         },
         {
-          "command": "freshFileExplorer.discardChanges",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
-          "group": "2_modification@1"
-        },
-        {
           "command": "freshFileExplorer.copyAbsolutePath",
           "when": "view == pinnedItems && viewItem == pinnedFile",
           "group": "6_copypath@1"

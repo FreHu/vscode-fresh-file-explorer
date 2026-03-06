@@ -55,17 +55,17 @@ async function promptForAction(
  */
 async function promptSimpleConfirmation(pendingItems: FreshFileItem[]): Promise<DiscardAction | null> {
   const fileNames = pendingItems.map(i => path.basename(i.resourceUri.fsPath));
-  const fileList =
-    fileNames.length <= 5
-      ? fileNames.join(", ")
-      : `${fileNames.slice(0, 4).join(", ")} and ${fileNames.length - 4} more`;
 
   const message =
     pendingItems.length === 1
       ? `Are you sure you want to discard changes to "${fileNames[0]}"? This cannot be undone.`
-      : `Are you sure you want to discard changes to ${pendingItems.length} files (${fileList})? This cannot be undone.`;
+      : `Are you sure you want to discard changes to these ${pendingItems.length} files? This cannot be undone.`;
 
-  const confirm = await vscode.window.showWarningMessage(message, { modal: true }, "Discard Changes");
+  const detail = pendingItems.length > 1
+    ? fileNames.map(n => `  • ${n}`).join("\n")
+    : undefined;
+
+  const confirm = await vscode.window.showWarningMessage(message, { modal: true, detail }, "Discard Changes");
   return confirm === "Discard Changes" ? "everything" : null;
 }
 
@@ -268,7 +268,7 @@ export async function handleDiscardChanges(
         continue;
       }
 
-      const performed = await executeDiscardAction(fileItem, folder, action);
+      const performed = await executeDiscardAction(fileItem, repoLocation, action);
 
       if (performed) {
         const status = fileItem.status ?? "";
