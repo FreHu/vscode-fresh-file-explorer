@@ -34,7 +34,7 @@ import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, han
 import { handleCopyRemoteUrl } from "./commands/copyRemoteUrlCommand";
 import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } from "./commands/pathspecCommand";
 import { Commands } from "./commands/constants";
-import { createDragAndDropController } from "./commands/dragDropController";
+import { createFreshFilesDragAndDropController, createPinnedDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
 import { DiffSearchResultProvider } from "./diff-search/diffSearchResultProvider";
 import { DiffSearchPanel } from "./diff-search/diffSearchPanel";
@@ -44,6 +44,7 @@ import { GitLogLContentProvider } from "./logL/gitLogLPanel";
 import { ContextManager } from "./extension/contextManager";
 import { WorkspaceStateManager } from "./extension/workspaceStateManager";
 import { PerfBenchmarkPanel } from "./benchmark/perfBenchmarkPanel";
+import { PinnedItemsProvider } from "./fresh-files/pinnedItemsProvider";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -54,8 +55,20 @@ export async function activate(context: vscode.ExtensionContext) {
   const freshFileProvider = new FreshFileProvider();
   freshFileProvider.initialize();
 
+  const pinnedItemsProvider = new PinnedItemsProvider(freshFileProvider);
+  pinnedItemsProvider.initialize();
+
   const treeView = createFreshFileTreeView(freshFileProvider, context);
   freshFileProvider.setTreeView(treeView);
+
+  // Create Pinned Items tree view
+  const pinnedItemsTreeView = vscode.window.createTreeView("pinnedItems", {
+    treeDataProvider: pinnedItemsProvider,
+    showCollapseAll: false,
+    canSelectMany: true,
+    dragAndDropController: createPinnedDragAndDropController(pinnedItemsProvider),
+  });
+  context.subscriptions.push(pinnedItemsTreeView);
 
   // Create and register heatmap decoration provider
   const heatmapProvider = new HeatmapDecorationProvider(freshFileProvider);
@@ -83,7 +96,7 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
-  registerCommands(context, freshFileProvider, treeView, diffSearchResultProvider);
+  registerCommands(context, freshFileProvider, pinnedItemsProvider, treeView, diffSearchResultProvider);
 
   // Listen for workspace folder changes
   context.subscriptions.push(
@@ -134,6 +147,7 @@ export function deactivate() {
 function registerCommands(
   context: vscode.ExtensionContext,
   freshFileProvider: FreshFileProvider,
+  pinnedItemsProvider: PinnedItemsProvider,
   treeView: vscode.TreeView<FreshFilesTreeItem>,
   diffSearchResultProvider: DiffSearchResultProvider,
 ): void {
@@ -212,24 +226,24 @@ function registerCommands(
   );
 
   register(Commands.PIN_FILE, (item: FreshFileItem | vscode.Uri, selectedItems?: (FreshFileItem | vscode.Uri)[]) =>
-    handlePinFile(item, selectedItems, freshFileProvider),
+    handlePinFile(item, selectedItems, pinnedItemsProvider),
   );
 
   register(Commands.UNPIN_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
-    handleUnpinFile(item, selectedItems, freshFileProvider),
+    handleUnpinFile(item, selectedItems, pinnedItemsProvider),
   );
 
-  register(Commands.ADD_NOTE, () => handleAddNote(freshFileProvider));
+  register(Commands.ADD_NOTE, () => handleAddNote(pinnedItemsProvider));
 
-  register(Commands.EDIT_NOTE, (item: any) => handleEditNote(item, freshFileProvider));
+  register(Commands.EDIT_NOTE, (item: any) => handleEditNote(item, pinnedItemsProvider));
 
-  register(Commands.TOGGLE_NOTE_COMPLETED, (item: any) => handleToggleNoteCompleted(item, freshFileProvider));
+  register(Commands.TOGGLE_NOTE_COMPLETED, (item: any) => handleToggleNoteCompleted(item, pinnedItemsProvider));
 
-  register(Commands.DELETE_NOTE, (item: any) => handleDeleteNote(item, freshFileProvider));
+  register(Commands.DELETE_NOTE, (item: any) => handleDeleteNote(item, pinnedItemsProvider));
 
-  register(Commands.CLEAR_ALL_PINNED, () => handleClearAllPinned(freshFileProvider));
+  register(Commands.CLEAR_ALL_PINNED, () => handleClearAllPinned(pinnedItemsProvider));
 
-  register(Commands.CLEAR_COMPLETED, () => handleClearCompleted(freshFileProvider));
+  register(Commands.CLEAR_COMPLETED, () => handleClearCompleted(pinnedItemsProvider));
 
   register(Commands.REVEAL_IN_SOURCE_CONTROL, handleRevealInSourceControl);
 
@@ -302,7 +316,7 @@ function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: 
     treeDataProvider: freshFileProvider,
     showCollapseAll: true,
     canSelectMany: true,
-    dragAndDropController: createDragAndDropController(freshFileProvider),
+    dragAndDropController: createFreshFilesDragAndDropController(freshFileProvider),
   });
   context.subscriptions.push(treeView);
 

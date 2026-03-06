@@ -36,7 +36,16 @@
           "name": "Fresh Files",
           "type": "tree",
           "icon": "icons/fresh-files.svg",
-          "contextualTitle": "Fresh File Explorer"
+          "contextualTitle": "Fresh File Explorer",
+          "group": "freshfileexplorer@1"
+        },
+        {
+          "id": "pinnedItems",
+          "name": "Pinned Items",
+          "type": "tree",
+          "icon": "$(pinned)",
+          "contextualTitle": "Fresh File Explorer",
+          "group": "freshfileexplorer@2"
         },
         {
           "id": "diffSearchResults",
@@ -390,6 +399,21 @@
           "group": "navigation@1"
         },
         {
+          "command": "freshFileExplorer.addNote",
+          "when": "view == pinnedItems",
+          "group": "navigation@1"
+        },
+        {
+          "command": "freshFileExplorer.clearCompleted",
+          "when": "view == pinnedItems",
+          "group": "navigation@2"
+        },
+        {
+          "command": "freshFileExplorer.clearAllPinned",
+          "when": "view == pinnedItems",
+          "group": "navigation@3"
+        },
+        {
           "command": "freshFileExplorer.toggleHeatmap",
           "when": "view == freshFileExplorer",
           "group": "1_actions@3"
@@ -508,38 +532,83 @@
         },
         {
           "command": "freshFileExplorer.unpinFile",
-          "when": "view == freshFileExplorer && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
           "group": "9_pin@1"
         },
         {
+          "command": "freshFileExplorer.openFile",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "navigation@1"
+        },
+        {
+          "command": "freshFileExplorer.openChanges",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "navigation@1.5"
+        },
+        {
+          "command": "freshFileExplorer.openToSide",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "navigation@2"
+        },
+        {
+          "command": "freshFileExplorer.openCommit",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "navigation@2.5"
+        },
+        {
+          "command": "freshFileExplorer.gitLogFile",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "navigation@2.6"
+        },
+        {
+          "command": "freshFileExplorer.revealInExplorer",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "navigation@3"
+        },
+        {
+          "command": "freshFileExplorer.revealInSourceControl",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "navigation@4"
+        },
+        {
+          "command": "freshFileExplorer.discardChanges",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "2_modification@1"
+        },
+        {
+          "command": "freshFileExplorer.copyAbsolutePath",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "6_copypath@1"
+        },
+        {
+          "command": "freshFileExplorer.copyRelativePath",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "6_copypath@2"
+        },
+        {
+          "command": "freshFileExplorer.copyFilename",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "6_copypath@3"
+        },
+        {
+          "command": "freshFileExplorer.copyRemoteUrl",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "6_copypath@5"
+        },
+        {
           "command": "freshFileExplorer.toggleNoteCompleted",
-          "when": "view == freshFileExplorer && viewItem == pinnedNote",
+          "when": "view == pinnedItems && viewItem == pinnedNote",
           "group": "inline@1"
         },
         {
           "command": "freshFileExplorer.editNote",
-          "when": "view == freshFileExplorer && viewItem == pinnedNote",
+          "when": "view == pinnedItems && viewItem == pinnedNote",
           "group": "inline@2"
         },
         {
           "command": "freshFileExplorer.deleteNote",
-          "when": "view == freshFileExplorer && viewItem == pinnedNote",
+          "when": "view == pinnedItems && viewItem == pinnedNote",
           "group": "1_note@1"
-        },
-        {
-          "command": "freshFileExplorer.addNote",
-          "when": "view == freshFileExplorer && viewItem == pinnedFolder",
-          "group": "inline@1"
-        },
-        {
-          "command": "freshFileExplorer.clearCompleted",
-          "when": "view == freshFileExplorer && viewItem == pinnedFolder",
-          "group": "inline@2"
-        },
-        {
-          "command": "freshFileExplorer.clearAllPinned",
-          "when": "view == freshFileExplorer && viewItem == pinnedFolder",
-          "group": "inline@3"
         }
       ],
       "commandPalette": [

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
-import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { PinnedItemsProvider } from "../fresh-files/pinnedItemsProvider";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { showWarning } from "../extension/logger";
 
@@ -11,7 +11,7 @@ import { showWarning } from "../extension/logger";
 export async function handlePinFile(
   item: FreshFileItem | vscode.Uri,
   selectedItems: (FreshFileItem | vscode.Uri)[] | undefined,
-  provider: FreshFileProvider,
+  provider: PinnedItemsProvider,
 ): Promise<void> {
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : [item];
 
@@ -42,7 +42,7 @@ export async function handlePinFile(
     return;
   }
 
-  provider.pinFiles(filePaths);
+  provider.pinnedItemsManager.pinFiles(filePaths);
 }
 
 /**
@@ -51,7 +51,7 @@ export async function handlePinFile(
 export function handleUnpinFile(
   item: FreshFileItem,
   selectedItems: FreshFileItem[] | undefined,
-  provider: FreshFileProvider,
+  provider: PinnedItemsProvider,
 ): void {
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : [item];
 
@@ -64,5 +64,5 @@ export function handleUnpinFile(
   }
 
   const filePaths = pinnedFiles.map(f => asAbsolutePath(f.resourceUri.fsPath));
-  provider.unpinFiles(filePaths);
+  provider.pinnedItemsManager.unpinFiles(filePaths);
 }

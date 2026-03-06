@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
-import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { PinnedItemsProvider } from "../fresh-files/pinnedItemsProvider";
 import { NoteTreeItem } from "../fresh-files/freshFileTreeItems";
 import { log } from "../extension/logger";
 
-export async function handleAddNote(freshFileProvider: FreshFileProvider): Promise<void> {
+export async function handleAddNote(pinnedItemsProvider: PinnedItemsProvider): Promise<void> {
   const noteText = await vscode.window.showInputBox({
     prompt: "Enter note text",
     placeHolder: "Type your note here...",
@@ -19,12 +19,12 @@ export async function handleAddNote(freshFileProvider: FreshFileProvider): Promi
   });
 
   if (noteText && noteText.trim().length > 0) {
-    freshFileProvider.addNote(noteText.trim());
+    pinnedItemsProvider.pinnedItemsManager.addNote(noteText.trim());
     log(`Note added via command`);
   }
 }
 
-export async function handleEditNote(item: NoteTreeItem, freshFileProvider: FreshFileProvider): Promise<void> {
+export async function handleEditNote(item: NoteTreeItem, pinnedItemsProvider: PinnedItemsProvider): Promise<void> {
   const newText = await vscode.window.showInputBox({
     prompt: "Edit note text",
     value: item.noteText,
@@ -40,22 +40,22 @@ export async function handleEditNote(item: NoteTreeItem, freshFileProvider: Fres
   });
 
   if (newText && newText.trim().length > 0 && newText !== item.noteText) {
-    freshFileProvider.updateNote(item.noteId, newText.trim());
+    pinnedItemsProvider.pinnedItemsManager.updateNote(item.noteId, newText.trim());
     log(`Note edited: ${item.noteId}`);
   }
 }
 
-export function handleToggleNoteCompleted(item: NoteTreeItem, freshFileProvider: FreshFileProvider): void {
-  freshFileProvider.toggleNoteCompleted(item.noteId);
+export function handleToggleNoteCompleted(item: NoteTreeItem, pinnedItemsProvider: PinnedItemsProvider): void {
+  pinnedItemsProvider.pinnedItemsManager.toggleNoteCompleted(item.noteId);
   log(`Note toggled completed: ${item.noteId}`);
 }
 
-export async function handleDeleteNote(item: NoteTreeItem, freshFileProvider: FreshFileProvider): Promise<void> {
-  freshFileProvider.removeNote(item.noteId);
+export async function handleDeleteNote(item: NoteTreeItem, pinnedItemsProvider: PinnedItemsProvider): Promise<void> {
+  pinnedItemsProvider.pinnedItemsManager.removeNote(item.noteId);
   log(`Note deleted: ${item.noteId}`);
 }
 
-export async function handleClearAllPinned(freshFileProvider: FreshFileProvider): Promise<void> {
+export async function handleClearAllPinned(pinnedItemsProvider: PinnedItemsProvider): Promise<void> {
   const result = await vscode.window.showWarningMessage(
     "Clear all pinned items?",
     { modal: true },
@@ -63,13 +63,13 @@ export async function handleClearAllPinned(freshFileProvider: FreshFileProvider)
   );
   
   if (result === "Clear All") {
-    freshFileProvider.clearAllPinned();
+    pinnedItemsProvider.pinnedItemsManager.clearAllPinned();
     log("Cleared all pinned items");
   }
 }
 
-export function handleClearCompleted(freshFileProvider: FreshFileProvider): void {
-  freshFileProvider.clearCompleted();
+export function handleClearCompleted(pinnedItemsProvider: PinnedItemsProvider): void {
+  pinnedItemsProvider.pinnedItemsManager.clearCompleted();
   log("Cleared completed notes");
 }
 

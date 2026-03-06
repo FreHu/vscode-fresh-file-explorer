@@ -19,13 +19,11 @@ import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindow
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "../utils/formatUtils";
 import { log, showWarning } from "../extension/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, NoteTreeItem, isPinnedFolder, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
 import { clearRetrogradeCache } from "./planetaryRetrograde";
-import { TreeItemContextValues, createPinnedFileId } from "./treeItemConstants";
-import { PinnedItemsManager } from "./pinnedItemsManager";
 import { FilterManager } from "./freshFileFilterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
 import { DataCollector } from "./dataCollector";
@@ -95,7 +93,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   openChangesMode: boolean = false;
 
   // Managers for specific concerns
-  private pinnedItemsManager = new PinnedItemsManager();
   private filterManager = new FilterManager();
 
   // Incremented every time refreshPending() runs, so external listeners can detect
@@ -168,7 +165,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    */
   initialize(): void {
     // Initialize managers
-    this.pinnedItemsManager.initialize(() => this.refreshTreeOnly());
     this.filterManager.initialize(() => this.refreshTreeOnly());
 
     // Load persisted time window selection
@@ -574,76 +570,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return this.filterManager.getExcludedCommits();
   }
 
-  /** Add file(s) to pinned items */
-  pinFiles(filePaths: AbsolutePath[]): void {
-    this.pinnedItemsManager.pinFiles(filePaths);
-  }
-
-  /** Remove file(s) from pinned items */
-  unpinFiles(filePaths: AbsolutePath[]): void {
-    this.pinnedItemsManager.unpinFiles(filePaths);
-  }
-
-  /** Check if a file is pinned */
-  isPinned(filePath: AbsolutePath): boolean {
-    return this.pinnedItemsManager.isPinned(filePath);
-  }
-
-  /** Get all pinned files */
-  getPinnedFiles(): AbsolutePath[] {
-    return this.pinnedItemsManager.getPinnedFiles();
-  }
-
-  /** Add a note to pinned items */
-  addNote(noteText: string): void {
-    this.pinnedItemsManager.addNote(noteText);
-  }
-
-  /** Remove a note from pinned items */
-  removeNote(noteId: string): void {
-    this.pinnedItemsManager.removeNote(noteId);
-  }
-
-  /** Update a note's text */
-  updateNote(noteId: string, noteText: string): void {
-    this.pinnedItemsManager.updateNote(noteId, noteText);
-  }
-
-  /** Toggle a note's completed state (for todo-style notes) */
-  toggleNoteCompleted(noteId: string): void {
-    this.pinnedItemsManager.toggleNoteCompleted(noteId);
-  }
-
-  /** Clear all pinned items (files and notes) */
-  clearAllPinned(): void {
-    this.pinnedItemsManager.clearAllPinned();
-  }
-
-  /** Clear only completed notes */
-  clearCompleted(): void {
-    this.pinnedItemsManager.clearCompleted();
-  }
-
-  /** Reorder pinned items */
-  reorderPinnedItems(sourceId: string, targetId: string, dropBefore: boolean): void {
-    this.pinnedItemsManager.reorderPinnedItems(sourceId, targetId, dropBefore);
-  }
-
-  /** Move a pinned item to the first position */
-  movePinnedItemToFirst(sourceId: string): void {
-    this.pinnedItemsManager.movePinnedItemToFirst(sourceId);
-  }
-
-  /** Pin files at a specific position (0 = first) */
-  pinFilesAtPosition(filePaths: AbsolutePath[], position: number): void {
-    this.pinnedItemsManager.pinFilesAtPosition(filePaths, position);
-  }
-
-  /** Pin files after a specific item */
-  pinFilesAfterItem(filePaths: AbsolutePath[], afterItemId: string): void {
-    this.pinnedItemsManager.pinFilesAfterItem(filePaths, afterItemId);
-  }
-
   /** Get all visible file paths (excluding deleted files) for search operations */
   getVisibleFilePaths(): AbsolutePath[] {
     const files: AbsolutePath[] = [];
@@ -803,25 +729,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         return [new MessageTreeItem(this.errorToShowInTreeView, "error")];
       }
 
-      // Collect results: sync warnings, pinned folder, then files or empty message
+      // Collect results: sync warnings, then files or empty message
       const results: FreshFilesTreeItem[] = [];
 
       // Always show sync warnings at the top
       if (this.syncWarnings.length > 0) {
         results.push(...this.syncWarnings.map(w => new MessageTreeItem(w, "warning")));
-      }
-
-      // Add pinned items folder after warnings
-      if (this.pinnedItemsManager.getCount() > 0 || totalRepos > 0) {
-        // Use a virtual URI for the pinned folder
-        const pinnedFolderUri = vscode.Uri.parse("freshfiles://pinned");
-        const pinnedFolder = FreshFileItem.forPinnedFolder(
-          pinnedFolderUri,
-          this.openChangesMode,
-          this.pinnedItemsManager.getCount(),
-          ConfigService.getAutoExpandDepth() > 0,
-        );
-        results.push(pinnedFolder);
       }
 
       // Check if no files found — but only when loading is fully complete.
@@ -841,10 +754,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       } else {
         return this.buildRepoView(results, "repoFolder");
       }
-    }
-
-    if (isPinnedFolder(element)) {
-      return this.buildPinnedItems();
     }
 
     if (isAuthorGroup(element)) {
@@ -1010,62 +919,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
     }
     return results;
-  }
-
-  private buildPinnedItems(): FreshFilesTreeItem[] {
-    const items: FreshFilesTreeItem[] = [];
-
-    // Iterate in order
-    for (const pinnedItem of this.pinnedItemsManager.getItems()) {
-      if (pinnedItem.type === "note") {
-        items.push(new NoteTreeItem(pinnedItem.id, pinnedItem.data, pinnedItem.completed ?? false));
-      } else {
-        // File
-        const filePath = asAbsolutePath(pinnedItem.id);
-        const uri = vscode.Uri.file(filePath);
-
-        // Check if file exists in freshFiles to get metadata
-        const metadata = this.freshFiles.get(filePath);
-
-        // Create file item
-        const item = FreshFileItem.forFile(
-          uri,
-          this.openChangesMode,
-          metadata?.isDeleted ?? false,
-          metadata?.commitHash,
-          metadata?.isPending ?? false,
-          metadata?.status,
-        );
-
-        // Mark as pinned file for context menu
-        item.contextValue = TreeItemContextValues.PINNED_FILE;
-
-        // Use unique ID to allow same file in both pinned and regular view
-        item.id = createPinnedFileId(uri.fsPath);
-
-        // Always show directory path in description for pinned items (excluding filename)
-        const folder = findWorkspaceFolderForPath(filePath, this.workspaceFolders);
-        if (folder) {
-          const relativePath = path.relative(folder.path, filePath);
-          const dirPath = path.dirname(relativePath);
-          item.description = dirPath === "." ? "" : normalizePath(dirPath);
-        } else {
-          const dirPath = path.dirname(filePath);
-          item.description = normalizePath(dirPath);
-        }
-
-        // Tooltip shows git metadata if available
-        if (metadata) {
-          item.tooltip = formatFileTooltip(metadata);
-        } else {
-          item.tooltip = filePath;
-        }
-
-        items.push(item);
-      }
-    }
-
-    return items;
   }
 
   private async updateFreshFiles(): Promise<void> {
