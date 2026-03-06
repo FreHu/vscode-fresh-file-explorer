@@ -50,6 +50,7 @@ import { ContextManager } from "./extension/contextManager";
 import { WorkspaceStateManager } from "./extension/workspaceStateManager";
 import { PerfBenchmarkPanel } from "./benchmark/perfBenchmarkPanel";
 import { PinnedItemsProvider } from "./fresh-files/pinnedItemsProvider";
+import { ConfigService } from "./config/configService";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -139,6 +140,14 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
 
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(() => {
+      if (ConfigService.getAutoReveal()) {
+        freshFileProvider.revealActiveFile(false);
+      }
+    }),
+  );
+
   // Listen for git state changes (commits, checkouts, etc.)
   // The git extension exposes an API we can use
   setupGitExtensionListener(context, freshFileProvider);
@@ -208,6 +217,8 @@ function registerCommands(
   );
 
   register(Commands.FOCUS_SUBMODULE_REPO, (fsPath: string) => freshFileProvider.revealSubmoduleRepo(fsPath));
+
+  register(Commands.REVEAL_ACTIVE_FILE, () => freshFileProvider.revealActiveFile(true));
 
   register(
     Commands.OPEN_CHANGES,

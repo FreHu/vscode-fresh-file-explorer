@@ -30,11 +30,10 @@ import { FilterManager } from "./freshFileFilterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
 import { DataCollector, RepoInfo } from "./dataCollector";
 import { NormalizedRepoPath } from "../pathTypes";
-import { findWorkspaceFolderForPath, getRelativeDepth, getParentPathWithinWorkspace } from "../utils/pathUtils";
+import { findWorkspaceFolderForPath, findRepoForFile, getRelativeDepth } from "../utils/pathUtils";
 import { FreshFileItemSorter } from "./freshFileItemSorter";
 import { ContextManager } from "../extension/contextManager";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
-import { Commands } from "../commands/constants";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -626,18 +625,41 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       return undefined;
     }
 
+    // Repo root nodes are root-level items — they have no parent in our tree.
+    if (element.id?.startsWith("repo:")) {
+      return undefined;
+    }
+
     const folder = findWorkspaceFolderForPath(asAbsolutePath(element.resourceUri.fsPath), this.workspaceFolders);
     if (!folder) {
       return undefined;
     }
 
-    const parentPath = getParentPathWithinWorkspace(element.resourceUri.fsPath, folder.path);
-    if (!parentPath) {
-      // Item is at root level of this workspace folder, no parent
+    // Compute the path relative to the workspace folder (normalized, forward slashes).
+    const relativeToFolder = normalizePath(path.relative(folder.path, element.resourceUri.fsPath));
+
+    // Find the most-specific repo that contains this item.
+    const repoLocation = findRepoForFile(folder, relativeToFolder);
+    if (!repoLocation) {
       return undefined;
     }
 
-    const parentUri = vscode.Uri.file(parentPath);
+    // filePathInRepo is the path from the repo root to this item (normalized).
+    const filePathInRepo = repoLocation.filePathInRepo;
+    const lastSlash = filePathInRepo.lastIndexOf("/");
+
+    if (lastSlash === -1) {
+      // This item is a direct child of the repo root.
+      // Return the cached repo root node so VS Code gets the exact same object
+      // it already registered — matching by id alone isn't always sufficient.
+      const repoFsPath = vscode.Uri.file(repoLocation.repoFullPath).fsPath;
+      return this._repoItemCache.get(`repo:${repoFsPath}`);
+    }
+
+    // This item is nested inside a subdirectory — return the immediate parent directory.
+    const parentPathInRepo = filePathInRepo.substring(0, lastSlash);
+    const parentFullPath = path.join(repoLocation.repoFullPath, parentPathInRepo);
+    const parentUri = vscode.Uri.file(parentFullPath);
     return FreshFileItem.forDirectory(
       parentUri,
       this.openChangesMode,
@@ -892,6 +914,34 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const repoItem = this._repoItemCache.get(`repo:${fsPath}`);
     if (repoItem) {
       await this.treeView.reveal(repoItem, { select: true, focus: true });
+    }
+  }
+
+  /**
+   * Reveal the currently active editor's file in the tree.
+   * @param focus Whether to move keyboard focus to the tree (true for manual command, false for auto-reveal).
+   */
+  async revealActiveFile(focus: boolean = false): Promise<void> {
+    if (!this.treeView || !this.dataLoaded) { return; }
+    const uri = vscode.window.activeTextEditor?.document.uri;
+    if (!uri || uri.scheme !== "file") { return; }
+
+    const normalizedPath = asAbsolutePath(normalizePath(uri.fsPath));
+    const metadata = this._freshFiles.get(normalizedPath);
+    if (!metadata || metadata.isDeleted) { return; }
+
+    const item = FreshFileItem.forFile(
+      uri,
+      this.openChangesMode,
+      false,
+      metadata.commitHash,
+      metadata.isPending ?? false,
+      metadata.status,
+    );
+    try {
+      await this.treeView.reveal(item, { select: true, focus, expand: true });
+    } catch (e) {
+      log(`revealActiveFile: could not reveal ${uri.fsPath}: ${e}`, "warn");
     }
   }
 

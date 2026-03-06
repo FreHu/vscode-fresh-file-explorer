@@ -96,4 +96,7 @@ export const Commands = {
 
   // Submodule navigation
   FOCUS_SUBMODULE_REPO: "freshFileExplorer.focusSubmoduleRepo",
+
+  // Reveal active file in tree
+  REVEAL_ACTIVE_FILE: "freshFileExplorer.revealActiveFile",
 } as const;

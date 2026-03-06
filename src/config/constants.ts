@@ -24,4 +24,7 @@ export const ConfigKeys = {
 
   // Heatmap settings
   HEATMAP_ENABLED: "freshFileExplorer.heatmap.enabled",
+
+  // Auto-reveal active file
+  AUTO_REVEAL: "freshFileExplorer.autoReveal",
 } as const;

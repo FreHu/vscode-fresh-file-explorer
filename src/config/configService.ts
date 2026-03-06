@@ -93,4 +93,11 @@ export class ConfigService {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.HEATMAP_ENABLED, false);
   }
 
+  /**
+   * Get whether the tree should automatically reveal the active editor's file
+   */
+  static getAutoReveal(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.AUTO_REVEAL, false);
+  }
+
 }

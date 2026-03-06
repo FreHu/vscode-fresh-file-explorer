@@ -1,7 +1,7 @@
 {
   "name": "fresh-file-explorer",
   "displayName": "Fresh File Explorer",
-  "description": "A vscode file explorer which shows only recently modified files based on a combination of Git history and your pending changes",
+  "description": "File explorer for navigating recent work based on Git history and pending changes",
   "license": "MIT",
   "pricing": "Free",
   "publisher": "frehu",
@@ -256,6 +256,11 @@
         "title": "Clear Folder Scope"
       },
       {
+        "command": "freshFileExplorer.revealActiveFile",
+        "title": "Reveal Active File in Fresh Files",
+        "icon": "$(target)"
+      },
+      {
         "command": "freshFileExplorer.searchInFoundFiles",
         "title": "Search in Found Files",
         "icon": "$(search-fuzzy)"
@@ -448,6 +453,11 @@
         {
           "command": "freshFileExplorer.clearAllPinned",
           "when": "view == pinnedItems",
+          "group": "navigation@3"
+        },
+        {
+          "command": "freshFileExplorer.revealActiveFile",
+          "when": "view == freshFileExplorer",
           "group": "navigation@3"
         },
         {
@@ -983,6 +993,11 @@
           "type": "boolean",
           "default": false,
           "description": "Color files by recency (heatmap). Recent files appear bright (cyan/blue), older files faded (gray). Colors appear in all views (Explorer, tabs, Fresh Files tree)."
+        },
+        "freshFileExplorer.autoReveal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically reveal and select the active editor's file in the Fresh Files tree when switching tabs."
         }
       }
     }
