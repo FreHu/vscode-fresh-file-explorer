@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { PinnedItem, SortOrder } from "../types";
-import { GroupingMode, DEFAULT_GROUPING_MODE } from "../fresh-files/groupingMode";
+import { GroupingMode, DEFAULT_GROUPING_MODE, coerceGroupingMode } from "../fresh-files/groupingMode";
 import { DiffSearchParams, DiffSearchHistoryEntry } from "../webview/messages";
 import { NormalizedRepoPath } from "../pathTypes";
 
@@ -47,8 +47,9 @@ export class WorkspaceStateManager {
 
   // ── Grouping mode ────────────────────────────────────────────────────────────
 
-  static getGroupingMode(): GroupingMode {
-    return WorkspaceStateManager.ctx().workspaceState.get<GroupingMode>("groupingMode", DEFAULT_GROUPING_MODE);
+  static getGroupingMode(fallback: GroupingMode = DEFAULT_GROUPING_MODE): GroupingMode {
+    const raw = WorkspaceStateManager.ctx().workspaceState.get<unknown>("groupingMode");
+    return coerceGroupingMode(raw, fallback);
   }
 
   static setGroupingMode(mode: GroupingMode): void {
@@ -57,12 +58,20 @@ export class WorkspaceStateManager {
 
   // ── Sort order ───────────────────────────────────────────────────────────────
 
-  static getSortOrder(): SortOrder {
-    return WorkspaceStateManager.ctx().workspaceState.get<SortOrder>("sortOrder", "name");
+  static getSortOrder(fallback: SortOrder = "name"): SortOrder {
+    return WorkspaceStateManager.ctx().workspaceState.get<SortOrder>("sortOrder", fallback);
   }
 
   static setSortOrder(order: SortOrder): void {
     WorkspaceStateManager.ctx().workspaceState.update("sortOrder", order);
+  }
+
+  static clearGroupingMode(): void {
+    WorkspaceStateManager.ctx().workspaceState.update("groupingMode", undefined);
+  }
+
+  static clearSortOrder(): void {
+    WorkspaceStateManager.ctx().workspaceState.update("sortOrder", undefined);
   }
 
   // ── Pinned items ─────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.3.0",
+  "version": "1.4.0",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
@@ -917,6 +917,73 @@
     "configuration": {
       "title": "Fresh File Explorer",
       "properties": {
+        "freshFileExplorer.timeWindows": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 1
+          },
+          "default": [
+            1,
+            3,
+            7,
+            14,
+            30,
+            60,
+            90,
+            180
+          ],
+          "description": "List of day values for time window options (e.g. 14 = up to 14 days ago). 'Pending changes' is always available. Commit history up to your highest defined time window will be preloaded in the background to enable near instant switching between windows.",
+          "order": 1
+        },
+        "freshFileExplorer.defaultGroupingMode": {
+          "type": "string",
+          "default": "File Structure",
+          "enum": ["File Structure", "Flat List", "Author", "Commit Hash", "Moon Phase", "Retrograde"],
+          "enumDescriptions": [
+            "Group by file/directory structure",
+            "All files in a flat sorted list, no subdirectory nodes",
+            "Group by commit author",
+            "Group by commit",
+            "Group by lunar phase at commit time",
+            "Group by which planets were retrograde"
+          ],
+          "description": "Default grouping mode for new workspaces. Changing this resets any per-workspace override."
+        },
+        "freshFileExplorer.defaultSortOrder": {
+          "type": "string",
+          "default": "name",
+          "enum": ["name", "date", "author"],
+          "enumDescriptions": [
+            "Sort by filename",
+            "Sort by most recent commit date",
+            "Sort by commit author"
+          ],
+          "description": "Default sort order for new workspaces. Changing this resets any per-workspace override."
+        },
+        
+        "freshFileExplorer.autoExpandDepth": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Number of directory levels to automatically expand when the tree is loaded (0 = collapsed, 1 = root expanded, etc.)"
+        },
+        "freshFileExplorer.autoReveal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically reveal and select the active editor's file in the Fresh Files tree when switching tabs."
+        },
+        "freshFileExplorer.flatList.labelStyle": {
+          "type": "string",
+          "default": "path",
+          "enum": ["path", "filename"],
+          "enumDescriptions": [
+            "Show the repo-relative file path as the label (e.g. src/utils/pathUtils.ts)",
+            "Show only the filename as the label; the directory path is prepended to the description"
+          ],
+          "description": "Controls what is shown as the primary label for each file in Flat List grouping mode."
+        },
         "freshFileExplorer.description.showDate": {
           "type": "boolean",
           "default": true,
@@ -947,30 +1014,20 @@
           "default": false,
           "description": "Show line additions/deletions (+/-) in file descriptions for pending changes."
         },
-        "freshFileExplorer.autoExpandDepth": {
-          "type": "number",
-          "default": 2,
-          "minimum": 0,
-          "maximum": 10,
-          "description": "Number of directory levels to automatically expand when the tree is loaded (0 = collapsed, 1 = root expanded, etc.)"
+        "freshFileExplorer.showCurrentBranchSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show sync status warnings for current branch (indicating you need to push/pull)"
         },
-        "freshFileExplorer.timeWindows": {
-          "type": "array",
-          "items": {
-            "type": "number",
-            "minimum": 1
-          },
-          "default": [
-            1,
-            3,
-            7,
-            14,
-            30,
-            60,
-            90,
-            180
-          ],
-          "description": "List of day values for time window options (e.g. 14 = up to 14 days ago). 'Pending changes' is always available. Commit history up to your highest defined time window will be preloaded in the background to enable near instant switching between windows."
+        "freshFileExplorer.showBaseBranchSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show warnings when base branch has commits not in current branch (indicating you need to merge)"
+        },
+        "freshFileExplorer.heatmap.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Color files by recency (heatmap). Recent files appear bright (cyan/blue), older files faded (gray). Colors appear in all views (Explorer, tabs, Fresh Files tree)."
         },
         "freshFileExplorer.incrementalTreeLoading": {
           "type": "boolean",
@@ -984,15 +1041,10 @@
           "maximum": 300,
           "description": "Timeout in seconds for git operations. I consider it suspicious if you ever need to increase this number. Please open an issue."
         },
-        "freshFileExplorer.showCurrentBranchSync": {
+        "freshFileExplorer.openSearchInEditor": {
           "type": "boolean",
           "default": true,
-          "description": "Show sync status warnings for current branch (indicating you need to push/pull)"
-        },
-        "freshFileExplorer.showBaseBranchSync": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show warnings when base branch has commits not in current branch (indicating you need to merge)"
+          "description": "Open searches in a Search Editor tab instead of the Search view"
         },
         "freshFileExplorer.searchPatternMaxLength": {
           "type": "number",
@@ -1000,21 +1052,6 @@
           "minimum": 1000,
           "maximum": 500000,
           "description": "Maximum length for search include pattern per batch. When exceeded, files are split into multiple search editor tabs. This affects features 'search in fresh files' and 'search in found files' in cases where the search covers a large number of files."
-        },
-        "freshFileExplorer.openSearchInEditor": {
-          "type": "boolean",
-          "default": true,
-          "description": "Open searches in a Search Editor tab instead of the Search view"
-        },
-        "freshFileExplorer.heatmap.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Color files by recency (heatmap). Recent files appear bright (cyan/blue), older files faded (gray). Colors appear in all views (Explorer, tabs, Fresh Files tree)."
-        },
-        "freshFileExplorer.autoReveal": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically reveal and select the active editor's file in the Fresh Files tree when switching tabs."
         }
       }
     }

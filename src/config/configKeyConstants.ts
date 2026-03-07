@@ -27,4 +27,13 @@ export const ConfigKeys = {
 
   // Auto-reveal active file
   AUTO_REVEAL: "freshFileExplorer.autoReveal",
+
+  // Default grouping mode (used when no workspace state is persisted yet)
+  DEFAULT_GROUPING_MODE: "freshFileExplorer.defaultGroupingMode",
+
+  // Default sort order (used when no workspace state is persisted yet)
+  DEFAULT_SORT_ORDER: "freshFileExplorer.defaultSortOrder",
+
+  // Flat list label style
+  FLAT_LIST_LABEL_STYLE: "freshFileExplorer.flatList.labelStyle",
 } as const;

@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
-import { DescriptionFormat, DEFAULT_DESCRIPTION_FORMAT } from "../types";
+import { DescriptionFormat, DEFAULT_DESCRIPTION_FORMAT, SortOrder } from "../types";
 import { DEFAULT_TIME_WINDOW_DAYS } from "../fresh-files/timeWindowUtils";
 import { ConfigKeys } from "./configKeyConstants";
+import { GroupingMode } from "../fresh-files/groupingMode";
 
 /**
  * Centralized configuration service for Fresh File Explorer settings
@@ -98,6 +99,38 @@ export class ConfigService {
    */
   static getAutoReveal(): boolean {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.AUTO_REVEAL, false);
+  }
+
+  /**
+   * Get the default grouping mode (used when no workspace state is persisted yet)
+   */
+  static getDefaultGroupingMode(): GroupingMode {
+    return vscode.workspace.getConfiguration().get<GroupingMode>(
+      ConfigKeys.DEFAULT_GROUPING_MODE,
+      "File Structure",
+    );
+  }
+
+  /**
+   * Get the default sort order (used when no workspace state is persisted yet)
+   */
+  static getDefaultSortOrder(): SortOrder {
+    return vscode.workspace.getConfiguration().get<SortOrder>(
+      ConfigKeys.DEFAULT_SORT_ORDER,
+      "name",
+    );
+  }
+
+  /**
+   * Get the flat list label style.
+   * "path" (default): repo-relative path is the label.
+   * "filename": basename is the label; directory path is prepended to the description.
+   */
+  static getFlatListLabelStyle(): "path" | "filename" {
+    return vscode.workspace.getConfiguration().get<"path" | "filename">(
+      ConfigKeys.FLAT_LIST_LABEL_STYLE,
+      "path",
+    );
   }
 
 }

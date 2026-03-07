@@ -633,20 +633,20 @@ export class GroupingViewBuilder {
 
   /**
    * Dispatch to the appropriate grouped view builder for the given grouping mode.
-   * Returns undefined when mode is "fileStructure" (caller handles that case).
+   * Returns undefined when mode is "File Structure" (caller handles that case).
    */
   static buildForGroupingMode(
-    mode: Exclude<GroupingMode, "fileStructure">,
+    mode: Exclude<GroupingMode, "File Structure" | "Flat List">,
     freshFiles: Map<AbsolutePath, FileMetadata>,
     filterPredicate: (metadata: FileMetadata) => boolean,
     openChangesMode: boolean,
     results: FreshFilesTreeItem[],
   ): FreshFilesTreeItem[] {
     switch (mode) {
-      case "author":      return GroupingViewBuilder.buildAuthorGroupedView(freshFiles, filterPredicate, openChangesMode, results);
-      case "commitHash":  return GroupingViewBuilder.buildCommitHashGroupedView(freshFiles, filterPredicate, openChangesMode, results);
-      case "moonPhase":   return GroupingViewBuilder.buildMoonPhaseGroupedView(freshFiles, filterPredicate, openChangesMode, results);
-      case "retrograde":  return GroupingViewBuilder.buildRetrogradeGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "Author":      return GroupingViewBuilder.buildAuthorGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "Commit Hash":  return GroupingViewBuilder.buildCommitHashGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "Moon Phase":   return GroupingViewBuilder.buildMoonPhaseGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "Retrograde":  return GroupingViewBuilder.buildRetrogradeGroupedView(freshFiles, filterPredicate, openChangesMode, results);
     }
   }
 }

@@ -117,7 +117,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration("freshFileExplorer")) {
-        freshFileProvider.onConfigurationChanged();
+        freshFileProvider.onConfigurationChanged(e);
         
         // If heatmap setting changed, refresh decorations
         if (e.affectsConfiguration("freshFileExplorer.heatmap.enabled")) {

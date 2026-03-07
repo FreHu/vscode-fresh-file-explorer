@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 
 import { ConfigService } from "../config/configService";
+import { ConfigKeys } from "../config/configKeyConstants";
 import { HistoricalFileCache, type CacheRepoStats } from "./historicalFileCache";
 import { FileIndex } from "./fileIndex";
 export type { CacheRepoStats };
@@ -153,8 +154,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Load persisted time window selection
     const persistedDays = WorkspaceStateManager.getSelectedTimeWindowDays();
     this.openChangesMode = WorkspaceStateManager.getOpenChangesMode();
-    this.groupingMode = WorkspaceStateManager.getGroupingMode();
-    this.sortOrder = WorkspaceStateManager.getSortOrder();
+    this.groupingMode = WorkspaceStateManager.getGroupingMode(ConfigService.getDefaultGroupingMode());
+    this.sortOrder = WorkspaceStateManager.getSortOrder(ConfigService.getDefaultSortOrder());
 
     this.repoPathspecs = WorkspaceStateManager.getRepoPathspecs();
     this.repoFolderScopes = WorkspaceStateManager.getRepoFolderScopes();
@@ -180,8 +181,20 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return buildTimeWindows(dayValues);
   }
 
-  onConfigurationChanged(): void {
+  onConfigurationChanged(e: vscode.ConfigurationChangeEvent): void {
     log("Configuration changed, hard refreshing");
+
+    // When the default for a workspace-persisted setting changes, clear the saved
+    // value so the new default takes effect immediately.
+    if (e.affectsConfiguration(ConfigKeys.DEFAULT_GROUPING_MODE)) {
+      WorkspaceStateManager.clearGroupingMode();
+      this.groupingMode = ConfigService.getDefaultGroupingMode();
+    }
+    if (e.affectsConfiguration(ConfigKeys.DEFAULT_SORT_ORDER)) {
+      WorkspaceStateManager.clearSortOrder();
+      this.sortOrder = ConfigService.getDefaultSortOrder();
+    }
+
     this.timeWindows = this.loadTimeWindows();
     // If the current window was removed from the configured list, fall back to another one.
     const currentStillValid = this.timeWindows.find(tw => {
@@ -470,7 +483,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     if (!this.treeView) {
       return;
     }
-    if (this.groupingMode === "fileStructure") {
+    if (this.groupingMode === "File Structure" || this.groupingMode === "Flat List") {
       this.treeView.message = undefined;
     } else {
       this.treeView.message =
@@ -643,10 +656,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const filePathInRepo = repoLocation.filePathInRepo;
     const lastSlash = filePathInRepo.lastIndexOf("/");
 
-    if (lastSlash === -1) {
-      // This item is a direct child of the repo root.
-      // Return the cached repo root node so VS Code gets the exact same object
-      // it already registered — matching by id alone isn't always sufficient.
+    // In flat list mode all files are direct children of the repo root — no directory nodes exist.
+    if (this.groupingMode === "Flat List" || lastSlash === -1) {
       const repoFsPath = vscode.Uri.file(repoLocation.repoFullPath).fsPath;
       return this._repoItemCache.get(`repo:${repoFsPath}`);
     }
@@ -777,7 +788,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       if (this.reposLoading.has(normalizedPath)) {
         return [new MessageTreeItem("Loading…", "loading~spin")];
       }
-      const children: FreshFilesTreeItem[] = this.buildTree(element.resourceUri.fsPath);
+      const children: FreshFilesTreeItem[] = (this.groupingMode === "Flat List" && element.id?.startsWith("repo:"))
+        ? this.buildFlatList(element.resourceUri.fsPath)
+        : this.buildTree(element.resourceUri.fsPath);
       // If pending is shown but historical is still running, prepend a history spinner
       if (this.reposLoadingHistorical.has(normalizedPath)) {
         children.unshift(new MessageTreeItem("Loading history…", "loading~spin"));
@@ -790,12 +803,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   private buildRepoView(results: FreshFilesTreeItem[], contextValue: string) {
-
-    // Future consideration: A flat list view mode would be added here
-    // It would bypass buildTree() and create a single sorted array from freshFiles.values()
-    // The sortOrder state would be reused for consistent sorting behavior
-
-    if (this.groupingMode !== "fileStructure") {
+    if (this.groupingMode !== "File Structure" && this.groupingMode !== "Flat List") {
       return GroupingViewBuilder.buildForGroupingMode(
         this.groupingMode,
         this.freshFiles,
@@ -1297,6 +1305,51 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           ? ""
           : (this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.author || "");
       },
+    );
+
+    return items;
+  }
+
+  private buildFlatList(repoFsPath: string): FreshFileItem[] {
+    const normalizedRepoPath = asAbsolutePath(normalizePath(repoFsPath));
+    const descriptionFormat = ConfigService.getDescriptionFormat();
+    const items: FreshFileItem[] = [];
+
+    for (const [filePath, metadata] of this._freshFiles) {
+      if (!filePath.startsWith(normalizedRepoPath + "/") && filePath !== normalizedRepoPath) {
+        continue;
+      }
+      if (!this.filterManager.passesFilters(metadata)) { continue; }
+      if (!this.passesRepoScope(filePath)) { continue; }
+
+      const uri = vscode.Uri.file(filePath);
+      const item = FreshFileItem.forFile(
+        uri,
+        this.openChangesMode,
+        metadata.isDeleted ?? false,
+        metadata.commitHash,
+        metadata.isPending ?? false,
+        metadata.status,
+      );
+      if (ConfigService.getFlatListLabelStyle() === "filename") {
+        item.label = path.basename(filePath);
+        const dirRel = normalizePath(path.relative(repoFsPath, path.dirname(filePath)));
+        const fileDesc = formatFileDescription(metadata, descriptionFormat);
+        item.description = dirRel ? `${dirRel}  ${fileDesc}` : fileDesc;
+      } else {
+        // "path" (default): repo-relative path as label.
+        item.label = normalizePath(path.relative(repoFsPath, filePath));
+        item.description = formatFileDescription(metadata, descriptionFormat);
+      }
+      item.tooltip = formatFileTooltip(metadata);
+      items.push(item);
+    }
+
+    FreshFileItemSorter.sort(
+      items,
+      this.sortOrder,
+      (item) => item.resourceUri ? this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.date : undefined,
+      (item) => item.resourceUri ? (this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.author || "") : "",
     );
 
     return items;
