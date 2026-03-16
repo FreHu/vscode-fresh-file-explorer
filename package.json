@@ -1024,6 +1024,11 @@
           "default": true,
           "description": "Show warnings when base branch has commits not in current branch (indicating you need to merge)"
         },
+        "freshFileExplorer.codeTelescopeIntegration": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, Fresh File Explorer will use Code Telescope instead of its own quick pick (CTRL+Q, F) to quickly search Fresh Files. Requires the Code Telescope extension (guichina.code-telescope)."
+        },
         "freshFileExplorer.heatmap.enabled": {
           "type": "boolean",
           "default": false,

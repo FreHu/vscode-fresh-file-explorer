@@ -36,4 +36,7 @@ export const ConfigKeys = {
 
   // Flat list label style
   FLAT_LIST_LABEL_STYLE: "freshFileExplorer.flatList.labelStyle",
+
+  // Code Telescope integration
+  CODE_TELESCOPE_INTEGRATION: "freshFileExplorer.codeTelescopeIntegration",
 } as const;

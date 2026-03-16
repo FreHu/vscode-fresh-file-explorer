@@ -80,6 +80,10 @@ export class ConfigService {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.OPEN_SEARCH_IN_EDITOR, false);
   }
 
+  static getCodeTelescopeIntegration(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.CODE_TELESCOPE_INTEGRATION, false);
+  }
+
   /**
    * Get whether to progressively update the tree at each time window threshold during history loading
    */

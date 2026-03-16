@@ -104,6 +104,10 @@ Organize your files in different ways beyond the standard folder structure:
 ![grouping modes](img/grouping-modes.png)
 
 - **File Structure** - Traditional folder hierarchy
+  
+- **Flat list** - If you don't care for the nesting.
+  
+`freshFileExplorer.flatList.labelStyle` can customize whether the label is the full path or just the filename
 
 - **Author** - Files grouped by who last modified them
 
@@ -120,6 +124,11 @@ Uneven distribution of commits during the full moon can indicate werevolves amon
 Includes Pluto.
 
 > Note: This is astronomy (hard science), not astrology (garbage). If you want to know if you will have merge conflicts with the changes made by a sagitarius, you need to look elsewhere.
+
+
+**Relevant settings:**
+`freshFileExplorer.defaultGroupingMode`
+`freshFileExplorer.defaultSortOrder`
 
 ### Quick Open
 
@@ -211,6 +220,13 @@ You can also trigger the search from the [quick pick](#quick-open).
 - Respects author and commit filters
 - Excludes deleted files (they're not on disk to search)
 - Configure whether the search opens in the view or as an editor (*default*)
+
+
+#### Code Telescope quick pick
+- The quick pick `(CTRL+Q, F)` can be switched to open in the Code Telescope extension [(guichina.code-telescope)](https://marketplace.visualstudio.com/items?itemName=guichina.code-telescope). It provides a better search experience but remains fully optional (I don't make code telescope or install it for you).
+
+You need to have the extension installed and enable `freshFileExplorer.codeTelescopeIntegration` for this to work.
+
 
 ### Search in Found Files
 

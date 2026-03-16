@@ -1,5 +1,22 @@
 # Change Log
 
+## [1.4.0]
+
+### List view
+
+The tree view can now be switched into a flat list. See also some new config options:
+
+`freshFileExplorer.defaultGroupingMode`
+`freshFileExplorer.defaultSortOrder`
+`freshFileExplorer.flatList.labelStyle`
+
+### Code Telescope integration
+
+- The quick pick (CTRL+Q, F) can now be switched to open in the Code Telescope extension (guichina.code-telescope). 
+- This provides a better search experience but remains fully optional (I don't make code telescope or install it for you).
+
+You need to have the extension installed and enable `freshFileExplorer.codeTelescopeIntegration` for this to work.
+
 ## [1.3.0]
 ### Vastly improved performance
   

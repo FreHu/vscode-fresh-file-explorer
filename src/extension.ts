@@ -34,6 +34,7 @@ import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, handleCopySubtreeStructure } from "./commands/copyPathCommands";
 import { handleCopyFile, handleCutFile, handlePasteFile } from "./commands/copyPasteCommands";
 import { handleCopyRemoteUrl } from "./commands/copyRemoteUrlCommand";
+import { registerCodeTelescopeFinder, openFreshFilesTelescope } from "./code-telescope/codeTelescopeIntegration";
 import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } from "./commands/pathspecCommand";
 import { findRepoForAbsolutePath } from "./utils/pathUtils";
 import { normalizePath } from "./utils";
@@ -57,6 +58,9 @@ export async function activate(context: vscode.ExtensionContext) {
   log("Fresh File Explorer activating");
 
   WorkspaceStateManager.initialize(context);
+
+  let telescopeRegistration: vscode.Disposable | undefined;
+  context.subscriptions.push({ dispose: () => telescopeRegistration?.dispose() });
 
   const freshFileProvider = new FreshFileProvider();
   freshFileProvider.initialize();
@@ -103,6 +107,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   registerCommands(context, freshFileProvider, pinnedItemsProvider, treeView, diffSearchResultProvider);
+  telescopeRegistration = await registerCodeTelescopeFinder(freshFileProvider);
 
   // Listen for workspace folder changes
   context.subscriptions.push(
@@ -115,13 +120,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Listen for configuration changes
   context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration(e => {
+    vscode.workspace.onDidChangeConfiguration(async e => {
       if (e.affectsConfiguration("freshFileExplorer")) {
         freshFileProvider.onConfigurationChanged(e);
         
         // If heatmap setting changed, refresh decorations
         if (e.affectsConfiguration("freshFileExplorer.heatmap.enabled")) {
           heatmapProvider.fireDidChange();
+        }
+
+        if (e.affectsConfiguration("freshFileExplorer.codeTelescopeIntegration")) {
+          telescopeRegistration?.dispose();
+          telescopeRegistration = await registerCodeTelescopeFinder(freshFileProvider);
         }
       }
     }),
@@ -194,7 +204,13 @@ function registerCommands(
 
   register(Commands.COPY_PATHS_FROM_SEARCH_RESULTS, () => handleCopyPathsFromSearchResults());
 
-  register(Commands.QUICK_PICK_FILE, () => handleQuickPickFile(freshFileProvider));
+  register(Commands.QUICK_PICK_FILE, async () => {
+    const handledWithTelescope = await openFreshFilesTelescope();
+    if (!handledWithTelescope) {
+      // either the integration is not installed or it failed - fall back to our quick pick
+      await handleQuickPickFile(freshFileProvider);
+    }
+  });
 
   register(Commands.EXHUME, (item: FreshFileItem) => handleExhume(item, freshFileProvider));
 
