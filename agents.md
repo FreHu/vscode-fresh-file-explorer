@@ -46,6 +46,10 @@ Adding or changing a context menu item requires **both**:
 
 Missing either side will silently not work. Valid context values can be found in `treeItemConstants.ts`.
 
+## Keybindings
+
+When a command is triggered via keybinding, `item` and `selectedItems` arguments are **undefined** — VS Code does not pass tree item context. Commands must fall back to `treeView.selection` to get the selected items. Pass the relevant `TreeView` references into the handler (see `handleDeleteFile`, `handleCopyFile`, `handleCompareSelected` for examples). For commands bound in multiple views (e.g. fresh files + pinned items), pass all tree views and use the first one with a non-empty selection — this gives you the focused view's selection, not a cross-view merge.
+
 ## Configuration
 
 - All settings access goes through [ConfigService](src/config/configService.ts). Never read `vscode.workspace.getConfiguration` directly elsewhere.

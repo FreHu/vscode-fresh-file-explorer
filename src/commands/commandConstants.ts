@@ -99,4 +99,7 @@ export const Commands = {
 
   // Reveal active file in tree
   REVEAL_ACTIVE_FILE: "freshFileExplorer.revealActiveFile",
+
+  // Compare selected files
+  COMPARE_SELECTED: "freshFileExplorer.compareSelected",
 } as const;

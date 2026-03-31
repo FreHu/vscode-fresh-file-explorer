@@ -34,6 +34,7 @@ import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, handleCopySubtreeStructure } from "./commands/copyPathCommands";
 import { handleCopyFile, handleCutFile, handlePasteFile } from "./commands/copyPasteCommands";
 import { handleCopyRemoteUrl } from "./commands/copyRemoteUrlCommand";
+import { handleCompareSelected, CompareContentProvider } from "./commands/compareFilesCommand";
 import { registerCodeTelescopeFinder, openFreshFilesTelescope } from "./code-telescope/codeTelescopeIntegration";
 import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } from "./commands/pathspecCommand";
 import { findRepoForAbsolutePath } from "./utils/pathUtils";
@@ -106,7 +107,15 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
-  registerCommands(context, freshFileProvider, pinnedItemsProvider, treeView, diffSearchResultProvider);
+  // Register virtual document provider for multi-file compare
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(
+      CompareContentProvider.scheme,
+      new CompareContentProvider(),
+    ),
+  );
+
+  registerCommands(context, freshFileProvider, pinnedItemsProvider, treeView, pinnedItemsTreeView, diffSearchResultProvider);
   telescopeRegistration = await registerCodeTelescopeFinder(freshFileProvider);
 
   // Listen for workspace folder changes
@@ -174,6 +183,7 @@ function registerCommands(
   freshFileProvider: FreshFileProvider,
   pinnedItemsProvider: PinnedItemsProvider,
   treeView: vscode.TreeView<FreshFilesTreeItem>,
+  pinnedItemsTreeView: vscode.TreeView<FreshFilesTreeItem>,
   diffSearchResultProvider: DiffSearchResultProvider,
 ): void {
   function register(name: string, handler: (...args: any[]) => any) {
@@ -360,6 +370,10 @@ function registerCommands(
 
   register(Commands.CLEAR_FOLDER_SCOPE, (item: FreshFileItem) =>
     handleClearFolderScope(item, freshFileProvider),
+  );
+
+  register(Commands.COMPARE_SELECTED, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleCompareSelected(item, selectedItems, [treeView, pinnedItemsTreeView]),
   );
 }
 

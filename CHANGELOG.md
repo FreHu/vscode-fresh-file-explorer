@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.5.0]
+
+### Compare selected files
+
+Now available for fresh files and pinned items. 
+
+Behavior:
+- For 2 selected files, opens a simple comparison (like file explorer)
+
+Unlike file explorer, you are not limited to two files
+- For 3, opens a multi-diff (1-2, 1-3, 2-3). no further questions here, as the result set is still manageable
+- For 3+, asks if you want to compare one vs rest or all permutations (1-2,1-3,1-4,2-3,3-4) and so on
+  - If you choose one vs rest, you must also pick which is the base file
+
 ## [1.4.0]
 
 ### List view
