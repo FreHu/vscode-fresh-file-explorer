@@ -55,10 +55,12 @@ import { PerfBenchmarkPanel } from "./benchmark/perfBenchmarkPanel";
 import { StonksPanel } from "./stonks/stonksPanel";
 import { PinnedItemsProvider } from "./fresh-files/pinnedItemsProvider";
 import { ConfigService } from "./config/configService";
+import { checkForUpdate } from "./extension/updateNotifier";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
   log("Fresh File Explorer activating");
+  checkForUpdate(context);
 
   WorkspaceStateManager.initialize(context);
 
