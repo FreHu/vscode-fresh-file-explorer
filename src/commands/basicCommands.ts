@@ -9,7 +9,10 @@ import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../fresh-files/groupingMode";
 import { SortOrder } from "../types";
 import { openFileWithoutDuplicating } from "../utils";
-import { findRepoPathsForFiles } from "../utils/pathUtils";
+import { findRepoPathsForFiles, findRepoForAbsolutePath } from "../utils/pathUtils";
+import { execGitWithArgs } from "../git/gitOperations";
+import { ConfigService } from "../config/configService";
+import { normalizePath } from "../utils";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
@@ -295,6 +298,78 @@ export async function handleDeleteFile(
   if (successCount > 0) {
     const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, targets.map(i => i.resourceUri.fsPath));
     freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+  }
+}
+
+export async function handleRenameFile(
+  item: FreshFileItem,
+  selectedItems: FreshFileItem[] | undefined,
+  freshFileProvider: FreshFileProvider,
+  treeView?: vscode.TreeView<FreshFilesTreeItem>,
+): Promise<void> {
+  // Keybinding case: item is undefined, fall back to tree selection
+  const treeSelection = treeView?.selection.filter((i): i is FreshFileItem => i instanceof FreshFileItem);
+  const target = item ?? treeSelection?.[0];
+
+  if (!target?.resourceUri || target.isDeleted) {
+    return;
+  }
+
+  const oldPath = target.resourceUri.fsPath;
+  const oldName = path.basename(oldPath);
+  const parentDir = path.dirname(oldPath);
+
+  // Pre-select name without extension for files, full name for folders
+  const dotIndex = oldName.lastIndexOf(".");
+  const selectionEnd = !target.isDirectory && dotIndex > 0 ? dotIndex : oldName.length;
+
+  const newName = await vscode.window.showInputBox({
+    prompt: "Enter new name",
+    value: oldName,
+    valueSelection: [0, selectionEnd],
+    validateInput: (value) => {
+      if (!value || value.trim().length === 0) {
+        return "Name cannot be empty";
+      }
+      if (value.includes("/") || value.includes("\\")) {
+        return "Name cannot contain path separators";
+      }
+      if (value === oldName) {
+        return "Name is unchanged";
+      }
+      return undefined;
+    },
+  });
+
+  if (!newName) {
+    return;
+  }
+
+  const newPath = path.join(parentDir, newName);
+
+  try {
+    const repoResult = findRepoForAbsolutePath(freshFileProvider.workspaceFolders, oldPath);
+
+    if (ConfigService.getAutoStageRename() && repoResult) {
+      // git mv: paths relative to repo root
+      const repoRoot = repoResult.repoFullPath;
+      const oldRelative = normalizePath(oldPath).substring(normalizePath(repoRoot).length + 1);
+      const newRelative = normalizePath(newPath).substring(normalizePath(repoRoot).length + 1);
+      await execGitWithArgs(["mv", oldRelative, newRelative], repoRoot);
+    } else {
+      // Plain filesystem rename
+      const oldUri = vscode.Uri.file(oldPath);
+      const newUri = vscode.Uri.file(newPath);
+      await vscode.workspace.fs.rename(oldUri, newUri, { overwrite: false });
+    }
+
+    log(`Renamed: ${oldName} → ${newName}`);
+    const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, [oldPath, newPath]);
+    freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log(`Rename failed: ${message}`, "error");
+    vscode.window.showErrorMessage(`Failed to rename: ${message}`);
   }
 }
 

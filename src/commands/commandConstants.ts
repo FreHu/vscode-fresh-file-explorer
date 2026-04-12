@@ -102,4 +102,7 @@ export const Commands = {
 
   // Compare selected files
   COMPARE_SELECTED: "freshFileExplorer.compareSelected",
+
+  // Rename
+  RENAME_FILE: "freshFileExplorer.renameFile",
 } as const;

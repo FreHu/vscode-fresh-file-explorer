@@ -137,4 +137,11 @@ export class ConfigService {
     );
   }
 
+  /**
+   * Get whether to use git mv for renames (auto-stages the rename)
+   */
+  static getAutoStageRename(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.AUTO_STAGE_RENAME, true);
+  }
+
 }

@@ -7,3 +7,5 @@ node_modules
 .waylog
 coverage
 .vscode
+
+settings.local.json

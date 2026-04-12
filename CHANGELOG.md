@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.6.0]
+
+### Rename
+
+Rename files and folders directly from the right-click menu or with `F2`.
+
+- `freshFileExplorer.autoStageRename` (default: `true`) — uses `git mv` so the rename is auto-staged and recognized by git as a rename. When disabled, falls back to a plain filesystem rename (which shows as delete + add in git).
+
 ## [1.5.0]
 
 ### Compare selected files

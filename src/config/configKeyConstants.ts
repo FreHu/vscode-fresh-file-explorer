@@ -39,4 +39,7 @@ export const ConfigKeys = {
 
   // Code Telescope integration
   CODE_TELESCOPE_INTEGRATION: "freshFileExplorer.codeTelescopeIntegration",
+
+  // Rename behavior
+  AUTO_STAGE_RENAME: "freshFileExplorer.autoStageRename",
 } as const;

@@ -7,6 +7,7 @@ import { findRepoForFile, isPathWithinRoot, findWorkspaceFolderForPath, findRepo
 import {
   discardFileChanges,
   discardAllFileChanges,
+  discardRename,
   unstageFile,
   hasStagedChanges,
   hasUnstagedChanges,
@@ -121,11 +122,16 @@ async function executeDiscardEverything(
   repoLocation: any,
   status: string,
   filePath: string,
+  renameSource?: string,
 ): Promise<boolean> {
   const isUntracked = status === "??" || status === "?";
+  const isRename = status.startsWith("R");
   const staged = hasStagedChanges(status);
 
-  if (isUntracked) {
+  if (isRename && renameSource) {
+    // Staged rename: unstage both sides, restore old file, clean new file
+    await discardRename(repoLocation.repoFullPath, filePath, renameSource);
+  } else if (isUntracked) {
     await discardFileChanges(repoLocation.repoFullPath, filePath, true);
   } else if (staged) {
     // Has staged changes: reset both index and working tree to HEAD
@@ -196,7 +202,7 @@ async function executeDiscardAction(
   log(`Discarding changes (action=${action}, status="${status}"): ${fileItem.resourceUri.fsPath}`);
 
   if (action === "everything") {
-    return await executeDiscardEverything(repoLocation, status, repoLocation.filePathInRepo);
+    return await executeDiscardEverything(repoLocation, status, repoLocation.filePathInRepo, fileItem.renameSource);
   } else if (action === "discard-unstaged-only") {
     return await executeDiscardUnstagedOnly(repoLocation, status, repoLocation.filePathInRepo, fileItem.resourceUri.fsPath);
   } else if(action === "unstage-only") {

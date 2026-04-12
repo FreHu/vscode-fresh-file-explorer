@@ -140,6 +140,7 @@ export class GroupingViewBuilder {
         metadata.commitHash,
         isPending,
         metadata.status,
+        metadata.renameSource,
       );
 
       const descriptionFormat = skipAuthorInDescription
@@ -290,6 +291,7 @@ export class GroupingViewBuilder {
         metadata.commitHash,
         isPending,
         metadata.status,
+        metadata.renameSource,
       );
 
       const descriptionFormat = { ...ConfigService.getDescriptionFormat(), showCommitHash: false };
@@ -434,6 +436,7 @@ export class GroupingViewBuilder {
         metadata.commitHash,
         isPending,
         metadata.status,
+        metadata.renameSource,
       );
 
       item.description = formatFileDescription(metadata, ConfigService.getDescriptionFormat());
@@ -586,6 +589,7 @@ export class GroupingViewBuilder {
         metadata.commitHash,
         isPending,
         metadata.status,
+        metadata.renameSource,
       );
 
       item.description = formatFileDescription(metadata, ConfigService.getDescriptionFormat());

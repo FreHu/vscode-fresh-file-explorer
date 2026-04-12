@@ -182,6 +182,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   onConfigurationChanged(e: vscode.ConfigurationChangeEvent): void {
+    // autoStageRename is behavioral-only — skip tree refresh when it's the sole change.
+    if (e.affectsConfiguration(ConfigKeys.AUTO_STAGE_RENAME)) {
+      const otherKeyChanged = Object.values(ConfigKeys)
+        .filter(k => k !== ConfigKeys.AUTO_STAGE_RENAME)
+        .some(k => e.affectsConfiguration(k));
+      if (!otherKeyChanged) {
+        return;
+      }
+    }
+
     log("Configuration changed, hard refreshing");
 
     // When the default for a workspace-persisted setting changes, clear the saved
@@ -311,12 +321,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     if (targetRepoPaths) {
       // Targeted update: only query the repos that changed.
       const targetFolders = buildTargetWorkspaceFolders(this.workspaceFolders, targetRepoPaths);
-      const pendingFiles = await DataCollector.collectPendingFiles(targetFolders);
+      const { files: pendingFiles, removedPaths } = await DataCollector.collectPendingFiles(targetFolders);
 
       // Merge strategy:
       // 1. Historical baseline for target repos (reset to committed state).
       // 2. Current freshFiles entries for non-target repos (preserve their state).
       // 3. Fresh pending entries for target repos (override historical baseline).
+      // 4. Remove paths from renames (old paths that no longer exist).
       const merged = new Map<AbsolutePath, FileMetadata>();
       for (const [absPath, metadata] of this.historicalCache.historicalFiles) {
         if (fileInTargetRepo(absPath, targetRepoPaths)) {
@@ -331,14 +342,20 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       for (const [absPath, metadata] of pendingFiles) {
         merged.set(absPath, metadata);
       }
+      for (const removed of removedPaths) {
+        merged.delete(removed);
+      }
       this._setFreshFiles(merged);
     } else {
-      const pendingFiles = await DataCollector.collectPendingFiles(this.workspaceFolders);
+      const { files: pendingFiles, removedPaths } = await DataCollector.collectPendingFiles(this.workspaceFolders);
       // Rebuild freshFiles from cached historical baseline + new pending entries.
       // This restores historical entries for files whose pending changes were reverted.
       const merged = new Map<AbsolutePath, FileMetadata>(this.historicalCache.historicalFiles);
       for (const [absolutePath, metadata] of pendingFiles) {
         merged.set(absolutePath, metadata);
+      }
+      for (const removed of removedPaths) {
+        merged.delete(removed);
       }
       this._setFreshFiles(merged);
     }
@@ -931,6 +948,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       metadata.commitHash,
       metadata.isPending ?? false,
       metadata.status,
+      metadata.renameSource,
     );
     try {
       await this.treeView.reveal(item, { select: true, focus, expand: true });
@@ -1262,6 +1280,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           metadata.commitHash,
           metadata.isPending ?? false,
           metadata.status,
+          metadata.renameSource,
         );
         item.description = formatFileDescription(metadata, descriptionFormat);
         item.tooltip = formatFileTooltip(metadata);
@@ -1330,6 +1349,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         metadata.commitHash,
         metadata.isPending ?? false,
         metadata.status,
+        metadata.renameSource,
       );
       if (ConfigService.getFlatListLabelStyle() === "filename") {
         item.label = path.basename(filePath);

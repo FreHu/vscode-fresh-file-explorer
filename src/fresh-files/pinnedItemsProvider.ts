@@ -83,6 +83,7 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
           metadata?.commitHash,
           metadata?.isPending ?? false,
           metadata?.status,
+          metadata?.renameSource,
         );
 
         // Distinct contextValue so the context menu shows "Unpin" rather than "Pin"

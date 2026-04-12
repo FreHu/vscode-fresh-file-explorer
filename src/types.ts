@@ -80,6 +80,7 @@ export interface FileMetadata {
   isPending?: boolean; // True if this is a pending (uncommitted) change
   linesAdded?: number; // Number of lines added in this change
   linesDeleted?: number; // Number of lines deleted in this change
+  renameSource?: string; // For renames: repo-relative path of the old file
 }
 
 /**

@@ -12,7 +12,7 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.5.0",
+  "version": "1.6.0",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
@@ -154,6 +154,11 @@
         "command": "freshFileExplorer.deleteFile",
         "title": "Delete",
         "icon": "$(trash)"
+      },
+      {
+        "command": "freshFileExplorer.renameFile",
+        "title": "Rename",
+        "icon": "$(edit)"
       },
       {
         "command": "freshFileExplorer.createFileNextTo",
@@ -356,6 +361,11 @@
         "when": "focusedView == freshFileExplorer"
       },
       {
+        "command": "freshFileExplorer.renameFile",
+        "key": "F2",
+        "when": "focusedView == freshFileExplorer"
+      },
+      {
         "command": "freshFileExplorer.copyFile",
         "key": "ctrl+c",
         "when": "focusedView == freshFileExplorer"
@@ -550,6 +560,11 @@
           "command": "freshFileExplorer.deleteFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
           "group": "4_modification@7"
+        },
+        {
+          "command": "freshFileExplorer.renameFile",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder)$/",
+          "group": "4_modification@8"
         },
         {
           "command": "freshFileExplorer.copyFile",
@@ -751,6 +766,10 @@
         },
         {
           "command": "freshFileExplorer.deleteFile",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.renameFile",
           "when": "false"
         },
         {
@@ -1068,6 +1087,11 @@
           "default": false,
           "description": "When enabled, Fresh File Explorer will use Code Telescope instead of its own quick pick (CTRL+Q, F) to quickly search Fresh Files. Requires the Code Telescope extension (guichina.code-telescope)."
         },
+        "freshFileExplorer.autoStageRename": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use git mv for renames so the rename is auto-staged. When disabled, uses a plain filesystem rename which shows as delete + add in git."
+        },
         "freshFileExplorer.heatmap.enabled": {
           "type": "boolean",
           "default": false,
@@ -1115,7 +1139,7 @@
     "test:coverage": "vscode-test --coverage"
   },
   "devDependencies": {
-    "@types/node": "22.x",
+    "@types/node": "^22.19.17",
     "@types/vscode": "^1.105.1",
     "@types/vscode-webview": "^1.57.5",
     "@vscode/test-cli": "^0.0.12",

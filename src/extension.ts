@@ -5,6 +5,7 @@ import { FreshFileItem, FreshFilesTreeItem } from "./fresh-files/freshFileTreeIt
 import { handleClearFilters, handleFilterByAuthor, handleFilterByCommit } from "./commands/filterCommands";
 import {
   handleDeleteFile,
+  handleRenameFile,
   handleExpandAll,
   handleExpandSubtree,
   handleOpenFile,
@@ -264,6 +265,10 @@ function registerCommands(
 
   register(Commands.DELETE_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
     handleDeleteFile(item, selectedItems, freshFileProvider, treeView),
+  );
+
+  register(Commands.RENAME_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
+    handleRenameFile(item, selectedItems, freshFileProvider, treeView),
   );
 
   register(Commands.CREATE_FILE_NEXT_TO, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>

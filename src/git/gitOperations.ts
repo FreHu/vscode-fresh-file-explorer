@@ -261,12 +261,19 @@ export async function discoverReposInWorkspace(
  * @param workspaceRoot The workspace root path
  * @returns Map of file paths (relative to workspace) to file metadata
  */
+export interface PendingChangesResult {
+  files: Map<string, FileMetadata>;
+  /** Workspace-relative paths that were renamed away and should be removed from the tree. */
+  removedPaths: string[];
+}
+
 export async function collectPendingChanges(
   repoRelativePath: string,
   repoFullPath: string,
   workspaceRoot: string,
-): Promise<Map<string, FileMetadata>> {
+): Promise<PendingChangesResult> {
   const files = new Map<string, FileMetadata>();
+  const removedPaths: string[] = [];
 
   // Get current user name for pending changes
   let currentUserName: string | undefined;
@@ -289,7 +296,7 @@ export async function collectPendingChanges(
 
   // Collect all tracked file paths (non-untracked, non-deleted) for batch diff
   const trackedFiles: string[] = [];
-  const filePathMap = new Map<string, { status: string; relativePath: string }>();
+  const filePathMap = new Map<string, { status: string; relativePath: string; renameSourceInRepo?: string }>();
 
   for (const line of lines) {
     // Format: XY filename (where XY is the status code)
@@ -302,9 +309,16 @@ export async function collectPendingChanges(
     let filePath = decodeGitPath(line.substring(3));
 
     // Handle renamed files: "R  old -> new"
+    // Track the old path for removal so it doesn't linger in the tree from historical data.
+    // Also store the old repo-relative path so discard can properly undo the rename.
+    let renameSourceInRepo: string | undefined;
     if (statusCode.startsWith("R")) {
       const arrowIndex = filePath.indexOf(" -> ");
       if (arrowIndex !== -1) {
+        const oldFilePath = filePath.substring(0, arrowIndex);
+        renameSourceInRepo = oldFilePath;
+        const oldRelativePath = repoRelativePath ? repoRelativePath + "/" + oldFilePath : oldFilePath;
+        removedPaths.push(oldRelativePath);
         filePath = filePath.substring(arrowIndex + 4);
       }
     }
@@ -318,7 +332,7 @@ export async function collectPendingChanges(
 
     // Store the raw XY code (no trimming) so callers can distinguish staged-only
     // ("M ", "A ", "D ") from unstaged-only (" M", " D") and mixed ("MM", "AM", etc.)
-    filePathMap.set(filePath, { status: statusCode, relativePath: fileRelativePath });
+    filePathMap.set(filePath, { status: statusCode, relativePath: fileRelativePath, renameSourceInRepo });
 
     // Collect tracked, non-deleted files for batch diff
     if (!isDeleted && !isUntracked) {
@@ -341,7 +355,7 @@ export async function collectPendingChanges(
 
   // Now create FileMetadata entries with line statistics
   for (const [filePath, fileInfo] of filePathMap) {
-    const { status, relativePath } = fileInfo;
+    const { status, relativePath, renameSourceInRepo: renameSource } = fileInfo;
 
     if (!files.has(relativePath)) {
       const isDeleted = status.includes("D");
@@ -398,13 +412,14 @@ export async function collectPendingChanges(
             isPending: true,
             linesAdded,
             linesDeleted,
+            renameSource,
           });
         }
       }
     }
   }
 
-  return files;
+  return { files, removedPaths };
 }
 
 /**
@@ -856,6 +871,25 @@ export async function discardAllFileChanges(
   const args = ["restore", "--source=HEAD", "--staged", "--worktree", "--", filePath];
   log(`Discarding all changes (staged + worktree): git ${args.join(" ")}`);
   await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+}
+
+/**
+ * Fully undo a staged rename: unstage both sides, restore old file, clean up new file.
+ * @param repoFullPath Full path to the git repository
+ * @param newFilePath Repo-relative path of the renamed (new) file
+ * @param oldFilePath Repo-relative path of the original (old) file
+ */
+export async function discardRename(
+  repoFullPath: string,
+  newFilePath: string,
+  oldFilePath: string,
+): Promise<void> {
+  // 1. Unstage both old and new paths
+  await execGitWithArgs(["restore", "--staged", "--", oldFilePath, newFilePath], repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+  // 2. Restore old file to working tree
+  await execGitWithArgs(["restore", "--source=HEAD", "--worktree", "--", oldFilePath], repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+  // 3. Remove orphaned new file
+  await execGitWithArgs(["clean", "-f", "--", newFilePath], repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
 }
 
 /**

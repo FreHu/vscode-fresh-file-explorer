@@ -86,7 +86,7 @@ export class DataCollector {
   ): Promise<void> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
     try {
-      const files = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
+      const { files } = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
       DataCollector.addFilesToMap(folder, files, targetMap);
     } catch (error) {
       log(`Failed to get pending changes from ${folder.name}/${repoRelativePath || "root"}: ${String(error)}`, "warn");
@@ -168,20 +168,24 @@ export class DataCollector {
    * Collect only pending (uncommitted) changes for all known repositories.
    * Skips repository discovery — requires gitRepos to already be populated on each folder
    * from a prior discoverAllRepos() call.
-   * Returns an AbsolutePath-keyed map ready to merge into freshFiles.
+   * Returns pending files and absolute paths that should be removed (rename sources).
    */
   static async collectPendingFiles(
     workspaceFolders: WorkspaceFolderInfo[],
-  ): Promise<Map<AbsolutePath, FileMetadata>> {
+  ): Promise<{ files: Map<AbsolutePath, FileMetadata>; removedPaths: AbsolutePath[] }> {
     const newFiles = new Map<AbsolutePath, FileMetadata>();
+    const allRemovedPaths: AbsolutePath[] = [];
     for (const folder of workspaceFolders) {
       for (const repoRelativePath of folder.gitRepos) {
         const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
         try {
-          const files = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
+          const { files, removedPaths } = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
           for (const [filePath, metadata] of files) {
             const absolutePath = asAbsolutePath(normalizePath(path.join(folder.path, filePath)));
             newFiles.set(absolutePath, metadata);
+          }
+          for (const removedPath of removedPaths) {
+            allRemovedPaths.push(asAbsolutePath(normalizePath(path.join(folder.path, removedPath))));
           }
           log(`Collected ${files.size} pending file(s) from ${folder.name}/${repoRelativePath || "root"}`);
         } catch (error) {
@@ -192,7 +196,7 @@ export class DataCollector {
         }
       }
     }
-    return newFiles;
+    return { files: newFiles, removedPaths: allRemovedPaths };
   }
 
   /**

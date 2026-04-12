@@ -19,6 +19,7 @@ constructor(
     public readonly commitHash?: CommitHash,
     public readonly isPending: boolean = false,
     public readonly status?: string,
+    public readonly renameSource?: string,
   ) {
     super(resourceUri, collapsibleState);
 
@@ -184,6 +185,7 @@ constructor(
     commitHash?: CommitHash,
     isPending: boolean = false,
     status?: string,
+    renameSource?: string,
   ): FreshFileItem {
     return new FreshFileItem(
       uri,
@@ -195,6 +197,7 @@ constructor(
       commitHash,
       isPending,
       status,
+      renameSource,
     );
   }
 }

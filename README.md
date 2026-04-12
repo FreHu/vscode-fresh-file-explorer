@@ -151,6 +151,7 @@ Use **"Fresh Files: Quick Open"** to get a quick pick showing files from your Fr
 
 - Open / Open to Side - will open either the file or a diff depending on your preference. If the file is already open in some editor group, it will be focused instead.
 - Reveal in Explorer / Source Control
+- Rename (`F2`) - renames files and folders. By default uses `git mv` so the rename is auto-staged and properly tracked as a rename. See `freshFileExplorer.autoStageRename`.
 - Discard Changes (for pending files)
 - Resurrect (for deleted files)
 
@@ -351,7 +352,8 @@ All I can give you is some assurrances:
 - The marketplace PATs are not stored on my machine. Github actions handle publishing to both marketplaces (vscode and openVSX). I don't publish to any other marketplace.
 
 Potentially dangerous features: none, really. But for completeness' sake:
-- The only destructive operation the extension can do is [discard pending changes](./src/commands/discardChangesCommand.ts). It works on files you yourself selected and gives you a warning. 
+- Destructive operations: [discard pending changes](./src/commands/discardChangesCommand.ts) and [delete files](./src/commands/basicCommands.ts) (moved to trash). Both work on files you yourself selected and give you a warning.
+- Rename uses `git mv` by default, or a plain filesystem rename if `freshFileExplorer.autoStageRename` is disabled. It will not overwrite existing files.
 - It can create files if you choose to (via create or resurrect), but will never overwrite existing ones.
 - When viewing deleted files (referred to as `exhume`), a copy is saved as a temp file in `%TEMP%\fresh-file-explorer` or `/tmp/fresh-file-explorer`. This is only for files you try to open. If you really want something gone, you'll have to delete it from there.
 - Commands that involve user-controlled data (like filenames from git output) use `cp.spawn("git", args)` to prevent shell injection.
@@ -376,18 +378,6 @@ Fresh File Explorer is **not** a GitLens replacement. It's a more focused, opini
 - You want one view
 
 **Use GitLens when**
-- You want 25 views
-
-![gitlens views](img/gitlens-views.png)
-
-Because one of those 25 is actually very similar to Fresh File Explorer, some more comparison can be found [here](./COMPARISON_WITH_GITLENS.md).
-
-
-# Testimonials
-
-> This is **above average** for a VS Code extension.
->
-> _(a chatbot instructed to pretend to be Linus Torvalds)_e GitLens when**
 - You want 25 views
 
 ![gitlens views](img/gitlens-views.png)
