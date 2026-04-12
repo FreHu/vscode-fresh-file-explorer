@@ -23,6 +23,7 @@ This tool show only **Fresh Files**. Ones tribe touch recently. Not too many, no
     - [Quick Pick](#quick-pick)
     - [Right-Click Actions](#right-click-actions)
     - [Many-Cave Support](#many-cave-support)
+    - [CaveStonks](#cavestonks)
   - [Search Tools](#search-tools)
     - [Painting Change Search](#painting-change-search)
     - [Line and Symbol History](#line-and-symbol-history)
@@ -172,6 +173,29 @@ Work with:
 - Tunnel-caves inside bigger caves (experimental, might have quirks — like first attempt at wheel)
   
 ![submodules](./img/submodules.png)
+
+### CaveStonks
+
+![CodeStonks](img/codeStonks.gif)
+
+Painting-price chart showing how cave evolve over time. Like watching value of mammoth herd change with seasons. Access from "..." three-rock-menu in Fresh Files view or shout at echo chamber (`Fresh File Explorer: CodeStonks`).
+
+Perfect if you are day-trader and need tribe leader think you have trading-view open when really just staring at cave paintings.
+
+**Measurements (all toggleable with bone switches):**
+- **Paintings in cave** — total painting count at each carving session
+- **Paintings changed** — new scratches and scrape-offs per session
+- **Unique painters** — distinct tribe members in rolling window of 10 sessions
+- **Carving velocity** — sessions per sun-cycle
+- **Churn rate** — paintings changed as share of total cave paintings
+
+**Controls:**
+- **Drag** on chart to zoom into range of time
+- **Double-tap** to zoom back out one level
+- **Hold Shift + scroll** (or swipe sideways on flat rock) to pan when many sessions
+- **Max ticks** — how many sessions drawn at once before panning needed. Lower = faster cave painting
+
+Support many caves via cave picker at top. Moon-count independent from main cave map.
 
 ---
 

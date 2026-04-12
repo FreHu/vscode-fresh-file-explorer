@@ -18,6 +18,7 @@ Easily navigate recent changes based on your pending work and Git history.
     - [Quick Open](#quick-open)
     - [Context Menu Actions](#context-menu-actions)
     - [Multi-Repository Support](#multi-repository-support)
+    - [CodeStonks](#codestonks)
   - [Search Tools](#search-tools)
     - [Diff Search](#diff-search)
     - [Line and Function History](#line-and-function-history)
@@ -165,6 +166,31 @@ Works with:
 - Submodules (experimental, might have quirks)
   
 ![submodules](./img/submodules.png)
+
+### CodeStonks
+
+![CodeStonks](img/codeStonks.gif)
+
+A chart view showing how your repository evolved over time. Access it from the "..." menu in the Fresh Files view or via the command palette (`Fresh File Explorer: CodeStonks`).
+
+You can keep this open if you want your boss to think you are daytrading when you're really vibecoding.
+
+**Metrics (all toggleable):**
+- **Files in repo** — cumulative file count at each commit (the "stock price")
+- **Files changed** — additions and deletions per commit
+- **Unique authors** — distinct authors in a rolling window of 10 commits
+- **Commit velocity** — commits per calendar day
+- **Churn rate** — files changed as a percentage of total repo size
+
+**Controls:**
+- **Drag** on the chart to zoom into a range
+- **Double-click** to zoom back out one level (the zoom state is a stack)
+- **Shift + scroll** (or trackpad horizontal swipe) to pan when there are more commits than the visible window
+- **Max ticks** — configurable limit for how many commits are rendered at once before panning kicks in
+
+Supports multiple repos via the repo dropdown. The time window can be selected independently from the main tree view, but the data is loaded in the same initial history pass.
+
+Each tick represents a commit. When you're zoomed in enough, dots appear at the bottom which allow you to open that commit when clicked.
 
 ---
 

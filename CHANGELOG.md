@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.7.0]
+
+### CodeStonks
+
+![CodeStonks](img/codeStonks.gif)
+
+A stock-price-style chart visualizing repository evolution over time. Toggle it from the Fresh Files "..." menu or the command palette.
+
+- 5 toggleable metrics: file count, files changed, unique authors, commit velocity, churn rate
+- Drag-to-zoom with zoom stack, double-click to zoom out
+- Horizontal panning with scrollbar, Shift+scroll, or trackpad swipe
+- Independent time window and repo selection
+- Configuration persisted per workspace
+
 ## [1.6.0]
 
 ### Rename

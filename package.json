@@ -233,7 +233,8 @@
       {
         "command": "freshFileExplorer.openStonksPanel",
         "title": "CodeStonks",
-        "category": "Fresh File Explorer"
+        "category": "Fresh File Explorer",
+        "icon": "$(graph-line)"
       },
       {
         "command": "freshFileExplorer.copyFile",
@@ -508,6 +509,11 @@
           "command": "freshFileExplorer.toggleHeatmap",
           "when": "view == freshFileExplorer",
           "group": "1_actions@3"
+        },
+        {
+          "command": "freshFileExplorer.openStonksPanel",
+          "when": "view == freshFileExplorer",
+          "group": "1_actions@4"
         },
         {
           "command": "freshFileExplorer.clearDiffSearch",

@@ -21,6 +21,12 @@ let chartXStep = 0;
 let dragStartIdx: number | null = null;
 let isDragging = false;
 
+// Per-render data used by mouse handlers (set in render, read by module-level listeners)
+let renderVisibleData: StonksDataPoint[] = [];
+let renderAuthorCounts: number[] = [];
+let renderVelocity: number[] = [];
+let renderChurn: number[] = [];
+
 function getVisibleData(): StonksDataPoint[] {
   if (zoomStack.length > 0) {
     const top = zoomStack[zoomStack.length - 1];
@@ -471,101 +477,11 @@ function render() {
   svg.style.height = `${totalH}px`;
   svg.innerHTML = svgContent;
 
-  // ── Commit link click handler ───────────────────────────────────────────────
-  svg.querySelectorAll(".commit-link").forEach((el) => {
-    el.addEventListener("click", (e: Event) => {
-      e.stopPropagation();
-      const hash = (el as SVGElement).getAttribute("data-hash");
-      if (hash) { postMessage({ command: "openCommit", hash }); }
-    });
-    el.addEventListener("mouseenter", () => {
-      (el as SVGElement).setAttribute("opacity", "1");
-    });
-    el.addEventListener("mouseleave", () => {
-      (el as SVGElement).setAttribute("opacity", "0.5");
-    });
-  });
-
-  // ── Mouse interaction ───────────────────────────────────────────────────────
-  const hitArea = document.getElementById("hitArea")!;
-  const crosshairLine = document.getElementById("crosshair")!;
-  const selectOverlay = document.getElementById("selectOverlay")!;
-
-  hitArea.addEventListener("mousedown", (e: Event) => {
-    const me = e as MouseEvent;
-    if (me.button !== 0) { return; }
-    me.preventDefault();
-    dragStartIdx = xToIdx(me.clientX);
-    isDragging = false;
-  });
-
-  hitArea.addEventListener("mousemove", (e: Event) => {
-    const me = e as MouseEvent;
-    me.preventDefault();
-
-    if (dragStartIdx !== null) {
-      const curIdx = xToIdx(me.clientX);
-      if (Math.abs(curIdx - dragStartIdx) >= 2) {
-        isDragging = true;
-        const lo = Math.min(dragStartIdx, curIdx);
-        const hi = Math.max(dragStartIdx, curIdx);
-        const x1 = PADDING.left + lo * xStep;
-        const x2 = PADDING.left + hi * xStep;
-        selectOverlay.setAttribute("x", String(x1));
-        selectOverlay.setAttribute("width", String(x2 - x1));
-        selectOverlay.style.display = "";
-      }
-      return;
-    }
-
-    const idx = xToIdx(me.clientX);
-    const x = PADDING.left + idx * xStep;
-    const d = visibleData[idx];
-
-    crosshairLine.setAttribute("x1", String(x));
-    crosshairLine.setAttribute("x2", String(x));
-    crosshairLine.style.display = "";
-
-    const date = new Date(d.date);
-    const dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-
-    // Build tooltip with values for all visible sections
-    let tooltipHtml = `
-      <div class="hash">${d.hash}</div>
-      <div class="message">${escapeHtml(d.message)}</div>
-      <div class="author">${escapeHtml(d.author)} · ${dateStr}</div>
-      <div class="stat">`;
-    if (sections.fileCount) { tooltipHtml += `Files in repo: ${d.cumulativeFileCount}<br>`; }
-    if (sections.filesChanged) {
-      tooltipHtml += `Changed: ${d.filesChanged} (<span class="added">+${d.filesAdded}</span> <span class="deleted">-${d.filesDeleted}</span>)<br>`;
-    }
-    if (sections.authors) { tooltipHtml += `Authors (10): ${authorCounts[idx]}<br>`; }
-    if (sections.velocity) { tooltipHtml += `Commits/day: ${velocity[idx]}<br>`; }
-    if (sections.churn) { tooltipHtml += `Churn: ${churn[idx].toFixed(1)}%<br>`; }
-    tooltipHtml += `</div>`;
-    tooltip.innerHTML = tooltipHtml;
-    tooltip.style.display = "block";
-
-    const cRect = chartContainer.getBoundingClientRect();
-    const tooltipW = tooltip.offsetWidth;
-    let tooltipX = me.clientX - cRect.left + 12;
-    if (tooltipX + tooltipW > cRect.width) {
-      tooltipX = me.clientX - cRect.left - tooltipW - 12;
-    }
-    tooltip.style.left = tooltipX + "px";
-    tooltip.style.top = (me.clientY - cRect.top - tooltip.offsetHeight - 8) + "px";
-  });
-
-  hitArea.addEventListener("mouseleave", () => {
-    if (!isDragging) {
-      crosshairLine.style.display = "none";
-      tooltip.style.display = "none";
-    }
-  });
-
-  hitArea.addEventListener("dblclick", () => {
-    popZoom();
-  });
+  // Update module-level data for mouse handlers (registered once, outside render)
+  renderVisibleData = visibleData;
+  renderAuthorCounts = authorCounts;
+  renderVelocity = velocity;
+  renderChurn = churn;
 
   // ── Update pan scrollbar ────────────────────────────────────────────────────
   updatePanScrollbar(allVisible.length, pageStart);
@@ -792,6 +708,113 @@ const ro = new ResizeObserver(() => {
   if (currentData.length > 0) { render(); }
 });
 ro.observe(chartContainer);
+
+// ── SVG interaction listeners (registered once, read module-level render data) ─
+
+// Commit link click/hover via event delegation on persistent svg element
+svg.addEventListener("click", (e: Event) => {
+  const target = (e.target as SVGElement).closest?.(".commit-link") as SVGElement | null;
+  if (!target) { return; }
+  e.stopPropagation();
+  const hash = target.getAttribute("data-hash");
+  if (hash) { postMessage({ command: "openCommit", hash }); }
+});
+svg.addEventListener("mouseenter", (e: Event) => {
+  const target = (e.target as SVGElement);
+  if (target.classList?.contains("commit-link")) { target.setAttribute("opacity", "1"); }
+}, true);
+svg.addEventListener("mouseleave", (e: Event) => {
+  const target = (e.target as SVGElement);
+  if (target.classList?.contains("commit-link")) { target.setAttribute("opacity", "0.5"); }
+}, true);
+
+// Hit area interactions — delegate via svg, check target id
+svg.addEventListener("mousedown", (e: Event) => {
+  const me = e as MouseEvent;
+  if (me.button !== 0) { return; }
+  const target = e.target as SVGElement;
+  if (target.id !== "hitArea") { return; }
+  me.preventDefault();
+  dragStartIdx = xToIdx(me.clientX);
+  isDragging = false;
+});
+
+svg.addEventListener("mousemove", (e: Event) => {
+  const target = e.target as SVGElement;
+  if (target.id !== "hitArea" && !isDragging && dragStartIdx === null) { return; }
+  const me = e as MouseEvent;
+  me.preventDefault();
+
+  if (dragStartIdx !== null) {
+    const curIdx = xToIdx(me.clientX);
+    if (Math.abs(curIdx - dragStartIdx) >= 2) {
+      isDragging = true;
+      const lo = Math.min(dragStartIdx, curIdx);
+      const hi = Math.max(dragStartIdx, curIdx);
+      const x1 = PADDING.left + lo * chartXStep;
+      const x2 = PADDING.left + hi * chartXStep;
+      const overlay = document.getElementById("selectOverlay");
+      if (overlay) {
+        overlay.setAttribute("x", String(x1));
+        overlay.setAttribute("width", String(x2 - x1));
+        overlay.style.display = "";
+      }
+    }
+    return;
+  }
+
+  const idx = xToIdx(me.clientX);
+  if (idx < 0 || idx >= renderVisibleData.length) { return; }
+  const x = PADDING.left + idx * chartXStep;
+  const d = renderVisibleData[idx];
+
+  const crosshairLine = document.getElementById("crosshair");
+  if (crosshairLine) {
+    crosshairLine.setAttribute("x1", String(x));
+    crosshairLine.setAttribute("x2", String(x));
+    crosshairLine.style.display = "";
+  }
+
+  const date = new Date(d.date);
+  const dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+  let tooltipHtml = `
+    <div class="hash">${d.hash}</div>
+    <div class="message">${escapeHtml(d.message)}</div>
+    <div class="author">${escapeHtml(d.author)} · ${dateStr}</div>
+    <div class="stat">`;
+  if (sections.fileCount) { tooltipHtml += `Files in repo: ${d.cumulativeFileCount}<br>`; }
+  if (sections.filesChanged) {
+    tooltipHtml += `Changed: ${d.filesChanged} (<span class="added">+${d.filesAdded}</span> <span class="deleted">-${d.filesDeleted}</span>)<br>`;
+  }
+  if (sections.authors) { tooltipHtml += `Authors (10): ${renderAuthorCounts[idx]}<br>`; }
+  if (sections.velocity) { tooltipHtml += `Commits/day: ${renderVelocity[idx]}<br>`; }
+  if (sections.churn) { tooltipHtml += `Churn: ${renderChurn[idx].toFixed(1)}%<br>`; }
+  tooltipHtml += `</div>`;
+  tooltip.innerHTML = tooltipHtml;
+  tooltip.style.display = "block";
+
+  const cRect = chartContainer.getBoundingClientRect();
+  const tooltipW = tooltip.offsetWidth;
+  let tooltipX = me.clientX - cRect.left + 12;
+  if (tooltipX + tooltipW > cRect.width) {
+    tooltipX = me.clientX - cRect.left - tooltipW - 12;
+  }
+  tooltip.style.left = tooltipX + "px";
+  tooltip.style.top = (me.clientY - cRect.top - tooltip.offsetHeight - 8) + "px";
+});
+
+svg.addEventListener("mouseleave", () => {
+  if (!isDragging) {
+    const crosshairLine = document.getElementById("crosshair");
+    if (crosshairLine) { crosshairLine.style.display = "none"; }
+    tooltip.style.display = "none";
+  }
+});
+
+svg.addEventListener("dblclick", () => {
+  popZoom();
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
