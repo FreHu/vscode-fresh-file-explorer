@@ -1,4 +1,4 @@
-import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksTimeWindowOption } from "./messages";
+import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksConfig } from "./messages";
 
 const vscode = acquireVsCodeApi();
 
@@ -10,45 +10,104 @@ const svg = document.getElementById("chart") as unknown as SVGSVGElement;
 const tooltip = document.getElementById("tooltip") as HTMLElement;
 
 let currentData: StonksDataPoint[] = [];
-let zoomStart: number | null = null; // index into currentData
-let zoomEnd: number | null = null;   // index into currentData
+interface ZoomLevel { start: number; end: number }
+const zoomStack: ZoomLevel[] = [];
+let panOffset = Number.MAX_SAFE_INTEGER; // index into visible data; MAX = scroll to end
+let maxVisibleTicks = 1000;
+
+// Interaction state shared across render cycles
+let chartN = 0;
+let chartXStep = 0;
+let dragStartIdx: number | null = null;
+let isDragging = false;
 
 function getVisibleData(): StonksDataPoint[] {
-  if (zoomStart !== null && zoomEnd !== null) {
-    return currentData.slice(zoomStart, zoomEnd + 1);
+  if (zoomStack.length > 0) {
+    const top = zoomStack[zoomStack.length - 1];
+    return currentData.slice(top.start, top.end + 1);
   }
   return currentData;
 }
 
+function visibleDataLength(): number {
+  if (zoomStack.length > 0) {
+    const top = zoomStack[zoomStack.length - 1];
+    return top.end - top.start + 1;
+  }
+  return currentData.length;
+}
+
 function resetZoom(): void {
-  zoomStart = null;
-  zoomEnd = null;
-  updateResetButton();
+  zoomStack.length = 0;
+  panOffset = Number.MAX_SAFE_INTEGER;
+  updateZoomSelect();
   render();
 }
 
-function updateResetButton(): void {
-  const btn = document.getElementById("resetZoom") as HTMLElement | null;
-  const info = document.getElementById("zoomInfo") as HTMLElement | null;
-  const zoomed = zoomStart !== null && zoomEnd !== null;
-  if (btn) {
-    btn.style.display = zoomed ? "inline-block" : "none";
-  }
-  if (info) {
-    if (zoomed) {
-      const first = currentData[zoomStart!];
-      const last = currentData[zoomEnd!];
-      const fmt = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      info.textContent = `${first.hash.substring(0, 7)}→${last.hash.substring(0, 7)}  ·  ${fmt(first.date)} – ${fmt(last.date)}`;
-      info.style.display = "inline";
-    } else {
-      info.style.display = "none";
-    }
+function popZoom(): void {
+  if (zoomStack.length > 0) {
+    zoomStack.pop();
+    panOffset = Number.MAX_SAFE_INTEGER;
+    updateZoomSelect();
+    render();
   }
 }
 
+const zoomSelect = document.getElementById("zoomSelect") as HTMLSelectElement;
+
+function updateZoomSelect(): void {
+  if (zoomStack.length === 0) {
+    zoomSelect.style.display = "none";
+    return;
+  }
+  zoomSelect.style.display = "";
+  zoomSelect.innerHTML = "";
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  const allOpt = document.createElement("option");
+  allOpt.value = "0";
+  allOpt.textContent = `All (${currentData.length} commits)`;
+  zoomSelect.appendChild(allOpt);
+
+  for (let i = 0; i < zoomStack.length; i++) {
+    const level = zoomStack[i];
+    const first = currentData[level.start];
+    const last = currentData[level.end];
+    const count = level.end - level.start + 1;
+    const opt = document.createElement("option");
+    opt.value = String(i + 1);
+    opt.textContent = `${fmt(first.date)} – ${fmt(last.date)} (${count})`;
+    zoomSelect.appendChild(opt);
+  }
+  zoomSelect.value = String(zoomStack.length);
+}
+
+zoomSelect.addEventListener("change", () => {
+  const level = Number(zoomSelect.value);
+  if (level === 0) {
+    resetZoom();
+  } else {
+    zoomStack.length = level;
+    panOffset = Number.MAX_SAFE_INTEGER;
+    updateZoomSelect();
+    render();
+  }
+});
+
 function postMessage(msg: StonksFromWebview): void {
   vscode.postMessage(msg);
+}
+
+function buildConfig(): StonksConfig {
+  return {
+    sections: { ...sections },
+    maxVisibleTicks,
+    selectedDays: Number(timeWindowSelect.value) || 30,
+  };
+}
+
+function sendConfig(): void {
+  postMessage({ command: "updateConfig", config: buildConfig() });
 }
 
 // ── Repo selector ─────────────────────────────────────────────────────────────
@@ -65,9 +124,20 @@ repoSelect.addEventListener("change", () => {
 const timeWindowSelect = document.getElementById("timeWindowSelect") as HTMLSelectElement;
 
 timeWindowSelect.addEventListener("change", () => {
-  const raw = timeWindowSelect.value;
-  const days = raw === "pending" ? undefined : Number(raw);
-  postMessage({ command: "selectTimeWindow", days });
+  postMessage({ command: "selectTimeWindow", days: Number(timeWindowSelect.value) });
+  sendConfig();
+});
+
+// ── Max ticks input ───────────────────────────────────────────────────────────
+
+const maxTicksInput = document.getElementById("maxTicks") as HTMLInputElement;
+maxTicksInput.addEventListener("change", () => {
+  const val = parseInt(maxTicksInput.value, 10);
+  if (val >= 100 && val <= 10000) {
+    maxVisibleTicks = val;
+    sendConfig();
+    render();
+  }
 });
 
 // ── Message handling ──────────────────────────────────────────────────────────
@@ -99,9 +169,9 @@ window.addEventListener("message", (event) => {
     }
     case "setData":
       currentData = msg.data;
-      zoomStart = null;
-      zoomEnd = null;
-      updateResetButton();
+      zoomStack.length = 0;
+      panOffset = Number.MAX_SAFE_INTEGER;
+      updateZoomSelect();
       render();
       break;
     case "setLoading":
@@ -111,12 +181,31 @@ window.addEventListener("message", (event) => {
         emptyDiv.style.display = "none";
       }
       break;
+    case "setConfig": {
+      const c = msg.config;
+      // Apply section toggles
+      for (const [key, id] of [
+        ["fileCount", "toggleFileCount"],
+        ["filesChanged", "toggleFilesChanged"],
+        ["authors", "toggleAuthors"],
+        ["velocity", "toggleVelocity"],
+        ["churn", "toggleChurn"],
+      ] as const) {
+        sections[key] = c.sections[key];
+        const cb = document.getElementById(id) as HTMLInputElement | null;
+        if (cb) { cb.checked = c.sections[key]; }
+      }
+      // Apply max ticks
+      maxVisibleTicks = c.maxVisibleTicks;
+      maxTicksInput.value = String(c.maxVisibleTicks);
+      break;
+    }
   }
 });
 
 // ── SVG Chart Rendering ───────────────────────────────────────────────────────
 
-const PADDING = { top: 16, right: 60, bottom: 32, left: 60 };
+const PADDING = { top: 36, right: 60, bottom: 32, left: 60 };
 const SECTION_GAP = 28; // gap between sections (includes label space)
 const SECTION_LABEL_OFFSET = -6; // y offset for section label above its band
 
@@ -141,6 +230,7 @@ for (const [key, id] of [
   if (cb) {
     cb.addEventListener("change", () => {
       sections[key as keyof typeof sections] = cb.checked;
+      sendConfig();
       render();
     });
   }
@@ -190,19 +280,96 @@ function computeBands(availableHeight: number): Band[] {
   return bands;
 }
 
+// ── Shared interaction helpers ─────────────────────────────────────────────────
+
+function xToIdx(clientX: number): number {
+  const svgRect = svg.getBoundingClientRect();
+  const mx = clientX - svgRect.left;
+  return Math.round(Math.max(0, Math.min(chartN - 1, (mx - PADDING.left) / chartXStep)));
+}
+
+// Derived series cache — recomputed only when zoom level or data changes, not on pan
+let derivedCache: {
+  data: StonksDataPoint[];
+  zoomKey: string;
+  allAuthorCounts: number[];
+  allVelocity: number[];
+  allChurn: number[];
+} | null = null;
+
+function zoomCacheKey(): string {
+  if (zoomStack.length === 0) { return ""; }
+  const t = zoomStack[zoomStack.length - 1];
+  return `${zoomStack.length}:${t.start}:${t.end}`;
+}
+
 function render() {
-  const visibleData = getVisibleData();
-  if (visibleData.length === 0) {
+  const allVisible = getVisibleData();
+  if (allVisible.length === 0) {
     chartContainer.style.display = "none";
     emptyDiv.style.display = "";
+    updatePanScrollbar(0, 0);
     return;
   }
   emptyDiv.style.display = "none";
   chartContainer.style.display = "";
 
+  // ── Page window (limit rendered ticks, rest via horizontal pan) ──────────
+  const needsPan = allVisible.length > maxVisibleTicks;
+  const maxOffset = Math.max(0, allVisible.length - maxVisibleTicks);
+  panOffset = Math.max(0, Math.min(panOffset, maxOffset));
+  const pageStart = needsPan ? panOffset : 0;
+  const pageEnd = needsPan ? pageStart + maxVisibleTicks : allVisible.length;
+
+  // ── Derived series (cached across pan-only re-renders) ────────────────────
+  const zoomKey = zoomCacheKey();
+  let allAuthorCounts: number[];
+  let allVelocity: number[];
+  let allChurn: number[];
+
+  if (derivedCache && derivedCache.data === currentData && derivedCache.zoomKey === zoomKey) {
+    allAuthorCounts = derivedCache.allAuthorCounts;
+    allVelocity = derivedCache.allVelocity;
+    allChurn = derivedCache.allChurn;
+  } else {
+    const allN = allVisible.length;
+    const AUTHOR_WINDOW = 10;
+    allAuthorCounts = [];
+    for (let i = 0; i < allN; i++) {
+      const start = Math.max(0, i - AUTHOR_WINDOW + 1);
+      const authors = new Set<string>();
+      for (let j = start; j <= i; j++) { authors.add(allVisible[j].author); }
+      allAuthorCounts.push(authors.size);
+    }
+
+    const dayMap = new Map<string, number>();
+    for (const d of allVisible) {
+      const dayKey = d.date.substring(0, 10);
+      dayMap.set(dayKey, (dayMap.get(dayKey) ?? 0) + 1);
+    }
+    allVelocity = allVisible.map(d => dayMap.get(d.date.substring(0, 10)) ?? 0);
+
+    allChurn = allVisible.map(d =>
+      d.cumulativeFileCount > 0 ? (d.filesChanged / d.cumulativeFileCount) * 100 : 0,
+    );
+
+    derivedCache = { data: currentData, zoomKey, allAuthorCounts, allVelocity, allChurn };
+  }
+
+  // ── Slice to page window ──────────────────────────────────────────────────
+  const visibleData = allVisible.slice(pageStart, pageEnd);
+  const counts = visibleData.map(d => d.cumulativeFileCount);
+  const volumes = visibleData.map(d => d.filesChanged);
+  const authorCounts = allAuthorCounts.slice(pageStart, pageEnd);
+  const velocity = allVelocity.slice(pageStart, pageEnd);
+  const churn = allChurn.slice(pageStart, pageEnd);
+
   // Available height: viewport minus header/toggles/padding above the chart container
+  // Reserve space for body bottom padding (20px) and pan scrollbar (16px) so nothing overflows
   const containerTop = chartContainer.getBoundingClientRect().top;
-  const availableH = window.innerHeight - containerTop;
+  const scrollbarReserve = allVisible.length > maxVisibleTicks ? 16 : 0;
+  const bodyPaddingBottom = 20;
+  const availableH = window.innerHeight - containerTop - scrollbarReserve - bodyPaddingBottom;
 
   const bands = computeBands(availableH);
   if (bands.length === 0) { return; }
@@ -216,33 +383,8 @@ function render() {
 
   const n = visibleData.length;
   const xStep = n > 1 ? plotW / (n - 1) : plotW / 2;
-
-  // ── Pre-compute derived series ────────────────────────────────────────────
-  const counts = visibleData.map(d => d.cumulativeFileCount);
-  const volumes = visibleData.map(d => d.filesChanged);
-
-  // Unique authors in rolling window of 10 commits
-  const AUTHOR_WINDOW = 10;
-  const authorCounts: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const start = Math.max(0, i - AUTHOR_WINDOW + 1);
-    const authors = new Set<string>();
-    for (let j = start; j <= i; j++) { authors.add(visibleData[j].author); }
-    authorCounts.push(authors.size);
-  }
-
-  // Commits per day (group by calendar day, then map back per-commit)
-  const dayMap = new Map<string, number>();
-  for (const d of visibleData) {
-    const dayKey = d.date.substring(0, 10); // YYYY-MM-DD
-    dayMap.set(dayKey, (dayMap.get(dayKey) ?? 0) + 1);
-  }
-  const velocity: number[] = visibleData.map(d => dayMap.get(d.date.substring(0, 10)) ?? 0);
-
-  // Churn rate: filesChanged / cumulativeFileCount (as percentage)
-  const churn: number[] = visibleData.map(d =>
-    d.cumulativeFileCount > 0 ? (d.filesChanged / d.cumulativeFileCount) * 100 : 0,
-  );
+  chartN = n;
+  chartXStep = xStep;
 
   // ── SVG construction ──────────────────────────────────────────────────────
   let svgContent = "";
@@ -256,6 +398,9 @@ function render() {
       </linearGradient>
     </defs>
   `;
+
+  // X-axis date labels (top of chart)
+  svgContent += renderXAxis(visibleData, n, xStep);
 
   for (const band of bands) {
     const { key, label, top, height: bandH } = band;
@@ -307,7 +452,7 @@ function render() {
     const iconR = Math.min(4, xStep * 0.25);
     for (let i = 0; i < n; i++) {
       const cx = PADDING.left + i * xStep;
-      commitLinks += `<circle class="commit-link" data-hash="${visibleData[i].hash}" cx="${cx}" cy="${iconY}" r="${iconR}" fill="var(--vscode-textLink-foreground)" opacity="0.5" style="cursor:pointer"><title>${visibleData[i].hash.substring(0, 7)}</title></circle>`;
+      commitLinks += `<circle class="commit-link" data-hash="${visibleData[i].hash}" cx="${cx}" cy="${iconY}" r="${iconR}" fill="var(--vscode-textLink-foreground)" opacity="0.5" style="cursor:pointer"><title>Open commit ${visibleData[i].hash.substring(0, 7)}</title></circle>`;
     }
   }
   svgContent += commitLinks;
@@ -345,17 +490,6 @@ function render() {
   const hitArea = document.getElementById("hitArea")!;
   const crosshairLine = document.getElementById("crosshair")!;
   const selectOverlay = document.getElementById("selectOverlay")!;
-
-  let dragStartIdx: number | null = null;
-  let isDragging = false;
-
-  function xToIdx(clientX: number): number {
-    const svgRect = svg.getBoundingClientRect();
-    const mx = clientX - svgRect.left;
-    return Math.round(Math.max(0, Math.min(n - 1, (mx - PADDING.left) / xStep)));
-  }
-
-  svg.addEventListener("dragstart", (e: Event) => { e.preventDefault(); });
 
   hitArea.addEventListener("mousedown", (e: Event) => {
     const me = e as MouseEvent;
@@ -401,15 +535,13 @@ function render() {
       <div class="message">${escapeHtml(d.message)}</div>
       <div class="author">${escapeHtml(d.author)} · ${dateStr}</div>
       <div class="stat">`;
-    if (sections.fileCount) { tooltipHtml += `Files: ${d.cumulativeFileCount} · `; }
+    if (sections.fileCount) { tooltipHtml += `Files in repo: ${d.cumulativeFileCount}<br>`; }
     if (sections.filesChanged) {
-      tooltipHtml += `Changed: ${d.filesChanged} (<span class="added">+${d.filesAdded}</span> <span class="deleted">-${d.filesDeleted}</span>) · `;
+      tooltipHtml += `Changed: ${d.filesChanged} (<span class="added">+${d.filesAdded}</span> <span class="deleted">-${d.filesDeleted}</span>)<br>`;
     }
-    if (sections.authors) { tooltipHtml += `Authors(10): ${authorCounts[idx]} · `; }
-    if (sections.velocity) { tooltipHtml += `Commits/day: ${velocity[idx]} · `; }
-    if (sections.churn) { tooltipHtml += `Churn: ${churn[idx].toFixed(1)}% · `; }
-    // Strip trailing " · "
-    tooltipHtml = tooltipHtml.replace(/ · $/, "");
+    if (sections.authors) { tooltipHtml += `Authors (10): ${authorCounts[idx]}<br>`; }
+    if (sections.velocity) { tooltipHtml += `Commits/day: ${velocity[idx]}<br>`; }
+    if (sections.churn) { tooltipHtml += `Churn: ${churn[idx].toFixed(1)}%<br>`; }
     tooltipHtml += `</div>`;
     tooltip.innerHTML = tooltipHtml;
     tooltip.style.display = "block";
@@ -431,38 +563,114 @@ function render() {
     }
   });
 
-  document.addEventListener("mouseup", (e: Event) => {
-    if (dragStartIdx === null) { return; }
-    const me = e as MouseEvent;
-    const endIdx = xToIdx(me.clientX);
-    const lo = Math.min(dragStartIdx, endIdx);
-    const hi = Math.max(dragStartIdx, endIdx);
-    selectOverlay.style.display = "none";
-    crosshairLine.style.display = "none";
-    tooltip.style.display = "none";
-    dragStartIdx = null;
-
-    if (!isDragging || hi - lo < 2) {
-      isDragging = false;
-      return;
-    }
-    isDragging = false;
-
-    const baseOffset = zoomStart ?? 0;
-    zoomStart = baseOffset + lo;
-    zoomEnd = baseOffset + hi;
-    updateResetButton();
-    render();
-  });
-
   hitArea.addEventListener("dblclick", () => {
-    if (zoomStart !== null) {
-      resetZoom();
-    }
+    popZoom();
   });
+
+  // ── Update pan scrollbar ────────────────────────────────────────────────────
+  updatePanScrollbar(allVisible.length, pageStart);
 }
 
+// ── Pan scrollbar ─────────────────────────────────────────────────────────────
+
+const panScrollbar = document.getElementById("panScrollbar") as HTMLElement;
+const panThumb = document.getElementById("panThumb") as HTMLElement;
+
+function updatePanScrollbar(totalVisible: number, pageStart: number): void {
+  const show = totalVisible > maxVisibleTicks;
+  panScrollbar.style.display = show ? "block" : "none";
+  if (!show) { return; }
+
+  const trackW = panScrollbar.clientWidth;
+  if (trackW <= 0) { return; }
+
+  const ratio = maxVisibleTicks / totalVisible;
+  const thumbW = Math.max(20, Math.round(ratio * trackW));
+  const maxThumbLeft = trackW - thumbW;
+  const maxOff = totalVisible - maxVisibleTicks;
+  const thumbLeft = maxOff > 0 ? Math.round((pageStart / maxOff) * maxThumbLeft) : 0;
+
+  panThumb.style.width = thumbW + "px";
+  panThumb.style.left = thumbLeft + "px";
+}
+
+// Thumb drag
+let panDragStart: { x: number; offset: number } | null = null;
+
+panThumb.addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  panDragStart = { x: e.clientX, offset: panOffset };
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!panDragStart) { return; }
+  const trackW = panScrollbar.clientWidth;
+  const total = visibleDataLength();
+  const ratio = maxVisibleTicks / total;
+  const thumbW = Math.max(20, Math.round(ratio * trackW));
+  const maxThumbLeft = trackW - thumbW;
+  const maxOff = total - maxVisibleTicks;
+  if (maxOff <= 0 || maxThumbLeft <= 0) { return; }
+
+  const dx = e.clientX - panDragStart.x;
+  panOffset = Math.round(panDragStart.offset + (dx / maxThumbLeft) * maxOff);
+  render();
+});
+
+document.addEventListener("mouseup", () => {
+  panDragStart = null;
+});
+
+// Track click (jump to position)
+panScrollbar.addEventListener("mousedown", (e) => {
+  if (e.target === panThumb) { return; }
+  const rect = panScrollbar.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const trackW = rect.width;
+  const total = visibleDataLength();
+  const maxOff = total - maxVisibleTicks;
+  if (maxOff <= 0) { return; }
+
+  panOffset = Math.round((clickX / trackW) * maxOff);
+  render();
+});
+
+// Wheel panning (shift+wheel or trackpad horizontal swipe)
+chartContainer.addEventListener("wheel", (e) => {
+  if (visibleDataLength() <= maxVisibleTicks) { return; }
+  const delta = e.deltaX || (e.shiftKey ? e.deltaY : 0);
+  if (delta === 0) { return; }
+  e.preventDefault();
+  const step = Math.max(1, Math.round(maxVisibleTicks * 0.05));
+  panOffset += delta > 0 ? step : -step;
+  render();
+}, { passive: false });
+
 // ── Section rendering helpers ─────────────────────────────────────────────────
+
+function renderXAxis(data: StonksDataPoint[], n: number, xStep: number): string {
+  if (n < 2) { return ""; }
+  const MAX_LABELS = 10;
+  const step = Math.max(1, Math.floor((n - 1) / (MAX_LABELS - 1)));
+  const indices: number[] = [];
+  for (let i = 0; i < n; i += step) { indices.push(i); }
+  // Only add the last label if it's at least half a step away from the previous
+  const lastIdx = indices[indices.length - 1];
+  if (lastIdx !== n - 1 && (n - 1) - lastIdx > step * 0.5) {
+    indices.push(n - 1);
+  }
+  let out = "";
+  for (const i of indices) {
+    const x = PADDING.left + i * xStep;
+    const date = new Date(data[i].date);
+    const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    // Anchor first label to start, last to end, rest centered
+    const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
+    out += `<text x="${x}" y="14" text-anchor="${anchor}" fill="var(--vscode-descriptionForeground)" font-size="10">${label}</text>`;
+  }
+  return out;
+}
 
 function renderLinePath(
   values: number[], top: number, bandH: number, plotW: number,
@@ -587,5 +795,33 @@ ro.observe(chartContainer);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-document.getElementById("resetZoom")?.addEventListener("click", resetZoom);
+svg.addEventListener("dragstart", (e: Event) => { e.preventDefault(); });
+
+// Zoom-selection mouseup — registered once (was previously stacking inside render)
+document.addEventListener("mouseup", (e: Event) => {
+  if (dragStartIdx === null) { return; }
+  const me = e as MouseEvent;
+  const endIdx = xToIdx(me.clientX);
+  const lo = Math.min(dragStartIdx, endIdx);
+  const hi = Math.max(dragStartIdx, endIdx);
+  const overlay = document.getElementById("selectOverlay");
+  const crosshair = document.getElementById("crosshair");
+  if (overlay) { overlay.style.display = "none"; }
+  if (crosshair) { crosshair.style.display = "none"; }
+  tooltip.style.display = "none";
+  dragStartIdx = null;
+
+  if (!isDragging || hi - lo < 2) {
+    isDragging = false;
+    return;
+  }
+  isDragging = false;
+
+  const base = zoomStack.length > 0 ? zoomStack[zoomStack.length - 1].start : 0;
+  zoomStack.push({ start: base + panOffset + lo, end: base + panOffset + hi });
+  panOffset = 0;
+  updateZoomSelect();
+  render();
+});
+
 postMessage({ command: "ready" });

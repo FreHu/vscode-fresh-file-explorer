@@ -34,25 +34,9 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
       font-size: var(--vscode-font-size);
       min-width: 160px;
     }
-    .reset-zoom {
+    #zoomSelect {
       display: none;
-      padding: 3px 10px;
-      background: var(--vscode-button-secondaryBackground);
-      color: var(--vscode-button-secondaryForeground);
-      border: none;
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      cursor: pointer;
-    }
-    .reset-zoom:hover {
-      background: var(--vscode-button-secondaryHoverBackground);
-    }
-    .zoom-info {
-      display: none;
-      color: var(--vscode-descriptionForeground);
-      font-size: 12px;
-      font-family: var(--vscode-editor-font-family, monospace);
-      white-space: nowrap;
+      min-width: 100px;
     }
     .toggles {
       display: flex;
@@ -71,6 +55,14 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
     }
     .toggles input[type="checkbox"] {
       accent-color: var(--vscode-focusBorder);
+    }
+    .toggles input[type="number"] {
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, transparent);
+      padding: 2px 4px;
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
     }
     .loading {
       color: var(--vscode-descriptionForeground);
@@ -115,6 +107,7 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
     }
     .tooltip .stat {
       color: var(--vscode-descriptionForeground);
+      line-height: 1.6;
     }
     .tooltip .stat .added { color: var(--vscode-gitDecoration-addedResourceForeground, #73c991); }
     .tooltip .stat .deleted { color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39); }
@@ -122,6 +115,48 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
       color: var(--vscode-descriptionForeground);
       padding: 40px 0;
       text-align: center;
+    }
+    .controls-help {
+      color: var(--vscode-descriptionForeground);
+      font-size: 11px;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+    .controls-help kbd {
+      display: inline-block;
+      padding: 0px 4px;
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 10px;
+      background: var(--vscode-keybindingLabel-background, rgba(128,128,128,0.17));
+      color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
+      border: 1px solid var(--vscode-keybindingLabel-border, rgba(51,51,51,0.6));
+      border-bottom-color: var(--vscode-keybindingLabel-bottomBorder, rgba(68,68,68,0.6));
+      border-radius: 3px;
+    }
+    .pan-scrollbar {
+      display: none;
+      position: relative;
+      height: 12px;
+      margin: 4px 60px 0 60px;
+      background: var(--vscode-scrollbar-shadow, rgba(0,0,0,0.1));
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .pan-thumb {
+      position: absolute;
+      top: 1px;
+      height: 10px;
+      min-width: 20px;
+      background: var(--vscode-scrollbarSlider-background, rgba(121,121,121,0.4));
+      border-radius: 5px;
+      cursor: grab;
+    }
+    .pan-thumb:hover {
+      background: var(--vscode-scrollbarSlider-hoverBackground, rgba(121,121,121,0.7));
+    }
+    .pan-thumb:active {
+      background: var(--vscode-scrollbarSlider-activeBackground, rgba(121,121,121,0.9));
+      cursor: grabbing;
     }
   `;
 
@@ -142,8 +177,7 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
     <select id="timeWindowSelect">
       <option>Loading…</option>
     </select>
-    <button id="resetZoom" class="reset-zoom">Reset Zoom</button>
-    <span id="zoomInfo" class="zoom-info"></span>
+    <select id="zoomSelect"></select>
   </div>
   <div class="toggles">
     <label title="Cumulative number of files in the repository at each commit"><input type="checkbox" id="toggleFileCount" checked> Files in repo</label>
@@ -151,11 +185,16 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
     <label title="Distinct commit authors in a rolling window of 10 commits"><input type="checkbox" id="toggleAuthors" checked> Unique authors</label>
     <label title="Number of commits sharing the same calendar day"><input type="checkbox" id="toggleVelocity" checked> Commit velocity</label>
     <label title="Files changed as a percentage of total files in the repository"><input type="checkbox" id="toggleChurn" checked> Churn rate</label>
+    <label title="Maximum commits rendered at once before panning kicks in. Lower values improve responsiveness.">Max ticks: <input type="number" id="maxTicks" value="1000" min="100" max="10000" step="100" style="width: 60px"></label>
+  </div>
+  <div class="controls-help">
+    <kbd>drag</kbd> select range to zoom in · <kbd>dblclick</kbd> zoom out one level · <kbd>Shift</kbd>+<kbd>scroll</kbd> pan horizontally
   </div>
   <div id="loading" class="loading" style="display:none">Loading chart data…</div>
-  <div id="empty" class="empty" style="display:none">No commits found in the configured time window.</div>
+  <div id="empty" class="empty" style="display:none"></div>
   <div class="chart-container" id="chartContainer" style="display:none">
     <svg id="chart"></svg>
+    <div class="pan-scrollbar" id="panScrollbar"><div class="pan-thumb" id="panThumb"></div></div>
     <div class="tooltip" id="tooltip"></div>
   </div>
   <script nonce="${nonce}" src="${raw(scriptUri)}"></script>

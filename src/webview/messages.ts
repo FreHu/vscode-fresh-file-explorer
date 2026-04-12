@@ -86,14 +86,22 @@ export interface StonksTimeWindowOption {
   days: number | undefined;
 }
 
+export interface StonksConfig {
+  sections: { fileCount: boolean; filesChanged: boolean; authors: boolean; velocity: boolean; churn: boolean };
+  maxVisibleTicks: number;
+  selectedDays: number;
+}
+
 export type StonksToWebview =
   | { command: "setRepos"; repos: { name: string; path: string }[] }
   | { command: "setData"; data: StonksDataPoint[] }
   | { command: "setLoading"; loading: boolean }
-  | { command: "setTimeWindows"; options: StonksTimeWindowOption[]; selectedDays: number | undefined };
+  | { command: "setTimeWindows"; options: StonksTimeWindowOption[]; selectedDays: number | undefined }
+  | { command: "setConfig"; config: StonksConfig };
 
 export type StonksFromWebview =
   | { command: "ready" }
   | { command: "selectRepo"; repoPath: string }
   | { command: "openCommit"; hash: string }
-  | { command: "selectTimeWindow"; days: number | undefined };
+  | { command: "selectTimeWindow"; days: number | undefined }
+  | { command: "updateConfig"; config: StonksConfig };

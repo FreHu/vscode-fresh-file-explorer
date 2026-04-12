@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { PinnedItem, SortOrder } from "../types";
 import { GroupingMode, DEFAULT_GROUPING_MODE, coerceGroupingMode } from "../fresh-files/groupingMode";
-import { DiffSearchParams, DiffSearchHistoryEntry } from "../webview/messages";
+import { DiffSearchParams, DiffSearchHistoryEntry, StonksConfig } from "../webview/messages";
 import { NormalizedRepoPath } from "../pathTypes";
 
 /**
@@ -85,6 +85,16 @@ export class WorkspaceStateManager {
   }
 
   // ── Repo pathspecs ─────────────────────────────────────────────────────────
+
+  // ── Stonks config ──────────────────────────────────────────────────────────
+
+  static getStonksConfig(): StonksConfig | undefined {
+    return WorkspaceStateManager.ctx().workspaceState.get<StonksConfig>("stonksConfig");
+  }
+
+  static setStonksConfig(config: StonksConfig): void {
+    WorkspaceStateManager.ctx().workspaceState.update("stonksConfig", config);
+  }
 
   /** Returns the stored pathspec map (normalized repo path → pathspec string). */
   static getRepoPathspecs(): Map<NormalizedRepoPath, string> {

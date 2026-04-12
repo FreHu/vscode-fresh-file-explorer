@@ -8,6 +8,7 @@ import { ConfigService } from "../config/configService";
 import type { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import type { NormalizedRepoPath } from "../pathTypes";
 import type { StonksFromWebview, StonksTimeWindowOption, StonksToWebview } from "../webview/messages";
+import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 
 export class StonksPanel {
   private static currentPanel: StonksPanel | undefined;
@@ -32,7 +33,7 @@ export class StonksPanel {
 
     const panel = vscode.window.createWebviewPanel(
       "stonksPanel",
-      "Code Stonks",
+      "CodeStonks",
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -77,13 +78,26 @@ export class StonksPanel {
   private async _handleMessage(message: StonksFromWebview) {
     switch (message.command) {
       case "ready": {
-        // Send time window options (decoupled from provider's persisted selection)
-        const tw = this._provider.currentTimeWindow;
-        this._selectedDays = tw.type === "historical" ? tw.days : undefined;
-        const options: StonksTimeWindowOption[] = this._provider.timeWindows.map(w => ({
+        // Send persisted config first so webview can apply before rendering
+        const savedConfig = WorkspaceStateManager.getStonksConfig();
+        if (savedConfig) {
+          this._postMessage({ command: "setConfig", config: savedConfig });
+        }
+
+        // Send time window options, excluding pending (not meaningful for stonks)
+        const historicalWindows = this._provider.timeWindows.filter(
+          (w): w is { type: "historical"; label: string; days: number } => w.type === "historical",
+        );
+        const options: StonksTimeWindowOption[] = historicalWindows.map(w => ({
           label: w.label,
-          days: w.type === "historical" ? w.days : undefined,
+          days: w.days,
         }));
+        // Use persisted days if available, else derive from provider
+        const tw = this._provider.currentTimeWindow;
+        this._selectedDays = savedConfig?.selectedDays
+          ?? (tw.type === "historical" ? tw.days : undefined)
+          ?? historicalWindows[historicalWindows.length - 1]?.days
+          ?? 30;
         this._postMessage({ command: "setTimeWindows", options, selectedDays: this._selectedDays });
 
         const repos = this._provider.getRepoList();
@@ -111,6 +125,9 @@ export class StonksPanel {
         if (this._selectedRepo) {
           this._openCommit(message.hash);
         }
+        break;
+      case "updateConfig":
+        WorkspaceStateManager.setStonksConfig(message.config);
         break;
     }
   }

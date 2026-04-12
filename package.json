@@ -232,7 +232,7 @@
       },
       {
         "command": "freshFileExplorer.openStonksPanel",
-        "title": "Code Stonks",
+        "title": "CodeStonks",
         "category": "Fresh File Explorer"
       },
       {
