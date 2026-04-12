@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as vscode from "vscode";
 
 import { log } from "../extension/logger";
-import { CommitData, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage } from "../types";
+import { CommitData, CommitStats, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage } from "../types";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
 
@@ -422,6 +422,22 @@ export async function collectPendingChanges(
   return { files, removedPaths };
 }
 
+/** Accumulate per-commit file-change stats from `onFileEntry` calls. */
+function accumulateCommitStats(
+  commitStatsMap: Map<string, CommitStats>,
+  status: string,
+  commit: CommitData,
+): void {
+  let entry = commitStatsMap.get(commit.hash);
+  if (!entry) {
+    entry = { commit, added: 0, deleted: 0, modified: 0 };
+    commitStatsMap.set(commit.hash, entry);
+  }
+  if (status === "A") { entry.added++; }
+  else if (status === "D") { entry.deleted++; }
+  else { entry.modified++; }
+}
+
 /**
  * Stateful line processor for `git log --name-status` output.
  * Calls `onFileEntry` for every file entry parsed, passing the workspace-relative
@@ -530,11 +546,15 @@ export function streamGitLogNameStatus(
   cwd: string,
   repoRelativePath: string,
   timeout: number | undefined,
+  commitStatsMap?: Map<string, CommitStats>,
 ): Promise<Map<string, { status: string; commit: CommitData }>> {
   const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
   const processLine = createNameStatusLineProcessor(repoRelativePath, (relativePath, status, commit) => {
     if (!fileStatusMap.has(relativePath)) {
       fileStatusMap.set(relativePath, { status, commit });
+    }
+    if (commitStatsMap) {
+      accumulateCommitStats(commitStatsMap, status, commit);
     }
   });
   return spawnGitLines(args, cwd, timeout, processLine).then(() => fileStatusMap);
@@ -560,6 +580,7 @@ export function streamGitLogNameStatusWithProgress(
   thresholds: number[],
   now: Date,
   onThresholdCrossed: (days: number, snapshot: Map<string, { status: string; commit: CommitData }>) => void,
+  commitStatsMap?: Map<string, CommitStats>,
 ): Promise<Map<string, { status: string; commit: CommitData }>> {
   const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
   // Work through thresholds ascending so smaller windows fire first.
@@ -568,6 +589,9 @@ export function streamGitLogNameStatusWithProgress(
   const baseProcessLine = createNameStatusLineProcessor(repoRelativePath, (relativePath, status, commit) => {
     if (!fileStatusMap.has(relativePath)) {
       fileStatusMap.set(relativePath, { status, commit });
+    }
+    if (commitStatsMap) {
+      accumulateCommitStats(commitStatsMap, status, commit);
     }
   });
 
@@ -703,6 +727,7 @@ export async function collectHistoricalChanges(
   pathspec?: string,
   thresholds?: number[],
   onThresholdCrossed?: (days: number, partial: Map<string, FileMetadata>) => void,
+  commitStatsMap?: Map<string, CommitStats>,
 ): Promise<Map<string, FileMetadata>> {
   const files = new Map<string, FileMetadata>();
 
@@ -733,9 +758,10 @@ export async function collectHistoricalChanges(
           onThresholdCrossed(thresholdDays, partial);
         }).catch(() => { /* ignore — best-effort incremental update */ });
       },
+      commitStatsMap,
     );
   } else {
-    fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs());
+    fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs(), commitStatsMap);
   }
 
   // Step 2: Merge status into FileMetadata

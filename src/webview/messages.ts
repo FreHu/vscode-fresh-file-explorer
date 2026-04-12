@@ -66,3 +66,34 @@ export type DiffSearchFromWebview =
       pendingOnly: boolean;
       days: number | null;
     };
+
+// ── Stonks panel ──────────────────────────────────────────────────────────────
+
+export interface StonksDataPoint {
+  hash: string;
+  author: string;
+  date: string; // ISO 8601
+  message: string;
+  filesChanged: number;
+  filesAdded: number;
+  filesDeleted: number;
+  cumulativeFileCount: number;
+}
+
+export interface StonksTimeWindowOption {
+  label: string;
+  /** undefined = pending changes mode */
+  days: number | undefined;
+}
+
+export type StonksToWebview =
+  | { command: "setRepos"; repos: { name: string; path: string }[] }
+  | { command: "setData"; data: StonksDataPoint[] }
+  | { command: "setLoading"; loading: boolean }
+  | { command: "setTimeWindows"; options: StonksTimeWindowOption[]; selectedDays: number | undefined };
+
+export type StonksFromWebview =
+  | { command: "ready" }
+  | { command: "selectRepo"; repoPath: string }
+  | { command: "openCommit"; hash: string }
+  | { command: "selectTimeWindow"; days: number | undefined };

@@ -2,7 +2,7 @@ import * as path from "path";
 import * as v8 from "v8";
 
 import { AbsolutePath, NormalizedRepoPath } from "../pathTypes";
-import { FileMetadata, WorkspaceFolderInfo } from "../types";
+import { CommitStats, FileMetadata, WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 
 export interface CacheRepoStats {
@@ -18,6 +18,7 @@ interface CacheEntry {
   sortedByDate: ReadonlyArray<readonly [AbsolutePath, FileMetadata]>;
   maxDays: number;
   pathspec: string | undefined;
+  commitStats?: Map<string, CommitStats>;
 }
 
 /**
@@ -62,6 +63,11 @@ export class HistoricalFileCache {
     return this.cache.get(normalizedRepoPath);
   }
 
+  /** Get per-commit stats for a repo, if cached. */
+  getCommitStats(normalizedRepoPath: NormalizedRepoPath): Map<string, CommitStats> | undefined {
+    return this.cache.get(normalizedRepoPath)?.commitStats;
+  }
+
   /**
    * Store (or replace) a full cache entry for a repo, building the
    * sorted-by-date index used by `filterToWindow`.
@@ -71,11 +77,12 @@ export class HistoricalFileCache {
     data: Map<AbsolutePath, FileMetadata>,
     maxDays: number,
     pathspec: string | undefined,
+    commitStats?: Map<string, CommitStats>,
   ): void {
     const sortedByDate = Array.from(data.entries()).sort(
       (a, b) => a[1].date.getTime() - b[1].date.getTime(),
     );
-    this.cache.set(normalizedRepoPath, { data, sortedByDate, maxDays, pathspec });
+    this.cache.set(normalizedRepoPath, { data, sortedByDate, maxDays, pathspec, commitStats });
   }
 
   /**
@@ -88,10 +95,11 @@ export class HistoricalFileCache {
     days: number,
     data: Map<AbsolutePath, FileMetadata>,
     pathspec: string | undefined,
+    commitStats?: Map<string, CommitStats>,
   ): void {
     const existing = this.cache.get(normalizedRepoPath);
     if (!existing || existing.maxDays < days) {
-      this.setEntry(normalizedRepoPath, data, days, pathspec);
+      this.setEntry(normalizedRepoPath, data, days, pathspec, commitStats);
     }
   }
 

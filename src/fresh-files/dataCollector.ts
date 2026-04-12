@@ -1,6 +1,6 @@
 import * as path from "path";
 import { AbsolutePath, asAbsolutePath, NormalizedRepoPath, asNormalizedRepoPath } from "../pathTypes";
-import { FileMetadata, WorkspaceFolderInfo } from "../types";
+import { CommitStats, FileMetadata, WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 import { log } from "../extension/logger";
 import {
@@ -111,6 +111,7 @@ export class DataCollector {
     pathspec?: string,
     thresholds?: number[],
     onThresholdCrossed?: (days: number, partial: Map<AbsolutePath, FileMetadata>) => void,
+    commitStatsMap?: Map<string, CommitStats>,
   ): Promise<{ error: { message: string; isPathspecError: boolean } | undefined; fullData: Map<AbsolutePath, FileMetadata> }> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
     const filesBefore = targetMap.size;
@@ -135,6 +136,7 @@ export class DataCollector {
         pathspec,
         thresholds,
         wrappedOnThreshold,
+        commitStatsMap,
       );
       DataCollector.addFilesToMap(folder, historicalFiles, historicalTargetMap);
       DataCollector.addFilesToMap(folder, historicalFiles, targetMap);

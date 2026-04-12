@@ -52,6 +52,7 @@ import { GitLogLContentProvider } from "./logL/gitLogLPanel";
 import { ContextManager } from "./extension/contextManager";
 import { WorkspaceStateManager } from "./extension/workspaceStateManager";
 import { PerfBenchmarkPanel } from "./benchmark/perfBenchmarkPanel";
+import { StonksPanel } from "./stonks/stonksPanel";
 import { PinnedItemsProvider } from "./fresh-files/pinnedItemsProvider";
 import { ConfigService } from "./config/configService";
 
@@ -329,6 +330,11 @@ function registerCommands(
       vscode.workspace.workspaceFolders || [],
       () => freshFileProvider.getCacheStats(),
     )
+  );
+
+  // Stonks panel
+  register(Commands.OPEN_STONKS_PANEL, () =>
+    StonksPanel.createOrShow(context.extensionUri, freshFileProvider)
   );
 
   // File copy/cut/paste

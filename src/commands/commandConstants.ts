@@ -75,6 +75,9 @@ export const Commands = {
   // Performance benchmark panel
   PERF_BENCHMARK: "freshFileExplorer.perfBenchmark",
 
+  // Stonks panel (file count chart)
+  OPEN_STONKS_PANEL: "freshFileExplorer.openStonksPanel",
+
   // File copy/cut/paste
   COPY_FILE: "freshFileExplorer.copyFile",
   CUT_FILE: "freshFileExplorer.cutFile",

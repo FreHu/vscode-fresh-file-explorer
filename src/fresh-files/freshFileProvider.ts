@@ -13,6 +13,7 @@ import {
   BranchName,
   CommitHash,
   CommitAuthor,
+  CommitStats,
   asCommitAuthor,
   CommitDataWithFileCount,
   asCommitMessage,
@@ -567,6 +568,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return Array.from(commitInfo.entries())
       .map(([_, info]) => ({ ...info }))
       .sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort by date descending (newest first)
+  }
+
+  /** Get per-commit file-change stats for a given repo, from the historical cache. */
+  getCommitStats(normalizedRepoPath: NormalizedRepoPath): Map<string, CommitStats> | undefined {
+    return this.historicalCache.getCommitStats(normalizedRepoPath);
+  }
+
+  /** Get discovered repos as {name, normalizedPath} pairs for external consumers. */
+  getRepoList(): { name: string; path: NormalizedRepoPath }[] {
+    return this._resolvedRepos.map(r => ({ name: r.folder.name + (r.repoRelPath ? "/" + r.repoRelPath : ""), path: r.normalizedRepoPath }));
   }
 
   /** Get all visible file paths (excluding deleted files) for search operations */
@@ -1176,6 +1187,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     };
 
+    const commitStatsMap = new Map<string, CommitStats>();
     const { error: repoError, fullData } = await DataCollector.collectHistoricalForRepo(
       folder,
       repoRelPath,
@@ -1185,10 +1197,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       this.repoPathspecs.get(normalizedRepoPath),
       thresholds,
       onThresholdCrossed,
+      commitStatsMap,
     );
 
     if (!repoError && fullData.size > 0) {
-      this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoPathspecs.get(normalizedRepoPath));
+      this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoPathspecs.get(normalizedRepoPath), commitStatsMap);
       log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath}`);
     }
 

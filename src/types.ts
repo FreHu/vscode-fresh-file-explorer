@@ -125,6 +125,15 @@ export interface CommitData {
 export interface CommitDataWithFileCount extends CommitData {
   fileCount: number;
 }
+
+/** Per-commit file-change breakdown, accumulated during the git log stream. */
+export interface CommitStats {
+  commit: CommitData;
+  added: number;
+  deleted: number;
+  modified: number;
+}
+
 export interface AuthorData {
   author: CommitAuthor | "(unknown)";
   fileCount: number;

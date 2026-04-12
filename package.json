@@ -231,6 +231,11 @@
         "category": "Fresh File Explorer"
       },
       {
+        "command": "freshFileExplorer.openStonksPanel",
+        "title": "Code Stonks",
+        "category": "Fresh File Explorer"
+      },
+      {
         "command": "freshFileExplorer.copyFile",
         "title": "Copy"
       },
@@ -1128,11 +1133,11 @@
     "vscode:prepublish": "npm run compile && npm run compile:webview",
     "clean": "rimraf out",
     "compile": "npm run clean && tsc -p ./ && npm run copy:fixtures",
-    "compile:webview": "tsc -p tsconfig.webview.json --noEmit && esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts --bundle --outdir=media --format=iife --platform=browser",
+    "compile:webview": "tsc -p tsconfig.webview.json --noEmit && esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts src/webview/stonksPanel.ts --bundle --outdir=media --format=iife --platform=browser",
     "copy:fixtures": "copyfiles -u 1 \"src/test/fixtures/**\" out/",
     "watch": "npm run copy:fixtures && run-p watch:ext watch:webview",
     "watch:ext": "tsc -watch -p ./",
-    "watch:webview": "esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts --bundle --outdir=media --format=iife --platform=browser --watch",
+    "watch:webview": "esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts src/webview/stonksPanel.ts --bundle --outdir=media --format=iife --platform=browser --watch",
     "pretest": "npm run compile && npm run compile:webview && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
