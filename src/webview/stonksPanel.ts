@@ -1,4 +1,4 @@
-import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksConfig } from "./messages";
+import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksConfig, XAxisMode } from "./messages";
 
 const vscode = acquireVsCodeApi();
 
@@ -8,8 +8,11 @@ const emptyDiv = document.getElementById("empty") as HTMLElement;
 const chartContainer = document.getElementById("chartContainer") as HTMLElement;
 const svg = document.getElementById("chart") as unknown as SVGSVGElement;
 const tooltip = document.getElementById("tooltip") as HTMLElement;
+const xAxisSelect = document.getElementById("xAxisSelect") as HTMLSelectElement;
 
-let currentData: StonksDataPoint[] = [];
+let rawData: StonksDataPoint[] = [];   // untouched from extension
+let currentData: StonksDataPoint[] = []; // after aggregation
+let xAxisMode: XAxisMode = "commit";
 interface ZoomLevel { start: number; end: number }
 const zoomStack: ZoomLevel[] = [];
 let panOffset = Number.MAX_SAFE_INTEGER; // index into visible data; MAX = scroll to end
@@ -24,6 +27,7 @@ let isDragging = false;
 // Per-render data used by mouse handlers (set in render, read by module-level listeners)
 let renderVisibleData: StonksDataPoint[] = [];
 let renderAuthorCounts: number[] = [];
+let renderAuthorConcentration: number[] = [];
 let renderVelocity: number[] = [];
 let renderChurn: number[] = [];
 
@@ -70,9 +74,11 @@ function updateZoomSelect(): void {
   zoomSelect.innerHTML = "";
   const fmt = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
+  const tickLabel = xAxisMode === "commit" ? "commits" : xAxisMode + "s";
+
   const allOpt = document.createElement("option");
   allOpt.value = "0";
-  allOpt.textContent = `All (${currentData.length} commits)`;
+  allOpt.textContent = `All (${currentData.length} ${tickLabel})`;
   zoomSelect.appendChild(allOpt);
 
   for (let i = 0; i < zoomStack.length; i++) {
@@ -107,8 +113,10 @@ function postMessage(msg: StonksFromWebview): void {
 function buildConfig(): StonksConfig {
   return {
     sections: { ...sections },
+    sectionOptions: { authors: { windowSize: authorWindowSize }, authorConcentration: { topX: authorTopX } },
     maxVisibleTicks,
     selectedDays: Number(timeWindowSelect.value) || 30,
+    xAxisMode,
   };
 }
 
@@ -174,9 +182,11 @@ window.addEventListener("message", (event) => {
       break;
     }
     case "setData":
-      currentData = msg.data;
+      rawData = msg.data;
+      currentData = aggregateData(rawData, xAxisMode);
       zoomStack.length = 0;
       panOffset = Number.MAX_SAFE_INTEGER;
+      derivedCache = null;
       updateZoomSelect();
       render();
       break;
@@ -194,16 +204,34 @@ window.addEventListener("message", (event) => {
         ["fileCount", "toggleFileCount"],
         ["filesChanged", "toggleFilesChanged"],
         ["authors", "toggleAuthors"],
+        ["authorConcentration", "toggleAuthorConcentration"],
         ["velocity", "toggleVelocity"],
         ["churn", "toggleChurn"],
       ] as const) {
-        sections[key] = c.sections[key];
+        sections[key] = c.sections[key] ?? true;
         const cb = document.getElementById(id) as HTMLInputElement | null;
-        if (cb) { cb.checked = c.sections[key]; }
+        if (cb) { cb.checked = sections[key]; }
+        // Show/hide per-section options
+        const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
+        if (optionsEl) { optionsEl.classList.toggle("visible", sections[key]); }
+      }
+      // Apply section options
+      if (c.sectionOptions?.authors) {
+        authorWindowSize = c.sectionOptions.authors.windowSize;
+        if (authorWindowSizeInput) { authorWindowSizeInput.value = String(authorWindowSize); }
+      }
+      if (c.sectionOptions?.authorConcentration) {
+        authorTopX = c.sectionOptions.authorConcentration.topX;
+        if (authorTopXInput) { authorTopXInput.value = String(authorTopX); }
       }
       // Apply max ticks
       maxVisibleTicks = c.maxVisibleTicks;
       maxTicksInput.value = String(c.maxVisibleTicks);
+      // Apply x-axis mode
+      if (c.xAxisMode) {
+        applyXAxisMode(c.xAxisMode);
+      }
+      updateCommitOnlyToggles();
       break;
     }
   }
@@ -220,15 +248,34 @@ const sections = {
   fileCount: true,
   filesChanged: true,
   authors: true,
+  authorConcentration: true,
   velocity: true,
   churn: true,
 };
+
+let authorTopX = 1;
+let authorWindowSize = 10;
+
+// Sections that only apply in commit mode
+const COMMIT_ONLY_SECTIONS: { key: keyof typeof sections; toggleId: string; sectionId: string }[] = [
+  { key: "authors", toggleId: "toggleAuthors", sectionId: "sectionAuthors" },
+  { key: "authorConcentration", toggleId: "toggleAuthorConcentration", sectionId: "sectionAuthorConcentration" },
+];
+
+function updateCommitOnlyToggles(): void {
+  const isCommit = xAxisMode === "commit";
+  for (const { sectionId } of COMMIT_ONLY_SECTIONS) {
+    const el = document.getElementById(sectionId);
+    if (el) { el.classList.toggle("disabled", !isCommit); }
+  }
+}
 
 // Wire up toggle checkboxes
 for (const [key, id] of [
   ["fileCount", "toggleFileCount"],
   ["filesChanged", "toggleFilesChanged"],
   ["authors", "toggleAuthors"],
+  ["authorConcentration", "toggleAuthorConcentration"],
   ["velocity", "toggleVelocity"],
   ["churn", "toggleChurn"],
 ] as const) {
@@ -236,17 +283,54 @@ for (const [key, id] of [
   if (cb) {
     cb.addEventListener("change", () => {
       sections[key as keyof typeof sections] = cb.checked;
+      // Show/hide per-section options
+      const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
+      if (optionsEl) { optionsEl.classList.toggle("visible", cb.checked); }
       sendConfig();
       render();
     });
+    // Initialize options visibility
+    const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
+    if (optionsEl) { optionsEl.classList.toggle("visible", cb.checked); }
   }
 }
+
+// Wire up author window size input
+const authorWindowSizeInput = document.getElementById("authorWindowSize") as HTMLInputElement | null;
+if (authorWindowSizeInput) {
+  authorWindowSizeInput.addEventListener("change", () => {
+    const val = parseInt(authorWindowSizeInput.value, 10);
+    if (val >= 2 && val <= 100) {
+      authorWindowSize = val;
+      derivedCache = null;
+      sendConfig();
+      render();
+    }
+  });
+}
+
+// Wire up author concentration topX input
+const authorTopXInput = document.getElementById("authorTopX") as HTMLInputElement | null;
+if (authorTopXInput) {
+  authorTopXInput.addEventListener("change", () => {
+    const val = parseInt(authorTopXInput.value, 10);
+    if (val >= 1 && val <= 10) {
+      authorTopX = val;
+      derivedCache = null;
+      sendConfig();
+      render();
+    }
+  });
+}
+
+updateCommitOnlyToggles();
 
 // Section weight config (relative proportions, not fixed pixels)
 const SECTION_WEIGHTS: Record<string, number> = {
   fileCount: 3,
   filesChanged: 1.5,
   authors: 1.5,
+  authorConcentration: 1.5,
   velocity: 1.5,
   churn: 1.5,
 };
@@ -261,11 +345,13 @@ interface Band {
 }
 
 function computeBands(availableHeight: number): Band[] {
+  const modeLabel: Record<XAxisMode, string> = { commit: "day", day: "day", week: "week", month: "month" };
   const defs: { key: keyof typeof sections; label: string }[] = [
     { key: "fileCount", label: "Files in repo" },
     { key: "filesChanged", label: "Files changed" },
-    { key: "authors", label: "Unique authors (rolling 10 commits)" },
-    { key: "velocity", label: "Commits per day" },
+    ...(xAxisMode === "commit" ? [{ key: "authors" as const, label: `Unique authors (rolling ${authorWindowSize} commits)` }] : []),
+    ...(xAxisMode === "commit" ? [{ key: "authorConcentration" as const, label: `Author concentration (top ${authorTopX})` }] : []),
+    { key: "velocity", label: `Commits per ${modeLabel[xAxisMode]}` },
     { key: "churn", label: "Churn rate (changed / repo size)" },
   ];
 
@@ -298,7 +384,10 @@ function xToIdx(clientX: number): number {
 let derivedCache: {
   data: StonksDataPoint[];
   zoomKey: string;
+  topX: number;
+  windowSize: number;
   allAuthorCounts: number[];
+  allAuthorConcentration: number[];
   allVelocity: number[];
   allChurn: number[];
 } | null = null;
@@ -330,36 +419,67 @@ function render() {
   // ── Derived series (cached across pan-only re-renders) ────────────────────
   const zoomKey = zoomCacheKey();
   let allAuthorCounts: number[];
+  let allAuthorConcentration: number[];
   let allVelocity: number[];
   let allChurn: number[];
 
-  if (derivedCache && derivedCache.data === currentData && derivedCache.zoomKey === zoomKey) {
+  if (derivedCache && derivedCache.data === currentData && derivedCache.zoomKey === zoomKey && derivedCache.topX === authorTopX && derivedCache.windowSize === authorWindowSize) {
     allAuthorCounts = derivedCache.allAuthorCounts;
+    allAuthorConcentration = derivedCache.allAuthorConcentration;
     allVelocity = derivedCache.allVelocity;
     allChurn = derivedCache.allChurn;
   } else {
     const allN = allVisible.length;
-    const AUTHOR_WINDOW = 10;
-    allAuthorCounts = [];
-    for (let i = 0; i < allN; i++) {
-      const start = Math.max(0, i - AUTHOR_WINDOW + 1);
-      const authors = new Set<string>();
-      for (let j = start; j <= i; j++) { authors.add(allVisible[j].author); }
-      allAuthorCounts.push(authors.size);
+
+    // Authors: only meaningful in commit mode (per-commit author data)
+    if (xAxisMode === "commit") {
+      allAuthorCounts = [];
+      for (let i = 0; i < allN; i++) {
+        const start = Math.max(0, i - authorWindowSize + 1);
+        const authors = new Set<string>();
+        for (let j = start; j <= i; j++) { authors.add(allVisible[j].author!); }
+        allAuthorCounts.push(authors.size);
+      }
+    } else {
+      allAuthorCounts = [];
     }
 
-    const dayMap = new Map<string, number>();
-    for (const d of allVisible) {
-      const dayKey = d.date.substring(0, 10);
-      dayMap.set(dayKey, (dayMap.get(dayKey) ?? 0) + 1);
+    // Author concentration: top-X author share (%) in rolling window
+    if (xAxisMode === "commit") {
+      allAuthorConcentration = [];
+      for (let i = 0; i < allN; i++) {
+        const start = Math.max(0, i - authorWindowSize + 1);
+        const authorCommits = new Map<string, number>();
+        for (let j = start; j <= i; j++) {
+          const a = allVisible[j].author!;
+          authorCommits.set(a, (authorCommits.get(a) ?? 0) + 1);
+        }
+        const windowSize = i - start + 1;
+        const sorted = [...authorCommits.values()].sort((a, b) => b - a);
+        const topXSum = sorted.slice(0, authorTopX).reduce((s, v) => s + v, 0);
+        allAuthorConcentration.push((topXSum / windowSize) * 100);
+      }
+    } else {
+      allAuthorConcentration = [];
     }
-    allVelocity = allVisible.map(d => dayMap.get(d.date.substring(0, 10)) ?? 0);
+
+    // Velocity: in commit mode = commits sharing same calendar day; in aggregated modes = commitCount
+    if (xAxisMode === "commit") {
+      const dayMap = new Map<string, number>();
+      for (const d of allVisible) {
+        const dayKey = d.date.substring(0, 10);
+        dayMap.set(dayKey, (dayMap.get(dayKey) ?? 0) + 1);
+      }
+      allVelocity = allVisible.map(d => dayMap.get(d.date.substring(0, 10)) ?? 0);
+    } else {
+      allVelocity = allVisible.map(d => d.commitCount);
+    }
 
     allChurn = allVisible.map(d =>
       d.cumulativeFileCount > 0 ? (d.filesChanged / d.cumulativeFileCount) * 100 : 0,
     );
 
-    derivedCache = { data: currentData, zoomKey, allAuthorCounts, allVelocity, allChurn };
+    derivedCache = { data: currentData, zoomKey, topX: authorTopX, windowSize: authorWindowSize, allAuthorCounts, allAuthorConcentration, allVelocity, allChurn };
   }
 
   // ── Slice to page window ──────────────────────────────────────────────────
@@ -367,6 +487,7 @@ function render() {
   const counts = visibleData.map(d => d.cumulativeFileCount);
   const volumes = visibleData.map(d => d.filesChanged);
   const authorCounts = allAuthorCounts.slice(pageStart, pageEnd);
+  const authorConcentration = allAuthorConcentration.slice(pageStart, pageEnd);
   const velocity = allVelocity.slice(pageStart, pageEnd);
   const churn = allChurn.slice(pageStart, pageEnd);
 
@@ -430,6 +551,17 @@ function render() {
     } else if (key === "authors") {
       svgContent += renderLinePath(authorCounts, top, bandH, plotW, n, xStep, "var(--vscode-charts-orange, #ffa94d)");
       svgContent += renderYAxis(authorCounts, top, bandH, plotW, 3, "left");
+    } else if (key === "authorConcentration") {
+      svgContent += renderLinePath(authorConcentration, top, bandH, plotW, n, xStep, "var(--vscode-charts-purple, #b197fc)");
+      const maxConc = Math.max(...authorConcentration, 1);
+      const concLabels = buildYLabels(0, maxConc, 3);
+      let concAxis = "";
+      for (const val of concLabels) {
+        const y = top + bandH - (val / maxConc) * bandH;
+        concAxis += `<text x="${PADDING.left - 8}" y="${y + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${val.toFixed(0)}%</text>`;
+        concAxis += `<line x1="${PADDING.left}" y1="${y}" x2="${PADDING.left + plotW}" y2="${y}" stroke="var(--vscode-editorWidget-border, var(--vscode-widget-border))" stroke-dasharray="2,4" opacity="0.3"/>`;
+      }
+      svgContent += concAxis;
     } else if (key === "velocity") {
       svgContent += renderLinePath(velocity, top, bandH, plotW, n, xStep, "var(--vscode-charts-green, #51cf66)");
       svgContent += renderYAxis(velocity, top, bandH, plotW, 3, "left");
@@ -453,12 +585,12 @@ function render() {
   const commitLinksTop = lastBand.top + lastBand.height;
   const COMMIT_ICON_THRESHOLD = 150;
   let commitLinks = "";
-  if (n <= COMMIT_ICON_THRESHOLD && xStep >= 8) {
+  if (xAxisMode === "commit" && n <= COMMIT_ICON_THRESHOLD && xStep >= 8) {
     const iconY = commitLinksTop + 14;
     const iconR = Math.min(4, xStep * 0.25);
     for (let i = 0; i < n; i++) {
       const cx = PADDING.left + i * xStep;
-      commitLinks += `<circle class="commit-link" data-hash="${visibleData[i].hash}" cx="${cx}" cy="${iconY}" r="${iconR}" fill="var(--vscode-textLink-foreground)" opacity="0.5" style="cursor:pointer"><title>Open commit ${visibleData[i].hash.substring(0, 7)}</title></circle>`;
+      commitLinks += `<circle class="commit-link" data-hash="${visibleData[i].hash}" cx="${cx}" cy="${iconY}" r="${iconR}" fill="var(--vscode-textLink-foreground)" opacity="0.5" style="cursor:pointer"><title>Open commit ${visibleData[i].hash!.substring(0, 7)}</title></circle>`;
     }
   }
   svgContent += commitLinks;
@@ -480,6 +612,7 @@ function render() {
   // Update module-level data for mouse handlers (registered once, outside render)
   renderVisibleData = visibleData;
   renderAuthorCounts = authorCounts;
+  renderAuthorConcentration = authorConcentration;
   renderVelocity = velocity;
   renderChurn = churn;
 
@@ -778,17 +911,22 @@ svg.addEventListener("mousemove", (e: Event) => {
   const date = new Date(d.date);
   const dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
-  let tooltipHtml = `
-    <div class="hash">${d.hash}</div>
-    <div class="message">${escapeHtml(d.message)}</div>
-    <div class="author">${escapeHtml(d.author)} · ${dateStr}</div>
-    <div class="stat">`;
+  let tooltipHtml = "";
+  if (xAxisMode === "commit") {
+    tooltipHtml += `<div class="hash">${d.hash}</div>`;
+    tooltipHtml += `<div class="message">${escapeHtml(d.message!)}</div>`;
+    tooltipHtml += `<div class="author">${escapeHtml(d.author!)} · ${dateStr}</div>`;
+  } else {
+    tooltipHtml += `<div class="author">${dateStr} · ${d.commitCount} commit${d.commitCount !== 1 ? "s" : ""}</div>`;
+  }
+  tooltipHtml += `<div class="stat">`;
   if (sections.fileCount) { tooltipHtml += `Files in repo: ${d.cumulativeFileCount}<br>`; }
   if (sections.filesChanged) {
     tooltipHtml += `Changed: ${d.filesChanged} (<span class="added">+${d.filesAdded}</span> <span class="deleted">-${d.filesDeleted}</span>)<br>`;
   }
-  if (sections.authors) { tooltipHtml += `Authors (10): ${renderAuthorCounts[idx]}<br>`; }
-  if (sections.velocity) { tooltipHtml += `Commits/day: ${renderVelocity[idx]}<br>`; }
+  if (sections.authors && xAxisMode === "commit") { tooltipHtml += `Authors (${authorWindowSize}): ${renderAuthorCounts[idx]}<br>`; }
+  if (sections.authorConcentration && xAxisMode === "commit") { tooltipHtml += `Top-${authorTopX}: ${renderAuthorConcentration[idx].toFixed(0)}%<br>`; }
+  if (sections.velocity) { tooltipHtml += `Commits/${xAxisMode === "commit" ? "day" : xAxisMode}: ${renderVelocity[idx]}<br>`; }
   if (sections.churn) { tooltipHtml += `Churn: ${renderChurn[idx].toFixed(1)}%<br>`; }
   tooltipHtml += `</div>`;
   tooltip.innerHTML = tooltipHtml;
@@ -819,6 +957,75 @@ svg.addEventListener("dblclick", () => {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 svg.addEventListener("dragstart", (e: Event) => { e.preventDefault(); });
+
+// ── X-axis mode ───────────────────────────────────────────────────────────────
+
+function aggregateData(data: StonksDataPoint[], mode: XAxisMode): StonksDataPoint[] {
+  if (mode === "commit") { return data; }
+  const buckets = new Map<string, StonksDataPoint>();
+  for (const d of data) {
+    const key = bucketKey(d.date, mode);
+    const existing = buckets.get(key);
+    if (existing) {
+      existing.filesChanged += d.filesChanged;
+      existing.filesAdded += d.filesAdded;
+      existing.filesDeleted += d.filesDeleted;
+      existing.cumulativeFileCount = d.cumulativeFileCount;
+      existing.commitCount += d.commitCount;
+    } else {
+      buckets.set(key, {
+        date: bucketStartISO(d.date, mode),
+        filesChanged: d.filesChanged,
+        filesAdded: d.filesAdded,
+        filesDeleted: d.filesDeleted,
+        cumulativeFileCount: d.cumulativeFileCount,
+        commitCount: d.commitCount,
+      });
+    }
+  }
+  return [...buckets.values()];
+}
+
+function bucketKey(iso: string, mode: XAxisMode): string {
+  const d = new Date(iso);
+  if (mode === "day") { return iso.substring(0, 10); }
+  if (mode === "week") {
+    const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const dow = day.getUTCDay() || 7;
+    day.setUTCDate(day.getUTCDate() - dow + 1);
+    return day.toISOString().substring(0, 10);
+  }
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function bucketStartISO(iso: string, mode: XAxisMode): string {
+  const d = new Date(iso);
+  if (mode === "day") { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString(); }
+  if (mode === "week") {
+    const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const dow = day.getUTCDay() || 7;
+    day.setUTCDate(day.getUTCDate() - dow + 1);
+    return day.toISOString();
+  }
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
+}
+
+function applyXAxisMode(mode: XAxisMode): void {
+  xAxisMode = mode;
+  xAxisSelect.value = mode;
+  currentData = aggregateData(rawData, mode);
+  zoomStack.length = 0;
+  panOffset = Number.MAX_SAFE_INTEGER;
+  derivedCache = null;
+  updateCommitOnlyToggles();
+  updateZoomSelect();
+  render();
+}
+
+xAxisSelect.addEventListener("change", () => {
+  applyXAxisMode(xAxisSelect.value as XAxisMode);
+  sendConfig();
+});
 
 // Zoom-selection mouseup — registered once (was previously stacking inside render)
 document.addEventListener("mouseup", (e: Event) => {

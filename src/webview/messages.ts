@@ -69,15 +69,18 @@ export type DiffSearchFromWebview =
 
 // ── Stonks panel ──────────────────────────────────────────────────────────────
 
+export type XAxisMode = "commit" | "day" | "week" | "month";
+
 export interface StonksDataPoint {
-  hash: string;
-  author: string;
+  hash?: string;
+  author?: string;
   date: string; // ISO 8601
-  message: string;
+  message?: string;
   filesChanged: number;
   filesAdded: number;
   filesDeleted: number;
   cumulativeFileCount: number;
+  commitCount: number;
 }
 
 export interface StonksTimeWindowOption {
@@ -87,9 +90,11 @@ export interface StonksTimeWindowOption {
 }
 
 export interface StonksConfig {
-  sections: { fileCount: boolean; filesChanged: boolean; authors: boolean; velocity: boolean; churn: boolean };
+  sections: { fileCount: boolean; filesChanged: boolean; authors: boolean; velocity: boolean; churn: boolean; authorConcentration: boolean };
+  sectionOptions?: { authors?: { windowSize: number }; authorConcentration?: { topX: number } };
   maxVisibleTicks: number;
   selectedDays: number;
+  xAxisMode: XAxisMode;
 }
 
 export type StonksToWebview =

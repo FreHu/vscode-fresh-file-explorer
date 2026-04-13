@@ -43,6 +43,39 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
       gap: 12px;
       margin-bottom: 12px;
       flex-wrap: wrap;
+      align-items: flex-start;
+    }
+    .section-toggle {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .section-toggle > label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--vscode-descriptionForeground);
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .section-options {
+      display: none;
+      padding-left: 20px;
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+    }
+    .section-options.visible {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .section-toggle.disabled > label {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    .section-toggle.disabled .section-options {
+      display: none !important;
     }
     .toggles label {
       display: flex;
@@ -177,14 +210,27 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
     <select id="timeWindowSelect">
       <option>Loading…</option>
     </select>
+    <select id="xAxisSelect">
+      <option value="commit">Per commit</option>
+      <option value="day">Per day</option>
+      <option value="week">Per week</option>
+      <option value="month">Per month</option>
+    </select>
     <select id="zoomSelect"></select>
   </div>
   <div class="toggles">
-    <label title="Cumulative number of files in the repository at each commit"><input type="checkbox" id="toggleFileCount" checked> Files in repo</label>
-    <label title="Files added, modified, or deleted per commit. Green = net additions, red = net deletions"><input type="checkbox" id="toggleFilesChanged" checked> Files changed</label>
-    <label title="Distinct commit authors in a rolling window of 10 commits"><input type="checkbox" id="toggleAuthors" checked> Unique authors</label>
-    <label title="Number of commits sharing the same calendar day"><input type="checkbox" id="toggleVelocity" checked> Commit velocity</label>
-    <label title="Files changed as a percentage of total files in the repository"><input type="checkbox" id="toggleChurn" checked> Churn rate</label>
+    <div class="section-toggle"><label title="Cumulative number of files in the repository at each commit"><input type="checkbox" id="toggleFileCount" checked> Files in repo</label></div>
+    <div class="section-toggle"><label title="Files added, modified, or deleted per commit. Green = net additions, red = net deletions"><input type="checkbox" id="toggleFilesChanged" checked> Files changed</label></div>
+    <div class="section-toggle" id="sectionAuthors">
+      <label title="Distinct commit authors in a rolling window (commit mode only)"><input type="checkbox" id="toggleAuthors" checked> Unique authors</label>
+      <div class="section-options" id="optionsAuthors">Window: <input type="number" id="authorWindowSize" value="10" min="2" max="100" style="width: 50px"> commits</div>
+    </div>
+    <div class="section-toggle" id="sectionAuthorConcentration">
+      <label title="Share of commits by the top X most active authors (commit mode only)"><input type="checkbox" id="toggleAuthorConcentration" checked> Author concentration</label>
+      <div class="section-options" id="optionsAuthorConcentration">Top <input type="number" id="authorTopX" value="1" min="1" max="10" style="width: 40px"> author(s)</div>
+    </div>
+    <div class="section-toggle"><label title="Number of commits sharing the same calendar day"><input type="checkbox" id="toggleVelocity" checked> Commit velocity</label></div>
+    <div class="section-toggle"><label title="Files changed as a percentage of total files in the repository"><input type="checkbox" id="toggleChurn" checked> Churn rate</label></div>
     <label title="Maximum commits rendered at once before panning kicks in. Lower values improve responsiveness.">Max ticks: <input type="number" id="maxTicks" value="1000" min="100" max="10000" step="100" style="width: 60px"></label>
   </div>
   <div class="controls-help">
