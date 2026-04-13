@@ -156,84 +156,83 @@ maxTicksInput.addEventListener("change", () => {
 
 // ── Message handling ──────────────────────────────────────────────────────────
 
+function handleSetRepos(repos: { name: string; path: string }[]): void {
+  repoSelect.innerHTML = "";
+  for (const repo of repos) {
+    const opt = document.createElement("option");
+    opt.value = repo.path;
+    opt.textContent = repo.name;
+    repoSelect.appendChild(opt);
+  }
+  repoSelect.disabled = repos.length === 0;
+}
+
+function handleSetTimeWindows(options: { label: string; days: number | undefined }[], selectedDays: number | undefined): void {
+  timeWindowSelect.innerHTML = "";
+  for (const tw of options) {
+    const opt = document.createElement("option");
+    opt.value = tw.days === undefined ? "pending" : String(tw.days);
+    opt.textContent = tw.label;
+    if (tw.days === selectedDays) { opt.selected = true; }
+    timeWindowSelect.appendChild(opt);
+  }
+}
+
+function handleSetData(data: StonksDataPoint[]): void {
+  rawData = data;
+  currentData = aggregateData(rawData, xAxisMode);
+  zoomStack.length = 0;
+  panOffset = Number.MAX_SAFE_INTEGER;
+  derivedCache = null;
+  updateZoomSelect();
+  render();
+}
+
+function handleSetLoading(loading: boolean): void {
+  loadingDiv.style.display = loading ? "" : "none";
+  if (loading) {
+    chartContainer.style.display = "none";
+    emptyDiv.style.display = "none";
+  }
+}
+
+function handleSetConfig(c: StonksConfig): void {
+  // Apply section toggles
+  for (const { key, toggleId } of SECTION_TOGGLE_DEFS) {
+    sections[key] = c.sections[key] ?? true;
+    const cb = document.getElementById(toggleId) as HTMLInputElement | null;
+    if (cb) { cb.checked = sections[key]; }
+    // Show/hide per-section options
+    const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
+    if (optionsEl) { optionsEl.classList.toggle("visible", sections[key]); }
+  }
+  // Apply section options
+  if (c.sectionOptions?.authors) {
+    authorWindowSize = c.sectionOptions.authors.windowSize;
+    if (authorWindowSizeInput) { authorWindowSizeInput.value = String(authorWindowSize); }
+  }
+  if (c.sectionOptions?.authorConcentration) {
+    authorTopX = c.sectionOptions.authorConcentration.topX;
+    if (authorTopXInput) { authorTopXInput.value = String(authorTopX); }
+  }
+  // Apply max ticks
+  maxVisibleTicks = c.maxVisibleTicks;
+  maxTicksInput.value = String(c.maxVisibleTicks);
+  // Apply x-axis mode
+  if (c.xAxisMode) {
+    applyXAxisMode(c.xAxisMode);
+  }
+  updateCommitOnlyToggles();
+}
+
 window.addEventListener("message", (event) => {
   const msg = event.data as StonksToWebview;
   switch (msg.command) {
-    case "setRepos": {
-      repoSelect.innerHTML = "";
-      for (const repo of msg.repos) {
-        const opt = document.createElement("option");
-        opt.value = repo.path;
-        opt.textContent = repo.name;
-        repoSelect.appendChild(opt);
-      }
-      repoSelect.disabled = msg.repos.length === 0;
-      break;
-    }
-    case "setTimeWindows": {
-      timeWindowSelect.innerHTML = "";
-      for (const tw of msg.options) {
-        const opt = document.createElement("option");
-        opt.value = tw.days === undefined ? "pending" : String(tw.days);
-        opt.textContent = tw.label;
-        if (tw.days === msg.selectedDays) { opt.selected = true; }
-        timeWindowSelect.appendChild(opt);
-      }
-      break;
-    }
-    case "setData":
-      rawData = msg.data;
-      currentData = aggregateData(rawData, xAxisMode);
-      zoomStack.length = 0;
-      panOffset = Number.MAX_SAFE_INTEGER;
-      derivedCache = null;
-      updateZoomSelect();
-      render();
-      break;
-    case "setLoading":
-      loadingDiv.style.display = msg.loading ? "" : "none";
-      if (msg.loading) {
-        chartContainer.style.display = "none";
-        emptyDiv.style.display = "none";
-      }
-      break;
-    case "setConfig": {
-      const c = msg.config;
-      // Apply section toggles
-      for (const [key, id] of [
-        ["fileCount", "toggleFileCount"],
-        ["filesChanged", "toggleFilesChanged"],
-        ["authors", "toggleAuthors"],
-        ["authorConcentration", "toggleAuthorConcentration"],
-        ["velocity", "toggleVelocity"],
-        ["churn", "toggleChurn"],
-      ] as const) {
-        sections[key] = c.sections[key] ?? true;
-        const cb = document.getElementById(id) as HTMLInputElement | null;
-        if (cb) { cb.checked = sections[key]; }
-        // Show/hide per-section options
-        const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
-        if (optionsEl) { optionsEl.classList.toggle("visible", sections[key]); }
-      }
-      // Apply section options
-      if (c.sectionOptions?.authors) {
-        authorWindowSize = c.sectionOptions.authors.windowSize;
-        if (authorWindowSizeInput) { authorWindowSizeInput.value = String(authorWindowSize); }
-      }
-      if (c.sectionOptions?.authorConcentration) {
-        authorTopX = c.sectionOptions.authorConcentration.topX;
-        if (authorTopXInput) { authorTopXInput.value = String(authorTopX); }
-      }
-      // Apply max ticks
-      maxVisibleTicks = c.maxVisibleTicks;
-      maxTicksInput.value = String(c.maxVisibleTicks);
-      // Apply x-axis mode
-      if (c.xAxisMode) {
-        applyXAxisMode(c.xAxisMode);
-      }
-      updateCommitOnlyToggles();
-      break;
-    }
+    case "setRepos": handleSetRepos(msg.repos); break;
+    case "setTimeWindows": handleSetTimeWindows(msg.options, msg.selectedDays); break;
+    case "setData": handleSetData(msg.data); break;
+    case "setLoading": handleSetLoading(msg.loading); break;
+    case "setConfig": handleSetConfig(msg.config); break;
   }
 });
 
@@ -256,33 +255,34 @@ const sections = {
 let authorTopX = 1;
 let authorWindowSize = 10;
 
-// Sections that only apply in commit mode
-const COMMIT_ONLY_SECTIONS: { key: keyof typeof sections; toggleId: string; sectionId: string }[] = [
+// Section toggle definitions — single source of truth for key ↔ DOM id mapping
+const SECTION_TOGGLE_DEFS: { key: keyof typeof sections; toggleId: string; sectionId?: string }[] = [
+  { key: "fileCount", toggleId: "toggleFileCount" },
+  { key: "filesChanged", toggleId: "toggleFilesChanged" },
   { key: "authors", toggleId: "toggleAuthors", sectionId: "sectionAuthors" },
   { key: "authorConcentration", toggleId: "toggleAuthorConcentration", sectionId: "sectionAuthorConcentration" },
+  { key: "velocity", toggleId: "toggleVelocity" },
+  { key: "churn", toggleId: "toggleChurn" },
 ];
+
+// Sections that only apply in commit mode
+const COMMIT_ONLY_KEYS = new Set<keyof typeof sections>(["authors", "authorConcentration"]);
 
 function updateCommitOnlyToggles(): void {
   const isCommit = xAxisMode === "commit";
-  for (const { sectionId } of COMMIT_ONLY_SECTIONS) {
-    const el = document.getElementById(sectionId);
+  for (const { key, sectionId } of SECTION_TOGGLE_DEFS) {
+    if (!COMMIT_ONLY_KEYS.has(key)) { continue; }
+    const el = document.getElementById(sectionId ?? "");
     if (el) { el.classList.toggle("disabled", !isCommit); }
   }
 }
 
 // Wire up toggle checkboxes
-for (const [key, id] of [
-  ["fileCount", "toggleFileCount"],
-  ["filesChanged", "toggleFilesChanged"],
-  ["authors", "toggleAuthors"],
-  ["authorConcentration", "toggleAuthorConcentration"],
-  ["velocity", "toggleVelocity"],
-  ["churn", "toggleChurn"],
-] as const) {
-  const cb = document.getElementById(id) as HTMLInputElement | null;
+for (const { key, toggleId } of SECTION_TOGGLE_DEFS) {
+  const cb = document.getElementById(toggleId) as HTMLInputElement | null;
   if (cb) {
     cb.addEventListener("change", () => {
-      sections[key as keyof typeof sections] = cb.checked;
+      sections[key] = cb.checked;
       // Show/hide per-section options
       const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
       if (optionsEl) { optionsEl.classList.toggle("visible", cb.checked); }
@@ -431,21 +431,9 @@ function render() {
   } else {
     const allN = allVisible.length;
 
-    // Authors: only meaningful in commit mode (per-commit author data)
+    // Authors + concentration: both use same rolling window, compute in single pass
     if (xAxisMode === "commit") {
       allAuthorCounts = [];
-      for (let i = 0; i < allN; i++) {
-        const start = Math.max(0, i - authorWindowSize + 1);
-        const authors = new Set<string>();
-        for (let j = start; j <= i; j++) { authors.add(allVisible[j].author!); }
-        allAuthorCounts.push(authors.size);
-      }
-    } else {
-      allAuthorCounts = [];
-    }
-
-    // Author concentration: top-X author share (%) in rolling window
-    if (xAxisMode === "commit") {
       allAuthorConcentration = [];
       for (let i = 0; i < allN; i++) {
         const start = Math.max(0, i - authorWindowSize + 1);
@@ -454,12 +442,14 @@ function render() {
           const a = allVisible[j].author!;
           authorCommits.set(a, (authorCommits.get(a) ?? 0) + 1);
         }
+        allAuthorCounts.push(authorCommits.size);
         const windowSize = i - start + 1;
         const sorted = [...authorCommits.values()].sort((a, b) => b - a);
         const topXSum = sorted.slice(0, authorTopX).reduce((s, v) => s + v, 0);
         allAuthorConcentration.push((topXSum / windowSize) * 100);
       }
     } else {
+      allAuthorCounts = [];
       allAuthorConcentration = [];
     }
 
@@ -553,30 +543,13 @@ function render() {
       svgContent += renderYAxis(authorCounts, top, bandH, plotW, 3, "left");
     } else if (key === "authorConcentration") {
       svgContent += renderLinePath(authorConcentration, top, bandH, plotW, n, xStep, "var(--vscode-charts-purple, #b197fc)");
-      const maxConc = Math.max(...authorConcentration, 1);
-      const concLabels = buildYLabels(0, maxConc, 3);
-      let concAxis = "";
-      for (const val of concLabels) {
-        const y = top + bandH - (val / maxConc) * bandH;
-        concAxis += `<text x="${PADDING.left - 8}" y="${y + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${val.toFixed(0)}%</text>`;
-        concAxis += `<line x1="${PADDING.left}" y1="${y}" x2="${PADDING.left + plotW}" y2="${y}" stroke="var(--vscode-editorWidget-border, var(--vscode-widget-border))" stroke-dasharray="2,4" opacity="0.3"/>`;
-      }
-      svgContent += concAxis;
+      svgContent += renderYAxisFromRange(0, Math.max(...authorConcentration, 1), top, bandH, plotW, 3, "left", v => `${v.toFixed(0)}%`);
     } else if (key === "velocity") {
       svgContent += renderLinePath(velocity, top, bandH, plotW, n, xStep, "var(--vscode-charts-green, #51cf66)");
       svgContent += renderYAxis(velocity, top, bandH, plotW, 3, "left");
     } else if (key === "churn") {
       svgContent += renderLinePath(churn, top, bandH, plotW, n, xStep, "var(--vscode-charts-red, #ff6b6b)");
-      // Churn as % — custom labels
-      const maxChurn = Math.max(...churn, 0.1);
-      const churnLabels = buildYLabels(0, maxChurn, 3);
-      let churnAxis = "";
-      for (const val of churnLabels) {
-        const y = top + bandH - (val / maxChurn) * bandH;
-        churnAxis += `<text x="${PADDING.left - 8}" y="${y + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${val.toFixed(1)}%</text>`;
-        churnAxis += `<line x1="${PADDING.left}" y1="${y}" x2="${PADDING.left + plotW}" y2="${y}" stroke="var(--vscode-editorWidget-border, var(--vscode-widget-border))" stroke-dasharray="2,4" opacity="0.3"/>`;
-      }
-      svgContent += churnAxis;
+      svgContent += renderYAxisFromRange(0, Math.max(...churn, 0.1), top, bandH, plotW, 3, "left", v => `${v.toFixed(1)}%`);
     }
   }
 
@@ -780,26 +753,27 @@ function renderVolumeBars(
 
 function renderYAxis(
   values: number[], top: number, bandH: number, plotW: number,
-  count: number, side: "left" | "right",
+  count: number, side: "left" | "right", format?: (v: number) => string,
 ): string {
   const min = Math.min(...values);
   const max = Math.max(...values);
-  return renderYAxisFromRange(min, max, top, bandH, plotW, count, side);
+  return renderYAxisFromRange(min, max, top, bandH, plotW, count, side, format);
 }
 
 function renderYAxisFromRange(
   min: number, max: number, top: number, bandH: number, plotW: number,
-  count: number, side: "left" | "right",
+  count: number, side: "left" | "right", format?: (v: number) => string,
 ): string {
   const range = max - min || 1;
   const labels = buildYLabels(min, max, count);
+  const fmt = format ?? ((v: number) => String(v));
   let out = "";
   for (const val of labels) {
     const y = top + bandH - ((val - min) / range) * bandH;
     if (side === "left") {
-      out += `<text x="${PADDING.left - 8}" y="${y + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${val}</text>`;
+      out += `<text x="${PADDING.left - 8}" y="${y + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${fmt(val)}</text>`;
     } else {
-      out += `<text x="${PADDING.left + plotW + 8}" y="${y + 4}" text-anchor="start" fill="var(--vscode-descriptionForeground)" font-size="10">${val}</text>`;
+      out += `<text x="${PADDING.left + plotW + 8}" y="${y + 4}" text-anchor="start" fill="var(--vscode-descriptionForeground)" font-size="10">${fmt(val)}</text>`;
     }
     out += `<line x1="${PADDING.left}" y1="${y}" x2="${PADDING.left + plotW}" y2="${y}" stroke="var(--vscode-editorWidget-border, var(--vscode-widget-border))" stroke-dasharray="2,4" opacity="0.3"/>`;
   }
