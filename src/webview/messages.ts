@@ -90,8 +90,8 @@ export interface StonksTimeWindowOption {
 }
 
 export interface StonksConfig {
-  sections: { fileCount: boolean; filesChanged: boolean; authors: boolean; velocity: boolean; churn: boolean; authorConcentration: boolean };
-  sectionOptions?: { authors?: { windowSize: number }; authorConcentration?: { topX: number } };
+  sections: { fileCount: boolean; filesChanged: boolean; authors: boolean; velocity: boolean; churn: boolean; authorConcentration: boolean; commitSize: boolean };
+  sectionOptions?: { authors?: { windowSize: number }; authorConcentration?: { topX: number }; commitSize?: { windowSize: number } };
   maxVisibleTicks: number;
   selectedDays: number;
   xAxisMode: XAxisMode;

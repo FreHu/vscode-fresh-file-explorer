@@ -30,6 +30,7 @@ let renderAuthorCounts: number[] = [];
 let renderAuthorConcentration: number[] = [];
 let renderVelocity: number[] = [];
 let renderChurn: number[] = [];
+let renderCommitSize: number[] = [];
 
 function getVisibleData(): StonksDataPoint[] {
   if (zoomStack.length > 0) {
@@ -113,7 +114,7 @@ function postMessage(msg: StonksFromWebview): void {
 function buildConfig(): StonksConfig {
   return {
     sections: { ...sections },
-    sectionOptions: { authors: { windowSize: authorWindowSize }, authorConcentration: { topX: authorTopX } },
+    sectionOptions: { authors: { windowSize: authorWindowSize }, authorConcentration: { topX: authorTopX }, commitSize: { windowSize: commitSizeWindowSize } },
     maxVisibleTicks,
     selectedDays: Number(timeWindowSelect.value) || 30,
     xAxisMode,
@@ -215,6 +216,10 @@ function handleSetConfig(c: StonksConfig): void {
     authorTopX = c.sectionOptions.authorConcentration.topX;
     if (authorTopXInput) { authorTopXInput.value = String(authorTopX); }
   }
+  if (c.sectionOptions?.commitSize) {
+    commitSizeWindowSize = c.sectionOptions.commitSize.windowSize;
+    if (commitSizeWindowInput) { commitSizeWindowInput.value = String(commitSizeWindowSize); }
+  }
   // Apply max ticks
   maxVisibleTicks = c.maxVisibleTicks;
   maxTicksInput.value = String(c.maxVisibleTicks);
@@ -250,10 +255,12 @@ const sections = {
   authorConcentration: true,
   velocity: true,
   churn: true,
+  commitSize: true,
 };
 
 let authorTopX = 1;
 let authorWindowSize = 10;
+let commitSizeWindowSize = 10;
 
 // Section toggle definitions — single source of truth for key ↔ DOM id mapping
 const SECTION_TOGGLE_DEFS: { key: keyof typeof sections; toggleId: string; sectionId?: string }[] = [
@@ -263,6 +270,7 @@ const SECTION_TOGGLE_DEFS: { key: keyof typeof sections; toggleId: string; secti
   { key: "authorConcentration", toggleId: "toggleAuthorConcentration", sectionId: "sectionAuthorConcentration" },
   { key: "velocity", toggleId: "toggleVelocity" },
   { key: "churn", toggleId: "toggleChurn" },
+  { key: "commitSize", toggleId: "toggleCommitSize" },
 ];
 
 // Sections that only apply in commit mode
@@ -323,6 +331,20 @@ if (authorTopXInput) {
   });
 }
 
+// Wire up commit size window input
+const commitSizeWindowInput = document.getElementById("commitSizeWindowSize") as HTMLInputElement | null;
+if (commitSizeWindowInput) {
+  commitSizeWindowInput.addEventListener("change", () => {
+    const val = parseInt(commitSizeWindowInput.value, 10);
+    if (val >= 2 && val <= 100) {
+      commitSizeWindowSize = val;
+      derivedCache = null;
+      sendConfig();
+      render();
+    }
+  });
+}
+
 updateCommitOnlyToggles();
 
 // Section weight config (relative proportions, not fixed pixels)
@@ -333,6 +355,7 @@ const SECTION_WEIGHTS: Record<string, number> = {
   authorConcentration: 1.5,
   velocity: 1.5,
   churn: 1.5,
+  commitSize: 1.5,
 };
 
 const MIN_BAND_HEIGHT = 60;
@@ -353,6 +376,7 @@ function computeBands(availableHeight: number): Band[] {
     ...(xAxisMode === "commit" ? [{ key: "authorConcentration" as const, label: `Author concentration (top ${authorTopX})` }] : []),
     { key: "velocity", label: `Commits per ${modeLabel[xAxisMode]}` },
     { key: "churn", label: "Churn rate (changed / repo size)" },
+    { key: "commitSize", label: xAxisMode === "commit" ? `Avg commit size (rolling ${commitSizeWindowSize})` : `Avg commit size (files/${modeLabel[xAxisMode]})` },
   ];
 
   const visible = defs.filter(d => sections[d.key]);
@@ -386,10 +410,12 @@ let derivedCache: {
   zoomKey: string;
   topX: number;
   windowSize: number;
+  commitSizeWindow: number;
   allAuthorCounts: number[];
   allAuthorConcentration: number[];
   allVelocity: number[];
   allChurn: number[];
+  allCommitSize: number[];
 } | null = null;
 
 function zoomCacheKey(): string {
@@ -422,12 +448,14 @@ function render() {
   let allAuthorConcentration: number[];
   let allVelocity: number[];
   let allChurn: number[];
+  let allCommitSize: number[];
 
-  if (derivedCache && derivedCache.data === currentData && derivedCache.zoomKey === zoomKey && derivedCache.topX === authorTopX && derivedCache.windowSize === authorWindowSize) {
+  if (derivedCache && derivedCache.data === currentData && derivedCache.zoomKey === zoomKey && derivedCache.topX === authorTopX && derivedCache.windowSize === authorWindowSize && derivedCache.commitSizeWindow === commitSizeWindowSize) {
     allAuthorCounts = derivedCache.allAuthorCounts;
     allAuthorConcentration = derivedCache.allAuthorConcentration;
     allVelocity = derivedCache.allVelocity;
     allChurn = derivedCache.allChurn;
+    allCommitSize = derivedCache.allCommitSize;
   } else {
     const allN = allVisible.length;
 
@@ -469,7 +497,20 @@ function render() {
       d.cumulativeFileCount > 0 ? (d.filesChanged / d.cumulativeFileCount) * 100 : 0,
     );
 
-    derivedCache = { data: currentData, zoomKey, topX: authorTopX, windowSize: authorWindowSize, allAuthorCounts, allAuthorConcentration, allVelocity, allChurn };
+    // Commit size: rolling average of filesChanged in commit mode, per-bucket average in aggregated
+    if (xAxisMode === "commit") {
+      allCommitSize = [];
+      for (let i = 0; i < allN; i++) {
+        const start = Math.max(0, i - commitSizeWindowSize + 1);
+        let sum = 0;
+        for (let j = start; j <= i; j++) { sum += allVisible[j].filesChanged; }
+        allCommitSize.push(sum / (i - start + 1));
+      }
+    } else {
+      allCommitSize = allVisible.map(d => d.commitCount > 0 ? d.filesChanged / d.commitCount : 0);
+    }
+
+    derivedCache = { data: currentData, zoomKey, topX: authorTopX, windowSize: authorWindowSize, commitSizeWindow: commitSizeWindowSize, allAuthorCounts, allAuthorConcentration, allVelocity, allChurn, allCommitSize };
   }
 
   // ── Slice to page window ──────────────────────────────────────────────────
@@ -480,6 +521,7 @@ function render() {
   const authorConcentration = allAuthorConcentration.slice(pageStart, pageEnd);
   const velocity = allVelocity.slice(pageStart, pageEnd);
   const churn = allChurn.slice(pageStart, pageEnd);
+  const commitSize = allCommitSize.slice(pageStart, pageEnd);
 
   // Available height: viewport minus header/toggles/padding above the chart container
   // Reserve space for body bottom padding (20px) and pan scrollbar (16px) so nothing overflows
@@ -550,6 +592,9 @@ function render() {
     } else if (key === "churn") {
       svgContent += renderLinePath(churn, top, bandH, plotW, n, xStep, "var(--vscode-charts-red, #ff6b6b)");
       svgContent += renderYAxisFromRange(0, Math.max(...churn, 0.1), top, bandH, plotW, 3, "left", v => `${v.toFixed(1)}%`);
+    } else if (key === "commitSize") {
+      svgContent += renderLinePath(commitSize, top, bandH, plotW, n, xStep, "var(--vscode-charts-yellow, #ffd43b)");
+      svgContent += renderYAxis(commitSize, top, bandH, plotW, 3, "left", v => v.toFixed(1));
     }
   }
 
@@ -588,6 +633,7 @@ function render() {
   renderAuthorConcentration = authorConcentration;
   renderVelocity = velocity;
   renderChurn = churn;
+  renderCommitSize = commitSize;
 
   // ── Update pan scrollbar ────────────────────────────────────────────────────
   updatePanScrollbar(allVisible.length, pageStart);
@@ -902,6 +948,7 @@ svg.addEventListener("mousemove", (e: Event) => {
   if (sections.authorConcentration && xAxisMode === "commit") { tooltipHtml += `Top-${authorTopX}: ${renderAuthorConcentration[idx].toFixed(0)}%<br>`; }
   if (sections.velocity) { tooltipHtml += `Commits/${xAxisMode === "commit" ? "day" : xAxisMode}: ${renderVelocity[idx]}<br>`; }
   if (sections.churn) { tooltipHtml += `Churn: ${renderChurn[idx].toFixed(1)}%<br>`; }
+  if (sections.commitSize) { tooltipHtml += `Avg size: ${renderCommitSize[idx].toFixed(1)} files<br>`; }
   tooltipHtml += `</div>`;
   tooltip.innerHTML = tooltipHtml;
   tooltip.style.display = "block";

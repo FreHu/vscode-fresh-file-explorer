@@ -231,6 +231,10 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
     </div>
     <div class="section-toggle"><label title="Number of commits sharing the same calendar day"><input type="checkbox" id="toggleVelocity" checked> Commit velocity</label></div>
     <div class="section-toggle"><label title="Files changed as a percentage of total files in the repository"><input type="checkbox" id="toggleChurn" checked> Churn rate</label></div>
+    <div class="section-toggle">
+      <label title="Average number of files changed per commit (rolling window in commit mode, per-bucket average in aggregated modes)"><input type="checkbox" id="toggleCommitSize" checked> Avg commit size</label>
+      <div class="section-options" id="optionsCommitSize">Window: <input type="number" id="commitSizeWindowSize" value="10" min="2" max="100" style="width: 50px"> commits</div>
+    </div>
     <label title="Maximum commits rendered at once before panning kicks in. Lower values improve responsiveness.">Max ticks: <input type="number" id="maxTicks" value="1000" min="100" max="10000" step="100" style="width: 60px"></label>
   </div>
   <div class="controls-help">
