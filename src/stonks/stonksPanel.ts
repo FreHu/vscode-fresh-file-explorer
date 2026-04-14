@@ -7,7 +7,7 @@ import { log, showError } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 import type { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import type { NormalizedRepoPath } from "../pathTypes";
-import type { StonksFromWebview, StonksTimeWindowOption, StonksToWebview } from "../webview/messages";
+import type { StonksFromWebview, StonksRepoSeries, StonksRepoTicker, StonksTimeWindowOption, StonksToWebview } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 
 export class StonksPanel {
@@ -67,12 +67,34 @@ export class StonksPanel {
     this._provider.onDidChangeTreeData(() => {
       if (!this._selectedRepo) { return; }
       clearTimeout(this._refreshTimer);
-      this._refreshTimer = setTimeout(() => this._loadRepoData(this._selectedRepo!), 500);
+      this._refreshTimer = setTimeout(() => {
+        this._sendRepoTickers();
+        this._loadRepoData(this._selectedRepo!);
+      }, 500);
     }, null, this._disposables);
   }
 
   private _postMessage(msg: StonksToWebview): void {
     this._panel.webview.postMessage(msg);
+  }
+
+  private _sendRepoTickers(): void {
+    const repos = this._provider.getRepoList();
+    const tickers: StonksRepoTicker[] = repos.map(r => {
+      const ticker: StonksRepoTicker = { name: r.name, path: r.path };
+      const stats = this._provider.getCommitStats(r.path);
+      if (stats && stats.size > 0) {
+        const arr = Array.from(stats.values());
+        const latest = arr.reduce((a, b) => a.commit.date > b.commit.date ? a : b);
+        ticker.lastCommitHash = latest.commit.hash.substring(0, 7);
+        ticker.lastCommitMessage = latest.commit.message;
+        ticker.lastCommitFilesChanged = latest.added + latest.deleted + latest.modified;
+        ticker.lastCommitFilesAdded = latest.added;
+        ticker.lastCommitFilesDeleted = latest.deleted;
+      }
+      return ticker;
+    });
+    this._postMessage({ command: "setRepos", repos: tickers });
   }
 
   private async _handleMessage(message: StonksFromWebview) {
@@ -101,10 +123,7 @@ export class StonksPanel {
         this._postMessage({ command: "setTimeWindows", options, selectedDays: this._selectedDays });
 
         const repos = this._provider.getRepoList();
-        this._postMessage({
-          command: "setRepos",
-          repos: repos.map(r => ({ name: r.name, path: r.path })),
-        });
+        this._sendRepoTickers();
         if (repos.length > 0) {
           this._selectedRepo = repos[0].path;
           this._loadRepoData(repos[0].path);
@@ -129,6 +148,25 @@ export class StonksPanel {
       case "updateConfig":
         WorkspaceStateManager.setStonksConfig(message.config);
         break;
+      case "requestCompareData":
+        this._loadAllReposData();
+        break;
+      case "openHelp": {
+        const docPath = vscode.Uri.joinPath(this._extensionUri, "docs", "codestonks.md");
+        vscode.commands.executeCommand("markdown.showPreview", docPath);
+        break;
+      }
+      case "exportSvg": {
+        const uri = await vscode.window.showSaveDialog({
+          defaultUri: vscode.Uri.file("codestonks.svg"),
+          filters: { "SVG": ["svg"] },
+        });
+        if (uri) {
+          await vscode.workspace.fs.writeFile(uri, Buffer.from(message.svg, "utf-8"));
+          vscode.window.showInformationMessage(`Chart exported to ${path.basename(uri.fsPath)}`);
+        }
+        break;
+      }
     }
   }
 
@@ -167,12 +205,53 @@ export class StonksPanel {
       });
   }
 
+  private async _loadAllReposData() {
+    const repos = this._provider.getRepoList();
+    if (repos.length === 0) { return; }
+
+    const cutoff = this._selectedDays !== undefined ? new Date() : undefined;
+    if (cutoff && this._selectedDays !== undefined) { cutoff.setDate(cutoff.getDate() - this._selectedDays); }
+
+    const series: StonksRepoSeries[] = [];
+    await Promise.all(repos.map(async (repo) => {
+      const commitStatsMap = this._provider.getCommitStats(repo.path);
+      if (!commitStatsMap || commitStatsMap.size === 0) { return; }
+
+      let statsArray = Array.from(commitStatsMap.values());
+      if (cutoff) { statsArray = statsArray.filter(s => s.commit.date >= cutoff); }
+      if (statsArray.length === 0) { return; }
+
+      const oldest = statsArray.reduce((a, b) => a.commit.date < b.commit.date ? a : b);
+      let baseline = 0;
+      try {
+        const output = await execGitWithArgs(["ls-tree", "-r", "--name-only", `${oldest.commit.hash}~1`], repo.path, { timeout: ConfigService.getGitTimeoutMs() });
+        baseline = output.trim() ? output.trim().split("\n").length : 0;
+      } catch { /* initial commit → baseline 0 */ }
+
+      series.push({ repoName: repo.name, repoPath: repo.path, data: buildStonksData(statsArray, baseline) });
+    }));
+
+    this._postMessage({ command: "setCompareData", series });
+  }
+
   private _update() {
     const webview = this._panel.webview;
     const scriptUri = webview
       .asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "media", "stonksPanel.js"))
       .toString();
-    webview.html = getWebviewHtml(webview.cspSource, scriptUri);
+    const codiconCssUri = webview
+      .asWebviewUri(
+        vscode.Uri.joinPath(
+          this._extensionUri,
+          "node_modules",
+          "@vscode",
+          "codicons",
+          "dist",
+          "codicon.css",
+        ),
+      )
+      .toString();
+    webview.html = getWebviewHtml(webview.cspSource, scriptUri, codiconCssUri);
   }
 
   private async _openCommit(commitHash: string) {

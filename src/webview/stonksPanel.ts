@@ -1,8 +1,8 @@
-import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksConfig, XAxisMode } from "./messages";
+import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksConfig, XAxisMode, StonksRepoSeries, StonksRepoTicker } from "./messages";
 
 const vscode = acquireVsCodeApi();
 
-const repoSelect = document.getElementById("repoSelect") as HTMLSelectElement;
+const watchlistBody = document.getElementById("watchlistBody") as HTMLElement;
 const loadingDiv = document.getElementById("loading") as HTMLElement;
 const emptyDiv = document.getElementById("empty") as HTMLElement;
 const chartContainer = document.getElementById("chartContainer") as HTMLElement;
@@ -10,6 +10,8 @@ const svg = document.getElementById("chart") as unknown as SVGSVGElement;
 const tooltip = document.getElementById("tooltip") as HTMLElement;
 const xAxisSelect = document.getElementById("xAxisSelect") as HTMLSelectElement;
 
+let selectedRepoPath = "";
+let repoTickers: StonksRepoTicker[] = [];
 let rawData: StonksDataPoint[] = [];   // untouched from extension
 let currentData: StonksDataPoint[] = []; // after aggregation
 let xAxisMode: XAxisMode = "commit";
@@ -31,6 +33,12 @@ let renderAuthorConcentration: number[] = [];
 let renderVelocity: number[] = [];
 let renderChurn: number[] = [];
 let renderCommitSize: number[] = [];
+
+// Compare repos state
+let compareRepos = false;
+let compareSelectedPaths = new Set<string>();
+let compareData: StonksRepoSeries[] = [];
+let renderCompareSeries: { repoName: string; repoPath: string; values: number[] }[] = [];
 
 function getVisibleData(): StonksDataPoint[] {
   if (zoomStack.length > 0) {
@@ -115,6 +123,7 @@ function buildConfig(): StonksConfig {
   return {
     sections: { ...sections },
     sectionOptions: { authors: { windowSize: authorWindowSize }, authorConcentration: { topX: authorTopX }, commitSize: { windowSize: commitSizeWindowSize } },
+    compareRepos,
     maxVisibleTicks,
     selectedDays: Number(timeWindowSelect.value) || 30,
     xAxisMode,
@@ -125,14 +134,110 @@ function sendConfig(): void {
   postMessage({ command: "updateConfig", config: buildConfig() });
 }
 
-// ── Repo selector ─────────────────────────────────────────────────────────────
+// ── Watchlist ─────────────────────────────────────────────────────────────────
 
-repoSelect.addEventListener("change", () => {
-  const path = repoSelect.value;
-  if (path) {
-    postMessage({ command: "selectRepo", repoPath: path });
+function selectRepo(path: string): void {
+  if (path === selectedRepoPath) { return; }
+  selectedRepoPath = path;
+  // Update selected row styling
+  for (const row of Array.from(watchlistBody.querySelectorAll(".watchlist-row"))) {
+    row.classList.toggle("selected", (row as HTMLElement).dataset.path === path);
   }
-});
+  postMessage({ command: "selectRepo", repoPath: path });
+}
+
+function renderWatchlist(): void {
+  watchlistBody.innerHTML = "";
+  const showCompare = compareRepos && xAxisMode !== "commit";
+  for (const repo of repoTickers) {
+    const row = document.createElement("div");
+    row.className = "watchlist-row" + (repo.path === selectedRepoPath ? " selected" : "");
+    row.dataset.path = repo.path;
+
+    // Left cell: repo info
+    const infoEl = document.createElement("div");
+    infoEl.className = "repo-info";
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "repo-name";
+
+    if (showCompare) {
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "compare-cb";
+      cb.checked = compareSelectedPaths.has(repo.path);
+      cb.title = "Include in compare overlay";
+      cb.addEventListener("click", (e) => { e.stopPropagation(); });
+      cb.addEventListener("change", () => {
+        if (cb.checked) { compareSelectedPaths.add(repo.path); }
+        else { compareSelectedPaths.delete(repo.path); }
+        postMessage({ command: "requestCompareData" });
+      });
+      nameEl.appendChild(cb);
+
+      const swatch = document.createElement("span");
+      swatch.style.display = "inline-block";
+      swatch.style.width = "8px";
+      swatch.style.height = "8px";
+      swatch.style.borderRadius = "50%";
+      swatch.style.backgroundColor = compareColorForRepo(repo.path);
+      swatch.style.flexShrink = "0";
+      if (!cb.checked) { swatch.style.opacity = "0.3"; }
+      nameEl.appendChild(swatch);
+    }
+
+    const nameText = document.createElement("span");
+    nameText.textContent = repo.name;
+    nameText.title = repo.path;
+    nameEl.appendChild(nameText);
+    infoEl.appendChild(nameEl);
+
+    // Last commit: hash (clickable) + message
+    const commitEl = document.createElement("div");
+    commitEl.className = "last-commit";
+    if (repo.lastCommitHash) {
+      const hashSpan = document.createElement("span");
+      hashSpan.className = "commit-hash";
+      hashSpan.textContent = repo.lastCommitHash;
+      hashSpan.title = "Open commit";
+      hashSpan.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (selectedRepoPath !== repo.path) { selectRepo(repo.path); }
+        postMessage({ command: "openCommit", hash: repo.lastCommitHash! });
+      });
+      commitEl.appendChild(hashSpan);
+
+      const msgSpan = document.createElement("span");
+      msgSpan.className = "commit-msg";
+      msgSpan.textContent = repo.lastCommitMessage ?? "";
+      msgSpan.title = repo.lastCommitMessage ?? "";
+      commitEl.appendChild(msgSpan);
+    }
+    infoEl.appendChild(commitEl);
+    row.appendChild(infoEl);
+
+    // Files changed in last commit: +added/~modified/-deleted
+    const changedEl = document.createElement("div");
+    changedEl.className = "files-changed";
+    if (repo.lastCommitFilesChanged !== undefined && repo.lastCommitFilesChanged > 0) {
+      const added = repo.lastCommitFilesAdded ?? 0;
+      const deleted = repo.lastCommitFilesDeleted ?? 0;
+      const modified = repo.lastCommitFilesChanged - added - deleted;
+      const parts: string[] = [];
+      if (added > 0) { parts.push(`<span class="added">+${added}</span>`); }
+      if (modified > 0) { parts.push(`<span class="modified">~${modified}</span>`); }
+      if (deleted > 0) { parts.push(`<span class="deleted">-${deleted}</span>`); }
+      changedEl.innerHTML = parts.join(" ");
+    } else {
+      changedEl.textContent = "—";
+      changedEl.classList.add("zero");
+    }
+    row.appendChild(changedEl);
+
+    row.addEventListener("click", () => selectRepo(repo.path));
+    watchlistBody.appendChild(row);
+  }
+}
 
 // ── Time window selector ──────────────────────────────────────────────────────
 
@@ -157,15 +262,13 @@ maxTicksInput.addEventListener("change", () => {
 
 // ── Message handling ──────────────────────────────────────────────────────────
 
-function handleSetRepos(repos: { name: string; path: string }[]): void {
-  repoSelect.innerHTML = "";
-  for (const repo of repos) {
-    const opt = document.createElement("option");
-    opt.value = repo.path;
-    opt.textContent = repo.name;
-    repoSelect.appendChild(opt);
+function handleSetRepos(repos: StonksRepoTicker[]): void {
+  repoTickers = repos;
+  // Auto-select first repo if nothing selected yet
+  if (repos.length > 0 && !selectedRepoPath) {
+    selectedRepoPath = repos[0].path;
   }
-  repoSelect.disabled = repos.length === 0;
+  renderWatchlist();
 }
 
 function handleSetTimeWindows(options: { label: string; days: number | undefined }[], selectedDays: number | undefined): void {
@@ -186,6 +289,21 @@ function handleSetData(data: StonksDataPoint[]): void {
   panOffset = Number.MAX_SAFE_INTEGER;
   derivedCache = null;
   updateZoomSelect();
+  // Update selected repo's ticker from latest data point
+  if (data.length > 0 && selectedRepoPath) {
+    const latest = data[data.length - 1];
+    const ticker = repoTickers.find(r => r.path === selectedRepoPath);
+    if (ticker) {
+      ticker.totalFiles = latest.cumulativeFileCount;
+      if (latest.hash) { ticker.lastCommitHash = latest.hash.substring(0, 7); }
+      if (latest.message) { ticker.lastCommitMessage = latest.message; }
+      if (latest.filesChanged !== undefined) { ticker.lastCommitFilesChanged = latest.filesChanged; }
+      if (latest.filesAdded !== undefined) { ticker.lastCommitFilesAdded = latest.filesAdded; }
+      if (latest.filesDeleted !== undefined) { ticker.lastCommitFilesDeleted = latest.filesDeleted; }
+      renderWatchlist();
+    }
+  }
+  if (compareRepos) { postMessage({ command: "requestCompareData" }); }
   render();
 }
 
@@ -207,6 +325,9 @@ function handleSetConfig(c: StonksConfig): void {
     const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
     if (optionsEl) { optionsEl.classList.toggle("visible", sections[key]); }
   }
+  // Apply compare repos
+  compareRepos = c.compareRepos ?? false;
+  if (compareReposCheckbox) { compareReposCheckbox.checked = compareRepos; }
   // Apply section options
   if (c.sectionOptions?.authors) {
     authorWindowSize = c.sectionOptions.authors.windowSize;
@@ -230,20 +351,65 @@ function handleSetConfig(c: StonksConfig): void {
   updateCommitOnlyToggles();
 }
 
+function handleSetCompareData(series: StonksRepoSeries[]): void {
+  compareData = series;
+  render();
+}
+
 window.addEventListener("message", (event) => {
   const msg = event.data as StonksToWebview;
   switch (msg.command) {
     case "setRepos": handleSetRepos(msg.repos); break;
     case "setTimeWindows": handleSetTimeWindows(msg.options, msg.selectedDays); break;
     case "setData": handleSetData(msg.data); break;
+    case "setCompareData": handleSetCompareData(msg.series); break;
     case "setLoading": handleSetLoading(msg.loading); break;
     case "setConfig": handleSetConfig(msg.config); break;
   }
 });
 
+// ── Help button ───────────────────────────────────────────────────────────────
+document.getElementById("helpBtn")?.addEventListener("click", () => {
+  postMessage({ command: "openHelp" });
+});
+
+// ── Export button ─────────────────────────────────────────────────────────────
+document.getElementById("exportBtn")?.addEventListener("click", () => {
+  const svgEl = document.getElementById("chart");
+  if (!svgEl) { return; }
+  // Clone and add xmlns + background for standalone SVG
+  const clone = svgEl.cloneNode(true) as SVGElement;
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  // Get dimensions from viewBox (viewBox="0 0 W H")
+  const vb = svgEl.getAttribute("viewBox")?.split(/\s+/) ?? [];
+  const width = vb[2] || svgEl.getBoundingClientRect().width.toString();
+  const height = vb[3] || svgEl.getBoundingClientRect().height.toString();
+  clone.setAttribute("width", width);
+  clone.setAttribute("height", height);
+  // Resolve CSS variables to computed values for portability
+  const style = getComputedStyle(document.body);
+  const bg = style.getPropertyValue("--vscode-editor-background").trim() || "#1e1e1e";
+  const fg = style.getPropertyValue("--vscode-foreground").trim() || "#cccccc";
+  const descFg = style.getPropertyValue("--vscode-descriptionForeground").trim() || "#888888";
+  const borderColor = style.getPropertyValue("--vscode-editorWidget-border").trim() || "#444444";
+  const bgRect = `<rect width="${width}" height="${height}" fill="${bg}"/>`;
+  const styleBlock = `<style>text { font-family: sans-serif; } </style>`;
+  clone.innerHTML = bgRect + styleBlock + clone.innerHTML;
+  // Replace CSS variable references with computed values
+  let svgStr = new XMLSerializer().serializeToString(clone);
+  svgStr = svgStr.replace(/var\(--vscode-foreground[^)]*\)/g, fg);
+  svgStr = svgStr.replace(/var\(--vscode-descriptionForeground[^)]*\)/g, descFg);
+  svgStr = svgStr.replace(/var\(--vscode-editorWidget-border[^)]*\)/g, borderColor);
+  svgStr = svgStr.replace(/var\(--vscode-editor-background[^)]*\)/g, bg);
+  // Replace other common CSS variables with their fallback or computed value
+  svgStr = svgStr.replace(/var\(--vscode-[^,)]+,\s*([^)]+)\)/g, "$1");
+  svgStr = svgStr.replace(/var\(--vscode-[^)]+\)/g, fg);
+  postMessage({ command: "exportSvg", svg: svgStr });
+});
+
 // ── SVG Chart Rendering ───────────────────────────────────────────────────────
 
-const PADDING = { top: 36, right: 60, bottom: 32, left: 60 };
+const PADDING = { top: 36, right: 48, bottom: 32, left: 48 };
 const SECTION_GAP = 28; // gap between sections (includes label space)
 const SECTION_LABEL_OFFSET = -6; // y offset for section label above its band
 
@@ -282,6 +448,18 @@ function updateCommitOnlyToggles(): void {
     if (!COMMIT_ONLY_KEYS.has(key)) { continue; }
     const el = document.getElementById(sectionId ?? "");
     if (el) { el.classList.toggle("disabled", !isCommit); }
+  }
+  // Compare repos only works in time-based modes
+  const compareCb = document.getElementById("toggleCompareRepos") as HTMLInputElement | null;
+  const compareContainer = compareCb?.closest(".section-toggle") as HTMLElement | null;
+  if (compareContainer) { compareContainer.classList.toggle("disabled", isCommit); }
+  if (isCommit && compareCb?.checked) {
+    compareCb.checked = false;
+    compareRepos = false;
+    compareSelectedPaths.clear();
+    compareData = [];
+    sendConfig();
+    renderWatchlist();
   }
 }
 
@@ -345,6 +523,23 @@ if (commitSizeWindowInput) {
   });
 }
 
+// Wire up compare repos checkbox
+const compareReposCheckbox = document.getElementById("toggleCompareRepos") as HTMLInputElement | null;
+if (compareReposCheckbox) {
+  compareReposCheckbox.addEventListener("change", () => {
+    compareRepos = compareReposCheckbox.checked;
+    sendConfig();
+    renderWatchlist();
+    if (compareRepos) {
+      postMessage({ command: "requestCompareData" });
+    } else {
+      compareSelectedPaths.clear();
+      compareData = [];
+      render();
+    }
+  });
+}
+
 updateCommitOnlyToggles();
 
 // Section weight config (relative proportions, not fixed pixels)
@@ -397,6 +592,43 @@ function computeBands(availableHeight: number): Band[] {
 }
 
 // ── Shared interaction helpers ─────────────────────────────────────────────────
+
+const COMPARE_COLORS = [
+  "var(--vscode-charts-blue, #339af0)",
+  "var(--vscode-charts-orange, #ffa94d)",
+  "var(--vscode-charts-green, #51cf66)",
+  "var(--vscode-charts-red, #ff6b6b)",
+  "var(--vscode-charts-purple, #b197fc)",
+  "var(--vscode-charts-yellow, #ffd43b)",
+  "#20c997", "#e599f7", "#74c0fc", "#f06595",
+];
+
+function compareColorForRepo(repoPath: string): string {
+  const idx = repoTickers.findIndex(t => t.path === repoPath);
+  return COMPARE_COLORS[(idx === -1 ? 0 : idx) % COMPARE_COLORS.length];
+}
+
+/**
+ * Align each compare repo's cumulativeFileCount to the visible date buckets.
+ * For dates where a repo has no data, carry the last known value forward.
+ */
+function buildCompareSeries(visibleData: StonksDataPoint[], mode: XAxisMode): { repoName: string; repoPath: string; values: number[] }[] {
+  const visibleKeys = visibleData.map(d => bucketKey(d.date, mode));
+  const filtered = compareData.filter(s => compareSelectedPaths.has(s.repoPath));
+  return filtered.map(series => {
+    const agg = aggregateData(series.data, mode);
+    const lookup = new Map<string, number>();
+    for (const d of agg) { lookup.set(bucketKey(d.date, mode), d.cumulativeFileCount); }
+
+    const values: number[] = [];
+    let lastVal = 0;
+    for (const key of visibleKeys) {
+      if (lookup.has(key)) { lastVal = lookup.get(key)!; }
+      values.push(lastVal);
+    }
+    return { repoName: series.repoName, repoPath: series.repoPath, values };
+  });
+}
 
 function xToIdx(clientX: number): number {
   const svgRect = svg.getBoundingClientRect();
@@ -523,6 +755,13 @@ function render() {
   const churn = allChurn.slice(pageStart, pageEnd);
   const commitSize = allCommitSize.slice(pageStart, pageEnd);
 
+  // ── Compare repos: align other repos' fileCount to visible date buckets ───
+  const isCompareActive = compareRepos && xAxisMode !== "commit" && compareData.length > 0;
+  let compareSeries: { repoName: string; repoPath: string; values: number[] }[] = [];
+  if (isCompareActive) {
+    compareSeries = buildCompareSeries(visibleData, xAxisMode);
+  }
+
   // Available height: viewport minus header/toggles/padding above the chart container
   // Reserve space for body bottom padding (20px) and pan scrollbar (16px) so nothing overflows
   const containerTop = chartContainer.getBoundingClientRect().top;
@@ -574,27 +813,43 @@ function render() {
     }
 
     if (key === "fileCount") {
-      svgContent += renderLineArea(counts, top, bandH, plotW, n, xStep, "var(--vscode-charts-blue, #339af0)", true);
-      svgContent += renderYAxis(counts, top, bandH, plotW, 8, "left");
+      if (isCompareActive && compareSeries.length > 0) {
+        // Multi-repo overlay: find global min/max across all series for shared Y scale
+        let globalMin = Math.min(...counts);
+        let globalMax = Math.max(...counts);
+        for (const s of compareSeries) {
+          globalMin = Math.min(globalMin, ...s.values);
+          globalMax = Math.max(globalMax, ...s.values);
+        }
+        // Render each compare repo as a line
+        for (let si = 0; si < compareSeries.length; si++) {
+          const color = compareColorForRepo(compareSeries[si].repoPath);
+          svgContent += renderLinePathScaled(compareSeries[si].values, top, bandH, plotW, n, xStep, color, globalMin, globalMax);
+        }
+        svgContent += renderYAxisFromRange(globalMin, globalMax, top, bandH, plotW, 8);
+      } else {
+        svgContent += renderLineArea(counts, top, bandH, plotW, n, xStep, "var(--vscode-charts-blue, #339af0)", true);
+        svgContent += renderYAxis(counts, top, bandH, plotW, 8);
+      }
     } else if (key === "filesChanged") {
       svgContent += renderVolumeBars(visibleData, volumes, top, bandH, plotW, n, xStep);
       const maxVol = Math.max(...volumes, 1);
-      svgContent += renderYAxisFromRange(0, maxVol, top, bandH, plotW, 3, "right");
+      svgContent += renderYAxisFromRange(0, maxVol, top, bandH, plotW, 3);
     } else if (key === "authors") {
       svgContent += renderLinePath(authorCounts, top, bandH, plotW, n, xStep, "var(--vscode-charts-orange, #ffa94d)");
-      svgContent += renderYAxis(authorCounts, top, bandH, plotW, 3, "left");
+      svgContent += renderYAxis(authorCounts, top, bandH, plotW, 3);
     } else if (key === "authorConcentration") {
       svgContent += renderLinePath(authorConcentration, top, bandH, plotW, n, xStep, "var(--vscode-charts-purple, #b197fc)");
-      svgContent += renderYAxisFromRange(0, Math.max(...authorConcentration, 1), top, bandH, plotW, 3, "left", v => `${v.toFixed(0)}%`);
+      svgContent += renderYAxisFromRange(0, Math.max(...authorConcentration, 1), top, bandH, plotW, 3, v => `${v.toFixed(0)}%`);
     } else if (key === "velocity") {
       svgContent += renderLinePath(velocity, top, bandH, plotW, n, xStep, "var(--vscode-charts-green, #51cf66)");
-      svgContent += renderYAxis(velocity, top, bandH, plotW, 3, "left");
+      svgContent += renderYAxis(velocity, top, bandH, plotW, 3);
     } else if (key === "churn") {
       svgContent += renderLinePath(churn, top, bandH, plotW, n, xStep, "var(--vscode-charts-red, #ff6b6b)");
-      svgContent += renderYAxisFromRange(0, Math.max(...churn, 0.1), top, bandH, plotW, 3, "left", v => `${v.toFixed(1)}%`);
+      svgContent += renderYAxisFromRange(0, Math.max(...churn, 0.1), top, bandH, plotW, 3, v => `${v.toFixed(1)}%`);
     } else if (key === "commitSize") {
       svgContent += renderLinePath(commitSize, top, bandH, plotW, n, xStep, "var(--vscode-charts-yellow, #ffd43b)");
-      svgContent += renderYAxis(commitSize, top, bandH, plotW, 3, "left", v => v.toFixed(1));
+      svgContent += renderYAxis(commitSize, top, bandH, plotW, 3, v => v.toFixed(1));
     }
   }
 
@@ -634,6 +889,7 @@ function render() {
   renderVelocity = velocity;
   renderChurn = churn;
   renderCommitSize = commitSize;
+  renderCompareSeries = compareSeries;
 
   // ── Update pan scrollbar ────────────────────────────────────────────────────
   updatePanScrollbar(allVisible.length, pageStart);
@@ -746,6 +1002,13 @@ function renderLinePath(
 ): string {
   const min = Math.min(...values);
   const max = Math.max(...values);
+  return renderLinePathScaled(values, top, bandH, plotW, n, xStep, color, min, max);
+}
+
+function renderLinePathScaled(
+  values: number[], top: number, bandH: number, plotW: number,
+  n: number, xStep: number, color: string, min: number, max: number,
+): string {
   const range = max - min || 1;
   let path = "";
   for (let i = 0; i < n; i++) {
@@ -799,16 +1062,16 @@ function renderVolumeBars(
 
 function renderYAxis(
   values: number[], top: number, bandH: number, plotW: number,
-  count: number, side: "left" | "right", format?: (v: number) => string,
+  count: number, format?: (v: number) => string,
 ): string {
   const min = Math.min(...values);
   const max = Math.max(...values);
-  return renderYAxisFromRange(min, max, top, bandH, plotW, count, side, format);
+  return renderYAxisFromRange(min, max, top, bandH, plotW, count, format);
 }
 
 function renderYAxisFromRange(
   min: number, max: number, top: number, bandH: number, plotW: number,
-  count: number, side: "left" | "right", format?: (v: number) => string,
+  count: number, format?: (v: number) => string,
 ): string {
   const range = max - min || 1;
   const labels = buildYLabels(min, max, count);
@@ -816,11 +1079,8 @@ function renderYAxisFromRange(
   let out = "";
   for (const val of labels) {
     const y = top + bandH - ((val - min) / range) * bandH;
-    if (side === "left") {
-      out += `<text x="${PADDING.left - 8}" y="${y + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${fmt(val)}</text>`;
-    } else {
-      out += `<text x="${PADDING.left + plotW + 8}" y="${y + 4}" text-anchor="start" fill="var(--vscode-descriptionForeground)" font-size="10">${fmt(val)}</text>`;
-    }
+    out += `<text x="${PADDING.left - 6}" y="${y + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${fmt(val)}</text>`;
+    out += `<text x="${PADDING.left + plotW + 6}" y="${y + 4}" text-anchor="start" fill="var(--vscode-descriptionForeground)" font-size="10">${fmt(val)}</text>`;
     out += `<line x1="${PADDING.left}" y1="${y}" x2="${PADDING.left + plotW}" y2="${y}" stroke="var(--vscode-editorWidget-border, var(--vscode-widget-border))" stroke-dasharray="2,4" opacity="0.3"/>`;
   }
   return out;
@@ -940,7 +1200,16 @@ svg.addEventListener("mousemove", (e: Event) => {
     tooltipHtml += `<div class="author">${dateStr} · ${d.commitCount} commit${d.commitCount !== 1 ? "s" : ""}</div>`;
   }
   tooltipHtml += `<div class="stat">`;
-  if (sections.fileCount) { tooltipHtml += `Files in repo: ${d.cumulativeFileCount}<br>`; }
+  if (sections.fileCount) {
+    tooltipHtml += `Files in repo: ${d.cumulativeFileCount}<br>`;
+    if (renderCompareSeries.length > 0) {
+      for (let si = 0; si < renderCompareSeries.length; si++) {
+        const s = renderCompareSeries[si];
+        const color = compareColorForRepo(s.repoPath);
+        tooltipHtml += `<span style="color:${color}">● ${escapeHtml(s.repoName)}: ${s.values[idx]}</span><br>`;
+      }
+    }
+  }
   if (sections.filesChanged) {
     tooltipHtml += `Changed: ${d.filesChanged} (<span class="added">+${d.filesAdded}</span> <span class="deleted">-${d.filesDeleted}</span>)<br>`;
   }
@@ -1040,6 +1309,7 @@ function applyXAxisMode(mode: XAxisMode): void {
   derivedCache = null;
   updateCommitOnlyToggles();
   updateZoomSelect();
+  renderWatchlist();
   render();
 }
 

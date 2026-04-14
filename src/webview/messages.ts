@@ -92,14 +92,33 @@ export interface StonksTimeWindowOption {
 export interface StonksConfig {
   sections: { fileCount: boolean; filesChanged: boolean; authors: boolean; velocity: boolean; churn: boolean; authorConcentration: boolean; commitSize: boolean };
   sectionOptions?: { authors?: { windowSize: number }; authorConcentration?: { topX: number }; commitSize?: { windowSize: number } };
+  compareRepos?: boolean;
   maxVisibleTicks: number;
   selectedDays: number;
   xAxisMode: XAxisMode;
 }
 
+export interface StonksRepoSeries {
+  repoName: string;
+  repoPath: string;
+  data: StonksDataPoint[];
+}
+
+export interface StonksRepoTicker {
+  name: string;
+  path: string;
+  totalFiles?: number;
+  lastCommitHash?: string;
+  lastCommitMessage?: string;
+  lastCommitFilesChanged?: number;
+  lastCommitFilesAdded?: number;
+  lastCommitFilesDeleted?: number;
+}
+
 export type StonksToWebview =
-  | { command: "setRepos"; repos: { name: string; path: string }[] }
+  | { command: "setRepos"; repos: StonksRepoTicker[] }
   | { command: "setData"; data: StonksDataPoint[] }
+  | { command: "setCompareData"; series: StonksRepoSeries[] }
   | { command: "setLoading"; loading: boolean }
   | { command: "setTimeWindows"; options: StonksTimeWindowOption[]; selectedDays: number | undefined }
   | { command: "setConfig"; config: StonksConfig };
@@ -109,4 +128,7 @@ export type StonksFromWebview =
   | { command: "selectRepo"; repoPath: string }
   | { command: "openCommit"; hash: string }
   | { command: "selectTimeWindow"; days: number | undefined }
-  | { command: "updateConfig"; config: StonksConfig };
+  | { command: "updateConfig"; config: StonksConfig }
+  | { command: "requestCompareData" }
+  | { command: "openHelp" }
+  | { command: "exportSvg"; svg: string };
