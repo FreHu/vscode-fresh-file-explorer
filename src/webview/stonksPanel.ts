@@ -7,6 +7,7 @@ import {
   renderYAxisFromRange as _renderYAxisFromRange,
 } from "./svgChartPrimitives";
 import { PanController } from "./panController";
+import { html, positionTooltip } from "./webviewUtils";
 
 const vscode = acquireVsCodeApi();
 
@@ -992,10 +993,6 @@ function renderYAxisFromRange(
   return _renderYAxisFromRange(min, max, top, bandH, plotW, count, PADDING, format);
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 // ── Resize handling ───────────────────────────────────────────────────────────
 
 const ro = new ResizeObserver(() => {
@@ -1074,9 +1071,9 @@ svg.addEventListener("mousemove", (e: Event) => {
 
   let tooltipHtml = "";
   if (xAxisMode === "commit") {
-    tooltipHtml += `<div class="hash">${d.hash}</div>`;
-    tooltipHtml += `<div class="message">${escapeHtml(d.message!)}</div>`;
-    tooltipHtml += `<div class="author">${escapeHtml(d.author!)} · ${dateStr}</div>`;
+    tooltipHtml += html`<div class="hash">${d.hash}</div>`;
+    tooltipHtml += html`<div class="message">${d.message!}</div>`;
+    tooltipHtml += html`<div class="author">${d.author!} · ${dateStr}</div>`;
   } else {
     tooltipHtml += `<div class="author">${dateStr} · ${d.commitCount} commit${d.commitCount !== 1 ? "s" : ""}</div>`;
   }
@@ -1087,7 +1084,7 @@ svg.addEventListener("mousemove", (e: Event) => {
       for (let si = 0; si < renderCompareSeries.length; si++) {
         const s = renderCompareSeries[si];
         const color = compareColorForRepo(s.repoPath);
-        tooltipHtml += `<span style="color:${color}">● ${escapeHtml(s.repoName)}: ${s.values[idx]}</span><br>`;
+        tooltipHtml += html`<span style="color:${color}">● ${s.repoName}: ${s.values[idx]}</span><br>`;
       }
     }
   }
@@ -1101,16 +1098,7 @@ svg.addEventListener("mousemove", (e: Event) => {
   if (sections.commitSize) { tooltipHtml += `Avg size: ${renderCommitSize[idx].toFixed(1)} files<br>`; }
   tooltipHtml += `</div>`;
   tooltip.innerHTML = tooltipHtml;
-  tooltip.style.display = "block";
-
-  const cRect = chartContainer.getBoundingClientRect();
-  const tooltipW = tooltip.offsetWidth;
-  let tooltipX = me.clientX - cRect.left + 12;
-  if (tooltipX + tooltipW > cRect.width) {
-    tooltipX = me.clientX - cRect.left - tooltipW - 12;
-  }
-  tooltip.style.left = tooltipX + "px";
-  tooltip.style.top = (me.clientY - cRect.top - tooltip.offsetHeight - 8) + "px";
+  positionTooltip(tooltip, chartContainer, me.clientX, me.clientY);
 });
 
 svg.addEventListener("mouseleave", () => {

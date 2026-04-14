@@ -154,7 +154,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     // Load persisted time window selection
     const persistedDays = WorkspaceStateManager.getSelectedTimeWindowDays();
-    this.openChangesMode = WorkspaceStateManager.getOpenChangesMode();
+    this.openChangesMode = WorkspaceStateManager.getOpenChangesMode(ConfigService.getDefaultOpenChangesMode());
     this.groupingMode = WorkspaceStateManager.getGroupingMode(ConfigService.getDefaultGroupingMode());
     this.sortOrder = WorkspaceStateManager.getSortOrder(ConfigService.getDefaultSortOrder());
 
@@ -505,9 +505,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       this.treeView.message = undefined;
     } else {
       this.treeView.message =
-        "Note: Only the most recent commit per file is examined. " +
-        "If a file was modified by multiple authors or commits in " +
-        "the selected period, only the latest change is shown.";
+        "Only the most recent commit per file is examined. " +
+        "If a file was modified multiple times in " +
+        "this period, the latest change is shown.";
     }
   }
 
@@ -836,6 +836,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         this.groupingMode,
         this.freshFiles,
         (metadata) => this.filterManager.passesFilters(metadata),
+        this.sortOrder,
         this.openChangesMode,
         results,
       );
@@ -1296,7 +1297,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           metadata.renameSource,
         );
         item.description = formatFileDescription(metadata, descriptionFormat);
-        item.tooltip = formatFileTooltip(metadata);
+        item.tooltip = formatFileTooltip(metadata, descriptionFormat);
         items.push(item);
       } else {
         // Directory — stats already respect filters and scopes
@@ -1374,7 +1375,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         item.label = normalizePath(path.relative(repoFsPath, filePath));
         item.description = formatFileDescription(metadata, descriptionFormat);
       }
-      item.tooltip = formatFileTooltip(metadata);
+      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
       items.push(item);
     }
 

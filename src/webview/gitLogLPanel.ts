@@ -1,9 +1,8 @@
 import type { CommitData, GitLogLToWebview, GitLogLFromWebview } from "./messages";
 import { renderAddedRemovedBars, renderYAxisFromRange, renderDateXAxis, type ChartPadding } from "./svgChartPrimitives";
 import { PanController } from "./panController";
+import { html, raw, positionTooltip } from "./webviewUtils";
 
-// acquireVsCodeApi is a global injected by VS Code into the webview context.
-// @types/vscode-webview provides its declaration via tsconfig.webview.json.
 const vscode = acquireVsCodeApi();
 
 let commits: CommitData[] = [];
@@ -126,24 +125,24 @@ function renderTimeline(): void {
     const header = document.createElement("div");
     header.className = "commit-header";
     const statHtml = (commit.added || commit.removed)
-      ? `<span class="stat"><span class="stat-add">+${commit.added}</span> <span class="stat-del">-${commit.removed}</span></span>`
+      ? html`<span class="stat"><span class="stat-add">+${commit.added}</span> <span class="stat-del">-${commit.removed}</span></span>`
       : "";
     const renameHtml = commit.filePathAtCommit
-      ? `<span class="rename" title="File was at ${escHtml(commit.filePathAtCommit)} in this commit">↪ ${escHtml(commit.filePathAtCommit)}</span>`
+      ? html`<span class="rename" title="File was at ${commit.filePathAtCommit} in this commit">↪ ${commit.filePathAtCommit}</span>`
       : "";
-    const msgTitle = commit.message.length > 60 ? ` title="${escHtml(commit.message)}"` : "";
-    header.innerHTML =
-      '<button class="ab-btn" data-action="ab" title="Mark as A or B for comparison">·</button>' +
-      '<span class="chevron">▶</span>' +
-      statHtml +
-      '<span class="hash" data-action="openCommit" title="Open commit in multi-diff editor">' + escHtml(commit.shortHash) + "</span>" +
-      `<span class="message"${msgTitle}>` + escHtml(commit.message || "(no message)") + "</span>" +
-      renameHtml +
-      '<span class="meta">' + escHtml(commit.author) + " · " + dateStr + "</span>";
+    const msgTitle = commit.message.length > 60 ? html` title="${commit.message}"` : "";
+    header.innerHTML = html`
+      <button class="ab-btn" data-action="ab" title="Mark as A or B for comparison">·</button>
+      <span class="chevron">▶</span>
+      ${raw(statHtml)}
+      <span class="hash" data-action="openCommit" title="Open commit in multi-diff editor">${commit.shortHash}</span>
+      <span class="message"${raw(msgTitle)}>${commit.message || "(no message)"}</span>
+      ${raw(renameHtml)}
+      <span class="meta">${commit.author} · ${dateStr}</span>`;
 
     const hunkEl = document.createElement("div");
     hunkEl.className = "hunk";
-    hunkEl.innerHTML = '<pre class="diff">' + renderHunk(commit.hunk) + "</pre>";
+    hunkEl.innerHTML = html`<pre class="diff">${raw(renderHunk(commit.hunk))}</pre>`;
 
     row.appendChild(header);
     row.appendChild(hunkEl);
@@ -251,20 +250,14 @@ function updateSelectionInfo(): void {
 function renderHunk(hunk: string | null): string {
   if (!hunk) { return '<span style="opacity:0.4">(no diff — file added or rename only)</span>'; }
   return hunk.split("\n").map(line => {
-    if (line.startsWith("@@")) { return '<span class="diff-hunk-header">' + escHtml(line) + "</span>"; }
-    if (line.startsWith("+"))  { return '<span class="diff-add">' + escHtml(line) + "</span>"; }
-    if (line.startsWith("-"))  { return '<span class="diff-del">' + escHtml(line) + "</span>"; }
-    return '<span class="diff-ctx">' + escHtml(line) + "</span>";
+    if (line.startsWith("@@")) { return html`<span class="diff-hunk-header">${line}</span>`; }
+    if (line.startsWith("+"))  { return html`<span class="diff-add">${line}</span>`; }
+    if (line.startsWith("-"))  { return html`<span class="diff-del">${line}</span>`; }
+    return html`<span class="diff-ctx">${line}</span>`;
   }).join("\n");
 }
 
-function escHtml(str: string): string {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+
 
 // ── Line changes chart ────────────────────────────────────────────────────────
 
@@ -379,21 +372,12 @@ function onChartMouseMove(e: Event): void {
   // Tooltip
   const date = new Date(c.date);
   const dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  let html = `<div class="hash">${escHtml(c.shortHash)}</div>`;
-  html += `<div class="message">${escHtml(c.message || "(no message)")}</div>`;
-  html += `<div class="author">${escHtml(c.author)} · ${dateStr}</div>`;
-  html += `<div class="stat"><span class="added">+${c.added}</span> <span class="deleted">-${c.removed}</span></div>`;
-  chartTooltip.innerHTML = html;
-  chartTooltip.style.display = "block";
-
-  const cRect = chartContainer.getBoundingClientRect();
-  const tooltipW = chartTooltip.offsetWidth;
-  let tooltipX = me.clientX - cRect.left + 12;
-  if (tooltipX + tooltipW > cRect.width) {
-    tooltipX = me.clientX - cRect.left - tooltipW - 12;
-  }
-  chartTooltip.style.left = tooltipX + "px";
-  chartTooltip.style.top = (me.clientY - cRect.top - chartTooltip.offsetHeight - 8) + "px";
+  chartTooltip.innerHTML =
+    html`<div class="hash">${c.shortHash}</div>` +
+    html`<div class="message">${c.message || "(no message)"}</div>` +
+    html`<div class="author">${c.author} · ${dateStr}</div>` +
+    html`<div class="stat"><span class="added">+${c.added}</span> <span class="deleted">-${c.removed}</span></div>`;
+  positionTooltip(chartTooltip, chartContainer, me.clientX, me.clientY);
 }
 
 function onChartMouseLeave(): void {

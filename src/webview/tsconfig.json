@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "types": ["vscode-webview", "node"],
+    "noEmit": true
+  },
+  "include": ["./**/*", "../benchmark/benchmark.ts"],
+  "exclude": ["../../../node_modules"]
+}

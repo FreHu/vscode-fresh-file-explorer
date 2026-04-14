@@ -40,6 +40,7 @@ export class GroupingViewBuilder {
   static buildAuthorGroupedView(
     freshFiles: Map<AbsolutePath, FileMetadata>,
     filterPredicate: (metadata: FileMetadata) => boolean,
+    sortOrder: SortOrder,
     openChangesMode: boolean,
     results: FreshFilesTreeItem[],
   ): FreshFilesTreeItem[] {
@@ -60,7 +61,15 @@ export class GroupingViewBuilder {
       authorGroups.get(authorName)!.push({ files: [filePath], metadata });
     }
 
-    const sortedAuthors = Array.from(authorGroups.keys()).sort((a, b) => a.localeCompare(b));
+    const sortedAuthors = sortOrder === "date"
+      ? Array.from(authorGroups.entries())
+          .sort((a, b) => {
+            const maxA = a[1].reduce((m, i) => (i.metadata.date > m ? i.metadata.date : m), new Date(0));
+            const maxB = b[1].reduce((m, i) => (i.metadata.date > m ? i.metadata.date : m), new Date(0));
+            return maxB.getTime() - maxA.getTime();
+          })
+          .map(([name]) => name)
+      : Array.from(authorGroups.keys()).sort((a, b) => a.localeCompare(b));
 
     for (const authorName of sortedAuthors) {
       const group = authorGroups.get(authorName)!;
@@ -148,7 +157,7 @@ export class GroupingViewBuilder {
         : ConfigService.getDescriptionFormat();
 
       item.description = formatFileDescription(metadata, descriptionFormat);
-      item.tooltip = formatFileTooltip(metadata);
+      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
 
       items.push(item);
     }
@@ -296,7 +305,7 @@ export class GroupingViewBuilder {
 
       const descriptionFormat = { ...ConfigService.getDescriptionFormat(), showCommitHash: false };
       item.description = formatFileDescription(metadata, descriptionFormat);
-      item.tooltip = formatFileTooltip(metadata);
+      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
 
       items.push(item);
     }
@@ -439,8 +448,9 @@ export class GroupingViewBuilder {
         metadata.renameSource,
       );
 
-      item.description = formatFileDescription(metadata, ConfigService.getDescriptionFormat());
-      item.tooltip = formatFileTooltip(metadata);
+      const descriptionFormat = ConfigService.getDescriptionFormat();
+      item.description = formatFileDescription(metadata, descriptionFormat);
+      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
 
       items.push(item);
     }
@@ -592,8 +602,9 @@ export class GroupingViewBuilder {
         metadata.renameSource,
       );
 
-      item.description = formatFileDescription(metadata, ConfigService.getDescriptionFormat());
-      item.tooltip = formatFileTooltip(metadata);
+      const descriptionFormat = ConfigService.getDescriptionFormat();
+      item.description = formatFileDescription(metadata, descriptionFormat);
+      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
 
       items.push(item);
     }
@@ -643,11 +654,12 @@ export class GroupingViewBuilder {
     mode: Exclude<GroupingMode, "File Structure" | "Flat List">,
     freshFiles: Map<AbsolutePath, FileMetadata>,
     filterPredicate: (metadata: FileMetadata) => boolean,
+    sortOrder: SortOrder,
     openChangesMode: boolean,
     results: FreshFilesTreeItem[],
   ): FreshFilesTreeItem[] {
     switch (mode) {
-      case "Author":      return GroupingViewBuilder.buildAuthorGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "Author":      return GroupingViewBuilder.buildAuthorGroupedView(freshFiles, filterPredicate, sortOrder, openChangesMode, results);
       case "Commit Hash":  return GroupingViewBuilder.buildCommitHashGroupedView(freshFiles, filterPredicate, openChangesMode, results);
       case "Moon Phase":   return GroupingViewBuilder.buildMoonPhaseGroupedView(freshFiles, filterPredicate, openChangesMode, results);
       case "Retrograde":  return GroupingViewBuilder.buildRetrogradeGroupedView(freshFiles, filterPredicate, openChangesMode, results);

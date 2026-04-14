@@ -34,6 +34,9 @@ export const ConfigKeys = {
   // Default sort order (used when no workspace state is persisted yet)
   DEFAULT_SORT_ORDER: "freshFileExplorer.defaultSortOrder",
 
+  // Default open-changes mode (used when no workspace state is persisted yet)
+  DEFAULT_OPEN_CHANGES_MODE: "freshFileExplorer.defaultOpenChangesMode",
+
   // Flat list label style
   FLAT_LIST_LABEL_STYLE: "freshFileExplorer.flatList.labelStyle",
 

@@ -302,7 +302,7 @@ export function formatFileDescription(metadata: FileMetadata, format: Descriptio
  * @param metadata The file metadata
  * @returns A formatted tooltip string
  */
-export function formatFileTooltip(metadata: FileMetadata): string {
+export function formatFileTooltip(metadata: FileMetadata, format: DescriptionFormat): string {
   const lines: string[] = [];
 
   if (metadata.isDeleted) {
@@ -327,13 +327,14 @@ export function formatFileTooltip(metadata: FileMetadata): string {
 
   if (metadata.status) {
     let statusLine = `Status: ${getStatusLabel(metadata.status)}`;
-    
-    // Add line changes if available
-    const lineChanges = formatLineChanges(metadata.linesAdded, metadata.linesDeleted);
-    if (lineChanges) {
-      statusLine += ` (${lineChanges})`;
+
+    if (format.showLineChanges) {
+      const lineChanges = formatLineChanges(metadata.linesAdded, metadata.linesDeleted);
+      if (lineChanges) {
+        statusLine += ` (${lineChanges})`;
+      }
     }
-    
+
     lines.push(statusLine);
   }
 

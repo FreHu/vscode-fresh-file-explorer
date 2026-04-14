@@ -101,7 +101,7 @@ export const DEFAULT_DESCRIPTION_FORMAT: DescriptionFormat = {
   showCommitHash: false,
   showCommitMessage: true,
   showStatus: true,
-  showLineChanges: true,
+  showLineChanges: false,
 };
 
 /**

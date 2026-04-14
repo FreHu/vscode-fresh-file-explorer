@@ -1,3 +1,5 @@
+import { html } from "./webviewUtils";
+
 const vscode = acquireVsCodeApi();
 
 const benchmarkSelect = document.getElementById("benchmark")   as HTMLSelectElement;
@@ -261,10 +263,6 @@ function formatNumber(val: number, format: BenchmarkColumnSpec["format"]): strin
   return val.toLocaleString();
 }
 
-function escHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 function renderStats(stats: RepoStats[]) {
   hideStatsStatus();
   statsSection.innerHTML = "";
@@ -315,7 +313,7 @@ function renderStats(stats: RepoStats[]) {
 
     const cgDiv = document.createElement("div");
     cgDiv.style.marginTop = "12px";
-    cgDiv.innerHTML = `
+    cgDiv.innerHTML = html`
       <p class="code-hint-label">Build / refresh commit-graph:</p>
       <pre class="code-hint">git commit-graph write --reachable --changed-paths</pre>
       <p class="code-hint-label">Enable automatic background maintenance:</p>
@@ -331,7 +329,7 @@ git maintenance run --task=commit-graph --task=loose-objects --task=incremental-
       <pre class="code-hint">git maintenance stop</pre>
       <p class="code-hint-label" style="font-weight:normal;font-size:0.82em;">Only unregisters the scheduled tasks. The commit-graph file stays on disk and git keeps using it.</p>
       <p class="code-hint-label">Manually delete the commit-graph file:</p>
-      <pre class="code-hint">${escHtml(s.commitGraphPath)}</pre>
+      <pre class="code-hint">${s.commitGraphPath}</pre>
     `;
     block.appendChild(cgDiv);
     statsSection.appendChild(block);

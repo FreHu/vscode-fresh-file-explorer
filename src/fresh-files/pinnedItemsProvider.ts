@@ -12,6 +12,7 @@ import { asAbsolutePath } from "../pathTypes";
 import { normalizePath } from "../utils";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 import { formatFileTooltip } from "../utils/formatUtils";
+import { ConfigService } from "../config/configService";
 import type { FreshFileProvider } from "./freshFileProvider";
 
 /**
@@ -102,7 +103,7 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
           item.description = normalizePath(path.dirname(filePath));
         }
 
-        item.tooltip = metadata ? formatFileTooltip(metadata) : filePath;
+        item.tooltip = metadata ? formatFileTooltip(metadata, ConfigService.getDescriptionFormat()) : filePath;
 
         items.push(item);
       }

@@ -37,8 +37,8 @@ export class WorkspaceStateManager {
 
   // ── Open-changes mode ────────────────────────────────────────────────────────
 
-  static getOpenChangesMode(): boolean {
-    return WorkspaceStateManager.ctx().workspaceState.get<boolean>("openChangesMode", false);
+  static getOpenChangesMode(fallback: boolean = false): boolean {
+    return WorkspaceStateManager.ctx().workspaceState.get<boolean>("openChangesMode", fallback);
   }
 
   static setOpenChangesMode(value: boolean): void {

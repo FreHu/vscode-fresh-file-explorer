@@ -1,4 +1,5 @@
 import type { DiffSearchToWebview, DiffSearchFromWebview, DiffSearchHistoryEntry } from "./messages";
+import { html } from "./webviewUtils";
 
 // acquireVsCodeApi is a global injected by VS Code into the webview context.
 // @types/vscode-webview provides its declaration via tsconfig.webview.json.
@@ -163,11 +164,10 @@ window.addEventListener("message", (event: MessageEvent<DiffSearchToWebview>) =>
         const repoDiv = document.createElement("div");
         repoDiv.className = "batch-bar";
         repoDiv.id = "repo-" + (i + 1);
-        repoDiv.innerHTML =
-          '<div class="batch-bar-label">' +
-            "<span>" + repoName + "</span>" +
-            '<span id="repo-' + (i + 1) + '-stats" style="font-style: italic; color: var(--vscode-descriptionForeground);">Waiting...</span>' +
-          "</div>";
+        repoDiv.innerHTML = html`<div class="batch-bar-label">
+          <span>${repoName}</span>
+          <span id="repo-${i + 1}-stats" style="font-style: italic; color: var(--vscode-descriptionForeground);">Waiting...</span>
+        </div>`;
         batchBarsDiv.appendChild(repoDiv);
       }
 

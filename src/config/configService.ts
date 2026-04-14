@@ -126,6 +126,16 @@ export class ConfigService {
   }
 
   /**
+   * Get the default open-changes mode (used when no workspace state is persisted yet)
+   */
+  static getDefaultOpenChangesMode(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(
+      ConfigKeys.DEFAULT_OPEN_CHANGES_MODE,
+      false,
+    );
+  }
+
+  /**
    * Get the flat list label style.
    * "path" (default): repo-relative path is the label.
    * "filename": basename is the label; directory path is prepended to the description.
