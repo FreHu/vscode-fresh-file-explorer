@@ -168,8 +168,18 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): strin
       white-space: nowrap;
       flex-shrink: 0;
     }
-    .stat-add { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
-    .stat-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
+    .stat-add {
+      color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043);
+      display: inline-block;
+      min-width: 4ch;
+      text-align: right;
+    }
+    .stat-del {
+      color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
+      display: inline-block;
+      min-width: 4ch;
+      text-align: right;
+    }
     .rename {
       font-size: 0.78em;
       color: var(--vscode-gitDecoration-renamedResourceForeground, var(--vscode-descriptionForeground));
@@ -202,6 +212,94 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): strin
       text-align: center;
       color: var(--vscode-descriptionForeground);
     }
+    /* ── line changes chart ────────────────────── */
+    .chart-section {
+      margin-bottom: 12px;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 3px;
+    }
+    .chart-section summary {
+      cursor: pointer;
+      padding: 6px 10px;
+      font-size: 0.85em;
+      font-weight: 600;
+      color: var(--vscode-descriptionForeground);
+      user-select: none;
+      list-style: none;
+    }
+    .chart-section summary::before {
+      content: "▶ ";
+      font-size: 0.7em;
+    }
+    .chart-section[open] summary::before {
+      content: "▼ ";
+    }
+    .chart-section summary::-webkit-details-marker { display: none; }
+    .chart-container {
+      padding: 0 4px 4px;
+      position: relative;
+    }
+    .chart-container svg {
+      display: block;
+      width: 100%;
+    }
+    .chart-tooltip {
+      display: none;
+      position: absolute;
+      pointer-events: none;
+      background: var(--vscode-editorWidget-background);
+      border: 1px solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      z-index: 10;
+      max-width: 320px;
+      white-space: nowrap;
+    }
+    .chart-tooltip .hash {
+      color: var(--vscode-textLink-foreground);
+      font-family: var(--vscode-editor-font-family, monospace);
+    }
+    .chart-tooltip .author {
+      color: var(--vscode-descriptionForeground);
+    }
+    .chart-tooltip .message {
+      color: var(--vscode-foreground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 280px;
+    }
+    .chart-tooltip .stat {
+      color: var(--vscode-descriptionForeground);
+    }
+    .chart-tooltip .stat .added { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
+    .chart-tooltip .stat .deleted { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
+    .pan-scrollbar {
+      display: none;
+      position: relative;
+      height: 12px;
+      margin: 4px 40px 0 40px;
+      background: var(--vscode-scrollbar-shadow, rgba(0,0,0,0.1));
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .pan-thumb {
+      position: absolute;
+      top: 1px;
+      height: 10px;
+      min-width: 20px;
+      background: var(--vscode-scrollbarSlider-background, rgba(121,121,121,0.4));
+      border-radius: 5px;
+      cursor: grab;
+    }
+    .pan-thumb:hover {
+      background: var(--vscode-scrollbarSlider-hoverBackground, rgba(121,121,121,0.7));
+    }
+    .pan-thumb:active {
+      background: var(--vscode-scrollbarSlider-activeBackground, rgba(121,121,121,0.9));
+      cursor: grabbing;
+    }
   `;
 
   return html`<!DOCTYPE html>
@@ -230,6 +328,14 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): strin
       <button id="collapseAllBtn" class="secondary" title="Collapse all (Ctrl+/)">Collapse All</button>
     </div>
   </div>
+
+  <details id="chartSection" class="chart-section" open>
+    <summary>Line Changes</summary>
+    <div id="chartContainer" class="chart-container">
+      <div id="chartTooltip" class="chart-tooltip"></div>
+    </div>
+    <div class="pan-scrollbar" id="panScrollbar"><div class="pan-thumb" id="panThumb"></div></div>
+  </details>
 
   <div id="timeline" class="timeline">
     <div class="empty-state">Loading commits...</div>

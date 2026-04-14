@@ -1,4 +1,12 @@
 import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksConfig, XAxisMode, StonksRepoSeries, StonksRepoTicker } from "./messages";
+import {
+  renderLinePath as _renderLinePath,
+  renderLinePathScaled as _renderLinePathScaled,
+  renderLineArea as _renderLineArea,
+  renderYAxis as _renderYAxis,
+  renderYAxisFromRange as _renderYAxisFromRange,
+} from "./svgChartPrimitives";
+import { PanController } from "./panController";
 
 const vscode = acquireVsCodeApi();
 
@@ -17,7 +25,6 @@ let currentData: StonksDataPoint[] = []; // after aggregation
 let xAxisMode: XAxisMode = "commit";
 interface ZoomLevel { start: number; end: number }
 const zoomStack: ZoomLevel[] = [];
-let panOffset = Number.MAX_SAFE_INTEGER; // index into visible data; MAX = scroll to end
 let maxVisibleTicks = 1000;
 
 // Interaction state shared across render cycles
@@ -58,7 +65,7 @@ function visibleDataLength(): number {
 
 function resetZoom(): void {
   zoomStack.length = 0;
-  panOffset = Number.MAX_SAFE_INTEGER;
+  panCtrl.offset = Number.MAX_SAFE_INTEGER;
   updateZoomSelect();
   render();
 }
@@ -66,7 +73,7 @@ function resetZoom(): void {
 function popZoom(): void {
   if (zoomStack.length > 0) {
     zoomStack.pop();
-    panOffset = Number.MAX_SAFE_INTEGER;
+    panCtrl.offset = Number.MAX_SAFE_INTEGER;
     updateZoomSelect();
     render();
   }
@@ -109,7 +116,7 @@ zoomSelect.addEventListener("change", () => {
     resetZoom();
   } else {
     zoomStack.length = level;
-    panOffset = Number.MAX_SAFE_INTEGER;
+    panCtrl.offset = Number.MAX_SAFE_INTEGER;
     updateZoomSelect();
     render();
   }
@@ -286,7 +293,7 @@ function handleSetData(data: StonksDataPoint[]): void {
   rawData = data;
   currentData = aggregateData(rawData, xAxisMode);
   zoomStack.length = 0;
-  panOffset = Number.MAX_SAFE_INTEGER;
+  panCtrl.offset = Number.MAX_SAFE_INTEGER;
   derivedCache = null;
   updateZoomSelect();
   // Update selected repo's ticker from latest data point
@@ -661,18 +668,15 @@ function render() {
   if (allVisible.length === 0) {
     chartContainer.style.display = "none";
     emptyDiv.style.display = "";
-    updatePanScrollbar(0, 0);
+    panCtrl.update(0);
     return;
   }
   emptyDiv.style.display = "none";
   chartContainer.style.display = "";
 
   // ── Page window (limit rendered ticks, rest via horizontal pan) ──────────
-  const needsPan = allVisible.length > maxVisibleTicks;
-  const maxOffset = Math.max(0, allVisible.length - maxVisibleTicks);
-  panOffset = Math.max(0, Math.min(panOffset, maxOffset));
-  const pageStart = needsPan ? panOffset : 0;
-  const pageEnd = needsPan ? pageStart + maxVisibleTicks : allVisible.length;
+  const pageStart = panCtrl.update(allVisible.length);
+  const pageEnd = allVisible.length <= maxVisibleTicks ? allVisible.length : pageStart + maxVisibleTicks;
 
   // ── Derived series (cached across pan-only re-renders) ────────────────────
   const zoomKey = zoomCacheKey();
@@ -892,7 +896,6 @@ function render() {
   renderCompareSeries = compareSeries;
 
   // ── Update pan scrollbar ────────────────────────────────────────────────────
-  updatePanScrollbar(allVisible.length, pageStart);
 }
 
 // ── Pan scrollbar ─────────────────────────────────────────────────────────────
@@ -900,76 +903,12 @@ function render() {
 const panScrollbar = document.getElementById("panScrollbar") as HTMLElement;
 const panThumb = document.getElementById("panThumb") as HTMLElement;
 
-function updatePanScrollbar(totalVisible: number, pageStart: number): void {
-  const show = totalVisible > maxVisibleTicks;
-  panScrollbar.style.display = show ? "block" : "none";
-  if (!show) { return; }
-
-  const trackW = panScrollbar.clientWidth;
-  if (trackW <= 0) { return; }
-
-  const ratio = maxVisibleTicks / totalVisible;
-  const thumbW = Math.max(20, Math.round(ratio * trackW));
-  const maxThumbLeft = trackW - thumbW;
-  const maxOff = totalVisible - maxVisibleTicks;
-  const thumbLeft = maxOff > 0 ? Math.round((pageStart / maxOff) * maxThumbLeft) : 0;
-
-  panThumb.style.width = thumbW + "px";
-  panThumb.style.left = thumbLeft + "px";
-}
-
-// Thumb drag
-let panDragStart: { x: number; offset: number } | null = null;
-
-panThumb.addEventListener("mousedown", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  panDragStart = { x: e.clientX, offset: panOffset };
-});
-
-document.addEventListener("mousemove", (e) => {
-  if (!panDragStart) { return; }
-  const trackW = panScrollbar.clientWidth;
-  const total = visibleDataLength();
-  const ratio = maxVisibleTicks / total;
-  const thumbW = Math.max(20, Math.round(ratio * trackW));
-  const maxThumbLeft = trackW - thumbW;
-  const maxOff = total - maxVisibleTicks;
-  if (maxOff <= 0 || maxThumbLeft <= 0) { return; }
-
-  const dx = e.clientX - panDragStart.x;
-  panOffset = Math.round(panDragStart.offset + (dx / maxThumbLeft) * maxOff);
-  render();
-});
-
-document.addEventListener("mouseup", () => {
-  panDragStart = null;
-});
-
-// Track click (jump to position)
-panScrollbar.addEventListener("mousedown", (e) => {
-  if (e.target === panThumb) { return; }
-  const rect = panScrollbar.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const trackW = rect.width;
-  const total = visibleDataLength();
-  const maxOff = total - maxVisibleTicks;
-  if (maxOff <= 0) { return; }
-
-  panOffset = Math.round((clickX / trackW) * maxOff);
-  render();
-});
-
-// Wheel panning (shift+wheel or trackpad horizontal swipe)
-chartContainer.addEventListener("wheel", (e) => {
-  if (visibleDataLength() <= maxVisibleTicks) { return; }
-  const delta = e.deltaX || (e.shiftKey ? e.deltaY : 0);
-  if (delta === 0) { return; }
-  e.preventDefault();
-  const step = Math.max(1, Math.round(maxVisibleTicks * 0.05));
-  panOffset += delta > 0 ? step : -step;
-  render();
-}, { passive: false });
+const panCtrl = new PanController(
+  panScrollbar, panThumb, chartContainer,
+  () => render(),
+  () => visibleDataLength(),
+  () => maxVisibleTicks,
+);
 
 // ── Section rendering helpers ─────────────────────────────────────────────────
 
@@ -996,48 +935,27 @@ function renderXAxis(data: StonksDataPoint[], n: number, xStep: number): string 
   return out;
 }
 
+// ── Section rendering helpers (delegate to shared primitives with local PADDING) ─
+
 function renderLinePath(
   values: number[], top: number, bandH: number, plotW: number,
   n: number, xStep: number, color: string,
 ): string {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  return renderLinePathScaled(values, top, bandH, plotW, n, xStep, color, min, max);
+  return _renderLinePath(values, top, bandH, plotW, n, xStep, color, PADDING);
 }
 
 function renderLinePathScaled(
   values: number[], top: number, bandH: number, plotW: number,
   n: number, xStep: number, color: string, min: number, max: number,
 ): string {
-  const range = max - min || 1;
-  let path = "";
-  for (let i = 0; i < n; i++) {
-    const x = PADDING.left + i * xStep;
-    const y = top + bandH - ((values[i] - min) / range) * bandH;
-    path += (i === 0 ? "M" : "L") + `${x},${y}`;
-  }
-  return `<path d="${path}" fill="none" stroke="${color}" stroke-width="1.5"/>`;
+  return _renderLinePathScaled(values, top, bandH, plotW, n, xStep, color, min, max, PADDING);
 }
 
 function renderLineArea(
   values: number[], top: number, bandH: number, plotW: number,
   n: number, xStep: number, color: string, useGradient: boolean,
 ): string {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  let linePath = "";
-  let areaPath = "";
-  for (let i = 0; i < n; i++) {
-    const x = PADDING.left + i * xStep;
-    const y = top + bandH - ((values[i] - min) / range) * bandH;
-    linePath += (i === 0 ? "M" : "L") + `${x},${y}`;
-    areaPath += (i === 0 ? "M" : "L") + `${x},${y}`;
-  }
-  areaPath += `L${PADDING.left + (n - 1) * xStep},${top + bandH}`;
-  areaPath += `L${PADDING.left},${top + bandH}Z`;
-  const fill = useGradient ? "url(#areaGrad)" : "none";
-  return `<path d="${areaPath}" fill="${fill}"/><path d="${linePath}" fill="none" stroke="${color}" stroke-width="1.5"/>`;
+  return _renderLineArea(values, top, bandH, plotW, n, xStep, color, useGradient, PADDING);
 }
 
 function renderVolumeBars(
@@ -1064,51 +982,14 @@ function renderYAxis(
   values: number[], top: number, bandH: number, plotW: number,
   count: number, format?: (v: number) => string,
 ): string {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  return renderYAxisFromRange(min, max, top, bandH, plotW, count, format);
+  return _renderYAxis(values, top, bandH, plotW, count, PADDING, format);
 }
 
 function renderYAxisFromRange(
   min: number, max: number, top: number, bandH: number, plotW: number,
   count: number, format?: (v: number) => string,
 ): string {
-  const range = max - min || 1;
-  const labels = buildYLabels(min, max, count);
-  const fmt = format ?? ((v: number) => String(v));
-  let out = "";
-  for (const val of labels) {
-    const y = top + bandH - ((val - min) / range) * bandH;
-    out += `<text x="${PADDING.left - 6}" y="${y + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${fmt(val)}</text>`;
-    out += `<text x="${PADDING.left + plotW + 6}" y="${y + 4}" text-anchor="start" fill="var(--vscode-descriptionForeground)" font-size="10">${fmt(val)}</text>`;
-    out += `<line x1="${PADDING.left}" y1="${y}" x2="${PADDING.left + plotW}" y2="${y}" stroke="var(--vscode-editorWidget-border, var(--vscode-widget-border))" stroke-dasharray="2,4" opacity="0.3"/>`;
-  }
-  return out;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function buildYLabels(min: number, max: number, count: number): number[] {
-  if (min === max) { return [min]; }
-  const step = niceStep((max - min) / count);
-  const start = Math.ceil(min / step) * step;
-  const labels: number[] = [];
-  for (let v = start; v <= max; v += step) {
-    labels.push(Math.round(v));
-  }
-  // Deduplicate (can happen when step rounds to same value)
-  return [...new Set(labels)];
-}
-
-function niceStep(raw: number): number {
-  const exp = Math.floor(Math.log10(raw));
-  const frac = raw / Math.pow(10, exp);
-  let nice: number;
-  if (frac <= 1.5) { nice = 1; }
-  else if (frac <= 3) { nice = 2; }
-  else if (frac <= 7) { nice = 5; }
-  else { nice = 10; }
-  return nice * Math.pow(10, exp);
+  return _renderYAxisFromRange(min, max, top, bandH, plotW, count, PADDING, format);
 }
 
 function escapeHtml(s: string): string {
@@ -1305,7 +1186,7 @@ function applyXAxisMode(mode: XAxisMode): void {
   xAxisSelect.value = mode;
   currentData = aggregateData(rawData, mode);
   zoomStack.length = 0;
-  panOffset = Number.MAX_SAFE_INTEGER;
+  panCtrl.offset = Number.MAX_SAFE_INTEGER;
   derivedCache = null;
   updateCommitOnlyToggles();
   updateZoomSelect();
@@ -1339,8 +1220,8 @@ document.addEventListener("mouseup", (e: Event) => {
   isDragging = false;
 
   const base = zoomStack.length > 0 ? zoomStack[zoomStack.length - 1].start : 0;
-  zoomStack.push({ start: base + panOffset + lo, end: base + panOffset + hi });
-  panOffset = 0;
+  zoomStack.push({ start: base + panCtrl.offset + lo, end: base + panCtrl.offset + hi });
+  panCtrl.offset = 0;
   updateZoomSelect();
   render();
 });

@@ -23,6 +23,7 @@
 		"src/webview/gitLogLPanel.ts",
 		"src/webview/diffSearchPanel.ts",
 		"src/webview/perfBenchmarkPanel.ts",
-		"src/webview/stonksPanel.ts"
+		"src/webview/stonksPanel.ts",
+		"src/webview/panController.ts"
 	]
 }

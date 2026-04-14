@@ -175,22 +175,25 @@ A chart view showing how your repository evolved over time. Access it from the "
 
 You can keep this open if you want your boss to think you are daytrading when you're really vibecoding.
 
+For full details see the [CodeStonks docs](docs/codestonks.md). The same document can be opened directly the help button inside the view.
+
 **Metrics (all toggleable):**
-- **Files in repo** — cumulative file count at each commit (the "stock price")
+- **Files in repo** — cumulative file count at each commit
 - **Files changed** — additions and deletions per commit
-- **Unique authors** — distinct authors in a rolling window of 10 commits
+- **Unique authors** — distinct authors in a rolling window
+- **Author concentration** — percentage of commits by the top-N authors in a rolling window
 - **Commit velocity** — commits per calendar day
 - **Churn rate** — files changed as a percentage of total repo size
+- **Avg commit size** — rolling average of files changed per commit
 
 **Controls:**
 - **Drag** on the chart to zoom into a range
 - **Double-click** to zoom back out one level (the zoom state is a stack)
 - **Shift + scroll** (or trackpad horizontal swipe) to pan when there are more commits than the visible window
 - **Max ticks** — configurable limit for how many commits are rendered at once before panning kicks in
-
-Supports multiple repos via the repo dropdown. The time window can be selected independently from the main tree view, but the data is loaded in the same initial history pass.
-
-Each tick represents a commit. When you're zoomed in enough, dots appear at the bottom which allow you to open that commit when clicked.
+- **X-axis mode** — per-commit or bucketed per day/week/month
+- **Compare repos** — overlay multiple repos' file count lines for side-by-side comparison
+- **Export SVG** — save the current chart
 
 ---
 
@@ -207,6 +210,7 @@ The extension adds several search features.
 | **Line / Function History** | What's the full history of this function or code block? | Git log for a specific line range or function name `(log -L)` |
 
 ![History options](./img/history-options.png)
+![history-view](img/history-view.png)
 
 ### Diff Search (pickaxe)
 
@@ -231,9 +235,17 @@ Based on your selection, shows every commit that touched those lines or that fun
 
 ![file history](/img/file-history.png)
 
-Available via: 
+Available via:
 - right-click menu in the Fresh File Explorer tree
 - right-click in the editor context menu
+
+Shows every commit that touched a file, following renames across the full repository history.
+
+**Line-changes chart** — a stacked bar chart at the top of the panel showing how many lines were added (green) and removed (red) in each commit:
+- Hover over a bar to see the commit hash, message, author, date and exact line counts
+- Click a bar to jump to that commit in the timeline below
+- Up to 100 commits are shown at once; pan with the scrollbar or mouse wheel when there are more
+
 
 
 ### Search in Fresh Files

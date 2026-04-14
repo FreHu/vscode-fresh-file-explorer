@@ -1,5 +1,28 @@
 # Change Log
 
+## [1.8.0]
+
+### CodeStonks enhancements
+
+- **X-axis modes** — now can be switched between per-commit and bucketed per day/week/month views. metrics not available for a given mode will be greyed out
+- **Author concentration** — percentage of commits by the top-N authors in a rolling window (new metric)
+- **Avg commit size** — rolling average of files changed per commit (new metric)
+- **Watchlist panel** - reworked repo selection, this enables comparisons and shows a bit of extra info
+- **Compare repos** — overlay multiple repos' "Files in repo" lines on the same chart
+- **SVG export** — save the current chart as an SVG file
+- **Help button** which opens [this readme](docs/codestonks.md)
+
+### File History chart
+
+![history-view](img/history-view.png)
+
+Added a line-changes chart to the File History panel. 
+
+- Essentially the "files changed" chart from CodeStonks but for single file history (changed lines per commit)
+- Hover for a tooltip with commit hash, message, author, date, and exact line counts
+- Click a bar to jump to that commit in the timeline
+- Horizontal panning with scrollbar or mouse wheel when there are more than 100 commits
+
 ## [1.7.0]
 
 ### CodeStonks
