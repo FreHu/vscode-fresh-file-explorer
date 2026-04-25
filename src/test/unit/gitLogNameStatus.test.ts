@@ -56,6 +56,16 @@ suite("parseGitLogNameStatus", () => {
       assert.strictEqual(entry!.commit.message, "Initial");
       assert.ok(entry!.commit.date instanceof Date);
       assert.strictEqual(entry!.commit.date.getFullYear(), 2024);
+      assert.strictEqual(entry!.commit.tzOffsetMinutes, 0, "UTC offset captured from +00:00");
+    });
+
+    test("captures committer timezone offset from %aI", () => {
+      const raw = lines(
+        "__COMMIT__abc1234|Alice|2024-04-14T19:28:54+02:00|CEST commit",
+        "M\tsrc/foo.ts",
+      );
+      const map = parseGitLogNameStatus(raw, "");
+      assert.strictEqual(map.get("src/foo.ts")!.commit.tzOffsetMinutes, 120);
     });
 
     test("only the most recent (first) commit is kept for each file", () => {

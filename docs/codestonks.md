@@ -58,6 +58,17 @@ Average number of files changed per commit. In commit mode, this is a rolling av
 
 - **Window size**: Number of commits in the rolling window (default: 10).
 
+### Activity heatmap
+
+A 7×24 grid showing when commits land, broken down by day of week (rows) and hour of day (columns). Darker cells = more commits at that time.
+
+Useful for spotting:
+- **Timezone distribution** — where in the world your contributors are
+- **Crunch patterns** — late night or weekend bursts
+- **Work rhythm** — morning vs. afternoon commit tendencies
+
+The heatmap reflects the currently visible data (respecting the time window and any zoom applied to the chart).
+
 ## Comparing repos
 
 Enable **Compare repos** in the sidebar, then check individual repos to overlay their "Files in repo" lines on the same chart. Each repo gets a distinct color shown as a swatch next to its name. This only works in time-based modes (per day/week/month) — not per-commit, since commits don't align across repos.

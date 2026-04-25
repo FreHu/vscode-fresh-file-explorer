@@ -75,6 +75,8 @@ export interface StonksDataPoint {
   hash?: string;
   author?: string;
   date: string; // ISO 8601
+  /** Committer's timezone offset in minutes east of UTC. Only set in commit mode. */
+  tzOffsetMinutes?: number;
   message?: string;
   filesChanged: number;
   filesAdded: number;
@@ -90,8 +92,18 @@ export interface StonksTimeWindowOption {
 }
 
 export interface StonksConfig {
-  sections: { fileCount: boolean; filesChanged: boolean; authors: boolean; velocity: boolean; churn: boolean; authorConcentration: boolean; commitSize: boolean };
-  sectionOptions?: { authors?: { windowSize: number }; authorConcentration?: { topX: number }; commitSize?: { windowSize: number } };
+  sections: { fileCount: boolean; filesChanged: boolean; authors: boolean; velocity: boolean; churn: boolean; authorConcentration: boolean; commitSize: boolean; activityHeatmap: boolean };
+  sectionOptions?: {
+    authors?: { windowSize: number };
+    authorConcentration?: { topX: number };
+    commitSize?: { windowSize: number };
+    activityHeatmap?: {
+      workdayStart: number; // hour 0–23
+      workdayEnd: number;   // hour 1–24
+      /** Author whitelist. `undefined` = no filter (show all). */
+      selectedAuthors?: string[];
+    };
+  };
   compareRepos?: boolean;
   maxVisibleTicks: number;
   selectedDays: number;

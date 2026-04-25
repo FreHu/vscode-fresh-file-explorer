@@ -20,11 +20,15 @@
  * We capture the metadata and the raw hunk text for each commit.
  */
 
+import { parseCommitDate } from "./gitDateUtils";
+
 export interface GitLogLCommit {
   hash: string;
   shortHash: string;
   author: string;
   date: Date;
+  /** Committer's timezone offset in minutes east of UTC (from `git log` Date: header). */
+  tzOffsetMinutes?: number;
   message: string;
   /** Raw diff hunk lines (including @@ header), empty for merge commits */
   hunk: string;
@@ -96,11 +100,13 @@ export function parseGitLogL(raw: string): GitLogLCommit[] {
       if (line.startsWith("+") && !line.startsWith("++")) { added++; }
       else if (line.startsWith("-") && !line.startsWith("--")) { removed++; }
     }
+    const parsed = dateStr ? parseCommitDate(dateStr) : { date: new Date(0), tzOffsetMinutes: 0 };
     commits.push({
       hash,
       shortHash,
       author,
-      date: dateStr ? new Date(dateStr) : new Date(0),
+      date: parsed.date,
+      tzOffsetMinutes: parsed.tzOffsetMinutes,
       message: messageLines.join("\n").trim(),
       hunk,
       added,

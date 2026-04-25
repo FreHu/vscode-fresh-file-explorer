@@ -119,6 +119,8 @@ export interface CommitData {
   message: CommitMessage;
   author: CommitAuthor;
   date: Date;
+  /** Committer's timezone offset in minutes east of UTC (from `git log %aI`). */
+  tzOffsetMinutes?: number;
   repoName?: string;
 }
 

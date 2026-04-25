@@ -4,6 +4,7 @@ import * as path from "path";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { CommitHash, asCommitHash } from "../types";
 import { decodeGitPath, execGitWithArgs } from "../git/gitOperations";
+import { parseCommitDate } from "../git/gitDateUtils";
 import { isPathWithinRoot } from "../utils/pathUtils";
 import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
@@ -19,6 +20,8 @@ export interface DiffMatch {
   commitHash?: CommitHash;
   commitMessage?: string;
   commitDate?: Date;
+  /** Committer's timezone offset in minutes east of UTC (from `git log` Date: header). */
+  commitTzOffsetMinutes?: number;
   isStaged?: boolean; // For pending changes: true = staged, false = unstaged
   fileAdded?: boolean; // True if file was newly added in this commit (no parent version)
 }
@@ -123,6 +126,7 @@ function createDiffLineProcessor(
   let currentCommit: CommitHash | undefined;
   let currentCommitMessage: string | undefined;
   let currentCommitDate: Date | undefined;
+  let currentCommitTzOffsetMinutes: number | undefined;
   let addedLineNum = 0;
   let removedLineNum = 0;
   let commitCount = 0;
@@ -134,6 +138,7 @@ function createDiffLineProcessor(
       currentCommit = asCommitHash(hash);
       currentCommitMessage = undefined;
       currentCommitDate = undefined;
+      currentCommitTzOffsetMinutes = undefined;
       commitCount++;
       if (onCommitFound) {
         onCommitFound(commitCount);
@@ -144,7 +149,9 @@ function createDiffLineProcessor(
     // Parse commit date
     if (extractCommitInfo && currentCommit && line.startsWith("Date:   ")) {
       const dateStr = line.substring(8).trim();
-      currentCommitDate = new Date(dateStr);
+      const parsed = parseCommitDate(dateStr);
+      currentCommitDate = parsed.date;
+      currentCommitTzOffsetMinutes = parsed.tzOffsetMinutes;
       return;
     }
 
@@ -205,6 +212,7 @@ function createDiffLineProcessor(
           commitHash: currentCommit,
           commitMessage: currentCommitMessage,
           commitDate: currentCommitDate,
+          commitTzOffsetMinutes: currentCommitTzOffsetMinutes,
           fileAdded: currentFileAdded,
         });
         addedLineNum++;
@@ -217,6 +225,7 @@ function createDiffLineProcessor(
           commitHash: currentCommit,
           commitMessage: currentCommitMessage,
           commitDate: currentCommitDate,
+          commitTzOffsetMinutes: currentCommitTzOffsetMinutes,
         });
         removedLineNum++;
       } else if (prefix === " ") {

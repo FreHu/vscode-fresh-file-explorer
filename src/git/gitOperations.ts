@@ -7,6 +7,7 @@ import { log } from "../extension/logger";
 import { CommitData, CommitStats, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage } from "../types";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
+import { parseCommitDate } from "./gitDateUtils";
 
 const gitPathDecoder = new TextDecoder("utf-8");
 const gitPathEncoder = new TextEncoder();
@@ -454,10 +455,12 @@ export function createNameStatusLineProcessor(
     if (line.startsWith("__COMMIT__")) {
       const parts = line.substring("__COMMIT__".length).split("|");
       if (parts.length >= 4) {
+        const { date, tzOffsetMinutes } = parseCommitDate(parts[2]);
         currentCommit = {
           hash: asCommitHash(parts[0]),
           author: asCommitAuthor(parts[1]),
-          date: new Date(parts[2]),
+          date,
+          tzOffsetMinutes,
           message: asCommitMessage(parts.slice(3).join("|")),
         };
       }

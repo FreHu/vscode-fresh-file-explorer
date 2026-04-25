@@ -233,6 +233,58 @@ export function getWebviewHtml(cspSource: string, scriptUri: string, codiconCssU
     .section-toggle.disabled .section-options {
       display: none !important;
     }
+    /* Activity heatmap options need vertical stacking (workday row + author chips) */
+    .section-options.heatmap-options.visible {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+    }
+    .heatmap-workday {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .heatmap-authors-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .heatmap-authors-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+    }
+    .heatmap-authors-header button {
+      background: none;
+      border: none;
+      color: var(--vscode-textLink-foreground);
+      cursor: pointer;
+      padding: 0;
+      font: inherit;
+      text-decoration: underline;
+    }
+    .heatmap-authors-header button:hover {
+      color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+    }
+    #heatmapAuthors {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 8px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    #heatmapAuthors:empty { display: none; }
+    .heatmap-author {
+      font-size: 10px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+    }
+    .heatmap-author input { margin: 0; }
     .toggles label {
       display: flex;
       align-items: center;
@@ -278,6 +330,23 @@ export function getWebviewHtml(cspSource: string, scriptUri: string, codiconCssU
       line-height: 1.5;
       z-index: 10;
       max-width: 350px;
+      white-space: nowrap;
+    }
+    #stonksToast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--vscode-editorWidget-background);
+      border: 1px solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+      color: var(--vscode-foreground);
+      padding: 6px 14px;
+      font-size: 12px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 100;
       white-space: nowrap;
     }
     .tooltip .hash {
@@ -418,11 +487,26 @@ export function getWebviewHtml(cspSource: string, scriptUri: string, codiconCssU
           <label title="Average number of files changed per commit (rolling window in commit mode, per-bucket average in aggregated modes)"><input type="checkbox" id="toggleCommitSize"> Avg commit size</label>
           <div class="section-options" id="optionsCommitSize">Window: <input type="number" id="commitSizeWindowSize" value="10" min="2" max="100" style="width: 50px"> commits</div>
         </div>
+        <div class="section-toggle" id="sectionActivityHeatmap">
+          <label title="Grid heatmap of commits by day of week and hour of day in the committer's local timezone — reveals contributor timezone distribution, crunch patterns, and weekend work (commit mode only)"><input type="checkbox" id="toggleActivityHeatmap"> Activity heatmap</label>
+          <div class="section-options heatmap-options" id="optionsActivityHeatmap">
+            <div class="heatmap-workday" title="Outline marks Mon–Fri × these hours on the heatmap. Cells outside it are off-hours commits.">Workday: <input type="number" id="heatmapWorkdayStart" value="8" min="0" max="23" style="width:40px"> – <input type="number" id="heatmapWorkdayEnd" value="16" min="1" max="24" style="width:40px"></div>
+            <div class="heatmap-authors-wrap">
+              <div class="heatmap-authors-header">
+                <span>Authors:</span>
+                <button type="button" id="heatmapAuthorsAll" title="Select all authors">all</button>
+                <button type="button" id="heatmapAuthorsNone" title="Clear selection (heatmap becomes empty until you re-check authors)">none</button>
+              </div>
+              <div id="heatmapAuthors"></div>
+            </div>
+          </div>
+        </div>
         <label class="section-toggle" title="Maximum commits rendered at once before panning kicks in. Lower values improve responsiveness." style="flex-direction:row;gap:4px">Max ticks: <input type="number" id="maxTicks" value="1000" min="100" max="10000" step="100" style="width: 60px"></label>
       </div>
     </div>
   </div>
   <script nonce="${nonce}" src="${raw(scriptUri)}"></script>
+  <div id="stonksToast"></div>
 </body>
 </html>`;
 }

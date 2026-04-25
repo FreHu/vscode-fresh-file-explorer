@@ -8,6 +8,7 @@ import {
 } from "./svgChartPrimitives";
 import { PanController } from "./panController";
 import { html, positionTooltip } from "./webviewUtils";
+import { aggregateStonksData as aggregateData, bucketKey } from "./stonksBucketing";
 
 const vscode = acquireVsCodeApi();
 
@@ -36,6 +37,7 @@ let isDragging = false;
 
 // Per-render data used by mouse handlers (set in render, read by module-level listeners)
 let renderVisibleData: StonksDataPoint[] = [];
+let renderAllVisible: StonksDataPoint[] = [];
 let renderAuthorCounts: number[] = [];
 let renderAuthorConcentration: number[] = [];
 let renderVelocity: number[] = [];
@@ -130,7 +132,16 @@ function postMessage(msg: StonksFromWebview): void {
 function buildConfig(): StonksConfig {
   return {
     sections: { ...sections },
-    sectionOptions: { authors: { windowSize: authorWindowSize }, authorConcentration: { topX: authorTopX }, commitSize: { windowSize: commitSizeWindowSize } },
+    sectionOptions: {
+      authors: { windowSize: authorWindowSize },
+      authorConcentration: { topX: authorTopX },
+      commitSize: { windowSize: commitSizeWindowSize },
+      activityHeatmap: {
+        workdayStart: heatmapWorkdayStart,
+        workdayEnd: heatmapWorkdayEnd,
+        selectedAuthors: heatmapSelectedAuthors,
+      },
+    },
     compareRepos,
     maxVisibleTicks,
     selectedDays: Number(timeWindowSelect.value) || 30,
@@ -297,6 +308,7 @@ function handleSetData(data: StonksDataPoint[]): void {
   panCtrl.offset = Number.MAX_SAFE_INTEGER;
   derivedCache = null;
   updateZoomSelect();
+  rebuildHeatmapAuthorCheckboxes();
   // Update selected repo's ticker from latest data point
   if (data.length > 0 && selectedRepoPath) {
     const latest = data[data.length - 1];
@@ -325,8 +337,12 @@ function handleSetLoading(loading: boolean): void {
 
 function handleSetConfig(c: StonksConfig): void {
   // Apply section toggles
+  const sectionDefaults: Record<keyof typeof sections, boolean> = {
+    fileCount: true, filesChanged: true, authors: true, authorConcentration: true,
+    velocity: true, churn: true, commitSize: true, activityHeatmap: false,
+  };
   for (const { key, toggleId } of SECTION_TOGGLE_DEFS) {
-    sections[key] = c.sections[key] ?? true;
+    sections[key] = c.sections[key] ?? sectionDefaults[key];
     const cb = document.getElementById(toggleId) as HTMLInputElement | null;
     if (cb) { cb.checked = sections[key]; }
     // Show/hide per-section options
@@ -348,6 +364,15 @@ function handleSetConfig(c: StonksConfig): void {
   if (c.sectionOptions?.commitSize) {
     commitSizeWindowSize = c.sectionOptions.commitSize.windowSize;
     if (commitSizeWindowInput) { commitSizeWindowInput.value = String(commitSizeWindowSize); }
+  }
+  if (c.sectionOptions?.activityHeatmap) {
+    const opts = c.sectionOptions.activityHeatmap;
+    heatmapWorkdayStart = opts.workdayStart;
+    heatmapWorkdayEnd = opts.workdayEnd;
+    heatmapSelectedAuthors = opts.selectedAuthors;
+    if (heatmapWorkdayStartInput) { heatmapWorkdayStartInput.value = String(heatmapWorkdayStart); }
+    if (heatmapWorkdayEndInput) { heatmapWorkdayEndInput.value = String(heatmapWorkdayEnd); }
+    rebuildHeatmapAuthorCheckboxes();
   }
   // Apply max ticks
   maxVisibleTicks = c.maxVisibleTicks;
@@ -430,11 +455,20 @@ const sections = {
   velocity: true,
   churn: true,
   commitSize: true,
+  activityHeatmap: false,
 };
 
 let authorTopX = 1;
 let authorWindowSize = 10;
 let commitSizeWindowSize = 10;
+
+// Activity heatmap options
+let heatmapWorkdayStart = 8;
+let heatmapWorkdayEnd = 16;
+/** Author whitelist for the heatmap. `undefined` = no filter (show all). */
+let heatmapSelectedAuthors: string[] | undefined = undefined;
+/** Transient hover preview — overrides the persisted filter while a chip is hovered. */
+let heatmapHoverAuthor: string | undefined = undefined;
 
 // Section toggle definitions — single source of truth for key ↔ DOM id mapping
 const SECTION_TOGGLE_DEFS: { key: keyof typeof sections; toggleId: string; sectionId?: string }[] = [
@@ -445,10 +479,11 @@ const SECTION_TOGGLE_DEFS: { key: keyof typeof sections; toggleId: string; secti
   { key: "velocity", toggleId: "toggleVelocity" },
   { key: "churn", toggleId: "toggleChurn" },
   { key: "commitSize", toggleId: "toggleCommitSize" },
+  { key: "activityHeatmap", toggleId: "toggleActivityHeatmap", sectionId: "sectionActivityHeatmap" },
 ];
 
 // Sections that only apply in commit mode
-const COMMIT_ONLY_KEYS = new Set<keyof typeof sections>(["authors", "authorConcentration"]);
+const COMMIT_ONLY_KEYS = new Set<keyof typeof sections>(["authors", "authorConcentration", "activityHeatmap"]);
 
 function updateCommitOnlyToggles(): void {
   const isCommit = xAxisMode === "commit";
@@ -531,6 +566,111 @@ if (commitSizeWindowInput) {
   });
 }
 
+// Wire up activity heatmap workday inputs and author checkbox container
+const heatmapWorkdayStartInput = document.getElementById("heatmapWorkdayStart") as HTMLInputElement | null;
+const heatmapWorkdayEndInput = document.getElementById("heatmapWorkdayEnd") as HTMLInputElement | null;
+const heatmapAuthorsContainer = document.getElementById("heatmapAuthors") as HTMLElement | null;
+
+if (heatmapWorkdayStartInput) {
+  heatmapWorkdayStartInput.addEventListener("change", () => {
+    const v = parseInt(heatmapWorkdayStartInput.value, 10);
+    if (!isNaN(v) && v >= 0 && v <= 23) {
+      heatmapWorkdayStart = v;
+      sendConfig();
+      render();
+    }
+  });
+}
+if (heatmapWorkdayEndInput) {
+  heatmapWorkdayEndInput.addEventListener("change", () => {
+    const v = parseInt(heatmapWorkdayEndInput.value, 10);
+    if (!isNaN(v) && v >= 1 && v <= 24) {
+      heatmapWorkdayEnd = v;
+      sendConfig();
+      render();
+    }
+  });
+}
+
+/**
+ * Rebuild author checkbox list from current `rawData`.
+ *
+ * `heatmapSelectedAuthors === undefined` means "no filter" — every checkbox starts
+ * checked, including newly-seen authors after a repo switch. Toggling any box
+ * commits the filter to an explicit array; toggling back to all-checked normalizes
+ * to undefined so the config stays clean.
+ *
+ * If a persisted filter is fully disjoint from the current author list (e.g. user
+ * filtered to "Alice" then switched to a repo without her), we drop the filter
+ * rather than render an empty heatmap.
+ */
+function rebuildHeatmapAuthorCheckboxes(): void {
+  if (!heatmapAuthorsContainer) { return; }
+  const authors = Array.from(new Set(rawData.map(d => d.author).filter((a): a is string => !!a))).sort();
+  // Drop a stale filter only when it's both non-empty AND fully disjoint from current authors
+  // (e.g. user filtered to "Alice" then switched to a repo without her). Preserve an explicit
+  // empty filter [] — that's the user-chosen "show none" state from the "none" button.
+  if (heatmapSelectedAuthors !== undefined && heatmapSelectedAuthors.length > 0 && !heatmapSelectedAuthors.some(a => authors.includes(a))) {
+    heatmapSelectedAuthors = undefined;
+  }
+  heatmapAuthorsContainer.innerHTML = "";
+  if (authors.length === 0) { return; }
+  const isChecked = (a: string) => heatmapSelectedAuthors === undefined || heatmapSelectedAuthors.includes(a);
+  for (const a of authors) {
+    const label = document.createElement("label");
+    label.className = "heatmap-author";
+    label.title = a;
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = isChecked(a);
+    cb.dataset.author = a;
+    cb.addEventListener("change", () => {
+      const checked = Array.from(heatmapAuthorsContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))
+        .filter(c => c.checked)
+        .map(c => c.dataset.author!);
+      heatmapSelectedAuthors = checked.length === authors.length ? undefined : checked;
+      sendConfig();
+      render();
+    });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(" " + a));
+    heatmapAuthorsContainer.appendChild(label);
+  }
+}
+
+// Hover preview: hovering a chip transiently filters the heatmap to that author.
+// mouseenter/mouseleave don't bubble, so we attach in capture phase on the container.
+heatmapAuthorsContainer?.addEventListener("mouseenter", (e: Event) => {
+  const target = e.target as HTMLElement;
+  if (!target.classList?.contains("heatmap-author")) { return; }
+  const cb = target.querySelector("input") as HTMLInputElement | null;
+  const author = cb?.dataset.author;
+  if (!author || author === heatmapHoverAuthor) { return; }
+  heatmapHoverAuthor = author;
+  render();
+}, true);
+heatmapAuthorsContainer?.addEventListener("mouseleave", (e: Event) => {
+  const target = e.target as HTMLElement;
+  if (!target.classList?.contains("heatmap-author")) { return; }
+  if (heatmapHoverAuthor === undefined) { return; }
+  heatmapHoverAuthor = undefined;
+  render();
+}, true);
+
+// Wire up "all" / "none" shortcuts for the heatmap author list
+document.getElementById("heatmapAuthorsAll")?.addEventListener("click", () => {
+  heatmapSelectedAuthors = undefined;
+  rebuildHeatmapAuthorCheckboxes();
+  sendConfig();
+  render();
+});
+document.getElementById("heatmapAuthorsNone")?.addEventListener("click", () => {
+  heatmapSelectedAuthors = [];
+  rebuildHeatmapAuthorCheckboxes();
+  sendConfig();
+  render();
+});
+
 // Wire up compare repos checkbox
 const compareReposCheckbox = document.getElementById("toggleCompareRepos") as HTMLInputElement | null;
 if (compareReposCheckbox) {
@@ -559,6 +699,7 @@ const SECTION_WEIGHTS: Record<string, number> = {
   velocity: 1.5,
   churn: 1.5,
   commitSize: 1.5,
+  activityHeatmap: 3,
 };
 
 const MIN_BAND_HEIGHT = 60;
@@ -580,6 +721,7 @@ function computeBands(availableHeight: number): Band[] {
     { key: "velocity", label: `Commits per ${modeLabel[xAxisMode]}` },
     { key: "churn", label: "Churn rate (changed / repo size)" },
     { key: "commitSize", label: xAxisMode === "commit" ? `Avg commit size (rolling ${commitSizeWindowSize})` : `Avg commit size (files/${modeLabel[xAxisMode]})` },
+    ...(xAxisMode === "commit" ? [{ key: "activityHeatmap" as const, label: "Activity heatmap (day × hour, committer-local time)" }] : []),
   ];
 
   const visible = defs.filter(d => sections[d.key]);
@@ -855,12 +997,15 @@ function render() {
     } else if (key === "commitSize") {
       svgContent += renderLinePath(commitSize, top, bandH, plotW, n, xStep, "var(--vscode-charts-yellow, #ffd43b)");
       svgContent += renderYAxis(commitSize, top, bandH, plotW, 3, v => v.toFixed(1));
+    } else if (key === "activityHeatmap") {
+      svgContent += renderActivityHeatmap(allVisible, top, bandH, plotW, PADDING);
     }
   }
 
-  // Commit link icons (below last band)
-  const lastBand = bands[bands.length - 1];
-  const commitLinksTop = lastBand.top + lastBand.height;
+  // Commit link icons (below last time-series band, excluding heatmap)
+  const seriesBands = bands.filter(b => b.key !== "activityHeatmap");
+  const lastSeriesBand = seriesBands.length > 0 ? seriesBands[seriesBands.length - 1] : bands[bands.length - 1];
+  const commitLinksTop = lastSeriesBand.top + lastSeriesBand.height;
   const COMMIT_ICON_THRESHOLD = 150;
   let commitLinks = "";
   if (xAxisMode === "commit" && n <= COMMIT_ICON_THRESHOLD && xStep >= 8) {
@@ -873,12 +1018,13 @@ function render() {
   }
   svgContent += commitLinks;
 
-  // Crosshair spanning all bands
-  const crosshairBottom = lastBand.top + lastBand.height;
-  svgContent += `<line id="crosshair" x1="0" y1="${bands[0].top}" x2="0" y2="${crosshairBottom}" stroke="var(--vscode-foreground)" stroke-width="0.5" opacity="0.5" style="display:none"/>`;
+  // Crosshair + hit area spanning only time-series bands (not the heatmap)
+  const firstSeriesBand = seriesBands.length > 0 ? seriesBands[0] : bands[0];
+  const crosshairBottom = lastSeriesBand.top + lastSeriesBand.height;
+  svgContent += `<line id="crosshair" x1="0" y1="${firstSeriesBand.top}" x2="0" y2="${crosshairBottom}" stroke="var(--vscode-foreground)" stroke-width="0.5" opacity="0.5" style="display:none"/>`;
 
-  // Hit area spanning all bands
-  const hitTop = bands[0].top;
+  // Hit area spanning only time-series bands
+  const hitTop = firstSeriesBand.top;
   const hitH = crosshairBottom - hitTop;
   svgContent += `<rect id="hitArea" x="${PADDING.left}" y="${hitTop}" width="${plotW}" height="${hitH}" fill="transparent" style="cursor:crosshair"/>`;
   svgContent += `<rect id="selectOverlay" x="0" y="${hitTop}" width="0" height="${hitH}" fill="var(--vscode-editor-selectionBackground, rgba(51,154,240,0.2))" style="display:none; pointer-events:none"/>`;
@@ -889,6 +1035,7 @@ function render() {
 
   // Update module-level data for mouse handlers (registered once, outside render)
   renderVisibleData = visibleData;
+  renderAllVisible = allVisible;
   renderAuthorCounts = authorCounts;
   renderAuthorConcentration = authorConcentration;
   renderVelocity = velocity;
@@ -979,6 +1126,90 @@ function renderVolumeBars(
   return bars;
 }
 
+const HEATMAP_DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * Resolve a commit's day-of-week and hour-of-day in the *committer's* local time
+ * (not the viewer's). `d.date` is a UTC instant; `d.tzOffsetMinutes` carries the
+ * original `%aI` offset. Shifting then reading via `getUTCxxx` yields the
+ * committer's wall clock without the viewer's TZ leaking back in.
+ *
+ * Falls back to UTC when the offset is missing (older cached data).
+ */
+function committerLocalDayHour(d: StonksDataPoint): { day: number; hour: number } {
+  const shifted = new Date(new Date(d.date).getTime() + (d.tzOffsetMinutes ?? 0) * 60_000);
+  return { day: shifted.getUTCDay(), hour: shifted.getUTCHours() };
+}
+
+// ── Toast notification ────────────────────────────────────────────────────────
+
+const toastEl = document.getElementById("stonksToast") as HTMLElement | null;
+let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function showToast(message: string): void {
+  if (!toastEl) { return; }
+  toastEl.textContent = message;
+  toastEl.style.opacity = "1";
+  if (toastTimeout !== null) { clearTimeout(toastTimeout); }
+  toastTimeout = setTimeout(() => {
+    if (toastEl) { toastEl.style.opacity = "0"; }
+    toastTimeout = null;
+  }, 2500);
+}
+
+function heatmapMatchesAuthorFilter(d: StonksDataPoint): boolean {
+  // Hover preview wins over the persisted filter — releasing the mouse restores it.
+  if (heatmapHoverAuthor !== undefined) {
+    return d.author === heatmapHoverAuthor;
+  }
+  if (heatmapSelectedAuthors === undefined) { return true; }
+  return d.author !== undefined && heatmapSelectedAuthors.includes(d.author);
+}
+
+function renderActivityHeatmap(
+  data: StonksDataPoint[], top: number, bandH: number, plotW: number,
+  pad: typeof PADDING,
+): string {
+  // Build 7x24 grid: [day 0..6][hour 0..23], in committer-local time
+  const grid: number[][] = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  for (const d of data) {
+    if (!heatmapMatchesAuthorFilter(d)) { continue; }
+    const { day, hour } = committerLocalDayHour(d);
+    grid[day][hour]++;
+  }
+  const maxCount = Math.max(...grid.flat(), 1);
+  const cellW = plotW / 24;
+  const cellH = bandH / 7;
+  let out = "";
+  for (let day = 0; day < 7; day++) {
+    const cellY = top + day * cellH;
+    out += `<text x="${pad.left - 10}" y="${cellY + cellH / 2 + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${HEATMAP_DAY_LABELS[day]}</text>`;
+    for (let hour = 0; hour < 24; hour++) {
+      const count = grid[day][hour];
+      const cellX = pad.left + hour * cellW;
+      const opacity = count === 0 ? 0.06 : 0.1 + (count / maxCount) * 0.8;
+      const fill = count === 0 ? "var(--vscode-editorWidget-border, #444)" : "var(--vscode-charts-orange, #ffa94d)";
+      const clickable = count > 0 ? ` class="heatmap-cell" data-day="${day}" data-hour="${hour}" style="cursor:pointer"` : "";
+      out += `<rect${clickable} x="${(cellX + 1).toFixed(1)}" y="${(cellY + 1).toFixed(1)}" width="${(cellW - 2).toFixed(1)}" height="${(cellH - 2).toFixed(1)}" fill="${fill}" opacity="${opacity.toFixed(2)}" rx="1"><title>${HEATMAP_DAY_LABELS[day]} ${hour}:00 \u2014 ${count} commit${count !== 1 ? "s" : ""} (click to copy hashes)</title></rect>`;
+    }
+  }
+  // Working-hours overlay: outline Mon\u2013Fri \u00d7 workdayStart..workdayEnd. Cells outside it visually pop as off-hours.
+  // getDay() values: 0=Sun, 1=Mon \u2026 5=Fri, 6=Sat \u2014 so Mon\u2013Fri is rows 1..5.
+  if (heatmapWorkdayEnd > heatmapWorkdayStart) {
+    const ox = pad.left + heatmapWorkdayStart * cellW;
+    const oy = top + 1 * cellH;
+    const ow = (heatmapWorkdayEnd - heatmapWorkdayStart) * cellW;
+    const oh = 5 * cellH;
+    out += `<rect x="${ox.toFixed(1)}" y="${oy.toFixed(1)}" width="${ow.toFixed(1)}" height="${oh.toFixed(1)}" fill="none" stroke="var(--vscode-foreground)" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.55" pointer-events="none"><title>Workday: Mon\u2013Fri ${heatmapWorkdayStart}:00\u2013${heatmapWorkdayEnd}:00</title></rect>`;
+  }
+  // Hour labels: 0, 6, 12, 18
+  for (const h of [0, 6, 12, 18]) {
+    const x = pad.left + h * cellW + cellW / 2;
+    out += `<text x="${x.toFixed(1)}" y="${(top + bandH + 12).toFixed(1)}" text-anchor="middle" fill="var(--vscode-descriptionForeground)" font-size="9">${h}:00</text>`;
+  }
+  return out;
+}
+
 function renderYAxis(
   values: number[], top: number, bandH: number, plotW: number,
   count: number, format?: (v: number) => string,
@@ -1009,6 +1240,28 @@ svg.addEventListener("click", (e: Event) => {
   e.stopPropagation();
   const hash = target.getAttribute("data-hash");
   if (hash) { postMessage({ command: "openCommit", hash }); }
+});
+
+// Heatmap cell click — copy commit hashes for that day+hour bucket
+svg.addEventListener("click", (e: Event) => {
+  const target = (e.target as SVGElement).closest?.(".heatmap-cell") as SVGElement | null;
+  if (!target) { return; }
+  e.stopPropagation();
+  const day = parseInt(target.getAttribute("data-day") ?? "", 10);
+  const hour = parseInt(target.getAttribute("data-hour") ?? "", 10);
+  if (isNaN(day) || isNaN(hour)) { return; }
+  const hashes = renderAllVisible
+    .filter(d => {
+      if (!d.hash) { return false; }
+      if (!heatmapMatchesAuthorFilter(d)) { return false; }
+      const local = committerLocalDayHour(d);
+      return local.day === day && local.hour === hour;
+    })
+    .map(d => d.hash!);
+  if (hashes.length === 0) { return; }
+  navigator.clipboard.writeText(hashes.join("\n")).then(() => {
+    showToast(`Copied ${hashes.length} hash${hashes.length !== 1 ? "es" : ""} (${HEATMAP_DAY_LABELS[day]} ${hour}:00)`);
+  }).catch(() => { /* clipboard unavailable */ });
 });
 svg.addEventListener("mouseenter", (e: Event) => {
   const target = (e.target as SVGElement);
@@ -1118,56 +1371,6 @@ svg.addEventListener("dblclick", () => {
 svg.addEventListener("dragstart", (e: Event) => { e.preventDefault(); });
 
 // ── X-axis mode ───────────────────────────────────────────────────────────────
-
-function aggregateData(data: StonksDataPoint[], mode: XAxisMode): StonksDataPoint[] {
-  if (mode === "commit") { return data; }
-  const buckets = new Map<string, StonksDataPoint>();
-  for (const d of data) {
-    const key = bucketKey(d.date, mode);
-    const existing = buckets.get(key);
-    if (existing) {
-      existing.filesChanged += d.filesChanged;
-      existing.filesAdded += d.filesAdded;
-      existing.filesDeleted += d.filesDeleted;
-      existing.cumulativeFileCount = d.cumulativeFileCount;
-      existing.commitCount += d.commitCount;
-    } else {
-      buckets.set(key, {
-        date: bucketStartISO(d.date, mode),
-        filesChanged: d.filesChanged,
-        filesAdded: d.filesAdded,
-        filesDeleted: d.filesDeleted,
-        cumulativeFileCount: d.cumulativeFileCount,
-        commitCount: d.commitCount,
-      });
-    }
-  }
-  return [...buckets.values()];
-}
-
-function bucketKey(iso: string, mode: XAxisMode): string {
-  const d = new Date(iso);
-  if (mode === "day") { return iso.substring(0, 10); }
-  if (mode === "week") {
-    const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-    const dow = day.getUTCDay() || 7;
-    day.setUTCDate(day.getUTCDate() - dow + 1);
-    return day.toISOString().substring(0, 10);
-  }
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function bucketStartISO(iso: string, mode: XAxisMode): string {
-  const d = new Date(iso);
-  if (mode === "day") { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString(); }
-  if (mode === "week") {
-    const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-    const dow = day.getUTCDay() || 7;
-    day.setUTCDate(day.getUTCDate() - dow + 1);
-    return day.toISOString();
-  }
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
-}
 
 function applyXAxisMode(mode: XAxisMode): void {
   xAxisMode = mode;
