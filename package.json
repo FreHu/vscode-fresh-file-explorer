@@ -34,7 +34,7 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [
-    "*"
+    "onStartupFinished"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
