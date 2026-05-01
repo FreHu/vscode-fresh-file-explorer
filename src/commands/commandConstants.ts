@@ -54,9 +54,22 @@ export const Commands = {
 
   // Commit viewing
   OPEN_COMMIT: "freshFileExplorer.openCommit",
+  OPEN_COMMIT_FROM_BLAME: "freshFileExplorer.openCommitFromBlame",
 
-  // Heatmap command
+  // Heatmap commands
   TOGGLE_HEATMAP: "freshFileExplorer.toggleHeatmap",
+  BLAME_HEATMAP_PICKER: "freshFileExplorer.blameHeatmapPicker",
+  BLAME_DIFF_BASELINE: "freshFileExplorer.blameDiffBaseline",
+  BLAME_DIFF_BASELINE_CONFIGURED: "freshFileExplorer.blameDiffBaselineConfigured",
+  RESTORE_DELETED_LINES_AT: "freshFileExplorer.restoreDeletedLinesAt",
+  COPY_DELETED_LINES_AT: "freshFileExplorer.copyDeletedLinesAt",
+  // Direct heatmap actions (gutter submenu — bypass picker)
+  BLAME_APPLY_AGE: "freshFileExplorer.blameApplyAge",
+  BLAME_APPLY_BRANCH_SAVED: "freshFileExplorer.blameApplyBranchSaved",
+  BLAME_PICK_BRANCH: "freshFileExplorer.blamePickBranch",
+  BLAME_TURN_OFF: "freshFileExplorer.blameTurnOff",
+  BLAME_CLEAR_BASELINE: "freshFileExplorer.blameClearBaseline",
+  BLAME_TOGGLE_AUTO_APPLY: "freshFileExplorer.blameToggleAutoApply",
 
   // Diff search commands
   OPEN_DIFF_SEARCH_PANEL: "freshFileExplorer.openDiffSearchPanel",

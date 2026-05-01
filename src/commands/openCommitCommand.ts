@@ -9,6 +9,73 @@ import { asAbsolutePath } from "../pathTypes";
 import { findRepoForFile } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
+import { shortSha } from "../utils/formatUtils";
+
+/**
+ * Opens all changes from a commit in VS Code's multi-diff editor, given only
+ * the commit hash and the absolute path to the repo root.
+ */
+export async function openCommitByHash(commitHash: string, repoRoot: string): Promise<void> {
+  log(`Open commit: ${commitHash}`);
+  try {
+    const parentHash = await getCommitParent(repoRoot, commitHash);
+    const commitSubject = await getCommitSubject(repoRoot, commitHash);
+    const shortHash = shortSha(commitHash);
+    const title = `${shortHash} - ${commitSubject}`;
+
+    const changes = await getCommitChanges(repoRoot, commitHash);
+    if (changes.length === 0) {
+      showInfo(`No changes found in commit ${shortHash}.`);
+      return;
+    }
+
+    const resources: { originalUri?: vscode.Uri; modifiedUri?: vscode.Uri }[] = [];
+    for (const change of changes) {
+      const changeFullPath = path.join(repoRoot, change.filePath);
+      const fileUri = vscode.Uri.file(changeFullPath);
+      let resource: { originalUri?: vscode.Uri; modifiedUri?: vscode.Uri };
+      switch (change.status) {
+        case "A":
+          resource = { originalUri: undefined, modifiedUri: gitUri(fileUri, commitHash) };
+          break;
+        case "D":
+          resource = { originalUri: gitUri(fileUri, parentHash ?? commitHash), modifiedUri: undefined };
+          break;
+        case "R":
+        case "C": {
+          const originalFileUri = vscode.Uri.file(path.join(repoRoot, change.originalFilePath!));
+          resource = {
+            originalUri: gitUri(originalFileUri, parentHash ?? commitHash),
+            modifiedUri: gitUri(fileUri, commitHash),
+          };
+          break;
+        }
+        default:
+          resource = {
+            originalUri: gitUri(fileUri, parentHash ?? commitHash),
+            modifiedUri: gitUri(fileUri, commitHash),
+          };
+          break;
+      }
+      resources.push(resource);
+    }
+
+    const parentId = parentHash ?? "root";
+    const multiDiffSourceUri = vscode.Uri.from({
+      scheme: "scm-history-item",
+      path: `${repoRoot}/${parentId}..${commitHash}`,
+    });
+
+    log(`Opening multi-diff editor for commit ${shortHash} with ${resources.length} files`);
+    await vscode.commands.executeCommand("_workbench.openMultiDiffEditor", {
+      multiDiffSourceUri,
+      title,
+      resources,
+    });
+  } catch (error: any) {
+    showError(`Failed to open commit: ${error.message}`, `Failed to open commit ${commitHash}: ${error.message}`);
+  }
+}
 
 /**
  * Opens all changes from a commit in VS Code's multi-diff editor.
@@ -44,23 +111,17 @@ export async function handleOpenCommit(
   const repoRoot = repoLocation.repoFullPath;
 
   try {
-    // Get parent commit (for diffing)
     const parentHash = await getCommitParent(repoRoot, commitHash);
-
-    // Get commit subject for the title
     const commitSubject = await getCommitSubject(repoRoot, commitHash);
-    const shortHash = commitHash.substring(0, 7);
+    const shortHash = shortSha(commitHash);
     const title = `${shortHash} - ${commitSubject}`;
 
-    // Get the list of changed files
     const changes = await getCommitChanges(repoRoot, commitHash);
     if (changes.length === 0) {
       showInfo(`No changes found in commit ${shortHash}.`);
       return;
     }
 
-    // Build the resources array for the multi-diff editor  
-    // Each resource has an originalUri (before) and modifiedUri (after)
     const resources: { originalUri?: vscode.Uri; modifiedUri?: vscode.Uri }[] = [];
 
     // Identify the file to reveal (robust path comparison)
@@ -115,14 +176,12 @@ export async function handleOpenCommit(
       }
     }
 
-    // Build a unique URI for this multi-diff source so VS Code can track/reuse it
     const parentId = parentHash ?? "root";
     const multiDiffSourceUri = vscode.Uri.from({
       scheme: "scm-history-item",
       path: `${repoRoot}/${parentId}..${commitHash}`,
     });
 
-    // Reveal the file that was right-clicked (if it's in the changes)
     const reveal = revealModifiedUri ? { modifiedUri: revealModifiedUri } : undefined;
 
     log(`Opening multi-diff editor for commit ${shortHash} with ${resources.length} files`);

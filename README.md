@@ -58,22 +58,9 @@ This coloring is toggled in the Fresh Files view, but will also apply to the Fil
 
 ![heatmap](img/heatmap.png)
 
-> Note: the heatmap knows about modification dates based on your selected time window. Anything older than that gets bundled into the last "even older than that" color bucket.
+There's also a **blame heatmap** that paints individual lines inside the editor by recency, including a "what changed since this branch / tag" mode with restore/copy actions for deleted blocks.
 
-Heatmap colors can be customized via `workbench.colorCustomizations` in your VS Code settings (8 age buckets, age1 = most recent):
-
-```jsonc
-"workbench.colorCustomizations": {
-    "freshFileExplorer.heatmap.age1": "#FF0000",
-    "freshFileExplorer.heatmap.age2": "#FF4400",
-    "freshFileExplorer.heatmap.age3": "#FF8800",
-    "freshFileExplorer.heatmap.age4": "#FFCC00",
-    "freshFileExplorer.heatmap.age5": "#AACC00",
-    "freshFileExplorer.heatmap.age6": "#55AA00",
-    "freshFileExplorer.heatmap.age7": "#228800",
-    "freshFileExplorer.heatmap.age8": "#006644"
-}
-```
+Full details for both heatmaps — bucketing, customization, blame heatmap modes and surfaces: [docs/heatmap.md](docs/heatmap.md).
 
 ### Pinned section
 

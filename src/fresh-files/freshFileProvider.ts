@@ -41,6 +41,40 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+  /**
+   * Fires every time repo discovery transitions to "done" — initial activation
+   * and after any subsequent `hardRefresh()`. Lets dependent features (e.g. the
+   * blame heatmap auto-apply) wait until `findRepoForAbsolutePath` will actually
+   * resolve before they try to attach to the active editor.
+   */
+  private _onReposReady = new vscode.EventEmitter<void>();
+  readonly onReposReady = this._onReposReady.event;
+  get areReposReady(): boolean { return this.reposDiscovered; }
+
+  /**
+   * Snapshot of where loading currently sits — drives the fresh-files status
+   * bar entry. Listeners react via `onDidChangeTreeData` (already fired at
+   * every state transition); this getter just packages the relevant flags.
+   *
+   * - `discovering` — repo discovery still in flight.
+   * - `loading` — repos discovered, files (pending and/or historical) loading.
+   * - `idle`       — caught up. `totalRepos` may be 0 when the workspace has none.
+   */
+  getLoadingProgress(): { state: "discovering" | "loading" | "idle"; totalRepos: number; loadedRepos: number } {
+    if (!this.reposDiscovered) {
+      return { state: "discovering", totalRepos: 0, loadedRepos: 0 };
+    }
+    const totalRepos = this.totalRepoCount;
+    const stillLoading = this.reposLoading.size + this.reposLoadingHistorical.size;
+    if (stillLoading > 0) {
+      // A single repo can sit in both sets simultaneously — clamp so the count
+      // doesn't briefly exceed totalRepos during the pending→historical handoff.
+      const loadedRepos = Math.max(0, totalRepos - Math.min(stillLoading, totalRepos));
+      return { state: "loading", totalRepos, loadedRepos };
+    }
+    return { state: "idle", totalRepos, loadedRepos: totalRepos };
+  }
+
   // Map of absolute file path to file metadata
   private _freshFiles: Map<AbsolutePath, FileMetadata> = new Map();
   get freshFiles(): Map<AbsolutePath, FileMetadata> { return this._freshFiles; }
@@ -215,7 +249,75 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     if (!currentStillValid) {
       this.currentTimeWindow = this.timeWindows.length > 1 ? this.timeWindows[1] : this.timeWindows[0];
     }
-    this.hardRefresh();
+
+    
+    // Map each setting to the cheapest refresh that makes its change visible.
+    // "none"        — handled outside freshFileProvider (heatmap, git timeout, etc.)
+    // "treeOnly"    — re-render from cached data; no git I/O
+    // "pending"     — re-run git status + numstat; rebuilds from cached history baseline
+    // "hard"        — full repo discovery + git log; only when history scope changes
+    type RefreshAction = "none" | "treeOnly" | "pending" | "hard";
+    
+    //prettier-ignore
+    const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
+      // History scope — must re-fetch git log data.
+      TIME_WINDOWS:                    "hard",
+
+      // Pending-path data — gates a git diff --numstat call.
+      DESCRIPTION_SHOW_LINE_CHANGES:   "pending",
+
+      // Display-only — all data is already cached.
+      DESCRIPTION_SHOW_DATE:           "treeOnly",
+      DESCRIPTION_SHOW_AUTHOR:         "treeOnly",
+      DESCRIPTION_SHOW_COMMIT_HASH:    "treeOnly",
+      DESCRIPTION_SHOW_COMMIT_MESSAGE: "treeOnly",
+      DESCRIPTION_SHOW_STATUS:         "treeOnly",
+      DEFAULT_GROUPING_MODE:           "treeOnly",
+      DEFAULT_SORT_ORDER:              "treeOnly",
+      FLAT_LIST_LABEL_STYLE:           "treeOnly",
+      AUTO_EXPAND_DEPTH:               "treeOnly",
+      SHOW_CURRENT_BRANCH_SYNC:        "treeOnly",
+      SHOW_BASE_BRANCH_SYNC:           "treeOnly",
+      INCREMENTAL_TREE_LOADING:        "treeOnly",
+
+      // Handled elsewhere or behavioural only — no tree refresh needed.
+      HEATMAP_ENABLED:                 "none",
+      BLAME_HEATMAP_AUTO_APPLY:        "none",
+      BLAME_HEATMAP_BG_OPACITY:        "none",
+      BLAME_HEATMAP_MAX_LINES:         "none",
+      AUTO_REVEAL:                     "none",
+      GIT_TIMEOUT:                     "none",
+      SEARCH_PATTERN_MAX_LENGTH:       "none",
+      OPEN_SEARCH_IN_EDITOR:           "none",
+      CODE_TELESCOPE_INTEGRATION:      "none",
+      DEFAULT_OPEN_CHANGES_MODE:       "none",
+      AUTO_STAGE_RENAME:               "none",
+    };
+
+    let action: RefreshAction = "none";
+    for (const [key, candidate] of Object.entries(CONFIG_ACTIONS) as [keyof typeof ConfigKeys, RefreshAction][]) {
+      if (!e.affectsConfiguration(ConfigKeys[key])) continue;
+      // Escalate to the most expensive action required by any changed key.
+      if (candidate === "hard" || (candidate === "pending" && action !== "hard") || (candidate === "treeOnly" && action === "none")) {
+        action = candidate;
+      }
+    }
+
+    switch (action) {
+      case "hard":
+        log("Configuration changed: time windows — running full refresh");
+        this.hardRefresh();
+        break;
+      case "pending":
+        log("Configuration changed: showLineChanges — refreshing pending");
+        this.refreshPending();
+        break;
+      case "treeOnly":
+        log("Configuration changed: display setting — re-rendering tree");
+        this.refreshTreeOnly();
+        break;
+      // "none": no freshFileProvider action needed
+    }
   }
 
   /**
@@ -286,13 +388,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this._onDidChangeTreeData.fire();
   }
 
-  // Cumulative stats across all buildTree calls since the last tree-refresh event.
-  // Lets us see the total rendering cost once VS Code finishes calling getChildren.
-  private _renderPass = { calls: 0, totalMs: 0, totalScanned: 0 };
-
   /** Refresh the tree display without reloading data from git */
   refreshTreeOnly(): void {
-    this._renderPass = { calls: 0, totalMs: 0, totalScanned: 0 };
     this.fileIndex.invalidateStats(); // filters/scopes may have changed
     this._onDidChangeTreeData.fire();
   }
@@ -1049,6 +1146,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
 
     this.reposDiscovered = true;
+    this._onReposReady.fire();
     this._onDidChangeTreeData.fire(); // Show repo list with per-repo loading indicators
   }
 

@@ -26,9 +26,10 @@ import { setupGitExtensionListener } from "./git/gitExecutionListener";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleCreateFileNextTo, handleCreateFileInside } from "./commands/fileCreationCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
-import { handleOpenCommit } from "./commands/openCommitCommand";
+import { handleOpenCommit, openCommitByHash } from "./commands/openCommitCommand";
 import { handleSearchInFreshFiles, handlesearchInFoundFiles, handleOpenAllFoundFiles, handleCopyPathsFromSearchResults } from "./commands/searchCommand";
 import { handleQuickPickFile } from "./commands/quickPickCommand";
+import { showBlameHeatmapPicker } from "./commands/heatmapQuickPickCommand";
 import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
 import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
 import { handleViewOptions } from "./commands/viewOptionsCommand";
@@ -44,6 +45,8 @@ import { NormalizedRepoPath } from "./pathTypes";
 import { Commands } from "./commands/commandConstants";
 import { createFreshFilesDragAndDropController, createPinnedDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
+import { BlameHeatmapController } from "./heatmap/blameHeatmapController";
+import { FreshFilesStatusBar } from "./fresh-files/freshFilesStatusBar";
 import { DiffSearchResultProvider } from "./diff-search/diffSearchResultProvider";
 import { DiffSearchPanel } from "./diff-search/diffSearchPanel";
 import { handleOpenDiffMatch, handleClearDiffSearch, handleGitPickaxe } from "./commands/diffSearchCommand";
@@ -92,6 +95,13 @@ export async function activate(context: vscode.ExtensionContext) {
   // Wire the heatmap provider to the fresh file provider
   freshFileProvider.heatmapProvider = heatmapProvider;
 
+  // Create blame heatmap controller (per-line editor decorations)
+  const blameHeatmapController = new BlameHeatmapController(freshFileProvider);
+  context.subscriptions.push(blameHeatmapController);
+
+  // Steady status-bar indicator for Fresh Files loading progress.
+  context.subscriptions.push(new FreshFilesStatusBar(freshFileProvider));
+
   // Create and register diff search result provider
   const diffSearchResultProvider = new DiffSearchResultProvider();
   const diffSearchTreeView = vscode.window.createTreeView("diffSearchResults", {
@@ -119,7 +129,7 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
-  registerCommands(context, freshFileProvider, pinnedItemsProvider, treeView, pinnedItemsTreeView, diffSearchResultProvider);
+  registerCommands(context, freshFileProvider, pinnedItemsProvider, treeView, pinnedItemsTreeView, diffSearchResultProvider, blameHeatmapController);
   telescopeRegistration = await registerCodeTelescopeFinder(freshFileProvider);
 
   // Listen for workspace folder changes
@@ -173,7 +183,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Listen for git state changes (commits, checkouts, etc.)
   // The git extension exposes an API we can use
-  setupGitExtensionListener(context, freshFileProvider);
+  setupGitExtensionListener(context, freshFileProvider, api => blameHeatmapController.connectGitApi(api));
 
   log("Fresh File Explorer activated");
 }
@@ -189,6 +199,7 @@ function registerCommands(
   treeView: vscode.TreeView<FreshFilesTreeItem>,
   pinnedItemsTreeView: vscode.TreeView<FreshFilesTreeItem>,
   diffSearchResultProvider: DiffSearchResultProvider,
+  blameHeatmapController: BlameHeatmapController,
 ): void {
   function register(name: string, handler: (...args: any[]) => any) {
     context.subscriptions.push(vscode.commands.registerCommand(name, handler));
@@ -305,8 +316,48 @@ function registerCommands(
   register(Commands.REVEAL_IN_SOURCE_CONTROL, handleRevealInSourceControl);
 
   register(Commands.OPEN_COMMIT, (item: FreshFileItem) => handleOpenCommit(item, freshFileProvider));
+  register(Commands.OPEN_COMMIT_FROM_BLAME, (commitHash: string, repoRoot: string) => openCommitByHash(commitHash, repoRoot));
+
+  // Gutter right-click menu paths — receive `{ lineNumber, uri }` from the
+  // editor/lineNumber/context menu (line numbers are 1-based).
+  register(Commands.RESTORE_DELETED_LINES_AT, (arg: { lineNumber: number; uri: vscode.Uri }) => {
+    if (!arg) { return; }
+    return blameHeatmapController.restoreDeletionAt(arg.uri, arg.lineNumber);
+  });
+  register(Commands.COPY_DELETED_LINES_AT, (arg: { lineNumber: number; uri: vscode.Uri }) => {
+    if (!arg) { return; }
+    return blameHeatmapController.copyDeletionAt(arg.uri, arg.lineNumber);
+  });
 
   register(Commands.TOGGLE_HEATMAP, () => handleToggleHeatmap(freshFileProvider));
+
+  register(Commands.BLAME_HEATMAP_PICKER, () => showBlameHeatmapPicker(blameHeatmapController));
+
+  // Two command IDs share a handler — they exist only to give the editor's
+  // right-click menu two different titles depending on whether a baseline ref
+  // is already saved. Visibility is gated by the freshFiles.blameHeatmap.hasBaseRef
+  // context key set by the controller.
+  const baselineDiffHandler = () => {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) { blameHeatmapController.openBaselineDiff(editor); }
+  };
+  register(Commands.BLAME_DIFF_BASELINE, baselineDiffHandler);
+  register(Commands.BLAME_DIFF_BASELINE_CONFIGURED, baselineDiffHandler);
+
+  // Direct heatmap actions used by the gutter submenu — bypass the picker.
+  // Each acts on the active editor and reuses controller methods.
+  const onActiveEditor = (fn: (editor: vscode.TextEditor) => void | Promise<void>) => () => {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) { return fn(editor); }
+  };
+  register(Commands.BLAME_APPLY_AGE, onActiveEditor(e => blameHeatmapController.applyMode(e, "absolute")));
+  register(Commands.BLAME_APPLY_BRANCH_SAVED, onActiveEditor(e => blameHeatmapController.applyMode(e, "branch")));
+  register(Commands.BLAME_PICK_BRANCH, onActiveEditor(e => blameHeatmapController.selectBranchMode(e)));
+  register(Commands.BLAME_TURN_OFF, onActiveEditor(e => blameHeatmapController.turnOff(e)));
+  register(Commands.BLAME_CLEAR_BASELINE, onActiveEditor(e => blameHeatmapController.clearSavedBaseRef(e)));
+  register(Commands.BLAME_TOGGLE_AUTO_APPLY, () =>
+    ConfigService.setBlameHeatmapAutoApply(!ConfigService.getBlameHeatmapAutoApply()),
+  );
 
   // Diff search commands
   register(Commands.OPEN_DIFF_SEARCH_PANEL, () => 

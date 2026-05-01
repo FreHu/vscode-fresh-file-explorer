@@ -187,4 +187,36 @@ export class WorkspaceStateManager {
   static clearPathspecHistory(): void {
     WorkspaceStateManager.ctx().workspaceState.update("pathspecHistory", []);
   }
+
+  // ── Blame heatmap ────────────────────────────────────────────────────────────
+
+  /** Last blame heatmap mode used by the user ("absolute" | "branch"), or undefined. */
+  static getBlameHeatmapMode(): "absolute" | "branch" | undefined {
+    const raw = WorkspaceStateManager.ctx().workspaceState.get<string>("blameHeatmapMode");
+    return raw === "absolute" || raw === "branch" ? raw : undefined;
+  }
+
+  static setBlameHeatmapMode(mode: "absolute" | "branch"): void {
+    WorkspaceStateManager.ctx().workspaceState.update("blameHeatmapMode", mode);
+  }
+
+  /** Last branch ref per repo root path (normalized). Returns the full map. */
+  static getBlameHeatmapBaseRefs(): Record<string, string> {
+    return WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>(
+      "blameHeatmapBaseRefs",
+      {},
+    );
+  }
+
+  static setBlameHeatmapBaseRef(repoPath: string, ref: string): void {
+    const existing = WorkspaceStateManager.getBlameHeatmapBaseRefs();
+    existing[repoPath] = ref;
+    WorkspaceStateManager.ctx().workspaceState.update("blameHeatmapBaseRefs", existing);
+  }
+
+  static clearBlameHeatmapBaseRef(repoPath: string): void {
+    const existing = WorkspaceStateManager.getBlameHeatmapBaseRefs();
+    delete existing[repoPath];
+    WorkspaceStateManager.ctx().workspaceState.update("blameHeatmapBaseRefs", existing);
+  }
 }

@@ -24,6 +24,9 @@ export const ConfigKeys = {
 
   // Heatmap settings
   HEATMAP_ENABLED: "freshFileExplorer.heatmap.enabled",
+  BLAME_HEATMAP_AUTO_APPLY: "freshFileExplorer.blameHeatmap.autoApply",
+  BLAME_HEATMAP_BG_OPACITY: "freshFileExplorer.blameHeatmap.backgroundOpacity",
+  BLAME_HEATMAP_MAX_LINES: "freshFileExplorer.blameHeatmap.maxFileLines",
 
   // Auto-reveal active file
   AUTO_REVEAL: "freshFileExplorer.autoReveal",

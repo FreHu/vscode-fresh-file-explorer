@@ -127,3 +127,19 @@ export function computeHeatmapColorId(
 ): string {
   return bucketToColorId(computeHeatmapBucket(fileDate, windowDays, nowMs));
 }
+
+/**
+ * Compute a 0-based bucket index for a blame line given its author-time unix
+ * timestamp (seconds) and a window derived from the oldest line in the file.
+ *
+ * Because `windowDays` spans the full age range of the file, every line sits
+ * within [0, 1] and the out-of-window bucket is never produced — all 8 buckets
+ * are used uniformly across the file's own history.
+ */
+export function blameTimestampToBucket(
+  timestampSeconds: number,
+  windowDays: number,
+  nowMs: number,
+): number {
+  return computeHeatmapBucket(new Date(timestampSeconds * 1000), windowDays, nowMs);
+}

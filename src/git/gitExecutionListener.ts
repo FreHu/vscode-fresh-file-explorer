@@ -6,17 +6,30 @@ import { normalizePath } from "../utils";
 import { NormalizedRepoPath } from "../pathTypes";
 import { BranchName, asBranchName } from "../types";
 
+/** Minimal repository interface exposed to consumers outside this module. */
+export interface GitRepository {
+  rootUri: vscode.Uri;
+  state: GitRepositoryState;
+}
+
+/** Minimal Git API interface passed to external consumers (e.g. BlameHeatmapController). */
+export interface GitApi {
+  onDidOpenRepository: vscode.Event<GitRepository>;
+  repositories: readonly GitRepository[];
+}
+
 /**
  * Set up listener for git extension state changes
  */
 export async function setupGitExtensionListener(
   context: vscode.ExtensionContext,
   freshFileProvider: FreshFileProvider,
+  onGitApiReady?: (api: GitApi) => void,
 ): Promise<void> {
   /**
    * Check sync status for all repositories and update warnings
    */
-  async function updateSyncWarnings(api: GitAPI, silent = false): Promise<void> {
+  async function updateSyncWarnings(api: InternalGitAPI, silent = false): Promise<void> {
     const showCurrentBranchSync = ConfigService.getShowCurrentBranchSync();
     const showBaseBranchSync = ConfigService.getShowBaseBranchSync();
 
@@ -99,6 +112,9 @@ export async function setupGitExtensionListener(
     const git = gitExtension.isActive ? gitExtension.exports : await gitExtension.activate();
     const api = git.getAPI(1);
 
+    // Notify external consumers (e.g. BlameHeatmapController) with the resolved API.
+    onGitApiReady?.(api as unknown as GitApi);
+
     // Initial sync check
     await updateSyncWarnings(api);
 
@@ -106,7 +122,7 @@ export async function setupGitExtensionListener(
     // when only remote tracking counts (ahead/behind) change — e.g. on background fetches.
     const repoSnapshots = new Map<NormalizedRepoPath, RepoSnapshot>();
 
-    function takeSnapshot(repo: Repository): RepoSnapshot {
+    function takeSnapshot(repo: InternalRepository): RepoSnapshot {
       return {
         commit: repo.state.HEAD?.commit,
         branch: repo.state.HEAD?.name,
@@ -258,7 +274,7 @@ export async function setupGitExtensionListener(
 
     // Listen for new repositories being opened
     context.subscriptions.push(
-      api.onDidOpenRepository((repo: Repository) => {
+      api.onDidOpenRepository((repo: InternalRepository) => {
         // Snapshot the new repo immediately so first change can be compared
         repoSnapshots.set(normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath, takeSnapshot(repo));
         context.subscriptions.push(
@@ -274,13 +290,13 @@ export async function setupGitExtensionListener(
 }
 
 interface GitExtension {
-  getAPI(version: number): GitAPI;
+  getAPI(version: number): InternalGitAPI;
 }
 
-interface GitAPI {
+interface InternalGitAPI {
   onDidChangeState: vscode.Event<void>;
-  onDidOpenRepository: vscode.Event<Repository>;
-  repositories: Repository[];
+  onDidOpenRepository: vscode.Event<InternalRepository>;
+  repositories: InternalRepository[];
 }
 
 interface UpstreamRef {
@@ -301,14 +317,18 @@ interface Change {
   uri: vscode.Uri;
 }
 
-interface Repository {
+export interface GitRepository {
   rootUri: vscode.Uri;
-  state: RepositoryState;
+  state: GitRepositoryState;
+}
+
+/** Full repository interface including methods used only inside the listener. */
+interface InternalRepository extends GitRepository {
   getBranchBase(name: string): Promise<Branch | undefined>;
   log(options?: { maxEntries?: number; range?: string }): Promise<{ hash: string }[]>;
 }
 
-interface RepositoryState {
+export interface GitRepositoryState {
   HEAD: Branch | undefined;
   indexChanges: Change[];
   workingTreeChanges: Change[];

@@ -4,6 +4,38 @@ import { DEFAULT_TIME_WINDOW_DAYS } from "../fresh-files/timeWindowUtils";
 import { ConfigKeys } from "./configKeyConstants";
 import { GroupingMode } from "../fresh-files/groupingMode";
 
+/** Default color resolved from `contributes.colors` in the extension's own
+ *  package.json — single source of truth, no duplicated hex tables. */
+interface ContributedColor { id: string; defaults: Record<string, string> }
+
+function pickDefault(defaults: Record<string, string>): string {
+  switch (vscode.window.activeColorTheme.kind) {
+    case vscode.ColorThemeKind.Light:             return defaults.light ?? defaults.dark ?? "#000000";
+    case vscode.ColorThemeKind.HighContrast:      return defaults.highContrast ?? defaults.dark ?? "#000000";
+    case vscode.ColorThemeKind.HighContrastLight: return defaults.highContrastLight ?? defaults.light ?? "#000000";
+    default:                                       return defaults.dark ?? "#000000";
+  }
+}
+
+function getContributedColors(): ContributedColor[] {
+  const ext = vscode.extensions.getExtension("frehu.fresh-file-explorer");
+  return (ext?.packageJSON?.contributes?.colors as ContributedColor[] | undefined) ?? [];
+}
+
+/** Resolve the 8-bucket palette for an `age` or `added` ID prefix, applying
+ *  `workbench.colorCustomizations` overrides over the registered defaults. */
+function resolvePalette(prefix: "age" | "added"): string[] {
+  const customizations = vscode.workspace.getConfiguration("workbench").get<Record<string, string>>("colorCustomizations", {});
+  const contributed = getContributedColors();
+  return Array.from({ length: 8 }, (_, i) => {
+    const id = `freshFileExplorer.heatmap.${prefix}${i + 1}`;
+    const override = customizations[id];
+    if (override) { return override; }
+    const entry = contributed.find(c => c.id === id);
+    return entry ? pickDefault(entry.defaults) : "#000000";
+  });
+}
+
 /**
  * Centralized configuration service for Fresh File Explorer settings
  */
@@ -96,6 +128,42 @@ export class ConfigService {
    */
   static isHeatmapEnabled(): boolean {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.HEATMAP_ENABLED, false);
+  }
+
+  /**
+   * Get whether the blame heatmap should auto-apply the last used mode when
+   * switching to a new editor tab.
+   */
+  static getBlameHeatmapAutoApply(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.BLAME_HEATMAP_AUTO_APPLY, true);
+  }
+
+  static setBlameHeatmapAutoApply(value: boolean): Thenable<void> {
+    return vscode.workspace.getConfiguration().update(
+      ConfigKeys.BLAME_HEATMAP_AUTO_APPLY,
+      value,
+      vscode.ConfigurationTarget.Global,
+    );
+  }
+
+  static getBlameHeatmapBackgroundOpacity(): number {
+    return vscode.workspace.getConfiguration().get<number>(ConfigKeys.BLAME_HEATMAP_BG_OPACITY, 0.15);
+  }
+
+  static getBlameHeatmapMaxLines(): number {
+    return vscode.workspace.getConfiguration().get<number>(ConfigKeys.BLAME_HEATMAP_MAX_LINES, 1500);
+  }
+
+  static getBlameHeatmapAgeColors(): string[] {
+    return resolvePalette("age");
+  }
+
+  /**
+   * Palette for "added in this branch" lines — visually distinct from the age
+   * palette so users can distinguish brand-new code from modified code.
+   */
+  static getBlameHeatmapAddedColors(): string[] {
+    return resolvePalette("added");
   }
 
   /**
