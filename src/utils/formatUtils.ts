@@ -399,3 +399,7 @@ export function formatDaysLabel(days: number): string {
 export function dotsDots(str: string, length = 80): string {
   return str.length > length ? str.substring(0, length - 3) + "..." : str;
 }
+
+export function shortSha(commitHash: string) {
+  return commitHash.substring(0, 7);
+}

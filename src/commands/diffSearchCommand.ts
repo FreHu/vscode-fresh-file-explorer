@@ -5,6 +5,7 @@ import { DiffSearchMatchItem } from "../diff-search/diffSearchTreeItems";
 import { gitUri } from "../git/gitOperations";
 import { DiffSearchPanel } from "../diff-search/diffSearchPanel";
 import { showError, showInfo } from "../extension/logger";
+import { shortSha } from "../utils/formatUtils";
 
 /**
  * Open a diff match in the editor
@@ -23,7 +24,7 @@ export async function handleOpenDiffMatch(matchItem: DiffSearchMatchItem): Promi
       const rightRef = matchItem.commitHash;
       const rightUri = gitUri(vscode.Uri.file(osPath), rightRef);
 
-      const commitShort = matchItem.commitHash.substring(0, 7);
+      const commitShort = shortSha(matchItem.commitHash);
       
       if (matchItem.fileAdded) {
         // Open just the new file version, as there's no parent to compare against        

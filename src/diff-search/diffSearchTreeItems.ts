@@ -3,7 +3,7 @@ import * as path from "path";
 import { AbsolutePath } from "../pathTypes";
 import { CommitHash } from "../types";
 import { Commands } from "../commands/commandConstants";
-import { formatRelativeDate } from "../utils/formatUtils";
+import { formatRelativeDate, shortSha } from "../utils/formatUtils";
 
 /**
  * Tree item representing a file with diff matches
@@ -21,7 +21,7 @@ export class DiffSearchFileItem extends vscode.TreeItem {
     // Make label completely unique with full path and random suffix
     const randomSuffix = Math.random().toString(36).substring(2, 7);
     const label = commitHash 
-      ? `${fileName} (${dirName}) [${commitHash.substring(0, 7)}] #${randomSuffix}` 
+      ? `${fileName} (${dirName}) [${shortSha(commitHash)}] #${randomSuffix}` 
       : `${fileName} (${dirName}) [pending] #${randomSuffix}`;
     
     super(label, vscode.TreeItemCollapsibleState.Collapsed);
@@ -76,7 +76,7 @@ export class DiffSearchMatchItem extends vscode.TreeItem {
     const tooltipLines: string[] = [`**Line ${lineNumber}**`, "", truncatedContent !== lineContent ? lineContent : ""];
 
     if (commitHash) {
-      tooltipLines.push("", `Commit: ${commitHash.substring(0, 7)}`);
+      tooltipLines.push("", `Commit: ${shortSha(commitHash)}`);
       if (commitMessage) {
         tooltipLines.push(`Message: ${commitMessage}`);
       }
@@ -127,7 +127,7 @@ export class DiffSearchCommitItem extends vscode.TreeItem {
   ) {
     super(commitMessage, vscode.TreeItemCollapsibleState.Collapsed);
 
-    const commitShort = commitHash.substring(0, 7);
+    const commitShort = shortSha(commitHash);
     this.label = `${commitShort} - ${commitMessage}`;
     const relativeDate = formatRelativeDate(commitDate);
     const absoluteDate = commitDate.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });

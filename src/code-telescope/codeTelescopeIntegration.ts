@@ -75,9 +75,7 @@ export async function registerCodeTelescopeFinder(
         await vscode.window.showTextDocument(vscode.Uri.file(file.absolutePath));
       },
 
-      async getPreviewData(item: string) {
-        log(item);
-        
+      async getPreviewData(item: string) {        
         const file = JSON.parse(item) as { absolutePath: string, relativePath: string };
         let content: string;
         try {
@@ -86,6 +84,7 @@ export async function registerCodeTelescopeFinder(
         } catch {
           content = `(Could not read file: ${file.absolutePath})`;
         }
+
         return { kind: "text", content, metadata: { filePath: file.relativePath } };
       },
     },

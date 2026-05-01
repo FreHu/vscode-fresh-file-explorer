@@ -5,6 +5,7 @@ import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { log } from "../extension/logger";
 import { gitUri } from "../git/gitOperations";
 import { openFileWithoutDuplicating, openDiffWithoutDuplicating } from "../utils";
+import { shortSha } from "../utils/formatUtils";
 
 /**
  * Handler for opening files in diff/changes mode
@@ -44,7 +45,7 @@ export async function handleOpenChanges(
 
             const leftUri = gitUri(fileItem.resourceUri, leftRef);
             const rightUri = gitUri(fileItem.resourceUri, rightRef);
-            const title = `${fileName} (${commitHashPart(fileItem.commitHash)}^ ↔ ${commitHashPart(
+            const title = `${fileName} (${shortSha(fileItem.commitHash)}^ ↔ ${shortSha(
               fileItem.commitHash,
             )})`;
 
@@ -76,8 +77,4 @@ export async function handleOpenChanges(
       }
     }
   }
-}
-
-function commitHashPart(commitHash: string) {
-  return commitHash.substring(0, 7);
 }

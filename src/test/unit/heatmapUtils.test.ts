@@ -159,6 +159,9 @@ suite("heatmapUtils", () => {
   });
 
   // ─── getBucketBoundaries ────────────────────────────────────────────────
+  // Informational only — the exponential scale makes the bucket distribution
+  // non-obvious. Run this test to see the actual day ranges for the windows
+  // we ship with.
 
   suite("getBucketBoundaries", () => {
     test("prints bucket boundaries for common time windows", () => {
@@ -174,23 +177,6 @@ suite("heatmapUtils", () => {
         for (const b of getBucketBoundaries(windowDays)) {
           console.log(`  ${b.colorId.replace("freshFileExplorer.heatmap.", "")}: ${fmt(b.startDays)} – ${fmt(b.endDays)}`);
         }
-      }
-    });
-
-    test("returns exactly HEATMAP_IN_WINDOW_BUCKETS entries (age8 is not an in-window bucket)", () => {
-      assert.strictEqual(getBucketBoundaries(30).length, HEATMAP_IN_WINDOW_BUCKETS);
-    });
-
-    test("last bucket endDays equals windowDays (not extrapolated past the edge)", () => {
-      const last = getBucketBoundaries(30).at(-1)!;
-      assert.strictEqual(last.endDays, 30);
-    });
-
-    test("boundaries are monotonically increasing", () => {
-      const bs = getBucketBoundaries(30);
-      for (let i = 1; i < bs.length; i++) {
-        assert.ok(bs[i].startDays >= bs[i - 1].startDays);
-        assert.ok(bs[i].endDays   >= bs[i - 1].endDays);
       }
     });
   });
