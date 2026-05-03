@@ -6,10 +6,16 @@
 
 Per-line gutter coloring + faint background wash inside the editor — a line-level view of the same recency signal the existing [file heatmap](docs/heatmap.md#file-heatmap) shows in the tree. Two modes:
 
-- **Age** — color by commit recency.
-- **Branch / Tag** — color only lines changed since a chosen baseline; added lines tinted differently from modified lines; deletions surfaced as red gutter badges with restore/copy actions.
+- **Age** — color by line change recency.
+
+![age-heatmap](./img/age-heatmap.png)
+
+- **Baseline** — color only lines changed since a chosen baseline; added lines tinted differently from modified lines; deletions surfaced as red gutter badges with restore/copy actions.
+
+![baseline-heatmap](./img/baseline-heatmap.png)
 
 Reuses the file heatmap's `freshFileExplorer.heatmap.age*` palette plus a new `added*` palette, all customizable via `workbench.colorCustomizations`.
+
 
 Full details: [docs/heatmap.md](docs/heatmap.md).
 
@@ -17,13 +23,15 @@ Full details: [docs/heatmap.md](docs/heatmap.md).
 
 Right-click in the editor → **Diff with Branch / Tag…** opens a regular VS Code diff between the current file and a chosen branch or tag. The first invocation prompts for a ref; subsequent ones reuse it without prompting. The chosen ref is the same one the blame heatmap's Branch / Tag mode uses, so picking it once unlocks both surfaces.
 
-### CodeStonks: activity heatmap
+### CodeStonks: Activity Heatmap chart
 
 New chart type — a 7×24 grid of commits by day of week × hour of day, in the committer's local timezone (so contributor timezones don't blur together). Includes:
 
 - Author multiselect filter, plus hover-over-author chip for a transient single-author preview.
 - Workday-hours overlay (Mon–Fri × configurable start/end) so off-hours work pops.
 - Click a cell to copy the bucket's commit hashes to the clipboard.
+
+![activity-heatmap-chart](./img/activity-heatmap-chart.png)
 
 See [docs/codestonks.md](docs/codestonks.md#activity-heatmap).
 

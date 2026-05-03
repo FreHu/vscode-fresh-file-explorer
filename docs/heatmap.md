@@ -2,10 +2,21 @@
 
 Heatmpas help visualize how recent the work in your repo is, but at different scales:
 
-- **File heatmap** — colors files in the tree (and File Explorer) by how recently they were last modified. Answers *"which files have been touched recently?"* at a glance.
-- **Blame heatmap** — colors lines inside a file. Two sub-modes: 
-  - absolute age - *"which parts of this file are fresh?"*
-  - baseline - *"what is happening here compared to the baseline (e.g. last release branch/tag)?"*
+## File heatmap
+Colors files in the tree (and File Explorer) by how recently they were last modified. Answers *"which files have been touched recently?"* at a glance.
+
+![file-heatmap](./../img/heatmap.png)
+
+## Blame Heatmaps
+
+Colors lines inside a file. Two sub-modes: 
+
+### Age - *"which parts of this file are fresh?"*
+![age-heatmap](./../img/age-heatmap.png)
+
+### Baseline - *"what is happening here compared to the baseline (e.g. last release branch/tag)?"*
+
+![baseline-heatmap](./../img/baseline-heatmap.png)
 
 The colors use an 8-color palette (`age1..age8`), so a file glowing bright in the tree will glow bright at the line level too.
 - colors of the file heatmap are reused
@@ -14,8 +25,6 @@ The colors use an 8-color palette (`age1..age8`), so a file glowing bright in th
 ## How the buckets work
 
 Both heatmaps split the age signal into 8 color buckets, `age1` (most recent) through `age8` (oldest / out of window). The mapping uses a non-linear curve so recent edits get more distinction than ancient ones — what you touched today vs 3 days ago is more likely to fall in different buckets, while "2 years ago" and "3 years ago" are more likely to blend into the same bucket.
-
-Exact day ranges depend on the active window.
 
 ## File heatmap
 
