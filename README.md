@@ -1,14 +1,31 @@
 # Fresh File Explorer
 
-Easily navigate recent changes based on your pending work and Git history.
+Navigate and visualize recent changes — plus the features you were hoping for in the VS Code release notes.
+
+![time-window-switch](img/time-window-switch.gif)
+
+A focused tree view that shows what's been touched recently - switchable between pending work and configurable time windows. Built for the moment when File Explorer shows too much and Source Control shows too little.
+
+| Question it answers | Feature |
+|---|---|
+| What's been touched recently? | [Time-window based File Explorer](#time-window-based-file-explorer) |
+| Where's that file I deleted? | [Deleted files inline](#deleted-file-support) |
+| What did this branch actually change? | [Blame Heatmap - Baseline mode](#heatmap-coloring) |
+| When was `x` ever added or removed? | [Diff Search (pickaxe)](#diff-search) |
+| Find `b` only in files containing `a`? | [Chained search](#search-in-found-files) |
+| Share a permalink to this file? | [Copy Remote URL](#context-menu-actions) |
+| I can't read? | [CodeStonks Charts](#codestonks) |
 
 # Links
 
 [Marketplace](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer) | [OpenVSX](https://open-vsx.org/extension/frehu/fresh-file-explorer) | [Github](https://github.com/FreHu/vscode-fresh-file-explorer) | [Caveman Readme](README.caveman.md)
 # Table of Contents
 
+- [Fresh File Explorer](#fresh-file-explorer)
+- [Links](#links)
+- [Table of Contents](#table-of-contents)
 - [Features](#features)
-  - [Fresh File Explorer](#fresh-file-explorer-1)
+  - [Time Window based File Explorer](#time-window-based-file-explorer)
     - [Deleted File Support](#deleted-file-support)
     - [Heatmap Coloring](#heatmap-coloring)
     - [Pinned section](#pinned-section)
@@ -20,26 +37,34 @@ Easily navigate recent changes based on your pending work and Git history.
     - [Multi-Repository Support](#multi-repository-support)
     - [CodeStonks](#codestonks)
   - [Search Tools](#search-tools)
-    - [Diff Search](#diff-search)
+    - [Diff Search (pickaxe)](#diff-search-pickaxe)
     - [Line and Function History](#line-and-function-history)
     - [File History](#file-history)
     - [Search in Fresh Files](#search-in-fresh-files)
+      - [Code Telescope quick pick](#code-telescope-quick-pick)
     - [Search in Found Files](#search-in-found-files)
     - [Search Editor Actions](#search-editor-actions)
 - [Use Cases](#use-cases)
+  - ["I just cloned a large repo and don't know where to start"](#i-just-cloned-a-large-repo-and-dont-know-where-to-start)
+  - ["I swear this file was here at some point"](#i-swear-this-file-was-here-at-some-point)
+  - ["I accidentally deleted some files and need them back"](#i-accidentally-deleted-some-files-and-need-them-back)
+  - ["I made a commit and now I've lost track of what I was working on"](#i-made-a-commit-and-now-ive-lost-track-of-what-i-was-working-on)
+  - ["I was using Fresh File Explorer and it was going great, but then someone reformatted the entire codebase and now all the files are fresh"](#i-was-using-fresh-file-explorer-and-it-was-going-great-but-then-someone-reformatted-the-entire-codebase-and-now-all-the-files-are-fresh)
+  - ["Cool extension but I was looking for a todo list app"](#cool-extension-but-i-was-looking-for-a-todo-list-app)
+  - [| Fresh File Explorer | Is *also* a todo list | Low - Can't miss it |](#-fresh-file-explorer--is-also-a-todo-list--low---cant-miss-it-)
+  - ["Cool extension but can it group my files by moon phase"](#cool-extension-but-can-it-group-my-files-by-moon-phase)
 - [Extension Settings](#extension-settings)
+- [Performance](#performance)
 - [Security](#security)
 - [Contributing](#contributing)
+- [Comparison with GitLens](#comparison-with-gitlens)
+- [Testimonials](#testimonials)
 
 # Features 
-## Fresh File Explorer
+## Time Window based File Explorer
 
-Switch between viewing pending changes or files last modified in configurable time periods. 
+Switch between viewing pending changes or files last modified in configurable time periods. The view is a hybrid of File Explorer (which sometimes shows too much) and Source Control (which sometimes shows too little).
 
-The view is a hybrid of File explorer, which sometimes shows too much, and Source control, which sometimes shows too little.
-
-![loading](img/time-window-switch.gif)
-  
 ### Deleted File Support
 
 Deleted files appear in the tree where they used to be, ready for necromancy.
@@ -52,15 +77,28 @@ Deleted files appear in the tree where they used to be, ready for necromancy.
 
 ### Heatmap Coloring
 
-Heatmap coloring gives files distinct colors based on the how recently they were last modified. Brighter colors `->` more recent.
+Heatmaps for different scales.
 
-This coloring is toggled in the Fresh Files view, but will also apply to the File Explorer.
+**File heatmap** — colors files in the tree (and File Explorer) by recency. Brighter = more recent. Answers *"which files have been touched lately?"* at a glance, even when scrolling around in the classic File Explorer.
 
 ![heatmap](img/heatmap.png)
 
-There's also a **blame heatmap** that paints individual lines inside the editor by recency, including a "what changed since this branch / tag" mode with restore/copy actions for deleted blocks.
+**Blame heatmap** — paints individual lines inside the editor. Two modes:
 
-Full details for both heatmaps — bucketing, customization, blame heatmap modes and surfaces: [docs/heatmap.md](docs/heatmap.md).
+- **Age** - line color reflects recency of the last commit on that line. Other blame tools surface who/when textually - hover popups, inline annotations — and stop there. This one paints the file. Fresh code stands out, ancient code fades. Drill into the metadata only when you want it.
+- **Baseline Branch/Tag** - colors *only* lines changed since a chosen baseline. Pre-baseline lines stay uncolored. Added lines get a distinct green palette. Pure deletions surface as red gutter badges with **restore from baseline** / **copy baseline lines** actions.
+
+Useful for questions like:
+
+- *"Which lines in this big function did I just change?"*
+- *"What did this branch actually touch in this file vs. main?"*
+- *"What got deleted since I branched off — and can I get it back?"*
+
+> **"But didn't you just reinvent a diff?"**
+> 
+> Sort of. You open a diff when you already at least half-know you're looking for a difference. The heatmap is ambient - it shows up while you're in the file for any other reason. It surfaces things you weren't asking about, but doesn't get in your way.
+
+Full details - all the knobs, bucketing, theming, performance notes: [docs/heatmap.md](docs/heatmap.md).
 
 ### Pinned section
 
@@ -152,21 +190,28 @@ Use **"Fresh Files: Quick Open"** to get a quick pick showing files from your Fr
 
 ### Context Menu Actions
 
-- Open / Open to Side - will open either the file or a diff depending on your preference. If the file is already open in some editor group, it will be focused instead.
-- Reveal in Explorer / Source Control
-- Rename (`F2`) - renames files and folders. By default uses `git mv` so the rename is auto-staged and properly tracked as a rename. See `freshFileExplorer.autoStageRename`.
-- Discard Changes (for pending files)
-- Resurrect (for deleted files)
+Routine file operations (copy / cut / paste / rename / create / delete, and path copying) work like File Explorer with the standard keybindings. Beyond that:
+
+- **Open / Open to Side** — opens either the file or its diff depending on `freshFileExplorer.defaultOpenChangesMode`. The file/diff icon in the view title toggles the default. 
+- If the file is already open somewhere, it gets focused instead of reopened. This is different from File Explorer, which will happily open a duplicate on the left side when your file is already open in an editor on the right.
+- **Copy Remote URL** — generates a browser link for the file at the current branch + path. Supports GitHub, GitLab, Bitbucket, and Azure DevOps (incl. SSH-style remotes and legacy `*.visualstudio.com`). Multi-select copies one URL per line.
+- **Copy Subtree Structure** — pastes the directory tree as text, **filtered to fresh files**. Choice of absolute / relative / filename labels. Respects your current time window, filters, and folder scope. Useful for chat, docs, and LLM prompts.
+- **Compare Selected** (`Ctrl+Alt+C`) — diff any two files against each other. With 3+ files, choose between *all permutations* or *one vs. all others* in a multi-diff editor.
+- **Reveal Active File** — jump from the current editor to its node in Fresh Files. The reverse of "reveal in explorer". Pairs with the `freshFileExplorer.autoReveal` setting which does the same automatically on tab switch.
+- **Reveal in Explorer / Source Control** — bridges back to the standard views.
+- **Rename** (`F2`) — uses `git mv` by default so the rename is auto-staged and properly tracked. See `freshFileExplorer.autoStageRename`.
+- **Discard Changes** (pending files) / **Resurrect** (deleted files) — see [Deleted File Support](#deleted-file-support).
+- **Pin** — drag-and-drop or right-click to add to the [Pinned section](#pinned-section).
 
 ### Multi-Repository Support
 
-Works with:
+Works seamlessly across:
 
-- Folders containing multiple repos in subfolders
-- Multi-root workspaces
-- Worktrees
-- Submodules (experimental, might have quirks)
-  
+- **Folders containing multiple repos in subfolders** — the "monorepo of repos" layout
+- **Multi-root workspaces**
+- **Worktrees** — each worktree shows its own pending changes and history
+- **Submodules** (experimental) — treated as nested repos with their own time windows
+
 ![submodules](./img/submodules.png)
 
 ### CodeStonks
@@ -201,14 +246,12 @@ For full details see the [CodeStonks docs](docs/codestonks.md). The same documen
 
 ## Search Tools
 
-The extension adds several search features.
-
-| Mode | Question it answers | Searches |
+| Feature | Question it answers | Searches |
 |---|---|---|
 | **Search in Fresh Files** | Where is `x` in my current work? | File contents, on disk, scoped to fresh files |
-| **Search in Found Files** | I want to find `y` in all files that contain `x`. | File contents, on disk, chained from a previous search |
+| **Search in Found Files** | I want to find `y` in all files that contain `x`. Then find `z` only in those. | File contents, on disk, chained from a previous search |
 | **File History** | What's the full history of this file? | Git log for an entire file, following renames |
-| **Diff Search** | When was `x` ever added or removed? | Git diff history across all commits `(pickaxe)` |
+| **Diff Search** | When was `x` ever added or removed? | Git diff history across all commits `(pickaxe)`. Surfaces a not widely known but extremely useful git feature. |
 | **Line / Function History** | What's the full history of this function or code block? | Git log for a specific line range or function name `(log -L)` |
 
 ![History options](./img/history-options.png)
@@ -374,11 +417,11 @@ Look under `freshfileexplorer.` to see all configurable settings.
 
 # Performance
 
-Unlike File explorer, which just needs the files on your disk, Fresh File explorer must load a part of your git history to work. This is done in one streaming pass on startup, after which the results are cached. The startup time is very close to `O(wait for git)`. Reloads need to happen when switching branches or syncing changes.
+Unlike File Explorer, which just needs the files on your disk, Fresh File Explorer must load part of your git history to work. This is done in one streaming pass on startup, after which the results are cached. For the view to become usable, you only wait as long as your configured time window takes to load. The remaining time windows keep loading in the background, so that by the time you need them, they are ready. Reloads happen when switching branches or syncing changes.
 
 ![incremental load](./img/incremental-load.gif)
 
-Not looking 5 years back in a large repo will go a long way in terms of performance. But you can.
+Not looking 5 years back in a large repo will go a long way in terms of performance. But you can. Also avoid configuring long time windows you never need - adds pointless startup overhead in the background.
 
 # Security
 
