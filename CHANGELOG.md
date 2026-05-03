@@ -31,6 +31,15 @@ See [docs/codestonks.md](docs/codestonks.md#activity-heatmap).
 
 Status bar entry showing repo discovery / file loading progress. Click to focus the tree.
 
+### File Explorer integration
+
+Several Fresh Files actions now also appear in the regular VS Code File Explorer right-click menu:
+
+- **File History**
+- **Reveal in Source Control View**
+- **Copy Remote URL**
+- **Copy Subtree Structure** — when invoked from a folder in the regular File Explorer, walks the full subtree and respects `.gitignore`. Inside the Fresh Files tree it scopes to fresh files only.
+
 
 ## [1.8.0]
 

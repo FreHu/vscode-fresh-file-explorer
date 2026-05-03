@@ -374,7 +374,7 @@ function registerCommands(
 
   // Git log -L
   register(Commands.GIT_LOG_L, () => handleGitLogL());
-  register(Commands.GIT_LOG_FILE, (item?: any) => handlegitLogFile(item));
+  register(Commands.GIT_LOG_FILE, handlegitLogFile);
 
   // Performance benchmark
   register(Commands.PERF_BENCHMARK, () =>
@@ -416,12 +416,12 @@ function registerCommands(
     handleCopyFilename(item, selectedItems),
   );
 
-  register(Commands.COPY_SUBTREE_STRUCTURE, (item: FreshFileItem) =>
-    handleCopySubtreeStructure(item, freshFileProvider),
+  register(Commands.COPY_SUBTREE_STRUCTURE, (arg: FreshFileItem | vscode.Uri) =>
+    handleCopySubtreeStructure(arg, freshFileProvider),
   );
 
-  register(Commands.COPY_REMOTE_URL, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
-    handleCopyRemoteUrl(item, selectedItems, freshFileProvider),
+  register(Commands.COPY_REMOTE_URL, (arg: FreshFileItem | vscode.Uri | undefined, rest?: FreshFileItem[] | vscode.Uri[]) =>
+    handleCopyRemoteUrl(arg, rest, freshFileProvider),
   );
 
   register(Commands.SET_REPO_PATHSPEC, (item: FreshFileItem) =>

@@ -115,11 +115,15 @@ export async function handleGitLogL(): Promise<void> {
  * Whole-file history: `git log --follow -p -- <file>`
  * Works from the tree view (FreshFileItem) or the active editor.
  */
-export async function handlegitLogFile(item?: FreshFileItem): Promise<void> {
+export async function handlegitLogFile(arg?: FreshFileItem | vscode.Uri): Promise<void> {
+  // Caller may be the FFE tree (FreshFileItem), the regular file explorer
+  // context menu (vscode.Uri), or the command palette (undefined → fall back
+  // to the active editor).
+  const argUri = arg instanceof vscode.Uri ? arg : arg?.resourceUri;
   let filePath: string | undefined;
 
-  if (item?.resourceUri?.scheme === "file") {
-    filePath = item.resourceUri.fsPath;
+  if (argUri?.scheme === "file") {
+    filePath = argUri.fsPath;
   } else {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.uri.scheme !== "file") {

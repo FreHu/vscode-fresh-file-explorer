@@ -195,7 +195,7 @@ Routine file operations (copy / cut / paste / rename / create / delete, and path
 - **Open / Open to Side** — opens either the file or its diff depending on `freshFileExplorer.defaultOpenChangesMode`. The file/diff icon in the view title toggles the default. 
 - If the file is already open somewhere, it gets focused instead of reopened. This is different from File Explorer, which will happily open a duplicate on the left side when your file is already open in an editor on the right.
 - **Copy Remote URL** — generates a browser link for the file at the current branch + path. Supports GitHub, GitLab, Bitbucket, and Azure DevOps (incl. SSH-style remotes and legacy `*.visualstudio.com`). Multi-select copies one URL per line.
-- **Copy Subtree Structure** — pastes the directory tree as text, **filtered to fresh files**. Choice of absolute / relative / filename labels. Respects your current time window, filters, and folder scope. Useful for chat, docs, and LLM prompts.
+- **Copy Subtree Structure** — pastes the directory tree as text. From the Fresh Files tree it's **filtered to fresh files**. From the regular File Explorer it lists the full subtree, respecting `.gitignore`. Choice of absolute / relative / filename labels. Useful for chat, docs, and LLM prompts.
 - **Compare Selected** (`Ctrl+Alt+C`) — diff any two files against each other. With 3+ files, choose between *all permutations* or *one vs. all others* in a multi-diff editor.
 - **Reveal Active File** — jump from the current editor to its node in Fresh Files. The reverse of "reveal in explorer". Pairs with the `freshFileExplorer.autoReveal` setting which does the same automatically on tab switch.
 - **Reveal in Explorer / Source Control** — bridges back to the standard views.

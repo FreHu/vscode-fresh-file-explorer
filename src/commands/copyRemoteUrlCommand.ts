@@ -136,14 +136,53 @@ export function buildRemoteFileUrl(
   }
 }
 
+/**
+ * Resolve the (possibly mixed) command arguments to a list of {uri, isDirectory}
+ * targets. Handles three call sites:
+ *  - FFE tree: (FreshFileItem, FreshFileItem[])
+ *  - Regular file explorer context menu: (Uri, Uri[])
+ *  - Command palette: (undefined, undefined) → returns []
+ */
+async function resolveTargets(
+  arg: FreshFileItem | vscode.Uri | undefined,
+  rest: FreshFileItem[] | vscode.Uri[] | undefined,
+): Promise<{ uri: vscode.Uri; isDirectory: boolean }[]> {
+  if (arg instanceof vscode.Uri) {
+    const uris: vscode.Uri[] =
+      Array.isArray(rest) && rest.length > 0 && rest[0] instanceof vscode.Uri
+        ? (rest as vscode.Uri[])
+        : [arg];
+    return Promise.all(
+      uris.map(async u => {
+        let isDirectory = false;
+        try {
+          const stat = await vscode.workspace.fs.stat(u);
+          isDirectory = (stat.type & vscode.FileType.Directory) !== 0;
+        } catch {
+          // Treat unreadable as a regular file; downstream git lookups will surface real errors.
+        }
+        return { uri: u, isDirectory };
+      }),
+    );
+  }
+
+  const items =
+    Array.isArray(rest) && rest.length > 0 && !(rest[0] instanceof vscode.Uri)
+      ? (rest as FreshFileItem[])
+      : arg
+        ? [arg as FreshFileItem]
+        : [];
+  return items
+    .filter(i => i?.resourceUri)
+    .map(i => ({ uri: i.resourceUri, isDirectory: i.isDirectory }));
+}
+
 export async function handleCopyRemoteUrl(
-  item: FreshFileItem,
-  selectedItems: FreshFileItem[] | undefined,
+  arg: FreshFileItem | vscode.Uri | undefined,
+  rest: FreshFileItem[] | vscode.Uri[] | undefined,
   freshFileProvider: FreshFileProvider,
 ): Promise<void> {
-  const allItems =
-    selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
-  const fileItems = allItems.filter(i => i?.resourceUri);
+  const fileItems = await resolveTargets(arg, rest);
   if (fileItems.length === 0) {
     return;
   }
@@ -152,7 +191,7 @@ export async function handleCopyRemoteUrl(
   const failed: string[] = [];
 
   for (const fileItem of fileItems) {
-    const filePath = asAbsolutePath(normalizePath(fileItem.resourceUri.fsPath));
+    const filePath = asAbsolutePath(normalizePath(fileItem.uri.fsPath));
     const folder = findWorkspaceFolderForPath(filePath, freshFileProvider.workspaceFolders);
     if (!folder) {
       log(`Copy Remote URL: could not find workspace folder for ${filePath}`, "warn");

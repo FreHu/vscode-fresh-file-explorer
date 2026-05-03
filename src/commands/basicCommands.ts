@@ -226,15 +226,19 @@ export function isPossibleToOpen(item: FreshFileItem) {
   return item && item.resourceUri && !item.isDirectory;
 }
 
-export function handleRevealInSourceControl(item: FreshFileItem, selectedItems?: FreshFileItem[]): void {
-  const target = item || selectedItems?.[0];
-  if (target && target.resourceUri) {
-    log(`Revealing in source control: ${target.resourceUri.fsPath}`);
-    // Focus the Source Control view and reveal the file
-    vscode.commands.executeCommand("workbench.view.scm");
-    // The git extension should highlight the file when SCM view opens with the file selected
-    vscode.commands.executeCommand("git.openFile", target.resourceUri);
+export function handleRevealInSourceControl(
+  arg?: FreshFileItem | vscode.Uri,
+  selectedItems?: FreshFileItem[],
+): void {
+  const targetUri = arg instanceof vscode.Uri
+    ? arg
+    : (arg ?? selectedItems?.[0])?.resourceUri;
+  if (!targetUri) {
+    return;
   }
+  log(`Revealing in source control: ${targetUri.fsPath}`);
+  vscode.commands.executeCommand("workbench.view.scm");
+  vscode.commands.executeCommand("git.openFile", targetUri);
 }
 
 export async function handleDeleteFile(

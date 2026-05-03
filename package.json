@@ -574,6 +574,26 @@
           "command": "freshFileExplorer.pinFile",
           "when": "!explorerResourceIsFolder",
           "group": "2_workspace@100"
+        },
+        {
+          "command": "freshFileExplorer.gitLogFile",
+          "when": "!explorerResourceIsFolder && resourceScheme == file && gitOpenRepositoryCount != 0",
+          "group": "z_freshfiles@1"
+        },
+        {
+          "command": "freshFileExplorer.revealInSourceControl",
+          "when": "!explorerResourceIsFolder && resourceScheme == file && gitOpenRepositoryCount != 0",
+          "group": "z_freshfiles@2"
+        },
+        {
+          "command": "freshFileExplorer.copyRemoteUrl",
+          "when": "resourceScheme == file && gitOpenRepositoryCount != 0",
+          "group": "z_freshfiles@3"
+        },
+        {
+          "command": "freshFileExplorer.copySubtreeStructure",
+          "when": "explorerResourceIsFolder && resourceScheme == file && gitOpenRepositoryCount != 0",
+          "group": "z_freshfiles@4"
         }
       ],
       "view/title": [
