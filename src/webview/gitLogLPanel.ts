@@ -1,7 +1,8 @@
 import type { CommitData, GitLogLToWebview, GitLogLFromWebview } from "./messages";
 import { renderAddedRemovedBars, renderYAxisFromRange, renderDateXAxis, type ChartPadding } from "./svgChartPrimitives";
 import { PanController } from "./panController";
-import { html, raw, positionTooltip } from "./webviewUtils";
+import { html, raw } from "../utils/templateHelpers";
+import { positionTooltip } from "./webviewUtils";
 
 const vscode = acquireVsCodeApi();
 

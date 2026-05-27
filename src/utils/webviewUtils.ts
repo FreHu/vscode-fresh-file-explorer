@@ -1,11 +1,10 @@
+import { randomBytes } from "crypto";
+
 /**
- * Generate a random nonce for Content Security Policy
+ * Generate a cryptographically random nonce for Content Security Policy.
+ * 16 bytes → 22-char base64 (no padding) — well over the 128-bit minimum
+ * the CSP spec recommends.
  */
 export function getNonce(): string {
-  let text = "";
-  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+  return randomBytes(16).toString("base64");
 }

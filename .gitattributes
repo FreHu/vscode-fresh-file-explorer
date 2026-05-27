@@ -1,0 +1,14 @@
+# Force LF line endings for all text content. This repo is developed on Windows
+# but tracked content stays normalized so cross-platform contributors and CI
+# don't see CRLF diff noise.
+* text=auto eol=lf
+
+# Common binary types — never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary

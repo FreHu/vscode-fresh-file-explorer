@@ -292,6 +292,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       CODE_TELESCOPE_INTEGRATION:      "none",
       DEFAULT_OPEN_CHANGES_MODE:       "none",
       AUTO_STAGE_RENAME:               "none",
+      BRANCH_COMPARE_WORKING_TREE_SIDE: "none",
+      BULK_ACTION_CONFIRM_THRESHOLD:    "none",
     };
 
     let action: RefreshAction = "none";
@@ -316,7 +318,15 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         log("Configuration changed: display setting — re-rendering tree");
         this.refreshTreeOnly();
         break;
-      // "none": no freshFileProvider action needed
+      case "none":
+        // No freshFileProvider-side action needed. Handled elsewhere or purely behavioural.
+        break;
+      default: {
+        // Exhaustiveness guard — `never` makes TypeScript fail compile if a
+        // new RefreshAction variant is added without a case here.
+        const _exhaustive: never = action;
+        throw new Error(`Unhandled RefreshAction: ${_exhaustive}`);
+      }
     }
   }
 
@@ -749,6 +759,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
   }
 
+  /** Current HEAD branch for the given normalized repo path, if known. */
+  getRepoBranch(normalizedRepoPath: NormalizedRepoPath): BranchName | undefined {
+    return this.repoBranches.get(normalizedRepoPath);
+  }
+
   getTreeItem(element: FreshFilesTreeItem): vscode.TreeItem {
     return element;
   }
@@ -969,8 +984,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         ? normalizePath(path.relative(repoFullPath, activeFolderScope))
         : undefined;
 
-      // Respect auto-expand depth setting for repository roots
-      const shouldExpand = ConfigService.getAutoExpandDepth() > 0 && fileCount > 0;
+      // Respect auto-expand depth setting for repository roots. We must commit
+      // to the expansion preference on the *first* render — VS Code's TreeView
+      // locks in collapsibleState by item id, so a "Collapsed during load,
+      // Expanded after" sequence leaves the repo permanently collapsed. During
+      // loading we expand under the assumption that data is coming.
+      const expectFiles = fileCount > 0 || isLoading || isLoadingHistorical;
+      const shouldExpand = ConfigService.getAutoExpandDepth() > 0 && expectFiles;
 
       const repoItem = FreshFileItem.forRepository(
         repoUri,
@@ -1040,15 +1060,29 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * @param focus Whether to move keyboard focus to the tree (true for manual command, false for auto-reveal).
    */
   async revealActiveFile(focus: boolean = false): Promise<void> {
-    if (!this.treeView || !this.dataLoaded) { return; }
-    // Skip auto-reveal when the view isn't visible
-    if (!focus && !this.treeView.visible) { return; }
     const uri = vscode.window.activeTextEditor?.document.uri;
-    if (!uri || uri.scheme !== "file") { return; }
+    if (!uri) { return; }
+    await this.revealFileByUri(uri, focus);
+  }
+
+  /**
+   * Reveal a specific file URI in the Fresh Files tree.
+   *
+   * Skips when the view isn't visible *and* the caller isn't asking for
+   * focus — auto-reveal shouldn't pop the view open uninvited. Explicit
+   * user invocations (focus=true) always reveal.
+   *
+   * Returns true if the reveal succeeded; false when the file isn't
+   * currently in the tree (filtered out, outside time window, deleted, etc.)
+   */
+  async revealFileByUri(uri: vscode.Uri, focus: boolean = false): Promise<boolean> {
+    if (!this.treeView || !this.dataLoaded) { return false; }
+    if (!focus && !this.treeView.visible) { return false; }
+    if (uri.scheme !== "file") { return false; }
 
     const normalizedPath = asAbsolutePath(normalizePath(uri.fsPath));
     const metadata = this._freshFiles.get(normalizedPath);
-    if (!metadata || metadata.isDeleted) { return; }
+    if (!metadata || metadata.isDeleted) { return false; }
 
     const item = FreshFileItem.forFile(
       uri,
@@ -1061,8 +1095,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     );
     try {
       await this.treeView.reveal(item, { select: true, focus, expand: true });
+      return true;
     } catch (e) {
-      log(`revealActiveFile: could not reveal ${uri.fsPath}: ${e}`, "warn");
+      log(`revealFileByUri: could not reveal ${uri.fsPath}: ${e}`, "warn");
+      return false;
     }
   }
 

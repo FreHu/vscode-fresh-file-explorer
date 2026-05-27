@@ -1,4 +1,4 @@
-import { html } from "./webviewUtils";
+import { html } from "../utils/templateHelpers";
 
 const vscode = acquireVsCodeApi();
 

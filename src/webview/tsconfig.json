@@ -5,6 +5,6 @@
     "types": ["vscode-webview", "node"],
     "noEmit": true
   },
-  "include": ["./**/*", "../benchmark/benchmark.ts"],
+  "include": ["./**/*", "../benchmark/benchmark.ts", "../utils/templateHelpers.ts"],
   "exclude": ["../../../node_modules"]
 }

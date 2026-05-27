@@ -9,6 +9,7 @@ import type { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import type { NormalizedRepoPath } from "../pathTypes";
 import type { StonksFromWebview, StonksRepoSeries, StonksRepoTicker, StonksTimeWindowOption, StonksToWebview } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 
 export class StonksPanel {
   private static currentPanel: StonksPanel | undefined;
@@ -38,7 +39,7 @@ export class StonksPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [extensionUri],
+        localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );
 
@@ -240,16 +241,7 @@ export class StonksPanel {
       .asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "media", "stonksPanel.js"))
       .toString();
     const codiconCssUri = webview
-      .asWebviewUri(
-        vscode.Uri.joinPath(
-          this._extensionUri,
-          "node_modules",
-          "@vscode",
-          "codicons",
-          "dist",
-          "codicon.css",
-        ),
-      )
+      .asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "media", "codicons", "codicon.css"))
       .toString();
     webview.html = getWebviewHtml(webview.cspSource, scriptUri, codiconCssUri);
   }

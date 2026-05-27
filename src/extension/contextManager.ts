@@ -47,4 +47,9 @@ export class ContextManager {
   static setDiffSearchHasResults(value: boolean): void {
     vscode.commands.executeCommand("setContext", "diffSearchResults.hasResults", value);
   }
+
+  /** Whether at least one branch-compare entry is active — drives the Branch Compare view welcome message. */
+  static setBranchCompareHasActiveComparison(value: boolean): void {
+    vscode.commands.executeCommand("setContext", "freshFileExplorer.branchCompare.hasActiveComparison", value);
+  }
 }

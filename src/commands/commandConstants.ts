@@ -121,4 +121,21 @@ export const Commands = {
 
   // Rename
   RENAME_FILE: "freshFileExplorer.renameFile",
+
+  // Branch compare view
+  BRANCH_COMPARE_OPEN: "freshFileExplorer.branchCompare.open",
+  BRANCH_COMPARE_OPEN_FILE: "freshFileExplorer.branchCompare.openFile",
+  BRANCH_COMPARE_OPEN_TO_SIDE: "freshFileExplorer.branchCompare.openToSide",
+  BRANCH_COMPARE_OPEN_AT_BASELINE: "freshFileExplorer.branchCompare.openAtBaseline",
+  BRANCH_COMPARE_REFRESH: "freshFileExplorer.branchCompare.refresh",
+  BRANCH_COMPARE_REFRESH_REPO: "freshFileExplorer.branchCompare.refreshRepo",
+  BRANCH_COMPARE_SET_BASELINE: "freshFileExplorer.branchCompare.setBaseline",
+  BRANCH_COMPARE_CLEAR_BASELINE: "freshFileExplorer.branchCompare.clearBaseline",
+  BRANCH_COMPARE_OPEN_ALL: "freshFileExplorer.branchCompare.openAll",
+  BRANCH_COMPARE_RESTORE_FROM_BASELINE: "freshFileExplorer.branchCompare.restoreFromBaseline",
+  BRANCH_COMPARE_COPY_SUBTREE_STRUCTURE: "freshFileExplorer.branchCompare.copySubtreeStructure",
+  BRANCH_COMPARE_REVEAL_IN_FRESH_FILES: "freshFileExplorer.branchCompare.revealInFreshFiles",
+  BRANCH_COMPARE_SET_GROUPING_MODE: "freshFileExplorer.branchCompare.setGroupingMode",
+  BRANCH_COMPARE_OPEN_SETTINGS: "freshFileExplorer.branchCompare.openSettings",
+  BRANCH_COMPARE_TOGGLE_ACTIVE: "freshFileExplorer.branchCompare.toggleActive",
 } as const;

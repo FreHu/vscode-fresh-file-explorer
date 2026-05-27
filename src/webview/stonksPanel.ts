@@ -7,7 +7,8 @@ import {
   renderYAxisFromRange as _renderYAxisFromRange,
 } from "./svgChartPrimitives";
 import { PanController } from "./panController";
-import { html, positionTooltip } from "./webviewUtils";
+import { html } from "../utils/templateHelpers";
+import { positionTooltip } from "./webviewUtils";
 import { aggregateStonksData as aggregateData, bucketKey } from "./stonksBucketing";
 
 const vscode = acquireVsCodeApi();

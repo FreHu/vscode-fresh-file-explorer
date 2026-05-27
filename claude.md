@@ -46,6 +46,21 @@ Adding or changing a context menu item requires **both**:
 
 Missing either side will silently not work. Valid context values can be found in `treeItemConstants.ts`.
 
+## Tree View — `collapsibleState` is sticky
+
+VS Code's `TreeView` locks in a tree item's `collapsibleState` on the **first render** it sees for a given `id`. Subsequent refreshes that return an item with the same `id` but a different state are silently ignored — the item keeps whatever state it had on first appearance.
+
+This bites async-loaded trees: if an item is rendered as `Collapsed` (or worse, `None`) while data is loading, then "fixed" to `Expanded` after data arrives, the tree stays collapsed forever — until a manual refresh that happens to skip the loading phase.
+
+**Rule:** the *first* time an item id appears, its `collapsibleState` must already match what you eventually want. Avoid rendering placeholder loading states with the same id as the loaded version. Either:
+- Render the loading state with the same `collapsibleState` you'd use post-load (e.g. expand the repo even while empty/loading — children populate later)
+- Use a different `id` for loading vs loaded variants
+- Suppress the placeholder entirely until data is ready
+
+Examples in this codebase:
+- [`FreshFileItem.forRepository`](src/fresh-files/freshFileTreeItems.ts) honors the `expanded` arg even when `isLoading` / `isLoadingHistorical` — without this, `autoExpandDepth` only "took effect" on manual refresh.
+- [`RepoSectionItem`](src/branch-compare/branchCompareTreeItems.ts) never uses `None` — sections always render at least a "Loading…" / "No changes" message child, so the state is always meaningful.
+
 ## Keybindings
 
 When a command is triggered via keybinding, `item` and `selectedItems` arguments are **undefined** — VS Code does not pass tree item context. Commands must fall back to `treeView.selection` to get the selected items. Pass the relevant `TreeView` references into the handler (see `handleDeleteFile`, `handleCopyFile`, `handleCompareSelected` for examples). For commands bound in multiple views (e.g. fresh files + pinned items), pass all tree views and use the first one with a non-empty selection — this gives you the focused view's selection, not a cross-view merge.

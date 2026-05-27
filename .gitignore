@@ -8,4 +8,9 @@ node_modules
 coverage
 .vscode
 
+.codegraph
+
 settings.local.json
+
+# None of your business
+personal

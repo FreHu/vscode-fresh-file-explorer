@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 
 import {
-  getMergeBase,
   getCommitSHAsInRange,
   getAvailableBranches,
   getBranchFileDeletedHunks,
@@ -25,6 +24,7 @@ import { FeatureStatusBar } from "../ui/featureStatusBar";
 import { hexToRgba } from "../utils/colorUtils";
 import { gitUri } from "../git/gitOperations";
 import { openDiffWithoutDuplicating } from "../utils";
+import { BaselineService } from "../baseline/baselineService";
 
 /** Which mode is active for a given editor file. */
 export type BlameHeatmapMode = "absolute" | "branch";
@@ -140,8 +140,6 @@ export class BlameHeatmapController implements vscode.Disposable {
 
   /** Last mode successfully applied — used for auto-apply on new tabs. Persisted across restarts. */
   private lastUsedMode: BlameHeatmapMode | undefined;
-  /** Last branch ref chosen per repo (normalized repo root → ref). Persisted across restarts. */
-  private readonly lastUsedBaseRefByRepo: Map<string, string>;
 
   private readonly subscriptions: vscode.Disposable[] = [];
   private readonly reapplyTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -152,15 +150,10 @@ export class BlameHeatmapController implements vscode.Disposable {
   private readonly statusBarNewFiles = new Set<string>();
   /** fsPath set for files whose heatmap is currently being computed (drives the spinner state). */
   private readonly loadingFsPaths = new Set<string>();
-  /**
-   * Cached `(repo, baseRef) → merge-base SHA` lookups, keyed first by normalized
-   * repo path then by ref name. We cache the **Promise** so concurrent callers
-   * for the same key share one in-flight git call. Invalidated on every git
-   * state change for the repo (handleRepoChange in `connectGitApi`).
-   */
-  private readonly mergeBaseCache = new Map<string, Map<string, Promise<string>>>();
-
-  constructor(private readonly freshFileProvider: FreshFileProvider) {
+  constructor(
+    private readonly freshFileProvider: FreshFileProvider,
+    private readonly baselineService: BaselineService,
+  ) {
     const built = this.buildDecorationTypes();
     this.decorationTypes = built.decorationTypes;
     this.addedDecorationTypes = built.addedDecorationTypes;
@@ -171,17 +164,25 @@ export class BlameHeatmapController implements vscode.Disposable {
       command: Commands.BLAME_HEATMAP_PICKER,
     });
 
-    // Restore last-used mode and refs so auto-apply works immediately after a restart.
+    // Restore last-used mode so auto-apply works immediately after a restart.
+    // Baseline refs are owned by `baselineService` and read on demand.
     this.lastUsedMode = WorkspaceStateManager.getBlameHeatmapMode();
-    this.lastUsedBaseRefByRepo = new Map(Object.entries(WorkspaceStateManager.getBlameHeatmapBaseRefs()));
 
     // Re-apply cached decorations whenever an editor becomes visible again.
-    // Skip diff editors — their gutter is already busy showing change indicators.
+    // Two cases per editor:
+    //  1) It's now in a diff — explicitly clear any decorations that may have
+    //     leaked through from a prior regular tab. VS Code can hand back the
+    //     same `TextEditor` instance when a `file://` URI gets promoted to a
+    //     diff side, so the old markers can persist if we don't wipe them.
+    //  2) It's a plain editor — reapply from cache (the normal restore-on-show).
     this.subscriptions.push(
       vscode.window.onDidChangeVisibleTextEditors(editors => {
         for (const editor of editors) {
           if (editor.document.uri.scheme !== "file") { continue; }
-          if (isEditorInDiff(editor)) { continue; }
+          if (isEditorInDiff(editor)) {
+            this.clearEditorDecorations(editor);
+            continue;
+          }
           const cached = this.decorationCache.get(editor.document.uri.fsPath);
           if (cached) {
             this.applyCache(editor, cached);
@@ -307,8 +308,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     if (this.lastUsedMode === "branch") {
       const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, fsPath);
       if (!repoResult) return;
-      const repoKey = normalizePath(repoResult.repoFullPath);
-      if (!this.lastUsedBaseRefByRepo.has(repoKey)) return;
+      if (!this.baselineService.getBaseRef(repoResult.repoFullPath)) return;
     }
 
     await this.applyToEditor(editor, this.lastUsedMode);
@@ -353,8 +353,11 @@ export class BlameHeatmapController implements vscode.Disposable {
     const built = this.buildDecorationTypes();
     this.decorationTypes = built.decorationTypes;
     this.addedDecorationTypes = built.addedDecorationTypes;
-    // Re-apply from cache so active heatmaps update immediately.
+    // Re-apply from cache so active heatmaps update immediately. Skip diff
+    // editors — their side is the wrong baseline to layer heatmap markers on
+    // and the deletions could mislead about which ref the markers came from.
     for (const editor of vscode.window.visibleTextEditors) {
+      if (isEditorInDiff(editor)) { continue; }
       const cached = this.decorationCache.get(editor.document.uri.fsPath);
       if (cached) {
         this.applyCache(editor, cached);
@@ -402,10 +405,7 @@ export class BlameHeatmapController implements vscode.Disposable {
   clearSavedBaseRef(editor: vscode.TextEditor): void {
     const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, editor.document.uri.fsPath);
     if (!repoResult) { return; }
-    const repoKey = normalizePath(repoResult.repoFullPath);
-    this.lastUsedBaseRefByRepo.delete(repoKey);
-    WorkspaceStateManager.clearBlameHeatmapBaseRef(repoKey);
-    this.invalidateMergeBaseCache(repoResult.repoFullPath);
+    this.baselineService.clearBaseRef(repoResult.repoFullPath);
     this.updateMenuContext(editor);
     this.updateStatusBar(editor);
   }
@@ -541,11 +541,10 @@ export class BlameHeatmapController implements vscode.Disposable {
     // ref was already resolved (auto-apply or re-toggle with same ref).
     let baseRef: string | undefined;
     if (mode === "branch") {
-      const repoKey = normalizePath(repoResult.repoFullPath);
       if (options.baseRef) {
         baseRef = options.baseRef;
       } else if (!options.forcePickRef) {
-        baseRef = this.lastUsedBaseRefByRepo.get(repoKey);
+        baseRef = this.baselineService.getBaseRef(repoResult.repoFullPath);
       }
       if (!baseRef) {
         baseRef = await this.pickBaseRef(repoResult.repoFullPath);
@@ -630,7 +629,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       // baseRef is guaranteed non-null here (checked above after the quick pick).
       let mergeBaseSha: string;
       try {
-        mergeBaseSha = await this.getCachedMergeBase(repoResult.repoFullPath, baseRef!);
+        mergeBaseSha = await this.baselineService.getMergeBase(repoResult.repoFullPath, baseRef!);
       } catch (err) {
         showInfo(
           `Branch blame heatmap: could not find a common ancestor with ${baseRef}.`,
@@ -784,9 +783,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     this.lastUsedMode = mode;
     WorkspaceStateManager.setBlameHeatmapMode(mode);
     if (mode === "branch") {
-      const repoKey = normalizePath(repoResult.repoFullPath);
-      this.lastUsedBaseRefByRepo.set(repoKey, baseRef!);
-      WorkspaceStateManager.setBlameHeatmapBaseRef(repoKey, baseRef!);
+      this.baselineService.setBaseRef(repoResult.repoFullPath, baseRef!);
     }
     log(
       isAllNewFile
@@ -803,30 +800,6 @@ export class BlameHeatmapController implements vscode.Disposable {
   }
 
   /**
-   * Memoized `getMergeBase(HEAD, baseRef)` for a repo. Subsequent calls during a
-   * stable git state are free; an entry rejected by git is evicted so a retry
-   * doesn't get permanently stuck on a transient error.
-   */
-  private getCachedMergeBase(repoFullPath: string, baseRef: string): Promise<string> {
-    const repoKey = normalizePath(repoFullPath);
-    let inner = this.mergeBaseCache.get(repoKey);
-    if (!inner) {
-      inner = new Map();
-      this.mergeBaseCache.set(repoKey, inner);
-    }
-    const cached = inner.get(baseRef);
-    if (cached) { return cached; }
-    const promise = getMergeBase(repoFullPath, "HEAD", baseRef);
-    inner.set(baseRef, promise);
-    promise.catch(() => { inner!.delete(baseRef); });
-    return promise;
-  }
-
-  private invalidateMergeBaseCache(repoFullPath: string): void {
-    this.mergeBaseCache.delete(normalizePath(repoFullPath));
-  }
-
-  /**
    * Resolve the saved baseline ref for the editor's containing repo, if any.
    * Returns undefined when the editor isn't on a real file or the file isn't
    * inside a known git repo.
@@ -836,7 +809,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     if (!uri || uri.scheme !== "file") { return undefined; }
     const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, uri.fsPath);
     if (!repoResult) { return undefined; }
-    return this.lastUsedBaseRefByRepo.get(normalizePath(repoResult.repoFullPath));
+    return this.baselineService.getBaseRef(repoResult.repoFullPath);
   }
 
   /**
@@ -910,8 +883,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       });
     } else {
       const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, fsPath);
-      const repoKey = repoResult ? normalizePath(repoResult.repoFullPath) : undefined;
-      const ref = (repoKey && this.lastUsedBaseRefByRepo.get(repoKey)) ?? "branch";
+      const ref = (repoResult && this.baselineService.getBaseRef(repoResult.repoFullPath)) ?? "branch";
       if (this.statusBarNewFiles.has(fsPath)) {
         this.statusBar.update({
           kind: "new-file",
@@ -942,10 +914,8 @@ export class BlameHeatmapController implements vscode.Disposable {
 
     const handleRepoChange = async (repo: GitRepository) => {
       const key = normalizePath(repo.rootUri.fsPath);
-      // Any repo state change can shift the merge-base (HEAD moved, branch tip
-      // moved via fetch/pull, etc.) — drop the cached values so the next caller
-      // recomputes. Cheap: the cache is at most a few entries per repo.
-      this.invalidateMergeBaseCache(repo.rootUri.fsPath);
+      // Merge-base cache invalidation is handled by `baselineService.connectGitApi`
+      // — every consumer subscribed to onDidChange picks it up there.
 
       const newBranch = repo.state.HEAD?.name;
       const prevBranch = prevBranchByRepo.get(key);
@@ -953,14 +923,13 @@ export class BlameHeatmapController implements vscode.Disposable {
 
       if (prevBranch === undefined || newBranch === undefined || prevBranch === newBranch) return;
       if (this.lastUsedMode !== "branch") return;
-      const repoBaseRef = this.lastUsedBaseRefByRepo.get(key);
+      const repoBaseRef = this.baselineService.getBaseRef(repo.rootUri.fsPath);
       if (!repoBaseRef) return;
       // Only flip when the user switches TO the branch they were comparing against.
       if (newBranch !== repoBaseRef) return;
 
       const newBaseRef = prevBranch;
-      this.lastUsedBaseRefByRepo.set(key, newBaseRef);
-      WorkspaceStateManager.setBlameHeatmapBaseRef(key, newBaseRef);
+      this.baselineService.setBaseRef(repo.rootUri.fsPath, newBaseRef);
       this.updateMenuContext(vscode.window.activeTextEditor);
 
       // Re-apply to all visible editors in this repo that are in branch mode.
@@ -1011,19 +980,17 @@ export class BlameHeatmapController implements vscode.Disposable {
       return;
     }
 
-    const repoKey = normalizePath(repoResult.repoFullPath);
-    let baseRef = this.lastUsedBaseRefByRepo.get(repoKey);
+    let baseRef = this.baselineService.getBaseRef(repoResult.repoFullPath);
     if (!baseRef) {
       baseRef = await this.pickBaseRef(repoResult.repoFullPath);
       if (!baseRef) { return; } // user cancelled the picker
-      this.lastUsedBaseRefByRepo.set(repoKey, baseRef);
-      WorkspaceStateManager.setBlameHeatmapBaseRef(repoKey, baseRef);
+      this.baselineService.setBaseRef(repoResult.repoFullPath, baseRef);
       this.updateMenuContext(editor);
     }
 
     let mergeBaseSha: string;
     try {
-      mergeBaseSha = await this.getCachedMergeBase(repoResult.repoFullPath, baseRef);
+      mergeBaseSha = await this.baselineService.getMergeBase(repoResult.repoFullPath, baseRef);
     } catch (err) {
       showInfo(
         `Could not find a common ancestor with ${baseRef}.`,
@@ -1076,10 +1043,30 @@ export class BlameHeatmapController implements vscode.Disposable {
    * The gutter right-click menu uses this to gate visibility of the
    * "Copy / Restore deleted lines" entries via `editorLineNumber in <key>`.
    */
+  /**
+   * Wipe every heatmap decoration from a specific editor instance without
+   * disposing the decoration types (other editors with the same `fsPath`
+   * keep their markers). Used when a `file://` editor gets reused as the
+   * working-tree side of a diff and we need to scrub leftover markers.
+   */
+  private clearEditorDecorations(editor: vscode.TextEditor): void {
+    for (const dt of this.decorationTypes) { editor.setDecorations(dt, []); }
+    for (const dt of this.addedDecorationTypes) { editor.setDecorations(dt, []); }
+    const cached = this.decorationCache.get(editor.document.uri.fsPath);
+    if (cached) {
+      for (const d of cached.deletions) { editor.setDecorations(d.type, []); }
+    }
+  }
+
   private updateDeletionLinesContext(editor: vscode.TextEditor | undefined): void {
     let lines: number[] = [];
-    const fsPath = editor?.document.uri.fsPath;
-    if (fsPath) {
+    // Gate the gutter menu items: when the active editor is part of a diff,
+    // the cached deletions came from the blame-heatmap baseline — which may
+    // be a different ref than whatever the diff editor is actually showing.
+    // "Restore from baseline" there would silently resurrect lines from the
+    // wrong ref. Hide the affordance instead of risking that.
+    if (editor && !isEditorInDiff(editor)) {
+      const fsPath = editor.document.uri.fsPath;
       const cached = this.decorationCache.get(fsPath);
       if (cached) {
         // Decoration ranges are 0-based; the menu's `editorLineNumber` key is 1-based.
@@ -1117,6 +1104,12 @@ export class BlameHeatmapController implements vscode.Disposable {
    * and restore it. Invoked by the gutter right-click menu.
    */
   async restoreDeletionAt(uri: vscode.Uri, lineNumber1Based: number): Promise<void> {
+    // Belt-and-suspenders: the context-key gate already hides the menu in
+    // diff editors, but a keybinding or palette invocation could still reach
+    // here. Refuse so the user can't accidentally restore lines from the
+    // heatmap baseline while looking at a diff against a different ref.
+    const active = vscode.window.activeTextEditor;
+    if (active && isEditorInDiff(active)) { return; }
     const deletion = this.findDeletionAt(uri.fsPath, lineNumber1Based);
     if (!deletion) { return; }
     await this.applyRestoreEdit(uri, lineNumber1Based - 1, deletion.lines);
@@ -1128,6 +1121,8 @@ export class BlameHeatmapController implements vscode.Disposable {
    * (well, it doesn't here since we don't dismiss; we just copy).
    */
   async copyDeletionAt(uri: vscode.Uri, lineNumber1Based: number): Promise<void> {
+    const active = vscode.window.activeTextEditor;
+    if (active && isEditorInDiff(active)) { return; }
     const deletion = this.findDeletionAt(uri.fsPath, lineNumber1Based);
     if (!deletion) { return; }
     await vscode.env.clipboard.writeText(deletion.lines.join("\n"));

@@ -146,6 +146,14 @@ export class ConfigService {
     );
   }
 
+  static setHeatmapEnabled(value: boolean): Thenable<void> {
+    return vscode.workspace.getConfiguration().update(
+      ConfigKeys.HEATMAP_ENABLED,
+      value,
+      vscode.ConfigurationTarget.Global,
+    );
+  }
+
   static getBlameHeatmapBackgroundOpacity(): number {
     return vscode.workspace.getConfiguration().get<number>(ConfigKeys.BLAME_HEATMAP_BG_OPACITY, 0.15);
   }
@@ -220,6 +228,29 @@ export class ConfigService {
    */
   static getAutoStageRename(): boolean {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.AUTO_STAGE_RENAME, true);
+  }
+
+  /**
+   * Get which side of the diff editor the working tree appears on for the
+   * Branch Compare view. Default `"right"` matches VS Code's git Open Changes
+   * convention (baseline left, current right).
+   */
+  static getBranchCompareWorkingTreeSide(): "left" | "right" {
+    return vscode.workspace.getConfiguration().get<"left" | "right">(
+      ConfigKeys.BRANCH_COMPARE_WORKING_TREE_SIDE,
+      "right",
+    );
+  }
+
+  /**
+   * File-count threshold above which bulk actions (Open All Changes, Open All
+   * Found Files, etc.) prompt for confirmation.
+   */
+  static getBulkActionConfirmThreshold(): number {
+    return vscode.workspace.getConfiguration().get<number>(
+      ConfigKeys.BULK_ACTION_CONFIRM_THRESHOLD,
+      15,
+    );
   }
 
 }

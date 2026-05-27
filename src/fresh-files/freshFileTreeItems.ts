@@ -90,15 +90,20 @@ constructor(
     folderScope?: string,
     isLoadingHistorical: boolean = false,
   ): FreshFileItem {
-    const collapsibleState = isLoading
-      ? vscode.TreeItemCollapsibleState.Collapsed
+    // VS Code's TreeView locks in the *initial* collapsibleState the first time
+    // an item id is shown. Any later change to collapsibleState on the same id
+    // is silently ignored — the item keeps its first-seen state. So we have to
+    // honor the user's `expanded` preference from the very first render, even
+    // while loading.
+    const collapsibleState = isLoading || isLoadingHistorical
+      ? expanded
+        ? vscode.TreeItemCollapsibleState.Expanded
+        : vscode.TreeItemCollapsibleState.Collapsed
       : fileCount > 0
         ? expanded
           ? vscode.TreeItemCollapsibleState.Expanded
           : vscode.TreeItemCollapsibleState.Collapsed
-        : isLoadingHistorical
-          ? vscode.TreeItemCollapsibleState.Expanded  // Auto-expand to show history spinner
-          : vscode.TreeItemCollapsibleState.None;
+        : vscode.TreeItemCollapsibleState.None;
 
     const item = new FreshFileItem(
       uri,

@@ -1,5 +1,55 @@
 # Change Log
 
+## [1.10.0]
+
+### Branch Compare
+
+A new tree view that surfaces saved branch-to-branch comparisons. Each row is one `source..target` ref pair.
+
+| Settings panel | Tree view |
+|---|---|
+| ![branch compare settings](./img/branch-comparison-settings.png) | ![branch compare view](./img/branch-comparison-view.png) |
+
+#### How it works
+
+- Open the settings panel via the gear icon in the view title.
+- Add a comparison: pick a repo, type a **source** ref (the branch with the work) and a **target** ref (the baseline you compare against).
+- Click any file in the tree → opens a diff between the comparison's baseline (the merge-base) and the source ref.
+- Right-click a deleted file → **Restore from Baseline** writes the baseline content back into the working tree as an unstaged change.
+- Right-click a section or folder → **Open All Changes** queues every diff in the background.
+
+#### What goes in source/target
+
+- **Branches and tags** — `main`, `origin/release-q4`, `v1.2.0`. Autocomplete lists what's available.
+- **`HEAD` as source** — tracks your current branch dynamically. Only HEAD-source comparisons include working-tree changes; uncommitted files appear with a `•` marker.
+- **`HEAD~N` as target** — quick "what did I change in my last N commits" view.
+- **Any git-resolvable ref** — commit SHAs, `origin/main^`, etc. The green check next to the input confirms the ref resolves.
+
+#### Multiple comparisons
+
+Define `vs main`, `vs release-q4`, and `vs colleague-branch` simultaneously — each gets its own section in the tree. Reorder with the up/down arrows or the drag handle in the settings panel; tree order mirrors the panel.
+
+#### Heatmap settings also live here
+
+Star one HEAD-source comparison per repo to mark it as the blame heatmap's baseline. The heatmap then colors lines that changed between that comparison's target and HEAD.
+
+The same panel hosts the blame heatmap on/off toggle, the auto-apply-on-open switch, and the Age vs Branch mode selector — replacing the old `settings.json` round-trip.
+
+#### Tips/gotchas
+
+- **Empty diff** — if source is an ancestor of target, the diff is empty.
+- **Merge commits** — when a `HEAD~N..HEAD` comparison sweeps in unexpected commits via merges, the tooltip surfaces both counts so the number of files in the tree makes sense.
+- **Invalid refs** are hidden from the tree. The red X next to the input in the settings panel is the source of truth.
+- **Duplicates** (same repo + source + target) are deduped in the tree and flagged with a warning in the settings panel.
+
+## Other
+
+- Fix: blame heatmap markers should no longer leak into diff editors
+- More attempts to make the readme not a wall of text
+
+## Notes
+- More additions are to be expected in future versions regarding blame, comparisons and heatmaps. Some extensions arguably still do some things better, but I wanted to focus on doing something original rather than rip them off. The baseline comparison mode is as far as I know genuinely unique, and my branch comparison settings are quite powerful and easy to set up compared to others'.
+
 ## [1.9.0]
 
 ### Blame Heatmap

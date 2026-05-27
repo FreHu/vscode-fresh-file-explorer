@@ -1,17 +1,31 @@
 # Fresh File Explorer
 
-Navigate and visualize recent changes — plus the features you were hoping for in the VS Code release notes.
+**Git-aware navigation for VS Code:** a tree of recent changes, a branch-relative blame heatmap, branch compare, pickaxe diff search, and a resurrect-deleted-files button.
+
+GitLens companion or lean alternative. No telemetry. No AI buttons.
+
+[![Install from VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-007ACC?style=for-the-badge&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer)
+[![Open VSX](https://img.shields.io/open-vsx/dt/frehu/fresh-file-explorer?style=for-the-badge&label=Open%20VSX&color=A60EE5)](https://open-vsx.org/extension/frehu/fresh-file-explorer)
 
 ![time-window-switch](img/time-window-switch.gif)
 
-A focused tree view that shows what's been touched recently - switchable between pending work and configurable time windows. Built for the moment when File Explorer shows too much and Source Control shows too little.
+**Testimonials**
 
-| Question it answers | Feature |
+> *"I especially like the heatmap, makes it very easy to immediately figure out what is actively being worked on, even in the regular file explorer view."* — HN user helle253
+>
+
+> *"Nice and innovative which I love to see on an IDE feature, innovation. Boom."* - HN user cbxyp
+
+> *Two days within my HN post, [Matt Sephton](https://github.com/gingerbeardman) built a [port to the Nova editor](https://extensions.panic.com/extensions/com.gingerbeardman/com.gingerbeardman.FreshFiles/) ([blog post](https://blog.gingerbeardman.com/2026/02/24/fresh-files-extension-for-nova-editor/)).*
+
+## What it answers
+
+| You ask | It does |
 |---|---|
-| What's been touched recently? | [Time-window based File Explorer](#time-window-based-file-explorer) |
-| Where's that file I deleted? | [Deleted files inline](#deleted-file-support) |
-| What did this branch actually change? | [Blame Heatmap - Baseline mode](#heatmap-coloring) |
-| When was `x` ever added or removed? | [Diff Search (pickaxe)](#diff-search) |
+| What's been touched recently? | [Time-window file tree](#time-window-based-file-explorer) |
+| What did *this branch* actually change? | [Blame heatmap — baseline mode](#heatmap-coloring) + Branch Compare |
+| Where's the file I deleted? | [Deleted files inline](#deleted-file-support) — one-click resurrect |
+| When was `x` added or removed across history? | [Diff search (pickaxe)](#diff-search-pickaxe) |
 | Find `b` only in files containing `a`? | [Chained search](#search-in-found-files) |
 | Share a permalink to this file? | [Copy Remote URL](#context-menu-actions) |
 | I can't read? | [CodeStonks Charts](#codestonks) |
@@ -19,47 +33,6 @@ A focused tree view that shows what's been touched recently - switchable between
 # Links
 
 [Marketplace](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer) | [OpenVSX](https://open-vsx.org/extension/frehu/fresh-file-explorer) | [Github](https://github.com/FreHu/vscode-fresh-file-explorer) | [Caveman Readme](README.caveman.md)
-# Table of Contents
-
-- [Fresh File Explorer](#fresh-file-explorer)
-- [Links](#links)
-- [Table of Contents](#table-of-contents)
-- [Features](#features)
-  - [Time Window based File Explorer](#time-window-based-file-explorer)
-    - [Deleted File Support](#deleted-file-support)
-    - [Heatmap Coloring](#heatmap-coloring)
-    - [Pinned section](#pinned-section)
-    - [Sync Status Notifications](#sync-status-notifications)
-    - [Filtering](#filtering)
-    - [Grouping Modes](#grouping-modes)
-    - [Quick Open](#quick-open)
-    - [Context Menu Actions](#context-menu-actions)
-    - [Multi-Repository Support](#multi-repository-support)
-    - [CodeStonks](#codestonks)
-  - [Search Tools](#search-tools)
-    - [Diff Search (pickaxe)](#diff-search-pickaxe)
-    - [Line and Function History](#line-and-function-history)
-    - [File History](#file-history)
-    - [Search in Fresh Files](#search-in-fresh-files)
-      - [Code Telescope quick pick](#code-telescope-quick-pick)
-    - [Search in Found Files](#search-in-found-files)
-    - [Search Editor Actions](#search-editor-actions)
-- [Use Cases](#use-cases)
-  - ["I just cloned a large repo and don't know where to start"](#i-just-cloned-a-large-repo-and-dont-know-where-to-start)
-  - ["I swear this file was here at some point"](#i-swear-this-file-was-here-at-some-point)
-  - ["I accidentally deleted some files and need them back"](#i-accidentally-deleted-some-files-and-need-them-back)
-  - ["I made a commit and now I've lost track of what I was working on"](#i-made-a-commit-and-now-ive-lost-track-of-what-i-was-working-on)
-  - ["I was using Fresh File Explorer and it was going great, but then someone reformatted the entire codebase and now all the files are fresh"](#i-was-using-fresh-file-explorer-and-it-was-going-great-but-then-someone-reformatted-the-entire-codebase-and-now-all-the-files-are-fresh)
-  - ["Cool extension but I was looking for a todo list app"](#cool-extension-but-i-was-looking-for-a-todo-list-app)
-  - [| Fresh File Explorer | Is *also* a todo list | Low - Can't miss it |](#-fresh-file-explorer--is-also-a-todo-list--low---cant-miss-it-)
-  - ["Cool extension but can it group my files by moon phase"](#cool-extension-but-can-it-group-my-files-by-moon-phase)
-- [Extension Settings](#extension-settings)
-- [Performance](#performance)
-- [Security](#security)
-- [Contributing](#contributing)
-- [Comparison with GitLens](#comparison-with-gitlens)
-- [Testimonials](#testimonials)
-
 # Features 
 ## Time Window based File Explorer
 
@@ -241,6 +214,48 @@ For full details see the [CodeStonks docs](docs/codestonks.md). The same documen
 - **X-axis mode** — per-commit or bucketed per day/week/month
 - **Compare repos** — overlay multiple repos' file count lines for side-by-side comparison
 - **Export SVG** — save the current chart
+
+---
+
+## Branch Compare
+
+A new tree view that surfaces saved branch-to-branch comparisons. Each row is one `source..target` ref pair.
+
+| Settings panel | Tree view |
+|---|---|
+| ![branch compare settings](./img/branch-comparison-settings.png) | ![branch compare view](./img/branch-comparison-view.png) |
+
+### How it works
+
+- Open the settings panel via the gear icon in the view title.
+- Add a comparison: pick a repo, type a **source** ref (the branch with the work) and a **target** ref (the baseline you compare against).
+- Click any file in the tree → opens a diff between the comparison's baseline (the merge-base) and the source ref.
+- Right-click a deleted file → **Restore from Baseline** writes the baseline content back into the working tree as an unstaged change.
+- Right-click a section or folder → **Open All Changes** queues every diff in the background.
+
+### What goes in source/target
+
+- **Branches and tags** — `main`, `origin/release-q4`, `v1.2.0`. Autocomplete lists what's available.
+- **`HEAD` as source** — tracks your current branch dynamically. Only HEAD-source comparisons include working-tree changes; uncommitted files appear with a `•` marker.
+- **`HEAD~N` as target** — quick "what did I change in my last N commits" view.
+- **Any git-resolvable ref** — commit SHAs, `origin/main^`, etc. The green check next to the input confirms the ref resolves.
+
+### Multiple comparisons
+
+Define `vs main`, `vs release-q4`, and `vs colleague-branch` simultaneously — each gets its own section in the tree. Reorder with the up/down arrows or the drag handle in the settings panel; tree order mirrors the panel.
+
+### Heatmap settings also live here
+
+Star one HEAD-source comparison per repo to mark it as the blame heatmap's baseline. The heatmap then colors lines that changed between that comparison's target and HEAD.
+
+The same panel hosts the blame heatmap on/off toggle, the auto-apply-on-open switch, and the Age vs Branch mode selector — replacing the old `settings.json` round-trip.
+
+### Tips/gotchas
+
+- **Empty diff** — if source is an ancestor of target, the diff is empty.
+- **Merge commits** — when a `HEAD~N..HEAD` comparison sweeps in unexpected commits via merges, the tooltip surfaces both counts so the number of files in the tree makes sense.
+- **Invalid refs** are hidden from the tree. The red X next to the input in the settings panel is the source of truth.
+- **Duplicates** (same repo + source + target) are deduped in the tree and flagged with a warning in the settings panel.
 
 ---
 
@@ -466,9 +481,3 @@ Fresh File Explorer is **not** a GitLens replacement. It's a more focused, opini
 ![gitlens views](img/gitlens-views.png)
 
 Because one of those 25 is actually very similar to Fresh File Explorer, some more comparison can be found [here](./COMPARISON_WITH_GITLENS.md).
-
-# Testimonials
-
-> This is **above average** for a VS Code extension.
->
-> _(a chatbot instructed to pretend to be Linus Torvalds)_

@@ -6,6 +6,8 @@ import { getWebviewHtml } from "./perfBenchmarkPanelUI";
 import { Benchmark, BenchmarkInputValues } from "../benchmark/benchmark";
 import { RepoInfo } from "../git/gitOperations";
 import { CacheRepoStats } from "../fresh-files/freshFileProvider";
+import { createBranchCompareRefreshBenchmark } from "../branch-compare/branchCompareRefreshBenchmark";
+import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 
 /**
  * Expands multi-value params (comma-separated strings) into a flat list of
@@ -69,7 +71,7 @@ export class PerfBenchmarkPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [extensionUri],
+        localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );
 
@@ -100,7 +102,7 @@ export class PerfBenchmarkPanel {
 
   private async _initialize() {
     this._benchmarks = [
-      // Add Benchmark instances here.
+      createBranchCompareRefreshBenchmark(this._workspaceFolders),
     ];
     this._sendBenchmarkSpecs();
   }

@@ -1,7 +1,7 @@
 {
   "name": "fresh-file-explorer",
   "displayName": "Fresh File Explorer",
-  "description": "Easily navigate recent changes based on your pending work and Git history.",
+  "description": "Git-aware navigation: recent changes, branch-relative blame heatmap, branch compare, pickaxe diff search. Companion to GitLens — no telemetry, no AI buttons.",
   "license": "MIT",
   "pricing": "Free",
   "publisher": "frehu",
@@ -12,25 +12,27 @@
     "type": "git",
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer"
   },
-  "version": "1.9.0",
+  "bugs": {
+    "url": "https://github.com/FreHu/vscode-fresh-file-explorer/issues"
+  },
+  "qna": false,
+  "version": "1.10.0",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
   },
   "categories": [
+    "SCM Providers",
+    "Visualization",
     "Other"
   ],
   "keywords": [
-    "file-explorer",
-    "recent-files",
-    "modified-files",
-    "git",
-    "git-history",
-    "diff-search",
+    "file explorer",
+    "blame heatmap",
+    "branch compare",
     "pickaxe",
-    "git-log-l",
-    "heatmap",
-    "gitlens"
+    "git history",
+    "git"
   ],
   "main": "./out/extension.js",
   "activationEvents": [
@@ -68,6 +70,13 @@
           "icon": "$(git-compare)",
           "contextualTitle": "Diff Search Results",
           "when": "diffSearchResults.hasResults"
+        },
+        {
+          "id": "freshFileExplorer.branchCompare",
+          "name": "Fresh Files - Branch Compare",
+          "type": "tree",
+          "icon": "$(git-compare)",
+          "group": "freshfileexplorer@3"
         }
       ]
     },
@@ -409,6 +418,92 @@
         "command": "freshFileExplorer.compareSelected",
         "title": "Compare Selected",
         "icon": "$(git-compare)"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.open",
+        "title": "Open Changes",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openFile",
+        "title": "Open File",
+        "icon": "$(go-to-file)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openToSide",
+        "title": "Open Changes to Side",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openAtBaseline",
+        "title": "Open File at Baseline",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.refreshRepo",
+        "title": "Refresh This Repo",
+        "icon": "$(refresh)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.setBaseline",
+        "title": "Set Baseline…",
+        "icon": "$(git-branch)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.clearBaseline",
+        "title": "Clear Baseline",
+        "icon": "$(close)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openAll",
+        "title": "Open All Changes",
+        "icon": "$(git-compare)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.restoreFromBaseline",
+        "title": "Restore from Baseline",
+        "icon": "$(discard)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.copySubtreeStructure",
+        "title": "Copy Subtree Structure",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.revealInFreshFiles",
+        "title": "Reveal in Fresh Files",
+        "icon": "$(target)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.setGroupingMode",
+        "title": "Set Grouping Mode",
+        "icon": "$(group-by-ref-type)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openSettings",
+        "title": "Open Comparisons Settings…",
+        "icon": "$(settings-gear)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.toggleActive",
+        "title": "Hide from Tree",
+        "icon": "$(eye-closed)",
+        "category": "Branch Compare"
       }
     ],
     "keybindings": [
@@ -666,6 +761,21 @@
           "command": "freshFileExplorer.clearDiffSearch",
           "when": "view == diffSearchResults",
           "group": "navigation"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openSettings",
+          "when": "view == freshFileExplorer.branchCompare",
+          "group": "navigation@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.setGroupingMode",
+          "when": "view == freshFileExplorer.branchCompare",
+          "group": "navigation@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.refresh",
+          "when": "view == freshFileExplorer.branchCompare",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -883,6 +993,136 @@
           "command": "freshFileExplorer.compareSelected",
           "when": "view == pinnedItems && viewItem == pinnedFile",
           "group": "1_open@4"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openFile",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.open",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "1_open@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openFile",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "1_open@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openToSide",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "1_open@3"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openAtBaseline",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "1_open@4"
+        },
+        {
+          "command": "freshFileExplorer.gitLogFile",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "2_history@1"
+        },
+        {
+          "command": "freshFileExplorer.revealInExplorer",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder|deletedFile)$/",
+          "group": "3_reveal@1"
+        },
+        {
+          "command": "freshFileExplorer.revealInSourceControl",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "3_reveal@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.revealInFreshFiles",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "3_reveal@3"
+        },
+        {
+          "command": "freshFileExplorer.pinFile",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "4_pin@1"
+        },
+        {
+          "command": "freshFileExplorer.copyAbsolutePath",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder|deletedFile)$/",
+          "group": "5_copypath@1"
+        },
+        {
+          "command": "freshFileExplorer.copyRelativePath",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder|deletedFile)$/",
+          "group": "5_copypath@2"
+        },
+        {
+          "command": "freshFileExplorer.copyFilename",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "5_copypath@3"
+        },
+        {
+          "command": "freshFileExplorer.copyRemoteUrl",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder|deletedFile)$/",
+          "group": "5_copypath@4"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.copySubtreeStructure",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(folder|repoSection)$/",
+          "group": "5_copypath@5"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.restoreFromBaseline",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.deletedFile",
+          "group": "4_modification@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.restoreFromBaseline",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.deletedFile",
+          "group": "inline@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.setBaseline",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "group": "inline@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.setBaseline",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "group": "1_baseline@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.clearBaseline",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "group": "1_baseline@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openAll",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "group": "2_files@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openAll",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "group": "inline@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.refreshRepo",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "group": "2_files@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.toggleActive",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "group": "1_baseline@3"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openAll",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.folder",
+          "group": "1_open@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openAll",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.folder",
+          "group": "inline@1"
         }
       ],
       "commandPalette": [
@@ -1033,6 +1273,11 @@
         "view": "freshFileExplorer",
         "contents": "Loading fresh files...",
         "when": "freshFileExplorer.loading"
+      },
+      {
+        "view": "freshFileExplorer.branchCompare",
+        "contents": "Define one or more branch comparisons to populate this view.\n[Open Settings](command:freshFileExplorer.branchCompare.openSettings)\nEach saved comparison renders as a section in the tree. Mark one as the heatmap baseline to drive the per-line blame heatmap.",
+        "when": "!freshFileExplorer.branchCompare.hasActiveComparison"
       }
     ],
     "colors": [
@@ -1381,6 +1626,25 @@
           "minimum": 1000,
           "maximum": 500000,
           "description": "Maximum length for search include pattern per batch. When exceeded, files are split into multiple search editor tabs. This affects features 'search in fresh files' and 'search in found files' in cases where the search covers a large number of files."
+        },
+        "freshFileExplorer.bulkActionConfirmThreshold": {
+          "type": "number",
+          "default": 15,
+          "minimum": 0,
+          "description": "Bulk actions (e.g. Open All Changes, Open All Found Files) prompt for confirmation when they would act on more than this many files. Set to 0 to always confirm; raise it if you regularly open large sets without wanting the prompt."
+        },
+        "freshFileExplorer.branchCompare.workingTreeSide": {
+          "type": "string",
+          "default": "right",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "enumDescriptions": [
+            "Show your working tree on the left, baseline on the right.",
+            "Show baseline on the left, working tree on the right."
+          ],
+          "description": "Which side of the diff editor your working tree appears on when opening a Branch Compare change. The baseline-side content is the merge-base (common ancestor), so it is always at-or-older than your working tree regardless of which ref you picked."
         }
       }
     }
@@ -1388,12 +1652,13 @@
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run compile:webview",
     "clean": "rimraf out",
-    "compile": "npm run clean && tsc -p ./ && npm run copy:fixtures",
-    "compile:webview": "tsc -p src/webview/tsconfig.json --noEmit && esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts src/webview/stonksPanel.ts --bundle --outdir=media --format=iife --platform=browser",
+    "compile": "npm run clean && tsc -p ./ && npm run copy:fixtures && npm run copy:codicons",
+    "copy:codicons": "copyfiles -u 4 \"node_modules/@vscode/codicons/dist/codicon.css\" \"node_modules/@vscode/codicons/dist/codicon.ttf\" media/codicons",
+    "compile:webview": "tsc -p src/webview/tsconfig.json --noEmit && esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts src/webview/stonksPanel.ts src/webview/branchCompareSettings.ts --bundle --outdir=media --format=iife --platform=browser",
     "copy:fixtures": "copyfiles -u 1 \"src/test/fixtures/**\" out/",
     "watch": "npm run copy:fixtures && run-p watch:ext watch:webview",
     "watch:ext": "tsc -watch -p ./",
-    "watch:webview": "esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts src/webview/stonksPanel.ts --bundle --outdir=media --format=iife --platform=browser --watch",
+    "watch:webview": "esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts src/webview/stonksPanel.ts src/webview/branchCompareSettings.ts --bundle --outdir=media --format=iife --platform=browser --watch",
     "pretest": "npm run compile && npm run compile:webview && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",

@@ -1,5 +1,5 @@
 import type { DiffSearchToWebview, DiffSearchFromWebview, DiffSearchHistoryEntry } from "./messages";
-import { html } from "./webviewUtils";
+import { html } from "../utils/templateHelpers";
 
 // acquireVsCodeApi is a global injected by VS Code into the webview context.
 // @types/vscode-webview provides its declaration via tsconfig.webview.json.

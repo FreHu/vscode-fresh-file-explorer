@@ -2,6 +2,89 @@
 // This file is compiled by both tsconfig.json (extension host) and
 // tsconfig.webview.json (webview scripts).
 
+// ── Branch Compare settings panel ───────────────────────────────────────────
+
+export interface SavedComparisonDTO {
+  id: string;
+  repoFullPath: string;
+  source: string;
+  target: string;
+  label?: string;
+  active: boolean;
+  isHeatmapBaseline?: boolean;
+}
+
+export interface RepoDTO {
+  /** Normalized absolute path — used as the value when writing back. */
+  fullPath: string;
+  /** Display name for the picker — basename or workspace-folder name. */
+  name: string;
+  /** Current HEAD branch, if known. */
+  currentBranch?: string;
+}
+
+export interface RefDTO {
+  name: string;
+  /** Human-readable relative committer date, e.g. "2 days ago". */
+  relativeDate: string;
+}
+
+export interface RefValidationResult {
+  /** Git resolved the ref. Includes the abbreviated SHA so the UI can hint what it pointed at. */
+  valid: boolean;
+  /** When valid: short SHA the ref resolves to. Useful as a tooltip hint. */
+  resolvedSha?: string;
+  /** When invalid: the stderr line from `git rev-parse`. */
+  message?: string;
+}
+
+/**
+ * Heatmap controls surfaced in the settings panel. The mode is workspace-state,
+ * the two booleans are user-config — but they're a single coherent block to the
+ * user, so the panel treats them uniformly.
+ */
+export interface HeatmapSettingsDTO {
+  enabled: boolean;
+  autoApply: boolean;
+  /** `absolute` = age tint; `branch` = diff vs the starred baseline. */
+  mode: "absolute" | "branch";
+}
+
+export type BranchCompareSettingsToWebview =
+  | { command: "state"; repos: RepoDTO[]; comparisons: SavedComparisonDTO[] }
+  | { command: "refs"; repoFullPath: string; branches: RefDTO[] }
+  | {
+      command: "refValidation";
+      repoFullPath: string;
+      ref: string;
+      result: RefValidationResult;
+    }
+  | { command: "heatmapState"; settings: HeatmapSettingsDTO };
+
+export type BranchCompareSettingsFromWebview =
+  | { command: "ready" }
+  | {
+      command: "add";
+      repoFullPath: string;
+      source: string;
+      target: string;
+      label?: string;
+    }
+  | {
+      command: "update";
+      id: string;
+      patch: Partial<Omit<SavedComparisonDTO, "id">>;
+    }
+  | { command: "delete"; id: string }
+  | { command: "move"; id: string; delta: number }
+  | { command: "moveTo"; id: string; targetIndex: number }
+  | { command: "setHeatmapBaseline"; id: string | undefined }
+  | { command: "requestRefs"; repoFullPath: string }
+  | { command: "validateRef"; repoFullPath: string; ref: string }
+  | { command: "refreshRefs" }
+  | { command: "updateHeatmap"; patch: Partial<HeatmapSettingsDTO> }
+  | { command: "openHeatmapHelp" };
+
 // ── Git Log -L panel ─────────────────────────────────────────────────────────
 
 export interface CommitData {

@@ -54,9 +54,9 @@ export async function handleCopyFilename(
   await vscode.env.clipboard.writeText(names.join("\n"));
 }
 
-type TreeNode = { children: Map<string, TreeNode>; isFile: boolean; absolutePath: string };
+export type TreeNode = { children: Map<string, TreeNode>; isFile: boolean; absolutePath: string };
 
-function buildFileTree(absolutePaths: string[], folderPath: string): TreeNode {
+export function buildFileTree(absolutePaths: string[], folderPath: string): TreeNode {
   const root: TreeNode = { children: new Map(), isFile: false, absolutePath: folderPath };
   for (const absPath of absolutePaths) {
     const relativePath = absPath.substring(folderPath.length + 1);
@@ -80,7 +80,7 @@ function buildFileTree(absolutePaths: string[], folderPath: string): TreeNode {
   return root;
 }
 
-function renderFileTree(
+export function renderFileTree(
   node: TreeNode,
   getLabel: (absolutePath: string, isFile: boolean) => string,
   indent: number = 0,

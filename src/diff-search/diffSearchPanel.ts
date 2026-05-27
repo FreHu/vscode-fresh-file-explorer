@@ -8,6 +8,7 @@ import { formatGitCommand } from "../utils/formatUtils";
 import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
 import { DiffSearchParams, DiffSearchHistoryEntry } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 const MAX_HISTORY = 25;
 
 interface SearchMessage {
@@ -54,7 +55,7 @@ export class DiffSearchPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [extensionUri],
+        localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );
 

@@ -8,6 +8,7 @@ import { toRelativePaths } from "../utils/pathUtils";
 import { showPathFormatQuickPick } from "../utils/quickPick";
 import { AbsolutePath } from "../pathTypes";
 import { normalizePath } from "../utils";
+import { confirmBulkAction } from "../utils/confirmations";
 
 /**
  * Gets the maximum safe length for the include pattern to avoid ENAMETOOLONG errors.
@@ -267,20 +268,7 @@ export async function handleOpenAllFoundFiles(): Promise<void> {
     return;
   }
 
-  // Confirm if opening many files
-  const MAX_FILES_WITHOUT_CONFIRMATION = 15;
-  if (filePaths.length > MAX_FILES_WITHOUT_CONFIRMATION) {
-    const action = await vscode.window.showWarningMessage(
-      `${filePaths.length} is a lot of files. You sure about this?`,
-      { modal: true },
-      "Open All",
-      "Cancel",
-    );
-
-    if (action !== "Open All") {
-      return;
-    }
-  }
+  if (!await confirmBulkAction({ count: filePaths.length, actionLabel: "Open All" })) { return; }
 
   const workspaceFolders = vscode.workspace.workspaceFolders;
   const uris = convertRelativePathsToUris(filePaths, workspaceFolders);

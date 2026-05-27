@@ -5,32 +5,36 @@ import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { showWarning } from "../extension/logger";
 
 /**
- * Pin file(s) to the pinned items folder
- * Can be called from Fresh Files view with FreshFileItem(s) or from Explorer with Uri(s)
+ * Pin file(s) to the pinned items folder.
+ *
+ * Accepts items from any tree view that exposes `{resourceUri, isDirectory}`,
+ * including the Fresh Files tree, the Branch Compare tree, and Uri-based
+ * callers (regular file Explorer context menu). Folders and the special
+ * "pinned folder" header are skipped.
  */
 export async function handlePinFile(
-  item: FreshFileItem | vscode.Uri,
-  selectedItems: (FreshFileItem | vscode.Uri)[] | undefined,
+  item: FreshFileItem | vscode.Uri | TreeItemLike,
+  selectedItems: (FreshFileItem | vscode.Uri | TreeItemLike)[] | undefined,
   provider: PinnedItemsProvider,
 ): Promise<void> {
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : [item];
 
-  // Convert items to file paths
   const filePaths: AbsolutePath[] = [];
 
   for (const i of items) {
     if (i instanceof vscode.Uri) {
-      // Called from explorer - check if it's a file
+      // Called from regular Explorer — verify it's a file before pinning.
       try {
         const stat = await vscode.workspace.fs.stat(i);
         if (stat.type === vscode.FileType.File) {
           filePaths.push(asAbsolutePath(i.fsPath));
         }
       } catch {
-        // Skip if stat fails
+        // Skip if stat fails.
       }
-    } else if (i instanceof FreshFileItem) {
-      // Called from Fresh Files view
+    } else if (i && typeof i === "object" && "resourceUri" in i && i.resourceUri) {
+      // Tree-item-like — duck-typed so any view's items are accepted as long
+      // as they expose a resourceUri and aren't directories or pin-folder headers.
       if (!i.isDirectory && i.contextValue !== "pinnedFolder") {
         filePaths.push(asAbsolutePath(i.resourceUri.fsPath));
       }
@@ -43,6 +47,13 @@ export async function handlePinFile(
   }
 
   provider.pinnedItemsManager.pinFiles(filePaths);
+}
+
+/** Minimal shape required for tree-item callers across the extension's views. */
+interface TreeItemLike {
+  resourceUri?: vscode.Uri;
+  isDirectory?: boolean;
+  contextValue?: string;
 }
 
 /**

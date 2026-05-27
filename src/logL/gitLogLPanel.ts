@@ -5,6 +5,7 @@ import { GitLogLCommit } from "../git/gitLogLParser";
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
 import { log, showError, showInfo } from "../extension/logger";
 import { normalizePath } from "../utils";
+import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 
 /**
  * Manages the Git Log -L webview panel (one per unique query).
@@ -53,7 +54,7 @@ export class GitLogLPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [extensionUri],
+        localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );
 

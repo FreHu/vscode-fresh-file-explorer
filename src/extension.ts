@@ -59,6 +59,26 @@ import { StonksPanel } from "./stonks/stonksPanel";
 import { PinnedItemsProvider } from "./fresh-files/pinnedItemsProvider";
 import { ConfigService } from "./config/configService";
 import { checkForUpdate } from "./extension/updateNotifier";
+import { BaselineService } from "./baseline/baselineService";
+import { SavedComparisonsService } from "./branch-compare/savedComparisonsService";
+import { BranchCompareProvider } from "./branch-compare/branchCompareProvider";
+import { BranchCompareSettingsPanel } from "./branch-compare/branchCompareSettingsPanel";
+import {
+  handleBranchCompareOpen,
+  handleBranchCompareOpenFile,
+  handleBranchCompareOpenToSide,
+  handleBranchCompareOpenAtBaseline,
+  handleBranchCompareRefresh,
+  handleBranchCompareRefreshRepo,
+  handleSetBaseline,
+  handleClearBaseline,
+  handleBranchCompareOpenAll,
+  handleBranchCompareRestoreFromBaseline,
+  handleBranchCompareCopySubtreeStructure,
+  handleBranchCompareRevealInFreshFiles,
+  handleBranchCompareSetGroupingMode,
+  handleBranchCompareToggleActive,
+} from "./branch-compare/branchCompareCommands";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -95,9 +115,28 @@ export async function activate(context: vscode.ExtensionContext) {
   // Wire the heatmap provider to the fresh file provider
   freshFileProvider.heatmapProvider = heatmapProvider;
 
+  // SavedComparisonsService owns the persisted list of (source, target) pairs
+  // shown in the Branch Compare view. BaselineService projects a single
+  // per-repo baseline ref out of that list for the blame heatmap.
+  const savedComparisons = new SavedComparisonsService();
+  context.subscriptions.push(savedComparisons);
+  const baselineService = new BaselineService(savedComparisons);
+  context.subscriptions.push(baselineService);
+
   // Create blame heatmap controller (per-line editor decorations)
-  const blameHeatmapController = new BlameHeatmapController(freshFileProvider);
+  const blameHeatmapController = new BlameHeatmapController(freshFileProvider, baselineService);
   context.subscriptions.push(blameHeatmapController);
+
+  const branchCompareProvider = new BranchCompareProvider(baselineService, freshFileProvider, savedComparisons);
+  context.subscriptions.push(branchCompareProvider);
+  const branchCompareTreeView = vscode.window.createTreeView("freshFileExplorer.branchCompare", {
+    treeDataProvider: branchCompareProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(branchCompareTreeView);
+
+  // Initial load — fire after a tick so VS Code finishes constructing the view.
+  void branchCompareProvider.refreshAll();
 
   // Steady status-bar indicator for Fresh Files loading progress.
   context.subscriptions.push(new FreshFilesStatusBar(freshFileProvider));
@@ -129,7 +168,18 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
-  registerCommands(context, freshFileProvider, pinnedItemsProvider, treeView, pinnedItemsTreeView, diffSearchResultProvider, blameHeatmapController);
+  registerCommands(
+    context,
+    freshFileProvider,
+    pinnedItemsProvider,
+    treeView,
+    pinnedItemsTreeView,
+    diffSearchResultProvider,
+    blameHeatmapController,
+    baselineService,
+    branchCompareProvider,
+    savedComparisons,
+  );
   telescopeRegistration = await registerCodeTelescopeFinder(freshFileProvider);
 
   // Listen for workspace folder changes
@@ -138,6 +188,9 @@ export async function activate(context: vscode.ExtensionContext) {
       log("Workspace folders changed, re-initializing");
       freshFileProvider.initializeWorkspaceFolders();
       freshFileProvider.hardRefresh();
+      // Repo set may have changed → drop merge-base caches and re-render the compare view.
+      baselineService.invalidateAllMergeBaseCaches();
+      void branchCompareProvider.refreshAll();
     }),
   );
 
@@ -168,7 +221,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidSaveTextDocument((document) => {
       log("File saved, refreshing pending changes");
       const result = findRepoForAbsolutePath(freshFileProvider.workspaceFolders, document.uri.fsPath);
-      freshFileProvider.refreshPending(result ? [normalizePath(result.repoFullPath) as NormalizedRepoPath] : undefined);
+      const targetRepoPaths = result ? [normalizePath(result.repoFullPath) as NormalizedRepoPath] : undefined;
+      freshFileProvider.refreshPending(targetRepoPaths);
+      // Branch compare cares about working-tree changes too — re-run the cheap path.
+      void branchCompareProvider.refreshWorkingTree(targetRepoPaths?.[0]);
     }),
   );
 
@@ -183,7 +239,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Listen for git state changes (commits, checkouts, etc.)
   // The git extension exposes an API we can use
-  setupGitExtensionListener(context, freshFileProvider, api => blameHeatmapController.connectGitApi(api));
+  setupGitExtensionListener(context, freshFileProvider, api => {
+    baselineService.connectGitApi(api);
+    blameHeatmapController.connectGitApi(api);
+  });
 
   log("Fresh File Explorer activated");
 }
@@ -200,6 +259,9 @@ function registerCommands(
   pinnedItemsTreeView: vscode.TreeView<FreshFilesTreeItem>,
   diffSearchResultProvider: DiffSearchResultProvider,
   blameHeatmapController: BlameHeatmapController,
+  baselineService: BaselineService,
+  branchCompareProvider: BranchCompareProvider,
+  savedComparisons: SavedComparisonsService,
 ): void {
   function register(name: string, handler: (...args: any[]) => any) {
     context.subscriptions.push(vscode.commands.registerCommand(name, handler));
@@ -438,6 +500,43 @@ function registerCommands(
 
   register(Commands.COMPARE_SELECTED, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
     handleCompareSelected(item, selectedItems, [treeView, pinnedItemsTreeView]),
+  );
+
+  // Branch compare commands
+  register(Commands.BRANCH_COMPARE_OPEN, (item: any) => handleBranchCompareOpen(item));
+  register(Commands.BRANCH_COMPARE_OPEN_FILE, (item: any) => handleBranchCompareOpenFile(item));
+  register(Commands.BRANCH_COMPARE_OPEN_TO_SIDE, (item: any) => handleBranchCompareOpenToSide(item));
+  register(Commands.BRANCH_COMPARE_OPEN_AT_BASELINE, (item: any) => handleBranchCompareOpenAtBaseline(item));
+  register(Commands.BRANCH_COMPARE_REFRESH, () => handleBranchCompareRefresh(branchCompareProvider));
+  register(Commands.BRANCH_COMPARE_REFRESH_REPO, (arg: any) =>
+    handleBranchCompareRefreshRepo(arg, branchCompareProvider),
+  );
+  register(Commands.BRANCH_COMPARE_SET_BASELINE, (arg: any) =>
+    handleSetBaseline(arg, baselineService, freshFileProvider),
+  );
+  register(Commands.BRANCH_COMPARE_CLEAR_BASELINE, (arg: any) =>
+    handleClearBaseline(arg, baselineService, freshFileProvider),
+  );
+  register(Commands.BRANCH_COMPARE_OPEN_ALL, (arg: any) =>
+    handleBranchCompareOpenAll(arg, branchCompareProvider),
+  );
+  register(Commands.BRANCH_COMPARE_RESTORE_FROM_BASELINE, (item: any, selectedItems: any) =>
+    handleBranchCompareRestoreFromBaseline(item, selectedItems, branchCompareProvider, baselineService),
+  );
+  register(Commands.BRANCH_COMPARE_COPY_SUBTREE_STRUCTURE, (arg: any) =>
+    handleBranchCompareCopySubtreeStructure(arg, branchCompareProvider),
+  );
+  register(Commands.BRANCH_COMPARE_REVEAL_IN_FRESH_FILES, (item: any) =>
+    handleBranchCompareRevealInFreshFiles(item, freshFileProvider),
+  );
+  register(Commands.BRANCH_COMPARE_SET_GROUPING_MODE, () =>
+    handleBranchCompareSetGroupingMode(branchCompareProvider),
+  );
+  register(Commands.BRANCH_COMPARE_OPEN_SETTINGS, () =>
+    BranchCompareSettingsPanel.createOrShow(context.extensionUri, savedComparisons, freshFileProvider),
+  );
+  register(Commands.BRANCH_COMPARE_TOGGLE_ACTIVE, (arg: any) =>
+    handleBranchCompareToggleActive(arg, savedComparisons),
   );
 }
 

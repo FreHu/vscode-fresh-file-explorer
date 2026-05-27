@@ -48,4 +48,10 @@ export const ConfigKeys = {
 
   // Rename behavior
   AUTO_STAGE_RENAME: "freshFileExplorer.autoStageRename",
+
+  // Branch compare diff editor side preference
+  BRANCH_COMPARE_WORKING_TREE_SIDE: "freshFileExplorer.branchCompare.workingTreeSide",
+
+  // Bulk-action confirmation threshold (Open All Changes, Open All Found Files, etc.)
+  BULK_ACTION_CONFIRM_THRESHOLD: "freshFileExplorer.bulkActionConfirmThreshold",
 } as const;

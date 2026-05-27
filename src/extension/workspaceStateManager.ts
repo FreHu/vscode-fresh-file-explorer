@@ -200,23 +200,52 @@ export class WorkspaceStateManager {
     WorkspaceStateManager.ctx().workspaceState.update("blameHeatmapMode", mode);
   }
 
-  /** Last branch ref per repo root path (normalized). Returns the full map. */
-  static getBlameHeatmapBaseRefs(): Record<string, string> {
-    return WorkspaceStateManager.ctx().workspaceState.get<Record<string, string>>(
-      "blameHeatmapBaseRefs",
-      {},
+  // ── Branch compare grouping mode ─────────────────────────────────────────
+
+  static getBranchCompareGroupingMode(fallback: GroupingMode = DEFAULT_GROUPING_MODE): GroupingMode {
+    const raw = WorkspaceStateManager.ctx().workspaceState.get<unknown>("branchCompareGroupingMode");
+    return coerceGroupingMode(raw, fallback);
+  }
+
+  static setBranchCompareGroupingMode(mode: GroupingMode): void {
+    WorkspaceStateManager.ctx().workspaceState.update("branchCompareGroupingMode", mode);
+  }
+
+  // ── Branch compare saved comparisons (multi-comparison list) ─────────────
+
+  /** Returns the persisted list as raw objects. Callers re-brand the path field. */
+  static getSavedComparisons(): Array<{
+    id: string;
+    repoFullPath: string;
+    source: string;
+    target: string;
+    label?: string;
+    active: boolean;
+    isHeatmapBaseline?: boolean;
+  }> {
+    return WorkspaceStateManager.ctx().workspaceState.get(
+      "branchCompareSavedComparisons",
+      [] as Array<{
+        id: string;
+        repoFullPath: string;
+        source: string;
+        target: string;
+        label?: string;
+        active: boolean;
+        isHeatmapBaseline?: boolean;
+      }>,
     );
   }
 
-  static setBlameHeatmapBaseRef(repoPath: string, ref: string): void {
-    const existing = WorkspaceStateManager.getBlameHeatmapBaseRefs();
-    existing[repoPath] = ref;
-    WorkspaceStateManager.ctx().workspaceState.update("blameHeatmapBaseRefs", existing);
-  }
-
-  static clearBlameHeatmapBaseRef(repoPath: string): void {
-    const existing = WorkspaceStateManager.getBlameHeatmapBaseRefs();
-    delete existing[repoPath];
-    WorkspaceStateManager.ctx().workspaceState.update("blameHeatmapBaseRefs", existing);
+  static setSavedComparisons(list: Array<{
+    id: string;
+    repoFullPath: string;
+    source: string;
+    target: string;
+    label?: string;
+    active: boolean;
+    isHeatmapBaseline?: boolean;
+  }>): void {
+    WorkspaceStateManager.ctx().workspaceState.update("branchCompareSavedComparisons", list);
   }
 }
