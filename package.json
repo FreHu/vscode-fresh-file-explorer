@@ -504,6 +504,12 @@
         "title": "Hide from Tree",
         "icon": "$(eye-closed)",
         "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.swapSides",
+        "title": "Swap Sides",
+        "icon": "$(arrow-swap)",
+        "category": "Branch Compare"
       }
     ],
     "keybindings": [
@@ -1110,9 +1116,14 @@
           "group": "2_files@2"
         },
         {
-          "command": "freshFileExplorer.branchCompare.toggleActive",
+          "command": "freshFileExplorer.branchCompare.swapSides",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
           "group": "1_baseline@3"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.toggleActive",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "group": "1_baseline@4"
         },
         {
           "command": "freshFileExplorer.branchCompare.openAll",

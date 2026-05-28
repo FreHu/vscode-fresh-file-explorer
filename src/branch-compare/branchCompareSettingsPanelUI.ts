@@ -88,7 +88,7 @@ export function getBranchCompareSettingsHtml(
     .col-source, .col-target { min-width: 220px; }
     .col-label { min-width: 160px; }
     .col-heatmap { width: 80px; text-align: center; }
-    .col-actions { width: 130px; text-align: right; white-space: nowrap; }
+    .col-actions { width: 160px; text-align: right; white-space: nowrap; }
     .icon-btn[disabled] {
       opacity: 0.35;
       cursor: default;

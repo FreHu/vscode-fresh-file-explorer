@@ -138,4 +138,5 @@ export const Commands = {
   BRANCH_COMPARE_SET_GROUPING_MODE: "freshFileExplorer.branchCompare.setGroupingMode",
   BRANCH_COMPARE_OPEN_SETTINGS: "freshFileExplorer.branchCompare.openSettings",
   BRANCH_COMPARE_TOGGLE_ACTIVE: "freshFileExplorer.branchCompare.toggleActive",
+  BRANCH_COMPARE_SWAP_SIDES: "freshFileExplorer.branchCompare.swapSides",
 } as const;

@@ -78,6 +78,7 @@ import {
   handleBranchCompareRevealInFreshFiles,
   handleBranchCompareSetGroupingMode,
   handleBranchCompareToggleActive,
+  handleBranchCompareSwapSides,
 } from "./branch-compare/branchCompareCommands";
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -537,6 +538,9 @@ function registerCommands(
   );
   register(Commands.BRANCH_COMPARE_TOGGLE_ACTIVE, (arg: any) =>
     handleBranchCompareToggleActive(arg, savedComparisons),
+  );
+  register(Commands.BRANCH_COMPARE_SWAP_SIDES, (arg: any) =>
+    handleBranchCompareSwapSides(arg, savedComparisons),
   );
 }
 

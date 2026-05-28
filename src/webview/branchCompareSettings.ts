@@ -346,9 +346,18 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   heatmapTd.appendChild(heatmapBtn);
   tr.appendChild(heatmapTd);
 
-  // Actions: move up / down / delete
+  // Actions: swap sides / move up / down / delete
   const actionsTd = document.createElement("td");
   actionsTd.className = "col-actions";
+
+  const swapBtn = document.createElement("button");
+  swapBtn.className = "icon-btn";
+  swapBtn.appendChild(codicon("arrow-swap"));
+  swapBtn.title = "Swap source and target";
+  swapBtn.addEventListener("click", () => {
+    send({ command: "update", id: c.id, patch: { source: c.target, target: c.source } });
+  });
+  actionsTd.appendChild(swapBtn);
 
   const upBtn = document.createElement("button");
   upBtn.className = "icon-btn";

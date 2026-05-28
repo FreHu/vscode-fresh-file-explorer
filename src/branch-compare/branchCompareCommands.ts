@@ -277,6 +277,22 @@ export async function handleBranchCompareToggleActive(
   savedComparisons.update(cmp.id, { active: !cmp.active });
 }
 
+/**
+ * Swap `source` ↔ `target` on the comparison the section represents. The
+ * `update()` call drops `isHeatmapBaseline` automatically if HEAD ends up on
+ * the target side — heatmap requires source === HEAD.
+ */
+export async function handleBranchCompareSwapSides(
+  arg: RepoSectionItem | undefined,
+  savedComparisons: SavedComparisonsService,
+): Promise<void> {
+  if (!(arg instanceof RepoSectionItem)) { return; }
+  if (!arg.comparisonId) { return; }
+  const cmp = savedComparisons.getById(arg.comparisonId);
+  if (!cmp) { return; }
+  savedComparisons.update(cmp.id, { source: cmp.target, target: cmp.source });
+}
+
 /** Re-fetch the diff for a single section (cheaper than full-tree refresh). */
 export async function handleBranchCompareRefreshRepo(
   arg: RepoSectionItem | undefined,
