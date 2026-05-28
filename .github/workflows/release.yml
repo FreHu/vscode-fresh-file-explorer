@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
@@ -32,10 +32,10 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
@@ -59,12 +59,12 @@ jobs:
 
       - name: Read changelog entry
         id: changelog
-        uses: mindsers/changelog-reader-action@1faaf50aa09d5793d9a100819973df801febfb31 # v2
+        uses: mindsers/changelog-reader-action@5ca6b859dbd794b56d53077cf5969269e676ec66 # v2
         with:
           path: CHANGELOG.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@49933ea5288caeca8642d1e84afbd3f7d6820020 # v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: '*.vsix'
           body: ${{ steps.changelog.outputs.changes }}
@@ -87,10 +87,10 @@ jobs:
             *) echo "Must dispatch from a v* tag, got ${GITHUB_REF}"; exit 1 ;;
           esac
 
-      - uses: actions/checkout@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
