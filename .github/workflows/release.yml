@@ -3,17 +3,18 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'  # Triggers on tags like v1.0.0
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           node-version: '20'
 
@@ -23,19 +24,29 @@ jobs:
       - name: Run tests
         run: xvfb-run -a npm test
 
-  release:
+  gh-release:
     runs-on: ubuntu-latest
     needs: test
+    if: github.event_name == 'push'
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           node-version: '20'
+
+      - name: Assert tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag v$TAG does not match package.json version $PKG"
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm ci
@@ -48,25 +59,67 @@ jobs:
 
       - name: Read changelog entry
         id: changelog
-        uses: mindsers/changelog-reader-action@v2
+        uses: mindsers/changelog-reader-action@1faaf50aa09d5793d9a100819973df801febfb31 # v2
         with:
           path: CHANGELOG.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@49933ea5288caeca8642d1e84afbd3f7d6820020 # v2
         with:
           files: '*.vsix'
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  publish:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'workflow_dispatch'
+    environment: marketplace
+    permissions:
+      contents: read
+
+    steps:
+      - name: Assert dispatched from a v* tag
+        run: |
+          case "${GITHUB_REF}" in
+            refs/tags/v*) ;;
+            *) echo "Must dispatch from a v* tag, got ${GITHUB_REF}"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          node-version: '20'
+
+      - name: Assert tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag v$TAG does not match package.json version $PKG"
+            exit 1
+          fi
+
+      - name: Download VSIX from GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.vsix'
+          ls -la *.vsix
+
+      - name: Install vsce and ovsx
+        run: npm install -g @vscode/vsce ovsx
+
       - name: Publish to VS Code Marketplace
-        run: vsce publish
+        run: vsce publish --packagePath *.vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
-      - name: Install ovsx
-        run: npm install -g ovsx
-
       - name: Publish to Open VSX
-        run: ovsx publish --pat ${{ secrets.OVSX_PAT }}
+        run: ovsx publish *.vsix
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
