@@ -6,57 +6,10 @@ export function normalizePath(path: string): string {
 }
 
 /**
- * Opens a file, but if it's already open in any visible editor, focuses that editor instead of creating a duplicate tab.
- * This prevents the annoying behavior where clicking a file that's already open in another pane creates a second tab.
- */
-export async function openFileWithoutDuplicating(
-  uri: vscode.Uri,
-  options?: {
-    preserveFocus?: boolean;
-    preview?: boolean;
-    viewColumn?: vscode.ViewColumn;
-  }
-): Promise<void> {
-  const { preserveFocus = false, preview = false, viewColumn } = options ?? {};
-
-  // Check if the file is already open in any visible editor
-  const existingEditor = vscode.window.visibleTextEditors.find(
-    editor => editor.document.uri.toString() === uri.toString()
-  );
-
-  if (existingEditor) {
-    // File is already open - check if it's the active editor
-    const isActiveEditor = vscode.window.activeTextEditor === existingEditor;
-
-    if (isActiveEditor) {
-      // Already the active editor, do nothing to avoid unnecessary refocus
-      return;
-    }
-
-    // File exists but is not active - activate it (ignore preserveFocus since we're just switching to an existing tab)
-    await vscode.window.showTextDocument(existingEditor.document, {
-      viewColumn: existingEditor.viewColumn,
-      preserveFocus: false,
-      preview,
-    });
-  } else {
-    // File is not open, open it normally
-    if (viewColumn !== undefined) {
-      await vscode.commands.executeCommand("vscode.open", uri, viewColumn);
-    } else {
-      await vscode.commands.executeCommand("vscode.open", uri, {
-        preserveFocus,
-        preview,
-      });
-    }
-  }
-}
-
-/**
  * Opens a diff editor, but if the same diff is already open in any tab, focuses that tab instead of creating a duplicate.
  * This prevents the annoying behavior where clicking to view a diff that's already open creates a second tab.
  */
-export async function openDiffWithoutDuplicating(
+export async function openDiff(
   leftUri: vscode.Uri,
   rightUri: vscode.Uri,
   title: string,
@@ -66,6 +19,21 @@ export async function openDiffWithoutDuplicating(
   }
 ): Promise<void> {
   const { preserveFocus = false, preview = false } = options ?? {};
+
+  // VS Code has no built-in dedup for diff editors, but we mirror the user's
+  // `workbench.editor.revealIfOpen` preference so this helper doesn't override
+  // a deliberate "always open a new tab" choice.
+  const revealIfOpen = vscode.workspace
+    .getConfiguration("workbench.editor")
+    .get<boolean>("revealIfOpen", false);
+
+  if (!revealIfOpen) {
+    await vscode.commands.executeCommand("vscode.diff", leftUri, rightUri, title, {
+      preserveFocus,
+      preview,
+    });
+    return;
+  }
 
   const leftUriString = leftUri.toString();
   const rightUriString = rightUri.toString();

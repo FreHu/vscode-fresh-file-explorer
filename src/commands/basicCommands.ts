@@ -8,7 +8,6 @@ import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../fresh-files/groupingMode";
 import { SortOrder } from "../types";
-import { openFileWithoutDuplicating } from "../utils";
 import { findRepoPathsForFiles, findRepoForAbsolutePath } from "../utils/pathUtils";
 import { execGitWithArgs } from "../git/gitOperations";
 import { ConfigService } from "../config/configService";
@@ -199,7 +198,7 @@ export async function handleOpenFile(
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
   const preserveFocus = options?.preserveFocus ?? false;
   for (const fileItem of items.filter(isPossibleToOpen)) {
-    await openFileWithoutDuplicating(fileItem.resourceUri, {
+    await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, {
       preserveFocus,
       preview: preserveFocus,
     });
@@ -216,9 +215,7 @@ export function handleToggleOpenMode(freshFileProvider: FreshFileProvider): void
 export async function handleOpenToSide(item: FreshFileItem, selectedItems?: FreshFileItem[]): Promise<void> {
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
   for (const fileItem of items.filter(isPossibleToOpen)) {
-    await openFileWithoutDuplicating(fileItem.resourceUri, {
-      viewColumn: vscode.ViewColumn.Beside,
-    });
+    await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, vscode.ViewColumn.Beside);
   }
 }
 

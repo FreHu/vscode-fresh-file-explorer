@@ -4,7 +4,7 @@ import * as path from "path";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { log } from "../extension/logger";
 import { gitUri } from "../git/gitOperations";
-import { openFileWithoutDuplicating, openDiffWithoutDuplicating } from "../utils";
+import { openDiff } from "../utils";
 import { shortSha } from "../utils/formatUtils";
 
 /**
@@ -34,7 +34,7 @@ export async function handleOpenChanges(
             // For newly added files, just open the file from that commit
             // (can't show diff since parent doesn't have it)
             const fileUri = gitUri(fileItem.resourceUri, fileItem.commitHash);            
-            await openFileWithoutDuplicating(fileUri, {
+            await vscode.commands.executeCommand("vscode.open", fileUri, {
               preserveFocus,
               preview: preserveFocus,
             });
@@ -49,7 +49,7 @@ export async function handleOpenChanges(
               fileItem.commitHash,
             )})`;
 
-            await openDiffWithoutDuplicating(leftUri, rightUri, title, {
+            await openDiff(leftUri, rightUri, title, {
               preserveFocus,
               preview: preserveFocus,
             });
@@ -65,7 +65,7 @@ export async function handleOpenChanges(
         } else {
           // No commit info, just open the file
           log(`No commit hash or pending status for ${fileItem.resourceUri.fsPath}, opening file instead`, "warn");
-          await openFileWithoutDuplicating(fileItem.resourceUri, {
+          await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, {
             preserveFocus,
             preview: preserveFocus,
           });
@@ -73,7 +73,7 @@ export async function handleOpenChanges(
       } catch (error) {
         log(`Failed to open changes for ${fileItem.resourceUri.fsPath}: ${error}`, "error");
         // Fallback to just opening the file
-        await openFileWithoutDuplicating(fileItem.resourceUri);
+        await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri);
       }
     }
   }

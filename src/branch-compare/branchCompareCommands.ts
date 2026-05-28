@@ -18,7 +18,7 @@ import {
   getMergeBase,
   gitUri,
 } from "../git/gitOperations";
-import { openDiffWithoutDuplicating, openFileWithoutDuplicating, normalizePath } from "../utils";
+import { openDiff, normalizePath } from "../utils";
 import { findRepoForAbsolutePath, toRelativePaths } from "../utils/pathUtils";
 import { log, showError, showInfo, showWarning } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
@@ -73,7 +73,7 @@ async function openOneAsDiff(
   // Untracked → just open the file. There's no baseline-side counterpart.
   // Untracked files only exist in working-tree-overlay mode (source === HEAD).
   if (file.status === "U") {
-    await openFileWithoutDuplicating(vscode.Uri.file(file.absolutePath), {
+    await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(file.absolutePath), {
       preserveFocus,
       viewColumn,
     });
@@ -124,7 +124,7 @@ async function openOneAsDiff(
     // File didn't exist at baseline (added) — no diff possible. Just open
     // the source-side content (working tree for HEAD-source, otherwise the
     // ref's snapshot).
-    await openFileWithoutDuplicating(sourceUri, { preserveFocus, viewColumn });
+    await vscode.commands.executeCommand("vscode.open", sourceUri, { preserveFocus, viewColumn });
     return;
   }
 
@@ -138,13 +138,13 @@ async function openOneAsDiff(
     ? `${file.pathInRepo} (${sourceLabel} ↔ ${baseRef} baseline)`
     : `${file.pathInRepo} (${baseRef} baseline ↔ ${sourceLabel})`;
   if (viewColumn !== undefined) {
-    // openDiffWithoutDuplicating doesn't carry a viewColumn — use vscode.diff directly.
+    // openDiff doesn't carry a viewColumn — use vscode.diff directly.
     await vscode.commands.executeCommand("vscode.diff", leftUri, rightUri, title, {
       preserveFocus,
       viewColumn,
     });
   } else {
-    await openDiffWithoutDuplicating(leftUri, rightUri, title, { preserveFocus });
+    await openDiff(leftUri, rightUri, title, { preserveFocus });
   }
 }
 
@@ -158,7 +158,7 @@ export async function handleBranchCompareOpenFile(item: BranchCompareFileItem | 
     // No working-tree file to open — fall back to the baseline view.
     return handleBranchCompareOpen(item);
   }
-  await openFileWithoutDuplicating(vscode.Uri.file(item.file.absolutePath));
+  await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(item.file.absolutePath));
 }
 
 /** Open the diff in a side editor column */
@@ -177,7 +177,7 @@ export async function handleBranchCompareOpenAtBaseline(item: BranchCompareFileI
   if (!item) { return; }
   const file = item.file;
   if (file.status === "U") {
-    await openFileWithoutDuplicating(vscode.Uri.file(file.absolutePath));
+    await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(file.absolutePath));
     return;
   }
   if (!item.targetRef) {

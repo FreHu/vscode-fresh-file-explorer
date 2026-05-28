@@ -23,7 +23,7 @@ import { Commands } from "../commands/commandConstants";
 import { FeatureStatusBar } from "../ui/featureStatusBar";
 import { hexToRgba } from "../utils/colorUtils";
 import { gitUri } from "../git/gitOperations";
-import { openDiffWithoutDuplicating } from "../utils";
+import { openDiff } from "../utils";
 import { BaselineService } from "../baseline/baselineService";
 
 /** Which mode is active for a given editor file. */
@@ -1031,7 +1031,7 @@ export class BlameHeatmapController implements vscode.Disposable {
 
     const baselineUri = gitUri(uri, mergeBaseSha);
     const title = `${repoResult.filePathInRepo} (${baseRef} baseline ↔ working tree)`;
-    await openDiffWithoutDuplicating(baselineUri, uri, title);
+    await openDiff(baselineUri, uri, title);
   }
 
   /**
