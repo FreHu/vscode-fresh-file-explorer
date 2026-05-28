@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.10.1]
+
+- Branch Compare: swap source/target sides from the settings panel
+- Status bar: can now be toggled off via config
+- Fix: status bar loading state could get stuck when the Fresh Files view was never revealed
+- Fix: blame heatmap markers leaking into diff editors (for real this time)
+- Fix: duplicate cancel button in confirm dialog
+- Internal: drop custom "reveal if open" logic in favor of the built-in `workbench.editor.revealIfOpen`
+- Publish process security hardening
+
 ## [1.10.0]
 
 ### Branch Compare
