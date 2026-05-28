@@ -33,7 +33,6 @@ export async function confirmBulkAction(options: {
     message,
     { modal: true, detail: options.detail },
     actionLabel,
-    "Cancel",
   );
   return choice === actionLabel;
 }
