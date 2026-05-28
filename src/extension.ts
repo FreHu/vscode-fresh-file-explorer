@@ -512,7 +512,7 @@ function registerCommands(
     handleBranchCompareRefreshRepo(arg, branchCompareProvider),
   );
   register(Commands.BRANCH_COMPARE_SET_BASELINE, (arg: any) =>
-    handleSetBaseline(arg, baselineService, freshFileProvider),
+    handleSetBaseline(arg, baselineService, freshFileProvider, savedComparisons),
   );
   register(Commands.BRANCH_COMPARE_CLEAR_BASELINE, (arg: any) =>
     handleClearBaseline(arg, baselineService, freshFileProvider),

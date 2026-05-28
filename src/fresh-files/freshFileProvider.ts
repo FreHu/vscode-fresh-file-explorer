@@ -292,6 +292,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       CODE_TELESCOPE_INTEGRATION:      "none",
       DEFAULT_OPEN_CHANGES_MODE:       "none",
       AUTO_STAGE_RENAME:               "none",
+      STATUS_BAR_LOADING:              "none",
+      STATUS_BAR_HEATMAP:              "none",
       BRANCH_COMPARE_WORKING_TREE_SIDE: "none",
       BULK_ACTION_CONFIRM_THRESHOLD:    "none",
     };
@@ -376,6 +378,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
     }
     this._onDidChangeTreeData.fire();
+    // Drive the load ourselves — relying on getChildren() to kick it off leaves
+    // the status bar stuck on "Loading X/Y" when the view is hidden at the moment
+    // refresh() runs (e.g. branch switch with focus elsewhere).
+    this.kickOffLoad();
   }
 
   /**
@@ -396,6 +402,26 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.historicalCache.clear();
     clearRetrogradeCache();
     this._onDidChangeTreeData.fire();
+    this.kickOffLoad();
+  }
+
+  /**
+   * Start `updateFreshFiles()` if no load is already in flight. Includes a
+   * re-kick when the in-flight load was cancelled (refreshEpoch bumped mid-load)
+   * — without this, the new state set by the cancelling refresh() would never
+   * actually be loaded.
+   */
+  private kickOffLoad(): void {
+    if (this.refreshPromise) { return; }
+    this.refreshPromise = this.updateFreshFiles().finally(() => {
+      this.refreshPromise = undefined;
+      if (!this.dataLoaded) {
+        log("Stale load detected after promise settled — starting new load");
+        this.refreshPromise = this.updateFreshFiles().finally(() => {
+          this.refreshPromise = undefined;
+        });
+      }
+    });
   }
 
   /** Refresh the tree display without reloading data from git */
@@ -827,18 +853,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
       // Start loading if not already in progress (fire-and-forget — we show
       // progress via reposDiscovered / reposLoading state instead of awaiting).
-      if (!this.dataLoaded && !this.refreshPromise) {
-        log("Loading files from Git repositories...");
-        this.refreshPromise = this.updateFreshFiles().finally(() => {
-          this.refreshPromise = undefined;
-          // If another refresh() arrived while we were loading, start a fresh load.
-          if (!this.dataLoaded) {
-            log("Stale load detected after promise settled — starting new load");
-            this.refreshPromise = this.updateFreshFiles().finally(() => {
-              this.refreshPromise = undefined;
-            });
-          }
-        });
+      if (!this.dataLoaded) {
+        this.kickOffLoad();
       }
 
       // While repo discovery is still running, show a placeholder so VS Code
@@ -1262,16 +1278,19 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     pendingOnly: boolean,
   ): Promise<void> {
     // --- Phase 2: Pending changes (fast) ---
-    await DataCollector.collectPendingForRepo(folder, repoRelPath, newFiles);
+    try {
+      await DataCollector.collectPendingForRepo(folder, repoRelPath, newFiles);
 
-    // Transition: pending loaded → remove spinner, expose pending files immediately.
-    // If historical mode, keep a secondary indicator so children show a history spinner.
-    this.reposLoading.delete(normalizedRepoPath);
-    if (!pendingOnly) {
-      this.reposLoadingHistorical.add(normalizedRepoPath);
+      // If historical mode, keep a secondary indicator so children show a history spinner.
+      if (!pendingOnly) {
+        this.reposLoadingHistorical.add(normalizedRepoPath);
+      }
+      this._setFreshFiles(new Map(newFiles));
+    } finally {
+      // Transition: pending loaded → remove spinner, expose pending files immediately.
+      this.reposLoading.delete(normalizedRepoPath);
+      this._onDidChangeTreeData.fire();
     }
-    this._setFreshFiles(new Map(newFiles));
-    this._onDidChangeTreeData.fire();
   }
 
   private async loadHistoricalForRepo(
@@ -1323,38 +1342,41 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     };
 
     const commitStatsMap = new Map<string, CommitStats>();
-    const { error: repoError, fullData } = await DataCollector.collectHistoricalForRepo(
-      folder,
-      repoRelPath,
-      maxDays,
-      newFiles,
-      newHistoricalFiles,
-      this.repoPathspecs.get(normalizedRepoPath),
-      thresholds,
-      onThresholdCrossed,
-      commitStatsMap,
-    );
+    try {
+      const { error: repoError, fullData } = await DataCollector.collectHistoricalForRepo(
+        folder,
+        repoRelPath,
+        maxDays,
+        newFiles,
+        newHistoricalFiles,
+        this.repoPathspecs.get(normalizedRepoPath),
+        thresholds,
+        onThresholdCrossed,
+        commitStatsMap,
+      );
 
-    if (!repoError && fullData.size > 0) {
-      this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoPathspecs.get(normalizedRepoPath), commitStatsMap);
-      log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath}`);
+      if (!repoError && fullData.size > 0) {
+        this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoPathspecs.get(normalizedRepoPath), commitStatsMap);
+        log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath}`);
+      }
+
+      // Historical git log always loads up to maxDays, but we must only display
+      // the currently selected histDays window. Filter before updating the live view
+      // so we don't over-expose data from the wider load.
+      if (histDays < maxDays) {
+        const cutoff = new Date(Date.now() - histDays * 24 * 60 * 60 * 1000);
+        this._setFreshFiles(new Map([...newFiles].filter(([, m]) => m.isPending || m.date >= cutoff)));
+        this.historicalCache.historicalFiles = new Map([...newHistoricalFiles].filter(([, m]) => m.date >= cutoff));
+      } else {
+        this._setFreshFiles(new Map(newFiles));
+        this.historicalCache.historicalFiles = new Map(newHistoricalFiles);
+      }
+
+      return repoError;
+    } finally {
+      this.reposLoadingHistorical.delete(normalizedRepoPath);
+      this._onDidChangeTreeData.fire();
     }
-
-    this.reposLoadingHistorical.delete(normalizedRepoPath);
-    // Historical git log always loads up to maxDays, but we must only display
-    // the currently selected histDays window. Filter before updating the live view
-    // so we don't over-expose data from the wider load.
-    if (histDays < maxDays) {
-      const cutoff = new Date(Date.now() - histDays * 24 * 60 * 60 * 1000);
-      this._setFreshFiles(new Map([...newFiles].filter(([, m]) => m.isPending || m.date >= cutoff)));
-      this.historicalCache.historicalFiles = new Map([...newHistoricalFiles].filter(([, m]) => m.date >= cutoff));
-    } else {
-      this._setFreshFiles(new Map(newFiles));
-      this.historicalCache.historicalFiles = new Map(newHistoricalFiles);
-    }
-    this._onDidChangeTreeData.fire();
-
-    return repoError;
   }
 
   /**

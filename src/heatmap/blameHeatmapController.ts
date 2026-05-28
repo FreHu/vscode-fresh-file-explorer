@@ -241,6 +241,9 @@ export class BlameHeatmapController implements vscode.Disposable {
         if (e.affectsConfiguration("freshFileExplorer.blameHeatmap.autoApply")) {
           this.updateMenuContext(vscode.window.activeTextEditor);
         }
+        if (e.affectsConfiguration("freshFileExplorer.statusBar.heatmap")) {
+          this.updateStatusBar(vscode.window.activeTextEditor);
+        }
       }),
     );
 
@@ -835,6 +838,10 @@ export class BlameHeatmapController implements vscode.Disposable {
   }
 
   private updateStatusBar(editor: vscode.TextEditor | undefined): void {
+    if (!ConfigService.getStatusBarHeatmapEnabled()) {
+      this.statusBar.update({ kind: "hidden" });
+      return;
+    }
     const uri = editor?.document.uri;
     // Only show the indicator for real files. Output channels, settings, etc. → hide.
     if (!uri || uri.scheme !== "file") {

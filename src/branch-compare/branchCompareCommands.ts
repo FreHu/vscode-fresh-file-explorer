@@ -10,7 +10,7 @@ import {
   RepoSectionItem,
 } from "./branchCompareTreeItems";
 import { ChangedFile, collectFilesIn } from "./branchCompareData";
-import { HEAD_SOURCE } from "./savedComparisonsService";
+import { HEAD_SOURCE, SavedComparisonsService } from "./savedComparisonsService";
 import {
   execGitWithArgs,
   fileExistsAtRef,
@@ -437,10 +437,13 @@ export async function handleSetBaseline(
   arg: RepoSectionItem | undefined,
   baselineService: BaselineService,
   freshFileProvider: FreshFileProvider,
+  savedComparisons: SavedComparisonsService,
 ): Promise<void> {
   let repoFullPath: AbsolutePath | undefined;
+  let comparisonId: string | undefined;
   if (arg instanceof RepoSectionItem) {
     repoFullPath = arg.repoFullPath;
+    comparisonId = arg.comparisonId;
   } else {
     repoFullPath = await pickRepoForBaseline(freshFileProvider);
     if (!repoFullPath) { return; }
@@ -461,7 +464,14 @@ export async function handleSetBaseline(
     return;
   }
 
-  const current = baselineService.getBaseRef(repoFullPath);
+  // When invoked from a section, "current" is that section's own target ref.
+  // Without a section (palette / title-bar) we fall back to the repo's
+  // heatmap-baseline ref — the legacy meaning of the command.
+  const sectionTarget = comparisonId
+    ? savedComparisons.getById(comparisonId)?.target
+    : undefined;
+  const current = sectionTarget ?? baselineService.getBaseRef(repoFullPath);
+
   const picked = await vscode.window.showQuickPick(
     branches.map(b => ({
       label: b.name,
@@ -476,8 +486,17 @@ export async function handleSetBaseline(
     },
   );
   if (!picked) { return; }
-  baselineService.setBaseRef(repoFullPath, picked.label);
-  log(`branchCompare: baseline for ${repoFullPath} set to ${picked.label}`);
+
+  if (comparisonId) {
+    // Section context: change THIS section's target. Routing through
+    // baselineService.setBaseRef would *create a new comparison* (its real
+    // job is the heatmap-baseline flow), not update the clicked section.
+    savedComparisons.update(comparisonId, { target: picked.label });
+    log(`branchCompare: section ${comparisonId} target set to ${picked.label}`);
+  } else {
+    baselineService.setBaseRef(repoFullPath, picked.label);
+    log(`branchCompare: baseline for ${repoFullPath} set to ${picked.label}`);
+  }
 }
 
 /** Clear the saved baseline for the targeted repo. */

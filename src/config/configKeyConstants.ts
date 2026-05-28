@@ -54,4 +54,8 @@ export const ConfigKeys = {
 
   // Bulk-action confirmation threshold (Open All Changes, Open All Found Files, etc.)
   BULK_ACTION_CONFIRM_THRESHOLD: "freshFileExplorer.bulkActionConfirmThreshold",
+
+  // Status-bar visibility toggles
+  STATUS_BAR_LOADING: "freshFileExplorer.statusBar.loading",
+  STATUS_BAR_HEATMAP: "freshFileExplorer.statusBar.heatmap",
 } as const;

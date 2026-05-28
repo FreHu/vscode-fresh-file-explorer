@@ -253,4 +253,14 @@ export class ConfigService {
     );
   }
 
+  /** Show the Fresh Files loading-progress status-bar entry. */
+  static getStatusBarLoadingEnabled(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.STATUS_BAR_LOADING, true);
+  }
+
+  /** Show the blame-heatmap status-bar entry. */
+  static getStatusBarHeatmapEnabled(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.STATUS_BAR_HEATMAP, true);
+  }
+
 }

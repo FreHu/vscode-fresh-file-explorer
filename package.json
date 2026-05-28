@@ -1585,6 +1585,16 @@
           "default": false,
           "description": "Color files by recency (heatmap). Recent files appear bright (cyan/blue), older files faded (gray). Colors appear in all views (Explorer, tabs, Fresh Files tree)."
         },
+        "freshFileExplorer.statusBar.loading": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the Fresh Files loading-progress entry in the status bar."
+        },
+        "freshFileExplorer.statusBar.heatmap": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the blame-heatmap entry in the status bar."
+        },
         "freshFileExplorer.blameHeatmap.autoApply": {
           "type": "boolean",
           "default": true,

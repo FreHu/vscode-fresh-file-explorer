@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { FeatureStatusBar } from "../ui/featureStatusBar";
 import { FreshFileProvider } from "./freshFileProvider";
+import { ConfigService } from "../config/configService";
+import { ConfigKeys } from "../config/configKeyConstants";
 
 /**
  * Steady status-bar entry that reports Fresh Files' loading progress.
@@ -29,10 +31,21 @@ export class FreshFilesStatusBar implements vscode.Disposable {
     this.subscriptions.push(
       this.freshFileProvider.onDidChangeTreeData(() => this.update()),
     );
+    this.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration(ConfigKeys.STATUS_BAR_LOADING)) {
+          this.update();
+        }
+      }),
+    );
     this.update();
   }
 
   private update(): void {
+    if (!ConfigService.getStatusBarLoadingEnabled()) {
+      this.statusBar.update({ kind: "hidden" });
+      return;
+    }
     const { state, totalRepos, loadedRepos } = this.freshFileProvider.getLoadingProgress();
     if (state === "discovering") {
       this.statusBar.update({
