@@ -1,3 +1,6 @@
+/** Settings namespace — every config key must live under `${CONFIG_SECTION}.`. */
+export const CONFIG_SECTION = "freshFileExplorer";
+
 /**
  * Configuration keys used throughout the Fresh File Explorer extension
  */

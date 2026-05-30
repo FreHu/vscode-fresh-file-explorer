@@ -213,7 +213,7 @@ constructor(
 export class MessageTreeItem extends vscode.TreeItem {
   constructor(message: string, icon?: string, action?: { command: string; title: string; args?: any[] }) {
     super(message, vscode.TreeItemCollapsibleState.None);
-    this.contextValue = "message";
+    this.contextValue = TreeItemContextValues.MESSAGE;
     if (icon) {
       this.iconPath = new vscode.ThemeIcon(icon);
     }
@@ -262,7 +262,7 @@ export class SubmoduleEntryItem extends vscode.TreeItem {
     this.description = "submodule";
     this.tooltip = `Submodule: ${submoduleFsPath}`;
     this.iconPath = new vscode.ThemeIcon("repo");
-    this.contextValue = "submoduleEntry";
+    this.contextValue = TreeItemContextValues.SUBMODULE_ENTRY;
     this.command = {
       command: Commands.FOCUS_SUBMODULE_REPO,
       title: "Focus Submodule",

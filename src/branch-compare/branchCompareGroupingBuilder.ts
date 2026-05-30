@@ -5,6 +5,7 @@ import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase } from "../fresh-files/moonPhase";
 import { getRetrogradeInfo, getRetrogradeKey } from "../fresh-files/planetaryRetrograde";
 import { formatRelativeDate } from "../utils/formatUtils";
+import { BranchCompareContextValues } from "./branchCompareConstants";
 
 /**
  * Tree item for a group header in the Branch Compare view.
@@ -33,7 +34,7 @@ export class BranchCompareGroupItem extends vscode.TreeItem {
     this.description = description;
     this.tooltip = tooltip;
     this.iconPath = new vscode.ThemeIcon(icon);
-    this.contextValue = "freshFileExplorer.branchCompare.group";
+    this.contextValue = BranchCompareContextValues.GROUP;
   }
 }
 

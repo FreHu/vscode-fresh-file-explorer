@@ -4,6 +4,7 @@ import { AbsolutePath } from "../pathTypes";
 import { CommitHash } from "../types";
 import { Commands } from "../commands/commandConstants";
 import { formatRelativeDate, shortSha } from "../utils/formatUtils";
+import { DiffSearchContextValues } from "./diffSearchConstants";
 
 /**
  * Tree item representing a file with diff matches
@@ -38,7 +39,7 @@ export class DiffSearchFileItem extends vscode.TreeItem {
     this.id = `file-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`;
 
     // Set context value for context menu
-    this.contextValue = "diffSearchFile";
+    this.contextValue = DiffSearchContextValues.FILE;
   }
 }
 
@@ -87,7 +88,7 @@ export class DiffSearchMatchItem extends vscode.TreeItem {
     this.tooltip = new vscode.MarkdownString(tooltipLines.filter(l => l !== "").join("\n"));
 
     // Set context value
-    this.contextValue = "diffSearchMatch";
+    this.contextValue = DiffSearchContextValues.MATCH;
 
     // Set command to open diff at this line
     this.command = {
@@ -110,7 +111,7 @@ export class DiffSearchRepoItem extends vscode.TreeItem {
 
     this.description = `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
     this.iconPath = new vscode.ThemeIcon("repo");
-    this.contextValue = "diffSearchRepo";
+    this.contextValue = DiffSearchContextValues.REPO;
   }
 }
 
@@ -138,7 +139,7 @@ export class DiffSearchCommitItem extends vscode.TreeItem {
     );
 
     this.iconPath = new vscode.ThemeIcon("git-commit");
-    this.contextValue = "diffSearchCommit";
+    this.contextValue = DiffSearchContextValues.COMMIT;
     this.id = `commit-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`;
 
     // Auto-expand if few files
@@ -163,7 +164,7 @@ export class DiffSearchPendingItem extends vscode.TreeItem {
       `Uncommitted changes (staged + unstaged)\n\n${fileCount} ${fileCount === 1 ? "file" : "files"} with ${matchCount} ${matchCount === 1 ? "match" : "matches"}`,
     );
     this.iconPath = new vscode.ThemeIcon("git-branch");
-    this.contextValue = "diffSearchPending";
+    this.contextValue = DiffSearchContextValues.PENDING;
     this.id = `pending-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`;
   }
 }

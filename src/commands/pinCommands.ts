@@ -3,6 +3,7 @@ import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { PinnedItemsProvider } from "../fresh-files/pinnedItemsProvider";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { showWarning } from "../extension/logger";
+import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 
 /**
  * Pin file(s) to the pinned items folder.
@@ -67,7 +68,7 @@ export function handleUnpinFile(
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : [item];
 
   // Only handle pinned files
-  const pinnedFiles = items.filter(i => i.contextValue === "pinnedFile");
+  const pinnedFiles = items.filter(i => i.contextValue === TreeItemContextValues.PINNED_FILE);
 
   if (pinnedFiles.length === 0) {
     showWarning("No pinned files selected");

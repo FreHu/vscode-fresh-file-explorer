@@ -4,19 +4,7 @@ import * as path from "path";
 import { ChangedFile, ChangeStatus, FolderNode } from "./branchCompareData";
 import { Commands } from "../commands/commandConstants";
 import { AbsolutePath } from "../pathTypes";
-
-/**
- * Context values for the branch-compare tree. Kept distinct from the fresh
- * files tree's context values so menu contributions don't overlap.
- */
-export const BranchCompareContextValues = {
-  REPO_SECTION: "freshFileExplorer.branchCompare.repoSection",
-  FOLDER: "freshFileExplorer.branchCompare.folder",
-  FILE: "freshFileExplorer.branchCompare.file",
-  FILE_DELETED: "freshFileExplorer.branchCompare.deletedFile",
-  EMPTY: "freshFileExplorer.branchCompare.empty",
-  MESSAGE: "freshFileExplorer.branchCompare.message",
-} as const;
+import { BranchCompareContextValues } from "./branchCompareConstants";
 
 /** Single-letter status badge shown in the description column. */
 function statusBadge(status: ChangeStatus): string {

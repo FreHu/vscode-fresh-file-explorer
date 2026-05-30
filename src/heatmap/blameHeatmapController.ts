@@ -25,6 +25,7 @@ import { hexToRgba } from "../utils/colorUtils";
 import { gitUri } from "../git/gitOperations";
 import { openDiff } from "../utils";
 import { BaselineService } from "../baseline/baselineService";
+import { ContextManager } from "../extension/contextManager";
 
 /** Which mode is active for a given editor file. */
 export type BlameHeatmapMode = "absolute" | "branch";
@@ -835,17 +836,8 @@ export class BlameHeatmapController implements vscode.Disposable {
   private updateMenuContext(editor: vscode.TextEditor | undefined): void {
     const fsPath = editor?.document.uri.fsPath;
     const active = fsPath !== undefined && this.activeModes.has(fsPath);
-    vscode.commands.executeCommand(
-      "setContext",
-      "freshFiles.blameHeatmap.hasBaseRef",
-      this.getSavedBaseRefFor(editor) !== undefined,
-    );
-    vscode.commands.executeCommand("setContext", "freshFiles.blameHeatmap.active", active);
-    vscode.commands.executeCommand(
-      "setContext",
-      "freshFiles.blameHeatmap.autoApply",
-      ConfigService.getBlameHeatmapAutoApply(),
-    );
+    ContextManager.setBlameHeatmapHasBaseRef(this.getSavedBaseRefFor(editor) !== undefined);
+    ContextManager.setBlameHeatmapActive(active);
   }
 
   private updateStatusBar(editor: vscode.TextEditor | undefined): void {
@@ -1056,7 +1048,7 @@ export class BlameHeatmapController implements vscode.Disposable {
   }
 
   /**
-   * Drives the `freshFiles.blameHeatmap.deletionLines` context key — the array
+   * Drives the `freshFileExplorer.blameHeatmap.deletionLines` context key — the array
    * of 1-based line numbers where deletion markers exist for the active editor.
    * The gutter right-click menu uses this to gate visibility of the
    * "Copy / Restore deleted lines" entries via `editorLineNumber in <key>`.
@@ -1091,7 +1083,7 @@ export class BlameHeatmapController implements vscode.Disposable {
         lines = cached.deletions.map(d => d.options.range.start.line + 1);
       }
     }
-    vscode.commands.executeCommand("setContext", "freshFiles.blameHeatmap.deletionLines", lines);
+    ContextManager.setBlameHeatmapDeletionLines(lines);
   }
 
   /**

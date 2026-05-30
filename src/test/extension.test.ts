@@ -22,35 +22,9 @@ suite("Extension Integration Tests", () => {
     // Dynamically get all commands from the Commands constant
     const commandsToTest = Object.values(Commands) as string[];
 
-    test("should define all commands in package.json", () => {
-      const extension = vscode.extensions.getExtension("frehu.fresh-file-explorer");
-      assert.ok(extension, "Extension should be available");
-
-      const packageJson = extension.packageJSON;
-      const definedCommands = packageJson.contributes?.commands?.map((cmd: any) => cmd.command) || [];
-
-      const missingInPackageJson = commandsToTest.filter(cmd => !definedCommands.includes(cmd));
-      assert.strictEqual(
-        missingInPackageJson.length,
-        0,
-        `Commands missing in package.json: ${missingInPackageJson.join(", ")}`
-      );
-    });
-
-    test("should have all package.json commands in Constants", () => {
-      const extension = vscode.extensions.getExtension("frehu.fresh-file-explorer");
-      assert.ok(extension, "Extension should be available");
-
-      const packageJson = extension.packageJSON;
-      const definedCommands = packageJson.contributes?.commands?.map((cmd: any) => cmd.command) || [];
-
-      const missingInConstants = definedCommands.filter((cmd: string) => !commandsToTest.includes(cmd));
-      assert.strictEqual(
-        missingInConstants.length,
-        0,
-        `Commands in package.json but not in Commands constant: ${missingInConstants.join(", ")}`
-      );
-    });
+    // NOTE: command/config ↔ package.json parity is checked in the fast,
+    // host-free tier (src/test/unit/packageJsonDrift.unit.test.ts). This suite
+    // covers only what needs a live Extension Host: runtime registration.
 
     test("should register all extension commands", async () => {
       const allCommands = await vscode.commands.getCommands(true);
@@ -87,38 +61,9 @@ suite("Extension Integration Tests", () => {
   });
 
   suite("Configuration", () => {
-    // Dynamically get all config keys from the ConfigKeys constant
-    const configKeysToTest = Object.values(ConfigKeys) as string[];
-
-    test("should define all config keys in package.json", () => {
-      const extension = vscode.extensions.getExtension("frehu.fresh-file-explorer");
-      assert.ok(extension, "Extension should be available");
-
-      const packageJson = extension.packageJSON;
-      const definedConfigs = Object.keys(packageJson.contributes?.configuration?.properties || {});
-
-      const missingInPackageJson = configKeysToTest.filter(key => !definedConfigs.includes(key));
-      assert.strictEqual(
-        missingInPackageJson.length,
-        0,
-        `Config keys missing in package.json: ${missingInPackageJson.join(", ")}`
-      );
-    });
-
-    test("should have all package.json config keys in ConfigKeys", () => {
-      const extension = vscode.extensions.getExtension("frehu.fresh-file-explorer");
-      assert.ok(extension, "Extension should be available");
-
-      const packageJson = extension.packageJSON;
-      const definedConfigs = Object.keys(packageJson.contributes?.configuration?.properties || {});
-
-      const missingInConstants = definedConfigs.filter((key: string) => !configKeysToTest.includes(key));
-      assert.strictEqual(
-        missingInConstants.length,
-        0,
-        `Config keys in package.json but not in ConfigKeys constant: ${missingInConstants.join(", ")}`
-      );
-    });
+    // Config key ↔ package.json parity lives in the host-free drift tier
+    // (packageJsonDrift.unit.test.ts). This host test covers the one thing it
+    // can't: that the values are actually readable through the VS Code API.
 
     test("should be able to read all configuration values", () => {
       const config = vscode.workspace.getConfiguration();

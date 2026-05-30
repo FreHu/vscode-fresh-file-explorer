@@ -405,7 +405,7 @@ function registerCommands(
 
   // Two command IDs share a handler — they exist only to give the editor's
   // right-click menu two different titles depending on whether a baseline ref
-  // is already saved. Visibility is gated by the freshFiles.blameHeatmap.hasBaseRef
+  // is already saved. Visibility is gated by the freshFileExplorer.blameHeatmap.hasBaseRef
   // context key set by the controller.
   const baselineDiffHandler = () => {
     const editor = vscode.window.activeTextEditor;

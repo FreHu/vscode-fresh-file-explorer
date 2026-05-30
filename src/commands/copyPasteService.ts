@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { ContextManager } from "../extension/contextManager";
 
 /**
  * In-memory clipboard for file copy/cut operations in the Fresh File Explorer.
@@ -18,8 +19,7 @@ let clipboardEntry: ClipboardEntry | null = null;
  */
 export function setClipboard(uris: vscode.Uri[], isCut: boolean): void {
   clipboardEntry = { uris, isCut };
-  vscode.commands.executeCommand("setContext", "freshFileExplorer.hasClipboard", true);
-  vscode.commands.executeCommand("setContext", "freshFileExplorer.clipboardIsCut", isCut);
+  ContextManager.setClipboard(true, isCut);
 }
 
 /**
@@ -34,6 +34,5 @@ export function getClipboard(): ClipboardEntry | null {
  */
 export function clearClipboard(): void {
   clipboardEntry = null;
-  vscode.commands.executeCommand("setContext", "freshFileExplorer.hasClipboard", false);
-  vscode.commands.executeCommand("setContext", "freshFileExplorer.clipboardIsCut", false);
+  ContextManager.setClipboard(false, false);
 }

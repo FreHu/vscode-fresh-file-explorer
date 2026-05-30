@@ -559,7 +559,7 @@
     ],
     "submenus": [
       {
-        "id": "freshFiles.blameHeatmap.gutter",
+        "id": "freshFileExplorer.blameHeatmap.gutter",
         "label": "Blame Heatmap"
       }
     ],
@@ -583,29 +583,29 @@
       ],
       "editor/lineNumber/context": [
         {
-          "submenu": "freshFiles.blameHeatmap.gutter",
+          "submenu": "freshFileExplorer.blameHeatmap.gutter",
           "when": "resourceScheme == file",
           "group": "z_freshfiles@0"
         },
         {
           "command": "freshFileExplorer.copyDeletedLinesAt",
-          "when": "editorLineNumber in freshFiles.blameHeatmap.deletionLines",
+          "when": "editorLineNumber in freshFileExplorer.blameHeatmap.deletionLines",
           "group": "z_freshfiles@1"
         },
         {
           "command": "freshFileExplorer.restoreDeletedLinesAt",
-          "when": "editorLineNumber in freshFiles.blameHeatmap.deletionLines",
+          "when": "editorLineNumber in freshFileExplorer.blameHeatmap.deletionLines",
           "group": "z_freshfiles@2"
         }
       ],
-      "freshFiles.blameHeatmap.gutter": [
+      "freshFileExplorer.blameHeatmap.gutter": [
         {
           "command": "freshFileExplorer.blameApplyAge",
           "group": "1_modes@1"
         },
         {
           "command": "freshFileExplorer.blameApplyBranchSaved",
-          "when": "freshFiles.blameHeatmap.hasBaseRef",
+          "when": "freshFileExplorer.blameHeatmap.hasBaseRef",
           "group": "1_modes@2"
         },
         {
@@ -614,22 +614,22 @@
         },
         {
           "command": "freshFileExplorer.blameTurnOff",
-          "when": "freshFiles.blameHeatmap.active",
+          "when": "freshFileExplorer.blameHeatmap.active",
           "group": "1_modes@4"
         },
         {
           "command": "freshFileExplorer.blameDiffBaseline",
-          "when": "!freshFiles.blameHeatmap.hasBaseRef",
+          "when": "!freshFileExplorer.blameHeatmap.hasBaseRef",
           "group": "2_actions@1"
         },
         {
           "command": "freshFileExplorer.blameDiffBaselineConfigured",
-          "when": "freshFiles.blameHeatmap.hasBaseRef",
+          "when": "freshFileExplorer.blameHeatmap.hasBaseRef",
           "group": "2_actions@1"
         },
         {
           "command": "freshFileExplorer.blameClearBaseline",
-          "when": "freshFiles.blameHeatmap.hasBaseRef",
+          "when": "freshFileExplorer.blameHeatmap.hasBaseRef",
           "group": "2_actions@2"
         },
         {
@@ -655,12 +655,12 @@
         },
         {
           "command": "freshFileExplorer.blameDiffBaselineConfigured",
-          "when": "editorTextFocus && resourceScheme == file && freshFiles.blameHeatmap.hasBaseRef",
+          "when": "editorTextFocus && resourceScheme == file && freshFileExplorer.blameHeatmap.hasBaseRef",
           "group": "z_freshfiles@4"
         },
         {
           "command": "freshFileExplorer.blameDiffBaseline",
-          "when": "editorTextFocus && resourceScheme == file && !freshFiles.blameHeatmap.hasBaseRef",
+          "when": "editorTextFocus && resourceScheme == file && !freshFileExplorer.blameHeatmap.hasBaseRef",
           "group": "z_freshfiles@4"
         },
         {
@@ -1725,8 +1725,10 @@
     "watch:webview": "esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts src/webview/stonksPanel.ts src/webview/branchCompareSettings.ts --bundle --outdir=media --format=iife --platform=browser --watch",
     "pretest": "npm run compile && npm run compile:webview && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test",
-    "test:coverage": "vscode-test --coverage"
+    "test": "npm run test:unit && npm run test:host",
+    "test:unit": "mocha --ui tdd \"out/test/**/*.unit.test.js\"",
+    "test:host": "vscode-test --ignore \"out/test/**/*.unit.test.js\"",
+    "test:coverage": "vscode-test --coverage --ignore \"out/test/**/*.unit.test.js\""
   },
   "devDependencies": {
     "@types/node": "^22.19.17",

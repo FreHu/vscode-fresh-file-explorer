@@ -18,6 +18,8 @@ export const TreeItemContextValues = {
   RETROGRADE_GROUP: "retrogradeGroup",
   UNINITIALIZED_SUBMODULE_GROUP: "uninitializedSubmoduleGroup",
   UNINITIALIZED_SUBMODULE: "uninitializedSubmodule",
+  MESSAGE: "message",
+  SUBMODULE_ENTRY: "submoduleEntry",
 } as const;
 
 /**
