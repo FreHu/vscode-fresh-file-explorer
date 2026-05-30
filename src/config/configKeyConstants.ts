@@ -58,4 +58,7 @@ export const ConfigKeys = {
   // Status-bar visibility toggles
   STATUS_BAR_LOADING: "freshFileExplorer.statusBar.loading",
   STATUS_BAR_HEATMAP: "freshFileExplorer.statusBar.heatmap",
+
+  // Smallest version bump worth an update notification (patch | minor | major)
+  NOTIFY_ON: "freshFileExplorer.notifyOn",
 } as const;

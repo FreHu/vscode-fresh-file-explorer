@@ -3,6 +3,7 @@ import { DescriptionFormat, DEFAULT_DESCRIPTION_FORMAT, SortOrder } from "../typ
 import { DEFAULT_TIME_WINDOW_DAYS } from "../fresh-files/timeWindowUtils";
 import { ConfigKeys } from "./configKeyConstants";
 import { GroupingMode } from "../fresh-files/groupingMode";
+import { ChangeLevel } from "../extension/versionGate";
 
 /** Default color resolved from `contributes.colors` in the extension's own
  *  package.json — single source of truth, no duplicated hex tables. */
@@ -220,6 +221,17 @@ export class ConfigService {
     return vscode.workspace.getConfiguration().get<"path" | "filename">(
       ConfigKeys.FLAT_LIST_LABEL_STYLE,
       "path",
+    );
+  }
+
+  /**
+   * Smallest version bump worth an update notification. Defaults to `minor`,
+   * so patch releases stay silent.
+   */
+  static getUpdateNotifyThreshold(): ChangeLevel {
+    return vscode.workspace.getConfiguration().get<ChangeLevel>(
+      ConfigKeys.NOTIFY_ON,
+      "minor",
     );
   }
 

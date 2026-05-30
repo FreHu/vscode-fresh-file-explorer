@@ -301,6 +301,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       STATUS_BAR_HEATMAP:              "none",
       BRANCH_COMPARE_WORKING_TREE_SIDE: "none",
       BULK_ACTION_CONFIRM_THRESHOLD:    "none",
+      NOTIFY_ON:                       "none",
     };
 
     let action: RefreshAction = "none";

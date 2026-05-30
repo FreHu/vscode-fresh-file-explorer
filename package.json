@@ -16,7 +16,7 @@
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer/issues"
   },
   "qna": false,
-  "version": "1.10.1",
+  "version": "1.10.2",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
@@ -1555,6 +1555,21 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically reveal and select the active editor's file in the Fresh Files tree when switching tabs."
+        },
+        "freshFileExplorer.notifyOn": {
+          "type": "string",
+          "default": "minor",
+          "enum": [
+            "patch",
+            "minor",
+            "major"
+          ],
+          "enumDescriptions": [
+            "Notify on any update, including patch releases",
+            "Notify on minor and major updates only",
+            "Notify on major updates only"
+          ],
+          "description": "Smallest version bump that triggers an 'updated to vX' notification with a 'What's New' button."
         },
         "freshFileExplorer.flatList.labelStyle": {
           "type": "string",
