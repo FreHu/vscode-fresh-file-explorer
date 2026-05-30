@@ -10,9 +10,9 @@ import { TreeItemContextValues, createNoteId } from "./treeItemConstants";
  */
 export class FreshFileItem extends vscode.TreeItem {
 constructor(
-    public readonly resourceUri: vscode.Uri,
+    public override readonly resourceUri: vscode.Uri,
     public readonly isDirectory: boolean,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+    public override readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly openChangesMode: boolean = false,
     public readonly fileCount?: number,
     public readonly isDeleted: boolean = false,

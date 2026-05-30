@@ -79,7 +79,7 @@ suite("Format Utils", () => {
             super(args[0]);
           }
         }
-        static now() {
+        static override now() {
           return now.getTime();
         }
       };

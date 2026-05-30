@@ -16,10 +16,8 @@ export class GitLogLPanel {
   private static panels = new Map<string, GitLogLPanel>();
 
   private readonly _panel: vscode.WebviewPanel;
-  private readonly _extensionUri: vscode.Uri;
   private readonly _repoRoot: string;
   private readonly _filePath: string;
-  private readonly _lArg: string;
   private readonly _label: string;
   private readonly _gitCommand: string;
   private readonly _mode: "logL" | "fileHistory";
@@ -66,7 +64,7 @@ export class GitLogLPanel {
     extensionUri: vscode.Uri,
     repoRoot: string,
     filePath: string,
-    lArg: string,
+    _lArg: string,
     label: string,
     commits: GitLogLCommit[],
     gitCommand: string,
@@ -74,10 +72,8 @@ export class GitLogLPanel {
     mode: "logL" | "fileHistory" = "logL",
   ) {
     this._panel = panel;
-    this._extensionUri = extensionUri;
     this._repoRoot = repoRoot;
     this._filePath = filePath;
-    this._lArg = lArg;
     this._label = label;
     this._gitCommand = gitCommand;
     this._mode = mode;
