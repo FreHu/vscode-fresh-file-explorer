@@ -110,7 +110,7 @@ async function generateUniqueName(targetDir: vscode.Uri, sourceName: string): Pr
  */
 export async function handlePasteFile(
   item: FreshFileItem,
-  selectedItems: FreshFileItem[] | undefined,
+  _selectedItems: FreshFileItem[] | undefined,
   provider: FreshFileProvider,
   treeView?: vscode.TreeView<FreshFilesTreeItem>,
 ): Promise<void> {

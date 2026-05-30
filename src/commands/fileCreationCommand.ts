@@ -144,7 +144,7 @@ async function createFilesInDirectory(
  */
 export async function handleCreateFileNextTo(
   item: FreshFileItem,
-  selectedItems: FreshFileItem[] | undefined,
+  _selectedItems: FreshFileItem[] | undefined,
   provider: FreshFileProvider,
 ): Promise<void> {
   try {
@@ -170,7 +170,7 @@ export async function handleCreateFileNextTo(
  */
 export async function handleCreateFileInside(
   item: FreshFileItem,
-  selectedItems: FreshFileItem[] | undefined,
+  _selectedItems: FreshFileItem[] | undefined,
   provider: FreshFileProvider,
 ): Promise<void> {
   try {

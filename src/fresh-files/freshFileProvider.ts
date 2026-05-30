@@ -513,7 +513,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         this.refreshEpoch++; // cancel any in-flight updateFreshFiles
         this.dataLoaded = true;
         this._setFreshFiles(this.historicalCache
-          .applyWindowToFiles(timeWindow.days, this.workspaceFolders, this.repoPathspecs, this.freshFiles));
+          .applyWindowToFiles(timeWindow.days, this.workspaceFolders, this.freshFiles));
         this.refreshTreeOnly();
         return;
       }

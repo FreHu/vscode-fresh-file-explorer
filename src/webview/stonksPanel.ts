@@ -1109,7 +1109,7 @@ function renderLineArea(
 
 function renderVolumeBars(
   data: StonksDataPoint[], volumes: number[], top: number, bandH: number,
-  plotW: number, n: number, xStep: number,
+  _plotW: number, n: number, xStep: number,
 ): string {
   const maxVol = Math.max(...volumes, 1);
   const barWidth = Math.max(1, Math.min(xStep * 0.6, 12));

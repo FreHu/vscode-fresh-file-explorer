@@ -330,7 +330,7 @@ export async function handleDeleteFile(
 
 export async function handleRenameFile(
   item: FreshFileItem,
-  selectedItems: FreshFileItem[] | undefined,
+  _selectedItems: FreshFileItem[] | undefined,
   freshFileProvider: FreshFileProvider,
   treeView?: vscode.TreeView<FreshFilesTreeItem>,
 ): Promise<void> {

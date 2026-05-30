@@ -151,7 +151,6 @@ export class HistoricalFileCache {
   applyWindowToFiles(
     days: number,
     workspaceFolders: WorkspaceFolderInfo[],
-    repoPathspecs: Map<NormalizedRepoPath, string>,
     currentFreshFiles: Map<AbsolutePath, FileMetadata>,
   ): Map<AbsolutePath, FileMetadata> {
     const newHistorical = new Map<AbsolutePath, FileMetadata>();
