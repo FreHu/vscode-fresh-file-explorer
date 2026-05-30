@@ -8,6 +8,7 @@ import {
   collectPendingChanges,
   discoverGitReposInSubdirs,
   isGitRepository,
+  isGitRepositoryRoot,
   readGitModulesSubmodulePaths,
 } from "../git/gitOperations";
 
@@ -19,6 +20,12 @@ export interface RepoInfo {
   normalizedRepoPath: NormalizedRepoPath;
   /** True when this repo was discovered as a git submodule of another repo. */
   isSubmodule?: boolean;
+  /**
+   * True when this is a submodule declared in .gitmodules but not checked out
+   * (empty working dir). Such entries must NOT be scanned — git would resolve
+   * the empty dir to the superproject — so they are kept only for display.
+   */
+  isUninitialized?: boolean;
 }
 
 /**
@@ -46,7 +53,9 @@ export class DataCollector {
 
   /**
    * Recursively discover submodules within a repo and append them as
-   * top-level RepoInfo entries. Skips uninitialized (empty) submodule directories.
+   * top-level RepoInfo entries. Uninitialized (not-checked-out) submodules are
+   * recorded with `isUninitialized: true` so the UI can show they exist, but
+   * are never scanned — see RepoInfo.isUninitialized.
    */
   private static async collectSubmoduleRepos(
     folder: WorkspaceFolderInfo,
@@ -57,12 +66,21 @@ export class DataCollector {
     const submodulePaths = await readGitModulesSubmodulePaths(repoFullPath);
     for (const submoduleRelPath of submodulePaths) {
       const submoduleFullPath = path.join(repoFullPath, submoduleRelPath);
-      const isInitialized = await isGitRepository(submoduleFullPath);
+      const submoduleRepoRelPath = repoRelPath ? `${repoRelPath}/${submoduleRelPath}` : submoduleRelPath;
+      const isInitialized = await isGitRepositoryRoot(submoduleFullPath);
       if (!isInitialized) {
-        log(`Skipping uninitialized submodule: ${submoduleRelPath}`);
+        // Record for display only; do not scan and do not recurse (no .git to read).
+        log(`Uninitialized submodule (display only): ${submoduleRepoRelPath}`);
+        result.push({
+          folder,
+          repoRelPath: submoduleRepoRelPath,
+          repoFullPath: submoduleFullPath,
+          normalizedRepoPath: asNormalizedRepoPath(submoduleFullPath),
+          isSubmodule: true,
+          isUninitialized: true,
+        });
         continue;
       }
-      const submoduleRepoRelPath = repoRelPath ? `${repoRelPath}/${submoduleRelPath}` : submoduleRelPath;
       result.push({
         folder,
         repoRelPath: submoduleRepoRelPath,

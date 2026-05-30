@@ -23,7 +23,7 @@ import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindow
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "../utils/formatUtils";
 import { log, showWarning } from "../extension/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, SubmoduleEntryItem, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, SubmoduleEntryItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
@@ -140,7 +140,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private _targetRepoPaths: NormalizedRepoPath[] | undefined = undefined;
 
   // Cached resolved repo list, populated after discovery and cleared on hard refresh.
+  // Contains only scannable repos — uninitialized submodules are held separately.
   private _resolvedRepos: RepoInfo[] = [];
+
+  // Uninitialized (not-checked-out) submodules, kept for display only. Deliberately
+  // excluded from _resolvedRepos and folder.gitRepos so no scan path ever touches them.
+  private _uninitializedSubmodules: RepoInfo[] = [];
 
   // Cache of the most-recently returned repo root FreshFileItem instances, keyed by id.
   // Populated in buildRepoView so revealSubmoduleRepo can pass the exact same object
@@ -394,6 +399,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.dataLoaded = false;
     this.reposDiscovered = false;
     this._resolvedRepos = [];
+    this._uninitializedSubmodules = [];
     this._repoItemCache.clear();
     this.reposLoading.clear();
     this.reposLoadingHistorical.clear();
@@ -885,11 +891,23 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
 
       // Show root folder node only if there is a single workspace folder and a single repo
-      if (this.workspaceFolders.length === 1 && this.workspaceFolders[0].gitRepos.length === 1) {
-        return this.buildRepoView(results, "workspaceFolder");
-      } else {
-        return this.buildRepoView(results, "repoFolder");
+      const contextValue = this.workspaceFolders.length === 1 && this.workspaceFolders[0].gitRepos.length === 1
+        ? "workspaceFolder"
+        : "repoFolder";
+      const children = this.buildRepoView(results, contextValue);
+
+      // Park uninitialized submodules under a single collapsed node at the bottom,
+      // regardless of grouping mode, so the user knows they exist without scanning them.
+      if (this._uninitializedSubmodules.length > 0) {
+        children.push(new UninitializedSubmodulesGroupItem(this._uninitializedSubmodules.length));
       }
+      return children;
+    }
+
+    if (element instanceof UninitializedSubmodulesGroupItem) {
+      return this._uninitializedSubmodules.map(
+        r => new UninitializedSubmoduleItem(r.repoRelPath, r.repoFullPath),
+      );
     }
 
     if (isAuthorGroup(element)) {
@@ -1180,16 +1198,24 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     // Apply discovered repos only after confirming we're not cancelled,
     // so state is never mutated by a stale load.
-    // Also back-fill folder.gitRepos for consumers that accept WorkspaceFolderInfo[] directly.
+    // Uninitialized submodules are display-only: they must stay out of _resolvedRepos
+    // and folder.gitRepos so no scan/cache/branch-compare path ever runs git in them.
+    this._uninitializedSubmodules = discoveredRepos.filter(r => r.isUninitialized);
+    const scannableRepos = discoveredRepos.filter(r => !r.isUninitialized);
+
+    // Back-fill folder.gitRepos for consumers that accept WorkspaceFolderInfo[] directly.
     for (const folder of this.workspaceFolders) {
       folder.gitRepos = [];
     }
-    for (const repo of discoveredRepos) {
+    for (const repo of scannableRepos) {
       repo.folder.gitRepos.push(repo.repoRelPath);
     }
-    this._resolvedRepos = discoveredRepos;
+    this._resolvedRepos = scannableRepos;
 
-    log(`Discovered ${this.totalRepoCount} Git repository(ies) across ${this.workspaceFolders.length} workspace folder(s)`);
+    const uninitializedNote = this._uninitializedSubmodules.length > 0
+      ? ` (+${this._uninitializedSubmodules.length} uninitialized submodule(s), display only)`
+      : "";
+    log(`Discovered ${this.totalRepoCount} Git repository(ies) across ${this.workspaceFolders.length} workspace folder(s)${uninitializedNote}`);
 
     // Mark all repos as loading and fire so the repo list appears immediately
     // with per-repo spinners before any git log commands have run.

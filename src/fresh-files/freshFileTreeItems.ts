@@ -271,7 +271,47 @@ export class SubmoduleEntryItem extends vscode.TreeItem {
   }
 }
 
-export type FreshFilesTreeItem = FreshFileItem | MessageTreeItem | NoteTreeItem | SubmoduleEntryItem;
+/**
+ * Collapsible top-level node grouping all uninitialized submodules so the user
+ * knows they exist without the extension scanning them (an uninitialized
+ * submodule dir resolves to the superproject — scanning it is both wrong and slow).
+ */
+export class UninitializedSubmodulesGroupItem extends vscode.TreeItem {
+  constructor(count: number) {
+    super(`Uninitialized submodules (${count})`, vscode.TreeItemCollapsibleState.Collapsed);
+    this.id = "uninitialized-submodules";
+    this.contextValue = TreeItemContextValues.UNINITIALIZED_SUBMODULE_GROUP;
+    this.iconPath = new vscode.ThemeIcon("archive");
+    this.tooltip = "Submodules declared in .gitmodules but not checked out. Run `git submodule update --init` to populate them.";
+  }
+}
+
+/**
+ * Leaf entry for a single uninitialized submodule. Carries no command — there is
+ * no repo node to focus — and no file URI.
+ */
+export class UninitializedSubmoduleItem extends vscode.TreeItem {
+  readonly isDirectory = false;
+  constructor(
+    public readonly repoRelPath: string,
+    public readonly repoFullPath: string,
+  ) {
+    super(repoRelPath, vscode.TreeItemCollapsibleState.None);
+    this.id = `uninitialized-submodule:${repoFullPath}`;
+    this.description = "not checked out";
+    this.tooltip = `Uninitialized submodule: ${repoFullPath}\nRun \`git submodule update --init -- ${repoRelPath}\` to populate it.`;
+    this.iconPath = new vscode.ThemeIcon("circle-slash");
+    this.contextValue = TreeItemContextValues.UNINITIALIZED_SUBMODULE;
+  }
+}
+
+export type FreshFilesTreeItem =
+  | FreshFileItem
+  | MessageTreeItem
+  | NoteTreeItem
+  | SubmoduleEntryItem
+  | UninitializedSubmodulesGroupItem
+  | UninitializedSubmoduleItem;
 
 /** Type guards for specific FreshFileItem contextValue variants */
 export function isPinnedFolder(el: FreshFilesTreeItem): el is FreshFileItem {

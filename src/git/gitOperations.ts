@@ -138,12 +138,35 @@ export function decodeGitPath(gitPath: string): string {
 }
 
 /**
- * Check if a directory is a git repository
+ * Check if a directory is at-or-below a git repository.
+ *
+ * NOTE: this is a "walk-up" check — `git rev-parse --git-dir` succeeds from any
+ * subdirectory of a repo, including an UNINITIALIZED submodule dir (git resolves
+ * to the superproject's .git). To ask "is THIS dir a repo root?" use
+ * `isGitRepositoryRoot` instead — otherwise empty submodule dirs read as repos
+ * and every git command run there silently targets the parent superproject.
  */
 export async function isGitRepository(dirPath: string): Promise<boolean> {
   try {
     await execGitWithArgs(["rev-parse", "--git-dir"], dirPath, { timeout: ConfigService.getGitTimeoutMs() });
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a directory is itself a git repository ROOT (not merely a subdir of one).
+ *
+ * Uses `git rev-parse --show-prefix`, which returns the path from the repo root to
+ * the cwd: empty string ⟺ cwd is the root. An uninitialized submodule dir resolves
+ * to the superproject and returns a non-empty prefix (e.g. "third_party/foo/"), so
+ * it is correctly rejected. Throws (→ false) when there is no repo at or above the dir.
+ */
+export async function isGitRepositoryRoot(dirPath: string): Promise<boolean> {
+  try {
+    const prefix = await execGitWithArgs(["rev-parse", "--show-prefix"], dirPath, { timeout: ConfigService.getGitTimeoutMs() });
+    return prefix.trim() === "";
   } catch {
     return false;
   }

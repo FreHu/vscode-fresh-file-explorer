@@ -16,6 +16,8 @@ export const TreeItemContextValues = {
   COMMIT_HASH_GROUP: "commitHashGroup",
   MOON_PHASE_GROUP: "moonPhaseGroup",
   RETROGRADE_GROUP: "retrogradeGroup",
+  UNINITIALIZED_SUBMODULE_GROUP: "uninitializedSubmoduleGroup",
+  UNINITIALIZED_SUBMODULE: "uninitializedSubmodule",
 } as const;
 
 /**
