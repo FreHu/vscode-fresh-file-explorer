@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.10.2]
+
+- Right click option to reveal file in OS file manager (matches the built-in Explorer)
+- Configurable update-notification threshold via `freshFileExplorer.notifyOn` — notify on `patch`, `minor` (default), or `major` updates only
+- Output log is now a filterable log channel
+- Fix: uninitialized submodules no longer mess with the loading process, now grouped under a separate tree node
+- Internal: package.json validation and lint hardening
+
 ## [1.10.1]
 
 - Branch Compare: swap source/target sides from the settings panel
