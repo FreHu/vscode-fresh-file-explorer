@@ -124,6 +124,10 @@
         "title": "Reveal in Explorer View"
       },
       {
+        "command": "freshFileExplorer.revealFileInOS",
+        "title": "Reveal in File Explorer"
+      },
+      {
         "command": "freshFileExplorer.openFile",
         "title": "Open"
       },
@@ -546,6 +550,11 @@
         "command": "freshFileExplorer.compareSelected",
         "key": "ctrl+alt+c",
         "when": "focusedView == 'freshFileExplorer' || focusedView == 'pinnedItems'"
+      },
+      {
+        "command": "freshFileExplorer.revealFileInOS",
+        "key": "shift+alt+r",
+        "when": "focusedView == 'freshFileExplorer' || focusedView == 'pinnedItems' || focusedView == 'freshFileExplorer.branchCompare'"
       }
     ],
     "submenus": [
@@ -821,6 +830,11 @@
           "group": "3_reveal@1"
         },
         {
+          "command": "freshFileExplorer.revealFileInOS",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder|deletedFile)$/",
+          "group": "3_reveal@1.5"
+        },
+        {
           "command": "freshFileExplorer.revealInSourceControl",
           "when": "view == freshFileExplorer && viewItem == pendingFile",
           "group": "3_reveal@2"
@@ -951,6 +965,11 @@
           "group": "3_reveal@1"
         },
         {
+          "command": "freshFileExplorer.revealFileInOS",
+          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "group": "3_reveal@1.5"
+        },
+        {
           "command": "freshFileExplorer.revealInSourceControl",
           "when": "view == pinnedItems && viewItem == pinnedFile",
           "group": "3_reveal@2"
@@ -1034,6 +1053,11 @@
           "command": "freshFileExplorer.revealInExplorer",
           "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder|deletedFile)$/",
           "group": "3_reveal@1"
+        },
+        {
+          "command": "freshFileExplorer.revealFileInOS",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder|deletedFile)$/",
+          "group": "3_reveal@1.5"
         },
         {
           "command": "freshFileExplorer.revealInSourceControl",
@@ -1147,6 +1171,10 @@
         },
         {
           "command": "freshFileExplorer.revealInExplorer",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.revealFileInOS",
           "when": "false"
         },
         {

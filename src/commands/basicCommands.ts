@@ -190,6 +190,32 @@ export function handleRevealInExplorer(item: FreshFileItem, selectedItems?: Fres
   }
 }
 
+// Only needs a resourceUri, so it stays type-agnostic about the tree item —
+// works across fresh files, pinned items, and branch compare (whose items are
+// not FreshFileItem but do expose resourceUri).
+export function handleRevealFileInOS(
+  item: vscode.TreeItem | undefined,
+  selectedItems?: vscode.TreeItem[],
+  treeViews?: ReadonlyArray<Pick<vscode.TreeView<vscode.TreeItem>, "selection">>,
+): void {
+  // Keybinding path: item and selectedItems are undefined — fall back to the
+  // focused tree view's current selection.
+  let target = item || selectedItems?.[0];
+  if (!target) {
+    for (const tv of treeViews ?? []) {
+      const sel = tv.selection.filter((i) => !!i.resourceUri);
+      if (sel.length > 0) {
+        target = sel[0];
+        break;
+      }
+    }
+  }
+  if (target?.resourceUri) {
+    log(`Revealing in OS file explorer: ${target.resourceUri.fsPath}`);
+    vscode.commands.executeCommand("revealFileInOS", target.resourceUri);
+  }
+}
+
 export async function handleOpenFile(
   item: FreshFileItem,
   selectedItems?: FreshFileItem[],

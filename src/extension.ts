@@ -12,6 +12,7 @@ import {
   handleOpenToSide,
   handleRefresh,
   handleRevealInExplorer,
+  handleRevealFileInOS,
   handleRevealInSourceControl,
   handleSetTimeWindow,
   handleSetGroupingMode,
@@ -179,6 +180,7 @@ export async function activate(context: vscode.ExtensionContext) {
     blameHeatmapController,
     baselineService,
     branchCompareProvider,
+    branchCompareTreeView,
     savedComparisons,
   );
   telescopeRegistration = await registerCodeTelescopeFinder(freshFileProvider);
@@ -262,6 +264,7 @@ function registerCommands(
   blameHeatmapController: BlameHeatmapController,
   baselineService: BaselineService,
   branchCompareProvider: BranchCompareProvider,
+  branchCompareTreeView: vscode.TreeView<vscode.TreeItem>,
   savedComparisons: SavedComparisonsService,
 ): void {
   function register(name: string, handler: (...args: any[]) => any) {
@@ -313,6 +316,10 @@ function registerCommands(
   register(Commands.EXPAND_SUBTREE, (item: FreshFileItem) => handleExpandSubtree(item, treeView, freshFileProvider));
 
   register(Commands.REVEAL_IN_EXPLORER, handleRevealInExplorer);
+
+  register(Commands.REVEAL_FILE_IN_OS, (item: vscode.TreeItem, selectedItems?: vscode.TreeItem[]) =>
+    handleRevealFileInOS(item, selectedItems, [treeView, pinnedItemsTreeView, branchCompareTreeView]),
+  );
 
   register(
     Commands.OPEN_FILE,

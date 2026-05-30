@@ -32,6 +32,7 @@ export const Commands = {
 
   // File operation commands
   REVEAL_IN_EXPLORER: "freshFileExplorer.revealInExplorer",
+  REVEAL_FILE_IN_OS: "freshFileExplorer.revealFileInOS",
   OPEN_FILE: "freshFileExplorer.openFile",
   OPEN_CHANGES: "freshFileExplorer.openChanges",
   OPEN_TO_SIDE: "freshFileExplorer.openToSide",
