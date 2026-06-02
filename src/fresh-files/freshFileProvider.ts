@@ -87,8 +87,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   workspaceFolders: WorkspaceFolderInfo[] = [];
   private errorToShowInTreeView: string | undefined;
   private refreshPromise: Promise<void> | undefined;
-  private dataLoaded: boolean = false;
-  get isDataLoaded(): boolean { return this.dataLoaded; }
+  private _dataLoaded: boolean = false;
+  /**
+   * Whether file data is loaded and usable. Exact inverse of the `freshFileExplorer.loading` context key
+   */
+  private get dataLoaded(): boolean { return this._dataLoaded; }
+  private set dataLoaded(value: boolean) {
+    this._dataLoaded = value;
+    ContextManager.setLoading(!value);
+  }
+  get isDataLoaded(): boolean { return this._dataLoaded; }
   // Set to true once git repos have been discovered (before file loading completes)
   private reposDiscovered: boolean = false;
   // Normalized absolute paths of repos whose initial (pending) file loading is still in progress
@@ -352,7 +360,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const targetRepoPaths = options?.targetRepoPaths;
     const scopeDesc = targetRepoPaths ? ` [${targetRepoPaths.length} repo(s)]` : "";
     log(`Refresh of files in ${scopeDesc} with time window: ${this.currentTimeWindow.label}`);
-    ContextManager.setLoading(true);
     this.dataLoaded = false;
     this._targetRepoPaths = targetRepoPaths;
     this.refreshEpoch++;
@@ -396,7 +403,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    */
   hardRefresh(): void {
     log(`Hard refresh (repo discovery + history) with time window: ${this.currentTimeWindow.label}`);
-    ContextManager.setLoading(true);
     this.dataLoaded = false;
     this.reposDiscovered = false;
     this._resolvedRepos = [];
@@ -1158,7 +1164,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
       const totalRepos = this.totalRepoCount;
       if (totalRepos === 0) {
-        ContextManager.setLoading(false);
         this.dataLoaded = true;
         this._onDidChangeTreeData.fire();
         return;
@@ -1175,7 +1180,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       );
 
       this._targetRepoPaths = undefined;
-      ContextManager.setLoading(false);
       this.heatmapProvider?.fireDidChange();
     } catch (e) {
       if (e instanceof RefreshCancelledError) {
