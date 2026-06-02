@@ -6,6 +6,7 @@ import { SavedComparisonsService, HEAD_SOURCE } from "./savedComparisonsService"
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log } from "../extension/logger";
 import { ContextManager } from "../extension/contextManager";
+import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import {
   buildChangedFiles,
   buildFolderTree,
@@ -114,11 +115,20 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   /** Snapshot of `repo → branch name` for change-detection on tooltip refresh. */
   private lastSeenBranches = new Map<NormalizedRepoPath, string>();
 
+  /**
+   * Left-click mode for file items: `true` opens the diff (the default — diffs
+   * are the point of this view), `false` opens the working-tree file. Separate
+   * from Fresh Files' own open-changes mode.
+   */
+  private openChangesMode: boolean = WorkspaceStateManager.getBranchCompareOpenChangesMode();
+
   constructor(
     private readonly baselineService: BaselineService,
     private readonly freshFileProvider: FreshFileProvider,
     private readonly savedComparisons: SavedComparisonsService,
   ) {
+    ContextManager.setBranchCompareOpenChangesMode(this.openChangesMode);
+
     // React to comparison list changes (add / update / delete / toggle active).
     this.subscriptions.push(
       this.savedComparisons.onDidChange(event => {
@@ -385,6 +395,20 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     return mode === "Author" || mode === "Commit Hash" || mode === "Moon Phase" || mode === "Retrograde";
   }
 
+  // ── Open mode ─────────────────────────────────────────────────────────────
+
+  /**
+   * Set the left-click mode: `true` opens diffs, `false` opens files. Re-renders
+   * from cached data (no git) — only the file items' `command` changes.
+   */
+  setOpenMode(value: boolean): void {
+    if (value === this.openChangesMode) { return; }
+    this.openChangesMode = value;
+    WorkspaceStateManager.setBranchCompareOpenChangesMode(value);
+    ContextManager.setBranchCompareOpenChangesMode(value);
+    this.fireChange();
+  }
+
   dispose(): void {
     for (const s of this.subscriptions) { s.dispose(); }
     this._onDidChangeTreeData.dispose();
@@ -598,19 +622,19 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     const files = node.files
       .slice()
       .sort((a, b) => a.pathInRepo.localeCompare(b.pathInRepo))
-      .map(f => new BranchCompareFileItem(f, cmp.source, baseRef, cmp.id, cmp.diffMode));
+      .map(f => new BranchCompareFileItem(f, cmp.source, baseRef, cmp.id, cmp.diffMode, this.openChangesMode));
 
     return [...folders, ...files];
   }
 
   private renderFlatChildren(cmp: ResolvedComparison): BranchCompareTreeItem[] {
-    return sortFilesForGrouping(cmp.files ?? []).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode));
+    return sortFilesForGrouping(cmp.files ?? []).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode));
   }
 
   private renderGroupChildren(group: BranchCompareGroupItem): BranchCompareTreeItem[] {
     const cmp = this.comparisons.get(group.comparisonId);
     if (!cmp) { return []; }
-    return sortFilesForGrouping(group.files).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode));
+    return sortFilesForGrouping(group.files).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode));
   }
 
   private fireChange(): void {

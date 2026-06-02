@@ -14,6 +14,8 @@ export const ContextKeys = {
   LOADING: "freshFileExplorer.loading",
   /** "Open changes" mode — click opens a diff rather than the file. */
   OPEN_CHANGES_MODE: "freshFileExplorer.openChangesMode",
+  /** Branch Compare's own "open changes" mode — click opens the diff vs the file. Independent of the Fresh Files one. */
+  BRANCH_COMPARE_OPEN_CHANGES_MODE: "freshFileExplorer.branchCompare.openChangesMode",
   /** fsPath of the selected item, exposed for other extensions (e.g. GitLens). */
   SELECTED_FILE: "freshFileExplorer.selectedFile",
   /** Any author/commit filter is active. */

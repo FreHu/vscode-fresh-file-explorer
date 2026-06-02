@@ -46,6 +46,18 @@ export class WorkspaceStateManager {
     WorkspaceStateManager.ctx().workspaceState.update("openChangesMode", value);
   }
 
+  /**
+   * Branch Compare's own open-changes mode — independent of Fresh Files.
+   * Defaults to `true` (diff on click)
+   */
+  static getBranchCompareOpenChangesMode(fallback: boolean = true): boolean {
+    return WorkspaceStateManager.ctx().workspaceState.get<boolean>("branchCompareOpenChangesMode", fallback);
+  }
+
+  static setBranchCompareOpenChangesMode(value: boolean): void {
+    WorkspaceStateManager.ctx().workspaceState.update("branchCompareOpenChangesMode", value);
+  }
+
   // ── Grouping mode ────────────────────────────────────────────────────────────
 
   static getGroupingMode(fallback: GroupingMode = DEFAULT_GROUPING_MODE): GroupingMode {

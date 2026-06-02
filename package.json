@@ -23,16 +23,21 @@
   },
   "categories": [
     "SCM Providers",
-    "Visualization",
-    "Other"
+    "Visualization"
   ],
   "keywords": [
+    "recent files",
     "file explorer",
     "blame heatmap",
     "branch compare",
-    "pickaxe",
+    "git",
+    "gitlens",
+    "git blame",
     "git history",
-    "git"
+    "recover deleted file",
+    "code churn",
+    "diff search",
+    "pickaxe"
   ],
   "main": "./out/extension.js",
   "activationEvents": [
@@ -164,9 +169,28 @@
         "title": "Open to the Side"
       },
       {
-        "command": "freshFileExplorer.toggleOpenMode",
-        "title": "Toggle left click action between Open File / Compare with previous",
-        "icon": "$(file)"
+        "command": "freshFileExplorer.openMode.changes",
+        "title": "Open Changes on Click",
+        "icon": "$(git-compare)",
+        "category": "Fresh Files"
+      },
+      {
+        "command": "freshFileExplorer.openMode.file",
+        "title": "Open File on Click",
+        "icon": "$(go-to-file)",
+        "category": "Fresh Files"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openMode.changes",
+        "title": "Open Changes on Click",
+        "icon": "$(git-compare)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openMode.file",
+        "title": "Open File on Click",
+        "icon": "$(go-to-file)",
+        "category": "Branch Compare"
       },
       {
         "command": "freshFileExplorer.exhume",
@@ -492,12 +516,6 @@
         "category": "Branch Compare"
       },
       {
-        "command": "freshFileExplorer.branchCompare.setGroupingMode",
-        "title": "Set Grouping Mode",
-        "icon": "$(group-by-ref-type)",
-        "category": "Branch Compare"
-      },
-      {
         "command": "freshFileExplorer.branchCompare.openSettings",
         "title": "Open Comparisons Settings…",
         "icon": "$(settings-gear)",
@@ -708,8 +726,13 @@
       ],
       "view/title": [
         {
-          "command": "freshFileExplorer.toggleOpenMode",
-          "when": "view == freshFileExplorer",
+          "command": "freshFileExplorer.openMode.changes",
+          "when": "view == freshFileExplorer && !freshFileExplorer.openChangesMode",
+          "group": "navigation@0"
+        },
+        {
+          "command": "freshFileExplorer.openMode.file",
+          "when": "view == freshFileExplorer && freshFileExplorer.openChangesMode",
           "group": "navigation@0"
         },
         {
@@ -778,19 +801,24 @@
           "group": "navigation"
         },
         {
+          "command": "freshFileExplorer.branchCompare.openMode.changes",
+          "when": "view == freshFileExplorer.branchCompare && !freshFileExplorer.branchCompare.openChangesMode",
+          "group": "navigation@0"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openMode.file",
+          "when": "view == freshFileExplorer.branchCompare && freshFileExplorer.branchCompare.openChangesMode",
+          "group": "navigation@0"
+        },
+        {
           "command": "freshFileExplorer.branchCompare.openSettings",
           "when": "view == freshFileExplorer.branchCompare",
           "group": "navigation@1"
         },
         {
-          "command": "freshFileExplorer.branchCompare.setGroupingMode",
-          "when": "view == freshFileExplorer.branchCompare",
-          "group": "navigation@2"
-        },
-        {
           "command": "freshFileExplorer.branchCompare.refresh",
           "when": "view == freshFileExplorer.branchCompare",
-          "group": "navigation@3"
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -1113,16 +1141,6 @@
           "command": "freshFileExplorer.branchCompare.setBaseline",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
           "group": "inline@1"
-        },
-        {
-          "command": "freshFileExplorer.branchCompare.setBaseline",
-          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
-          "group": "1_baseline@1"
-        },
-        {
-          "command": "freshFileExplorer.branchCompare.clearBaseline",
-          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
-          "group": "1_baseline@2"
         },
         {
           "command": "freshFileExplorer.branchCompare.openAll",

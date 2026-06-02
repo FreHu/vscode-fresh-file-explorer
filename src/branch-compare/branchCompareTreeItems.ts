@@ -143,6 +143,8 @@ export class BranchCompareFileItem extends vscode.TreeItem {
     public readonly comparisonId: string,
     /** Diff mode of the owning comparison — decides whether the open path diffs vs the merge-base or the target ref. */
     public readonly diffMode: DiffMode = "merge",
+    /** Left-click mode: `true` opens the diff, `false` opens the working-tree file. */
+    openChangesMode: boolean = true,
   ) {
     const uri = vscode.Uri.file(file.absolutePath);
     super(uri, vscode.TreeItemCollapsibleState.None);
@@ -167,11 +169,10 @@ export class BranchCompareFileItem extends vscode.TreeItem {
       };
     } else {
       this.contextValue = BranchCompareContextValues.FILE;
-      this.command = {
-        command: Commands.BRANCH_COMPARE_OPEN,
-        title: "Open Changes",
-        arguments: [this],
-      };
+      // Open mode decides the click target: the diff vs baseline, or the file.
+      this.command = openChangesMode
+        ? { command: Commands.BRANCH_COMPARE_OPEN, title: "Open Changes", arguments: [this] }
+        : { command: Commands.BRANCH_COMPARE_OPEN_FILE, title: "Open File", arguments: [this] };
     }
   }
 }

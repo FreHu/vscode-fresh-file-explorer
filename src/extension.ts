@@ -18,7 +18,7 @@ import {
   handleSetGroupingMode,
   handleSetSortOrder,
   handleShowOutput,
-  handleToggleOpenMode,
+  handleSetOpenMode,
   handleToggleHeatmap,
 } from "./commands/basicCommands";
 import { handleExhume, handleResurrect } from "./commands/deletedFileCommands";
@@ -336,7 +336,8 @@ function registerCommands(
       handleOpenChanges(item, selectedItems, options),
   );
 
-  register(Commands.TOGGLE_OPEN_MODE, () => handleToggleOpenMode(freshFileProvider));
+  register(Commands.OPEN_MODE_CHANGES, () => handleSetOpenMode(freshFileProvider, true));
+  register(Commands.OPEN_MODE_FILE, () => handleSetOpenMode(freshFileProvider, false));
 
   register(Commands.OPEN_TO_SIDE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
     handleOpenToSide(item, selectedItems),
@@ -545,6 +546,8 @@ function registerCommands(
   register(Commands.BRANCH_COMPARE_SWAP_SIDES, (arg: any) =>
     handleBranchCompareSwapSides(arg, savedComparisons),
   );
+  register(Commands.BRANCH_COMPARE_OPEN_MODE_CHANGES, () => branchCompareProvider.setOpenMode(true));
+  register(Commands.BRANCH_COMPARE_OPEN_MODE_FILE, () => branchCompareProvider.setOpenMode(false));
 }
 
 function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: vscode.ExtensionContext) {

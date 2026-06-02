@@ -544,9 +544,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.refresh({ preserveHistoricalCache: true }); // soft — repos unchanged; keep cache for other windows
   }
 
-  toggleOpenMode(): void {
-    this.openChangesMode = !this.openChangesMode;
-    log(`Toggled open mode: ${this.openChangesMode ? "changes" : "file"}`);
+  setOpenMode(value: boolean): void {
+    if (value === this.openChangesMode) { return; }
+    this.openChangesMode = value;
+    log(`Set open mode: ${this.openChangesMode ? "changes" : "file"}`);
 
     WorkspaceStateManager.setOpenChangesMode(this.openChangesMode);
     ContextManager.setOpenChangesMode(this.openChangesMode);

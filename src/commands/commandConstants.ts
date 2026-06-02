@@ -39,7 +39,8 @@ export const Commands = {
   DISCARD_CHANGES: "freshFileExplorer.discardChanges",
   DELETE_FILE: "freshFileExplorer.deleteFile",
   REVEAL_IN_SOURCE_CONTROL: "freshFileExplorer.revealInSourceControl",
-  TOGGLE_OPEN_MODE: "freshFileExplorer.toggleOpenMode",
+  OPEN_MODE_CHANGES: "freshFileExplorer.openMode.changes",
+  OPEN_MODE_FILE: "freshFileExplorer.openMode.file",
   CREATE_FILE_NEXT_TO: "freshFileExplorer.createFileNextTo",
   CREATE_FILE_INSIDE: "freshFileExplorer.createFileInside",
 
@@ -124,6 +125,8 @@ export const Commands = {
   RENAME_FILE: "freshFileExplorer.renameFile",
 
   // Branch compare view
+  BRANCH_COMPARE_OPEN_MODE_CHANGES: "freshFileExplorer.branchCompare.openMode.changes",
+  BRANCH_COMPARE_OPEN_MODE_FILE: "freshFileExplorer.branchCompare.openMode.file",
   BRANCH_COMPARE_OPEN: "freshFileExplorer.branchCompare.open",
   BRANCH_COMPARE_OPEN_FILE: "freshFileExplorer.branchCompare.openFile",
   BRANCH_COMPARE_OPEN_TO_SIDE: "freshFileExplorer.branchCompare.openToSide",

@@ -232,10 +232,12 @@ export async function handleOpenFile(
 }
 
 /**
- * Handler for toggling open mode (file vs changes/diff)
+ * Set the Fresh Files left-click open mode: `true` opens diffs, `false` opens
+ * files. The two view-title buttons each call this with a fixed value (only the
+ * button for the *other* mode is visible), so the icon alternates by state.
  */
-export function handleToggleOpenMode(freshFileProvider: FreshFileProvider): void {
-  freshFileProvider.toggleOpenMode();
+export function handleSetOpenMode(freshFileProvider: FreshFileProvider, value: boolean): void {
+  freshFileProvider.setOpenMode(value);
 }
 
 export async function handleOpenToSide(item: FreshFileItem, selectedItems?: FreshFileItem[]): Promise<void> {

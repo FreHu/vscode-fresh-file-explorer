@@ -24,6 +24,11 @@ export class ContextManager {
     vscode.commands.executeCommand("setContext", ContextKeys.OPEN_CHANGES_MODE, value);
   }
 
+  /** Branch Compare's own open-changes mode (independent of Fresh Files). */
+  static setBranchCompareOpenChangesMode(value: boolean): void {
+    vscode.commands.executeCommand("setContext", ContextKeys.BRANCH_COMPARE_OPEN_CHANGES_MODE, value);
+  }
+
   /**
    * The file path of the currently selected item in the Fresh File Explorer.
    * Used so other extensions (e.g. GitLens) can act on the selected file.
