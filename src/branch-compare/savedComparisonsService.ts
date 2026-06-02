@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { NormalizedRepoPath, asNormalizedRepoPath } from "../pathTypes";
+import { GroupingMode, DEFAULT_GROUPING_MODE } from "../fresh-files/groupingMode";
 
 /**
  * One saved comparison record. Multiple of these can exist per repo; the
@@ -25,6 +26,8 @@ export interface SavedComparison {
   label?: string;
   active: boolean;
   isHeatmapBaseline?: boolean;
+  /** How the branch-compare tree groups this comparison's files (per-comparison). */
+  groupingMode: GroupingMode;
 }
 
 export interface SavedComparisonsChangeEvent {
@@ -35,6 +38,12 @@ export interface SavedComparisonsChangeEvent {
    * untouched. Receivers can skip expensive diff re-fetches and just re-render.
    */
   reorderOnly?: boolean;
+  /**
+   * When true, only display state (grouping mode) changed — the diff data is
+   * unaffected. Receivers re-render from cached files and only re-fetch when
+   * the new grouping needs commit info the cached load didn't include.
+   */
+  displayOnly?: boolean;
 }
 
 /** Sentinel for "use the working branch as the source." */
@@ -117,6 +126,7 @@ export class SavedComparisonsService implements vscode.Disposable {
       label: input.label?.trim() || undefined,
       active: input.active ?? true,
       isHeatmapBaseline: input.isHeatmapBaseline,
+      groupingMode: DEFAULT_GROUPING_MODE,
     };
     if (newCmp.isHeatmapBaseline) {
       this.clearHeatmapBaselineForRepo(repoKey);
@@ -149,22 +159,29 @@ export class SavedComparisonsService implements vscode.Disposable {
     if (patch.isHeatmapBaseline !== undefined) {
       next.isHeatmapBaseline = patch.isHeatmapBaseline;
     }
+    if (patch.groupingMode !== undefined) { next.groupingMode = patch.groupingMode; }
 
     // Heatmap baseline can only attach to a HEAD-source comparison.
     if (next.isHeatmapBaseline && next.source !== HEAD_SOURCE) {
       next.isHeatmapBaseline = false;
     }
 
+    // Split the diff into "affects the diff data" vs "display only". A
+    // grouping-only change must not trigger the provider's diff re-fetch —
+    // it re-renders from cached files (and re-fetches lazily only if the new
+    // grouping needs commit info).
+    const dataChanged =
+      next.source !== existing.source ||
+      next.target !== existing.target ||
+      next.label !== existing.label ||
+      next.active !== existing.active ||
+      next.isHeatmapBaseline !== existing.isHeatmapBaseline ||
+      next.repoFullPath !== existing.repoFullPath;
+    const groupingChanged = next.groupingMode !== existing.groupingMode;
+
     // Bail if the patch was a no-op — persisting + firing onChange here
     // cascades into the provider's diff re-fetch, which is wasteful.
-    if (
-      next.source === existing.source &&
-      next.target === existing.target &&
-      next.label === existing.label &&
-      next.active === existing.active &&
-      next.isHeatmapBaseline === existing.isHeatmapBaseline &&
-      next.repoFullPath === existing.repoFullPath
-    ) {
+    if (!dataChanged && !groupingChanged) {
       return;
     }
 
@@ -173,7 +190,26 @@ export class SavedComparisonsService implements vscode.Disposable {
       this.clearHeatmapBaselineForRepo(next.repoFullPath, id);
     }
     this.persist();
-    this._onDidChange.fire({ ids: [id] });
+    // Only a grouping change → display-only event so the provider skips the
+    // diff re-fetch. Any data change takes the full path even if grouping
+    // also changed (the re-fetch picks up the new mode anyway).
+    this._onDidChange.fire(
+      dataChanged ? { ids: [id] } : { ids: [id], displayOnly: true },
+    );
+  }
+
+  /**
+   * Set the grouping mode on every comparison at once (the panel's batch
+   * toggle). Fires a single display-only event.
+   */
+  setAllGroupingModes(mode: GroupingMode): void {
+    let changed = false;
+    for (const c of this.comparisons) {
+      if (c.groupingMode !== mode) { c.groupingMode = mode; changed = true; }
+    }
+    if (!changed) { return; }
+    this.persist();
+    this._onDidChange.fire({ ids: this.comparisons.map(c => c.id), displayOnly: true });
   }
 
   delete(id: string): void {
@@ -309,6 +345,8 @@ export class SavedComparisonsService implements vscode.Disposable {
     return WorkspaceStateManager.getSavedComparisons().map(c => ({
       ...c,
       repoFullPath: asNormalizedRepoPath(c.repoFullPath),
+      // Records predating per-comparison grouping have no mode — default them.
+      groupingMode: c.groupingMode ?? DEFAULT_GROUPING_MODE,
     }));
   }
 

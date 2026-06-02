@@ -77,7 +77,6 @@ import {
   handleBranchCompareRestoreFromBaseline,
   handleBranchCompareCopySubtreeStructure,
   handleBranchCompareRevealInFreshFiles,
-  handleBranchCompareSetGroupingMode,
   handleBranchCompareToggleActive,
   handleBranchCompareSwapSides,
 } from "./branch-compare/branchCompareCommands";
@@ -536,9 +535,6 @@ function registerCommands(
   );
   register(Commands.BRANCH_COMPARE_REVEAL_IN_FRESH_FILES, (item: any) =>
     handleBranchCompareRevealInFreshFiles(item, freshFileProvider),
-  );
-  register(Commands.BRANCH_COMPARE_SET_GROUPING_MODE, () =>
-    handleBranchCompareSetGroupingMode(branchCompareProvider),
   );
   register(Commands.BRANCH_COMPARE_OPEN_SETTINGS, () =>
     BranchCompareSettingsPanel.createOrShow(context.extensionUri, savedComparisons, freshFileProvider),

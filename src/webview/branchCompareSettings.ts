@@ -7,6 +7,8 @@ import type {
   SavedComparisonDTO,
 } from "./messages";
 import { enableListDragDrop } from "./listDragDrop";
+import { GROUPING_MODE_OPTIONS } from "../fresh-files/groupingMode";
+import type { GroupingMode } from "../fresh-files/groupingMode";
 
 const vscode = acquireVsCodeApi();
 
@@ -41,6 +43,42 @@ const addBtn = document.getElementById("addBtn") as HTMLButtonElement;
 const refreshBtn = document.getElementById("refreshBtn") as HTMLButtonElement;
 const dupWarning = document.getElementById("dupWarning") as HTMLElement;
 const dupWarningText = document.getElementById("dupWarningText") as HTMLElement;
+const batchGrouping = document.getElementById("batchGrouping") as HTMLSelectElement;
+
+// Sentinel option value used when comparisons don't all share one grouping mode.
+const MIXED_GROUPING = "__mixed__";
+
+// Populate the batch select once: a "(mixed)" placeholder plus one option per
+// grouping mode. Labels are plain text — codicon `$(...)` markup doesn't render
+// inside <option>.
+batchGrouping.appendChild(new Option("(mixed)", MIXED_GROUPING));
+for (const opt of GROUPING_MODE_OPTIONS) {
+  batchGrouping.appendChild(new Option(opt.label, opt.mode));
+}
+batchGrouping.addEventListener("change", () => {
+  const mode = batchGrouping.value;
+  if (mode === MIXED_GROUPING) { return; }
+  send({ command: "setAllGroupingMode", mode: mode as GroupingMode });
+});
+
+/** Build a per-row grouping <select>, pre-selected to `current`. */
+function groupingSelect(current: GroupingMode | undefined, onChange: (mode: GroupingMode) => void): HTMLSelectElement {
+  const select = document.createElement("select");
+  for (const opt of GROUPING_MODE_OPTIONS) {
+    const o = new Option(opt.label, opt.mode);
+    if (opt.mode === current) { o.selected = true; }
+    select.appendChild(o);
+  }
+  select.addEventListener("change", () => onChange(select.value as GroupingMode));
+  return select;
+}
+
+/** Reflect the comparisons' shared grouping mode in the batch select, or "(mixed)". */
+function syncBatchGrouping(): void {
+  const modes = new Set(comparisons.map(c => c.groupingMode));
+  batchGrouping.value = modes.size === 1 ? (comparisons[0]?.groupingMode ?? MIXED_GROUPING) : MIXED_GROUPING;
+  batchGrouping.disabled = comparisons.length === 0;
+}
 
 // ── Heatmap settings section ──────────────────────────────────────────────
 const hmEnabled = document.getElementById("hmEnabled") as HTMLInputElement;
@@ -231,7 +269,7 @@ function render(): void {
     const tr = document.createElement("tr");
     tr.className = "empty-row";
     const td = document.createElement("td");
-    td.colSpan = 8;
+    td.colSpan = 9;
     td.className = "empty-state";
     td.innerHTML = "<p>No comparisons yet.</p><p>Click <strong>+ Add comparison</strong> below to define one.</p>";
     tr.appendChild(td);
@@ -247,18 +285,20 @@ function render(): void {
   }
   dnd.refresh();
   updateDuplicateWarning();
+  syncBatchGrouping();
 }
 
 /**
- * Inspect active comparisons for `(repo, source, target)` triples that occur
- * more than once. The tree dedupes these in its provider; the warning lets
- * the user know so they can clean up the panel side.
+ * Inspect active comparisons for `(repo, source, target, grouping)` tuples that
+ * occur more than once. The tree dedupes only fully-identical comparisons —
+ * same triple with a *different* grouping mode renders as its own section, so
+ * grouping is part of the key. The warning lets the user clean up true dupes.
  */
 function updateDuplicateWarning(): void {
   const buckets = new Map<string, number>();
   for (const c of comparisons) {
     if (!c.active) { continue; }
-    const key = `${c.repoFullPath} ${c.source} ${c.target}`;
+    const key = `${c.repoFullPath}\0${c.source}\0${c.target}\0${c.groupingMode}`;
     buckets.set(key, (buckets.get(key) ?? 0) + 1);
   }
   let dupGroups = 0;
@@ -268,7 +308,7 @@ function updateDuplicateWarning(): void {
   }
   if (dupGroups > 0) {
     dupWarningText.textContent =
-      `${dupTotal} active comparisons share ${dupGroups === 1 ? "the same (repo, source, target)" : `${dupGroups} (repo, source, target) triples`} — the tree only renders one of each.`;
+      `${dupTotal} active comparisons are identical (same repo, source, target and grouping)${dupGroups === 1 ? "" : ` across ${dupGroups} groups`} — the tree only renders one of each.`;
     dupWarning.classList.add("shown");
   } else {
     dupWarning.classList.remove("shown");
@@ -329,6 +369,14 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   });
   labelTd.appendChild(labelInput);
   tr.appendChild(labelTd);
+
+  // Grouping mode (per-comparison)
+  const groupingTd = document.createElement("td");
+  groupingTd.className = "col-grouping";
+  groupingTd.appendChild(groupingSelect(c.groupingMode, mode => {
+    send({ command: "update", id: c.id, patch: { groupingMode: mode } });
+  }));
+  tr.appendChild(groupingTd);
 
   // Heatmap toggle (gold star). Only meaningful for HEAD-source comparisons.
   const heatmapTd = document.createElement("td");
@@ -464,6 +512,16 @@ function renderDraftRow(d: DraftRow, idx: number): HTMLTableRowElement {
   labelInput.addEventListener("input", () => { d.label = labelInput.value; });
   labelTd.appendChild(labelInput);
   tr.appendChild(labelTd);
+
+  // Grouping (seeded from the workspace default once saved — can't set on a draft)
+  const groupingTd = document.createElement("td");
+  groupingTd.className = "col-grouping";
+  const groupingSel = document.createElement("select");
+  groupingSel.disabled = true;
+  groupingSel.title = "Set grouping after saving the comparison";
+  groupingSel.appendChild(new Option("(default)", ""));
+  groupingTd.appendChild(groupingSel);
+  tr.appendChild(groupingTd);
 
   // Heatmap (cannot be set on a draft — needs an id)
   const heatmapTd = document.createElement("td");

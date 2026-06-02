@@ -87,6 +87,7 @@ export function getBranchCompareSettingsHtml(
     .col-repo { white-space: nowrap; }
     .col-source, .col-target { min-width: 220px; }
     .col-label { min-width: 160px; }
+    .col-grouping { width: 150px; }
     .col-heatmap { width: 80px; text-align: center; }
     .col-actions { width: 160px; text-align: right; white-space: nowrap; }
     .icon-btn[disabled] {
@@ -203,6 +204,18 @@ export function getBranchCompareSettingsHtml(
       gap: 14px;
       flex-wrap: wrap;
     }
+    .table-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .table-toolbar label {
+      color: var(--vscode-descriptionForeground);
+      font-size: 0.85em;
+    }
+    .table-toolbar select { width: auto; min-width: 150px; }
     .dup-warning {
       display: none;
       align-items: center;
@@ -331,6 +344,11 @@ export function getBranchCompareSettingsHtml(
   </div>
   <p class="subtitle">Define which comparisons appear in the Branch Compare tree. Each row is one (source &rarr; target) pair.</p>
 
+  <div class="table-toolbar">
+    <label for="batchGrouping">Set grouping for all comparisons:</label>
+    <select id="batchGrouping" title="Apply a grouping mode to every comparison at once"></select>
+  </div>
+
   <table class="cmp" id="comparisonsTable">
     <thead>
       <tr>
@@ -340,12 +358,13 @@ export function getBranchCompareSettingsHtml(
         <th class="col-source">Source</th>
         <th class="col-target">Target</th>
         <th class="col-label">Name</th>
+        <th class="col-grouping" title="How this comparison's files are grouped in the tree">Grouping</th>
         <th class="col-heatmap" title="Drives the blame heatmap (HEAD-source comparisons only, max one per repo)">Heatmap</th>
         <th class="col-actions"></th>
       </tr>
     </thead>
     <tbody id="comparisonsBody">
-      <tr class="empty-row"><td colspan="8" class="empty-state"><p>Loading…</p></td></tr>
+      <tr class="empty-row"><td colspan="9" class="empty-state"><p>Loading…</p></td></tr>
     </tbody>
   </table>
 

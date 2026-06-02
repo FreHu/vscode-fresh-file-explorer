@@ -24,7 +24,6 @@ import { log, showError, showInfo, showWarning } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
 import { confirmBulkAction } from "../utils/confirmations";
-import { GROUPING_MODE_OPTIONS } from "../fresh-files/groupingMode";
 import { showPathFormatQuickPick } from "../utils/quickPick";
 import { buildFileTree, renderFileTree } from "../commands/copyPathCommands";
 
@@ -236,29 +235,6 @@ export async function handleBranchCompareRevealInFreshFiles(
       `${path.basename(item.file.absolutePath)} is filtered out or outside the time window.`,
     );
   }
-}
-
-/**
- * Quick-pick to switch the Branch Compare grouping mode. Mirrors the Fresh
- * Files set-grouping-mode picker so the UX feels consistent across views.
- */
-export async function handleBranchCompareSetGroupingMode(
-  provider: BranchCompareProvider,
-): Promise<void> {
-  const current = provider.getGroupingMode();
-
-  const items = GROUPING_MODE_OPTIONS.map(opt => ({
-    label: `${opt.icon} ${opt.label}`,
-    description: opt.mode === current ? "current" : opt.description,
-    mode: opt.mode,
-  }));
-
-  const picked = await vscode.window.showQuickPick(items, {
-    placeHolder: "Choose how to group changed files",
-    title: "Branch Compare: Grouping",
-  });
-  if (!picked) { return; }
-  await provider.setGroupingMode(picked.mode);
 }
 
 /**

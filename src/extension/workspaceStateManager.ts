@@ -200,17 +200,6 @@ export class WorkspaceStateManager {
     WorkspaceStateManager.ctx().workspaceState.update("blameHeatmapMode", mode);
   }
 
-  // ── Branch compare grouping mode ─────────────────────────────────────────
-
-  static getBranchCompareGroupingMode(fallback: GroupingMode = DEFAULT_GROUPING_MODE): GroupingMode {
-    const raw = WorkspaceStateManager.ctx().workspaceState.get<unknown>("branchCompareGroupingMode");
-    return coerceGroupingMode(raw, fallback);
-  }
-
-  static setBranchCompareGroupingMode(mode: GroupingMode): void {
-    WorkspaceStateManager.ctx().workspaceState.update("branchCompareGroupingMode", mode);
-  }
-
   // ── Branch compare saved comparisons (multi-comparison list) ─────────────
 
   /** Returns the persisted list as raw objects. Callers re-brand the path field. */
@@ -222,6 +211,7 @@ export class WorkspaceStateManager {
     label?: string;
     active: boolean;
     isHeatmapBaseline?: boolean;
+    groupingMode?: GroupingMode;
   }> {
     return WorkspaceStateManager.ctx().workspaceState.get(
       "branchCompareSavedComparisons",
@@ -233,6 +223,7 @@ export class WorkspaceStateManager {
         label?: string;
         active: boolean;
         isHeatmapBaseline?: boolean;
+        groupingMode?: GroupingMode;
       }>,
     );
   }
@@ -245,6 +236,7 @@ export class WorkspaceStateManager {
     label?: string;
     active: boolean;
     isHeatmapBaseline?: boolean;
+    groupingMode?: GroupingMode;
   }>): void {
     WorkspaceStateManager.ctx().workspaceState.update("branchCompareSavedComparisons", list);
   }

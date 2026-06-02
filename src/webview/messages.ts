@@ -2,6 +2,8 @@
 // This file is compiled by both tsconfig.json (extension host) and
 // tsconfig.webview.json (webview scripts).
 
+import type { GroupingMode } from "../fresh-files/groupingMode";
+
 // ── Branch Compare settings panel ───────────────────────────────────────────
 
 export interface SavedComparisonDTO {
@@ -12,6 +14,7 @@ export interface SavedComparisonDTO {
   label?: string;
   active: boolean;
   isHeatmapBaseline?: boolean;
+  groupingMode: GroupingMode;
 }
 
 export interface RepoDTO {
@@ -79,6 +82,7 @@ export type BranchCompareSettingsFromWebview =
   | { command: "move"; id: string; delta: number }
   | { command: "moveTo"; id: string; targetIndex: number }
   | { command: "setHeatmapBaseline"; id: string | undefined }
+  | { command: "setAllGroupingMode"; mode: GroupingMode }
   | { command: "requestRefs"; repoFullPath: string }
   | { command: "validateRef"; repoFullPath: string; ref: string }
   | { command: "refreshRefs" }

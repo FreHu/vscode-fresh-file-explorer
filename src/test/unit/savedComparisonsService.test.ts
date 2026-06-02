@@ -288,4 +288,86 @@ suite("SavedComparisonsService", () => {
       assert.strictEqual(service.getAll().length, 0);
     });
   });
+
+  suite("grouping mode", () => {
+    test("add defaults groupingMode to File Structure", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      assert.strictEqual(service.getById(id)?.groupingMode, "File Structure");
+    });
+
+    test("a record persisted before the field existed loads as File Structure", () => {
+      service.dispose();
+      WorkspaceStateManager.initialize(makeFakeContext({
+        branchCompareSavedComparisons: [{
+          id: "cmp-legacy",
+          repoFullPath: asNormalizedRepoPath(REPO_A),
+          source: HEAD_SOURCE,
+          target: "main",
+          active: true,
+          // no groupingMode
+        }],
+      }));
+      service = new SavedComparisonsService();
+      assert.strictEqual(service.getById("cmp-legacy")?.groupingMode, "File Structure");
+    });
+
+    test("a grouping-only update fires displayOnly=true (no diff re-fetch signal)", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      let captured: { ids?: string[]; displayOnly?: boolean } | undefined;
+      service.onDidChange(e => { captured = e; });
+
+      service.update(id, { groupingMode: "Author" });
+      assert.strictEqual(service.getById(id)?.groupingMode, "Author");
+      assert.deepStrictEqual(captured?.ids, [id]);
+      assert.strictEqual(captured?.displayOnly, true);
+    });
+
+    test("an update touching a data field is NOT displayOnly even if grouping also changed", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      let captured: { displayOnly?: boolean } | undefined;
+      service.onDidChange(e => { captured = e; });
+
+      service.update(id, { groupingMode: "Author", target: "v1" });
+      assert.notStrictEqual(captured?.displayOnly, true, "data change must take the full re-fetch path");
+    });
+
+    test("re-setting the same groupingMode is a no-op", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      let fired = 0;
+      service.onDidChange(() => { fired++; });
+      service.update(id, { groupingMode: "File Structure" }); // already the default
+      assert.strictEqual(fired, 0);
+    });
+
+    test("setAllGroupingModes sets every comparison and fires one displayOnly event", () => {
+      const a = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      const b = service.add({ repoFullPath: REPO_B, source: HEAD_SOURCE, target: "main" });
+      let fireCount = 0;
+      let captured: { ids?: string[]; displayOnly?: boolean } | undefined;
+      service.onDidChange(e => { fireCount++; captured = e; });
+
+      service.setAllGroupingModes("Moon Phase");
+      assert.strictEqual(fireCount, 1);
+      assert.strictEqual(captured?.displayOnly, true);
+      assert.deepStrictEqual([...(captured?.ids ?? [])].sort(), [a, b].sort());
+      assert.strictEqual(service.getById(a)?.groupingMode, "Moon Phase");
+      assert.strictEqual(service.getById(b)?.groupingMode, "Moon Phase");
+    });
+
+    test("setAllGroupingModes with no comparisons is a no-op", () => {
+      let fired = 0;
+      service.onDidChange(() => { fired++; });
+      service.setAllGroupingModes("Flat List");
+      assert.strictEqual(fired, 0);
+    });
+
+    test("groupingMode round-trips through persistence", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      service.update(id, { groupingMode: "Retrograde" });
+      // Re-load from the same backing store.
+      service.dispose();
+      service = new SavedComparisonsService();
+      assert.strictEqual(service.getById(id)?.groupingMode, "Retrograde");
+    });
+  });
 });

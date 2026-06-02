@@ -161,6 +161,9 @@ export class BranchCompareSettingsPanel {
       case "setHeatmapBaseline":
         this.service.setHeatmapBaseline(msg.id);
         break;
+      case "setAllGroupingMode":
+        this.service.setAllGroupingModes(msg.mode);
+        break;
       case "requestRefs":
         await this._sendRefs(msg.repoFullPath);
         break;
@@ -257,6 +260,7 @@ export class BranchCompareSettingsPanel {
       label: c.label,
       active: c.active,
       isHeatmapBaseline: c.isHeatmapBaseline,
+      groupingMode: c.groupingMode,
     }));
     void this._panel.webview.postMessage({ command: "state", repos, comparisons });
   }

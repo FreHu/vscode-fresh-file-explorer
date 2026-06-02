@@ -32,7 +32,6 @@ import {
 import { AbsolutePath, asAbsolutePath, NormalizedRepoPath } from "../pathTypes";
 import { normalizePath } from "../utils";
 import { GroupingMode } from "../fresh-files/groupingMode";
-import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 
 /**
  * In-memory state for one rendered comparison. Mirrors the persisted shape
@@ -62,6 +61,15 @@ interface ResolvedComparison {
    * surfaces this so HEAD~N users don't get blindsided by merged-in changes.
    */
   mergeCone: { total: number; firstParent: number } | undefined;
+  /** Per-comparison grouping mode, resolved from the saved record (default applied). */
+  groupingMode: GroupingMode;
+  /**
+   * Whether the last successful load fetched commit info. Drives the lazy
+   * re-fetch when grouping switches into a mode that needs commit metadata
+   * (Author / Commit Hash / Moon Phase / Retrograde) but the cached files
+   * were loaded without it.
+   */
+  hasCommitInfo: boolean;
 }
 
 /**
@@ -103,16 +111,11 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   /** Snapshot of `repo → branch name` for change-detection on tooltip refresh. */
   private lastSeenBranches = new Map<NormalizedRepoPath, string>();
 
-  /** Active grouping mode for this view. Defaults to File Structure. */
-  private groupingMode: GroupingMode;
-
   constructor(
     private readonly baselineService: BaselineService,
     private readonly freshFileProvider: FreshFileProvider,
     private readonly savedComparisons: SavedComparisonsService,
   ) {
-    this.groupingMode = WorkspaceStateManager.getBranchCompareGroupingMode();
-
     // React to comparison list changes (add / update / delete / toggle active).
     this.subscriptions.push(
       this.savedComparisons.onDidChange(event => {
@@ -120,11 +123,25 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           void this.refreshAll();
         } else {
           // Reconcile our in-memory map with the new persisted state. The
-          // sync rebuilds the Map in service order so reorders propagate.
+          // sync rebuilds the Map in service order so reorders propagate, and
+          // picks up per-comparison grouping-mode changes.
           this.syncComparisonsToService();
-          // Skip the diff re-fetch for pure reorders — nothing about the
-          // ref pair or filter state changed.
-          if (!event.reorderOnly) {
+          if (event.displayOnly) {
+            // Grouping-mode-only change. Re-render from cached files; only
+            // re-fetch the rare comparison whose new mode needs commit info the
+            // cached load didn't include.
+            for (const id of event.ids) {
+              const cmp = this.comparisons.get(id);
+              if (
+                cmp && cmp.files && cmp.files.length > 0 &&
+                this.groupingNeedsCommitInfo(cmp.groupingMode) && !cmp.hasCommitInfo
+              ) {
+                void this.refreshComparison(id, true);
+              }
+            }
+          } else if (!event.reorderOnly) {
+            // Skip the diff re-fetch for pure reorders — nothing about the
+            // ref pair or filter state changed.
             for (const id of event.ids) {
               if (this.comparisons.has(id)) {
                 void this.refreshComparison(id, true);
@@ -276,7 +293,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       // Working-tree overlay only applies when source === HEAD. Other source
       // refs aren't necessarily checked out — their working tree isn't ours.
       const includeWorkingTree = sourceRef === HEAD_SOURCE;
-      const wantsCommitInfo = this.groupingNeedsCommitInfo(this.groupingMode);
+      const wantsCommitInfo = this.groupingNeedsCommitInfo(cmp.groupingMode);
 
       const [committed, workingTree, commitInfo, mergeCone] = await Promise.all([
         fetchCommittedDiff(cmp.repoFullPath, mergeBase, sourceRef),
@@ -297,6 +314,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.tree = buildFolderTree(cmp.files);
       cmp.error = undefined;
       cmp.mergeCone = mergeCone;
+      cmp.hasCommitInfo = wantsCommitInfo;
     } catch (err) {
       if (this.loadingTokens.get(id) !== myToken) return;
       cmp.error = String(err);
@@ -304,6 +322,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.files = [];
       cmp.tree = undefined;
       cmp.mergeCone = undefined;
+      cmp.hasCommitInfo = false;
       log(`branchCompare: failed to load comparison ${id} (${cmp.source}..${cmp.target} in ${cmp.repoFullPath}) — ${err}`, "warn");
     }
 
@@ -352,22 +371,6 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   }
 
   // ── Grouping ────────────────────────────────────────────────────────────
-
-  getGroupingMode(): GroupingMode { return this.groupingMode; }
-
-  async setGroupingMode(mode: GroupingMode): Promise<void> {
-    if (mode === this.groupingMode) { return; }
-    const wasNeedingCommit = this.groupingNeedsCommitInfo(this.groupingMode);
-    const nowNeedsCommit = this.groupingNeedsCommitInfo(mode);
-    this.groupingMode = mode;
-    WorkspaceStateManager.setBranchCompareGroupingMode(mode);
-
-    if (!wasNeedingCommit && nowNeedsCommit) {
-      const ids = [...this.comparisons.keys()];
-      await Promise.all(ids.map(id => this.refreshComparison(id, false)));
-    }
-    this.fireChange();
-  }
 
   private groupingNeedsCommitInfo(mode: GroupingMode): boolean {
     return mode === "Author" || mode === "Commit Hash" || mode === "Moon Phase" || mode === "Retrograde";
@@ -418,6 +421,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
         }
         existing.label = sc.label;
         existing.repoName = repoInfo.repoName;
+        existing.groupingMode = sc.groupingMode;
         next.set(sc.id, existing);
       } else {
         next.set(sc.id, {
@@ -432,6 +436,8 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           error: undefined,
           invalidRef: false,
           mergeCone: undefined,
+          groupingMode: sc.groupingMode,
+          hasCommitInfo: false,
         });
       }
     }
@@ -471,9 +477,11 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   private buildRootSections(): RepoSectionItem[] {
     this.syncComparisonsToService();
     const sections: RepoSectionItem[] = [];
-    // Dedupe by (repo, source, target). Two comparisons with the same triple
-    // would fetch the same diff twice and render identical trees; collapse to
-    // one. The settings panel surfaces a warning so the user knows to clean up.
+    // Dedupe by (repo, source, target, groupingMode). Two comparisons that
+    // match on all four render byte-identical trees, so collapse them. Same
+    // triple but *different* grouping is intentional — e.g. the same diff as a
+    // flat list and grouped by commit side by side — so those both render. The
+    // settings panel warns only on the fully-identical case.
     // First insertion wins — matches the persisted-list order users can
     // reorder via the panel.
     const seenTriples = new Set<string>();
@@ -482,7 +490,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       // panel already shows a red X next to the offending input — surfacing
       // it again here as a broken "vs ddd · no changes" section just adds noise.
       if (cmp.invalidRef) { continue; }
-      const tripleKey = `${cmp.repoFullPath}\0${cmp.source}\0${cmp.target}`;
+      const tripleKey = `${cmp.repoFullPath}\0${cmp.source}\0${cmp.target}\0${cmp.groupingMode}`;
       if (seenTriples.has(tripleKey)) { continue; }
       seenTriples.add(tripleKey);
       const fileCount = cmp.files?.length ?? 0;
@@ -540,14 +548,14 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       )];
     }
 
-    switch (this.groupingMode) {
+    switch (cmp.groupingMode) {
       case "Flat List":
         return this.renderFlatChildren(cmp);
       case "Author":
       case "Commit Hash":
       case "Moon Phase":
       case "Retrograde":
-        return buildGroupedItems(cmp.id, cmp.repoFullPath, cmp.files, this.groupingMode);
+        return buildGroupedItems(cmp.id, cmp.repoFullPath, cmp.files, cmp.groupingMode);
       case "File Structure":
       default:
         if (!cmp.tree) {
