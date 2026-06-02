@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { PinnedItem, SortOrder } from "../types";
 import { GroupingMode, DEFAULT_GROUPING_MODE, coerceGroupingMode } from "../fresh-files/groupingMode";
+import { DiffMode } from "../branch-compare/branchCompareConstants";
 import { DiffSearchParams, DiffSearchHistoryEntry, StonksConfig } from "../webview/messages";
 import { NormalizedRepoPath } from "../pathTypes";
 
@@ -212,6 +213,7 @@ export class WorkspaceStateManager {
     active: boolean;
     isHeatmapBaseline?: boolean;
     groupingMode?: GroupingMode;
+    diffMode?: DiffMode;
   }> {
     return WorkspaceStateManager.ctx().workspaceState.get(
       "branchCompareSavedComparisons",
@@ -237,6 +239,7 @@ export class WorkspaceStateManager {
     active: boolean;
     isHeatmapBaseline?: boolean;
     groupingMode?: GroupingMode;
+    diffMode?: DiffMode;
   }>): void {
     WorkspaceStateManager.ctx().workspaceState.update("branchCompareSavedComparisons", list);
   }

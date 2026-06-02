@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { NormalizedRepoPath, asNormalizedRepoPath } from "../pathTypes";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "../fresh-files/groupingMode";
+import { DiffMode, DEFAULT_DIFF_MODE } from "./branchCompareConstants";
 
 /**
  * One saved comparison record. Multiple of these can exist per repo; the
@@ -28,6 +29,8 @@ export interface SavedComparison {
   isHeatmapBaseline?: boolean;
   /** How the branch-compare tree groups this comparison's files (per-comparison). */
   groupingMode: GroupingMode;
+  /** Whether the diff is computed against the merge-base (`merge`) or the target ref directly (`full`). */
+  diffMode: DiffMode;
 }
 
 export interface SavedComparisonsChangeEvent {
@@ -127,6 +130,7 @@ export class SavedComparisonsService implements vscode.Disposable {
       active: input.active ?? true,
       isHeatmapBaseline: input.isHeatmapBaseline,
       groupingMode: DEFAULT_GROUPING_MODE,
+      diffMode: DEFAULT_DIFF_MODE,
     };
     if (newCmp.isHeatmapBaseline) {
       this.clearHeatmapBaselineForRepo(repoKey);
@@ -160,6 +164,7 @@ export class SavedComparisonsService implements vscode.Disposable {
       next.isHeatmapBaseline = patch.isHeatmapBaseline;
     }
     if (patch.groupingMode !== undefined) { next.groupingMode = patch.groupingMode; }
+    if (patch.diffMode !== undefined) { next.diffMode = patch.diffMode; }
 
     // Heatmap baseline can only attach to a HEAD-source comparison.
     if (next.isHeatmapBaseline && next.source !== HEAD_SOURCE) {
@@ -168,15 +173,16 @@ export class SavedComparisonsService implements vscode.Disposable {
 
     // Split the diff into "affects the diff data" vs "display only". A
     // grouping-only change must not trigger the provider's diff re-fetch —
-    // it re-renders from cached files (and re-fetches lazily only if the new
-    // grouping needs commit info).
+    // it re-renders from cached files. diffMode IS a data change (merge vs full
+    // produce different file sets), so it lives on the re-fetch path.
     const dataChanged =
       next.source !== existing.source ||
       next.target !== existing.target ||
       next.label !== existing.label ||
       next.active !== existing.active ||
       next.isHeatmapBaseline !== existing.isHeatmapBaseline ||
-      next.repoFullPath !== existing.repoFullPath;
+      next.repoFullPath !== existing.repoFullPath ||
+      next.diffMode !== existing.diffMode;
     const groupingChanged = next.groupingMode !== existing.groupingMode;
 
     // Bail if the patch was a no-op — persisting + firing onChange here
@@ -345,8 +351,9 @@ export class SavedComparisonsService implements vscode.Disposable {
     return WorkspaceStateManager.getSavedComparisons().map(c => ({
       ...c,
       repoFullPath: asNormalizedRepoPath(c.repoFullPath),
-      // Records predating per-comparison grouping have no mode — default them.
+      // Records predating these per-comparison fields have none — default them.
       groupingMode: c.groupingMode ?? DEFAULT_GROUPING_MODE,
+      diffMode: c.diffMode ?? DEFAULT_DIFF_MODE,
     }));
   }
 

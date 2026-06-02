@@ -11,6 +11,7 @@ import {
 } from "./branchCompareTreeItems";
 import { ChangedFile, collectFilesIn } from "./branchCompareData";
 import { HEAD_SOURCE, SavedComparisonsService } from "./savedComparisonsService";
+import { DiffMode } from "./branchCompareConstants";
 import {
   execGitWithArgs,
   fileExistsAtRef,
@@ -20,7 +21,7 @@ import {
 } from "../git/gitOperations";
 import { openDiff, normalizePath } from "../utils";
 import { findRepoForAbsolutePath, toRelativePaths } from "../utils/pathUtils";
-import { log, showError, showInfo, showWarning } from "../extension/logger";
+import { log, showError, showInfo } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
 import { confirmBulkAction } from "../utils/confirmations";
@@ -35,7 +36,7 @@ import { buildFileTree, renderFileTree } from "../commands/copyPathCommands";
  */
 export async function handleBranchCompareOpen(item: BranchCompareFileItem | undefined): Promise<void> {
   if (!item) { return; }
-  await openOneAsDiff(item.file, item.sourceRef, item.targetRef, { preserveFocus: false });
+  await openOneAsDiff(item.file, item.sourceRef, item.targetRef, { preserveFocus: false }, item.diffMode);
 }
 
 interface OpenDiffOptions {
@@ -60,6 +61,7 @@ async function openOneAsDiff(
   sourceRef: string,
   baseRef: string,
   options: OpenDiffOptions = {},
+  diffMode: DiffMode = "merge",
 ): Promise<void> {
   const preserveFocus = options.preserveFocus ?? false;
   const viewColumn = options.viewColumn;
@@ -79,21 +81,23 @@ async function openOneAsDiff(
     return;
   }
 
-  // Re-derive the merge-base from the comparison's actual source — not from
-  // HEAD. They diverge when the user defines a comparison against a branch
-  // they aren't currently on (e.g. `tars-takeover vs origin/main` while
-  // checked out on `main`): the source-vs-target merge-base is the
-  // meaningful one, the HEAD-vs-target merge-base is just the current
-  // branch's history.
-  let mergeBaseSha: string;
-  try {
-    mergeBaseSha = await getMergeBase(file.repoFullPath, sourceRef, baseRef);
-  } catch (err) {
-    showInfo(
-      `Could not find a common ancestor between ${sourceRef} and ${baseRef}.`,
-      `Branch compare open: no common ancestor between ${sourceRef} and ${baseRef} — ${err}`,
-    );
-    return;
+  // The diff base must match how the tree computed this comparison's file set (full/merge-base)
+  // Merge-base is re-derived from the comparison's actual source — not HEAD.
+  // They diverge when the comparison is against a branch the user isn't on
+  // (e.g. `feat-x vs origin/main` while checked out on `main`).
+  let baseSha: string;
+  if (diffMode === "full") {
+    baseSha = baseRef;
+  } else {
+    try {
+      baseSha = await getMergeBase(file.repoFullPath, sourceRef, baseRef);
+    } catch (err) {
+      showInfo(
+        `Could not find a common ancestor between ${sourceRef} and ${baseRef}.`,
+        `Branch compare open: no common ancestor between ${sourceRef} and ${baseRef} — ${err}`,
+      );
+      return;
+    }
   }
 
   const workingTreeUri = vscode.Uri.file(file.absolutePath);
@@ -105,7 +109,7 @@ async function openOneAsDiff(
 
   if (file.status === "D") {
     // Deleted file: open the baseline content in a read-only git: URI.
-    const baselineUri = gitUri(workingTreeUri, mergeBaseSha);
+    const baselineUri = gitUri(workingTreeUri, baseSha);
     await vscode.commands.executeCommand(
       "vscode.open",
       baselineUri,
@@ -119,7 +123,7 @@ async function openOneAsDiff(
   const baselineRelPath = file.renameSource ?? file.pathInRepo;
   const baselineFsUri = vscode.Uri.file(path.join(file.repoFullPath, baselineRelPath));
 
-  if (!(await fileExistsAtRef(file.repoFullPath, mergeBaseSha, baselineRelPath))) {
+  if (!(await fileExistsAtRef(file.repoFullPath, baseSha, baselineRelPath))) {
     // File didn't exist at baseline (added) — no diff possible. Just open
     // the source-side content (working tree for HEAD-source, otherwise the
     // ref's snapshot).
@@ -127,7 +131,7 @@ async function openOneAsDiff(
     return;
   }
 
-  const baselineUri = gitUri(baselineFsUri, mergeBaseSha);
+  const baselineUri = gitUri(baselineFsUri, baseSha);
   // "Working tree" side preference governs source-on-left vs source-on-right.
   // Default ("right") matches VS Code's git Open Changes convention.
   const sourceOnLeft = ConfigService.getBranchCompareWorkingTreeSide() === "left";
@@ -163,7 +167,7 @@ export async function handleBranchCompareOpenFile(item: BranchCompareFileItem | 
 /** Open the diff in a side editor column */
 export async function handleBranchCompareOpenToSide(item: BranchCompareFileItem | undefined): Promise<void> {
   if (!item) { return; }
-  await openOneAsDiff(item.file, item.sourceRef, item.targetRef, { viewColumn: vscode.ViewColumn.Beside });
+  await openOneAsDiff(item.file, item.sourceRef, item.targetRef, { viewColumn: vscode.ViewColumn.Beside }, item.diffMode);
 }
 
 /**
@@ -184,27 +188,32 @@ export async function handleBranchCompareOpenAtBaseline(item: BranchCompareFileI
     return;
   }
 
-  let mergeBaseSha: string;
-  try {
-    mergeBaseSha = await getMergeBase(file.repoFullPath, item.sourceRef, item.targetRef);
-  } catch (err) {
-    showInfo(
-      `Could not find a common ancestor between ${item.sourceRef} and ${item.targetRef}.`,
-      `Branch compare open-at-baseline: no common ancestor — ${err}`,
-    );
-    return;
+  // Match the comparison's diff base
+  let baseSha: string;
+  if (item.diffMode === "full") {
+    baseSha = item.targetRef;
+  } else {
+    try {
+      baseSha = await getMergeBase(file.repoFullPath, item.sourceRef, item.targetRef);
+    } catch (err) {
+      showInfo(
+        `Could not find a common ancestor between ${item.sourceRef} and ${item.targetRef}.`,
+        `Branch compare open-at-baseline: no common ancestor — ${err}`,
+      );
+      return;
+    }
   }
 
   // For renames, the baseline-side path is the source path.
   const baselineRelPath = file.renameSource ?? file.pathInRepo;
 
-  if (!(await fileExistsAtRef(file.repoFullPath, mergeBaseSha, baselineRelPath))) {
+  if (!(await fileExistsAtRef(file.repoFullPath, baseSha, baselineRelPath))) {
     showInfo(`${file.pathInRepo} did not exist at ${item.targetRef}.`);
     return;
   }
 
   const baselineFsUri = vscode.Uri.file(path.join(file.repoFullPath, baselineRelPath));
-  const baselineUri = gitUri(baselineFsUri, mergeBaseSha);
+  const baselineUri = gitUri(baselineFsUri, baseSha);
   await vscode.commands.executeCommand(
     "vscode.open",
     baselineUri,
@@ -515,12 +524,11 @@ export async function handleBranchCompareRefresh(provider: BranchCompareProvider
 
 /**
  * Open every changed file in the targeted scope (repo section or folder
- * subtree) as a diff. Above {@link OPEN_ALL_CONFIRM_THRESHOLD} files the user
- * gets a modal confirmation — same UX as `handleOpenAllFoundFiles` so the
- * threshold feels consistent across bulk-open features.
+ * subtree) in a single multi-diff editor. Above {@link OPEN_ALL_CONFIRM_THRESHOLD}
+ * files the user gets a modal confirmation — same UX as `handleOpenAllFoundFiles`.
  *
- * Each diff opens with `preserveFocus: true` so the tree keeps focus and the
- * tabs queue up in the background instead of stealing focus per file.
+ * A multi-diff editor (not N tabs) means zero flicker and one editor to close.
+ * Diffs lazy-load as you scroll, so large scopes stay cheap.
  */
 export async function handleBranchCompareOpenAll(
   arg: RepoSectionItem | BranchCompareFolderItem | undefined,
@@ -529,7 +537,10 @@ export async function handleBranchCompareOpenAll(
   let files: ChangedFile[] = [];
   let sourceRef = "";
   let baseRef = "";
+  let diffMode: DiffMode = "merge";
+  let repoFullPath = "" as AbsolutePath;
   let scopeLabel = "";
+  let scopeKey = "";
 
   if (arg instanceof RepoSectionItem) {
     if (!arg.comparisonId) { return; }
@@ -538,14 +549,20 @@ export async function handleBranchCompareOpenAll(
     files = cmp.files;
     sourceRef = cmp.source;
     baseRef = cmp.target;
+    diffMode = cmp.diffMode;
+    repoFullPath = cmp.repoFullPath;
     scopeLabel = arg.repoName;
+    scopeKey = arg.comparisonId;
   } else if (arg instanceof BranchCompareFolderItem) {
     const cmp = provider.getComparison(arg.comparisonId);
     if (!cmp || !cmp.tree) { return; }
     files = collectFilesIn(arg.node);
     sourceRef = cmp.source;
     baseRef = cmp.target;
+    diffMode = cmp.diffMode;
+    repoFullPath = cmp.repoFullPath;
     scopeLabel = arg.node.pathInRepo || arg.node.name || cmp.repoName;
+    scopeKey = `${arg.comparisonId}:${arg.node.pathInRepo}`;
   } else {
     return;
   }
@@ -557,21 +574,56 @@ export async function handleBranchCompareOpenAll(
 
   if (!await confirmBulkAction({ count: files.length, actionLabel: "Open All" })) { return; }
 
-  log(`branchCompare: opening ${files.length} change(s) for ${scopeLabel}`);
-  let openedCount = 0;
-  let failedCount = 0;
-  for (const file of files) {
+  // One base for the whole scope (the diff was computed against it — see
+  // refreshComparison): `full` → the target ref directly, `merge` → merge-base.
+  let baseSha: string;
+  if (diffMode === "full") {
+    baseSha = baseRef;
+  } else {
     try {
-      await openOneAsDiff(file, sourceRef, baseRef, { preserveFocus: true });
-      openedCount++;
+      baseSha = await getMergeBase(repoFullPath, sourceRef, baseRef);
     } catch (err) {
-      log(`branchCompare: failed to open ${file.absolutePath} — ${err}`, "warn");
-      failedCount++;
+      showInfo(
+        `Could not find a common ancestor between ${sourceRef} and ${baseRef}.`,
+        `Branch compare open-all: no common ancestor — ${err}`,
+      );
+      return;
     }
   }
-  if (failedCount > 0) {
-    showWarning(`Opened ${openedCount} change(s) (${failedCount} failed)`);
-  }
+
+  const sourceIsWorkingTree = sourceRef === HEAD_SOURCE;
+  // Build (original ↔ modified) URI pairs. A `undefined` side renders as a pure
+  // add/delete. original = baseline (renames track the source path); modified =
+  // working tree for HEAD-source, else the source ref's snapshot.
+  const resources = files.map(file => {
+    const wtUri = vscode.Uri.file(file.absolutePath);
+    const baselineRelPath = file.renameSource ?? file.pathInRepo;
+    const baselineUri = gitUri(vscode.Uri.file(path.join(file.repoFullPath, baselineRelPath)), baseSha);
+    const sourceUri = sourceIsWorkingTree ? wtUri : gitUri(wtUri, sourceRef);
+    const noOriginal = file.status === "A" || file.status === "U"; // added → no baseline side
+    const noModified = file.status === "D";                        // deleted → no source side
+    return {
+      originalUri: noOriginal ? undefined : baselineUri,
+      modifiedUri: noModified ? undefined : sourceUri,
+    };
+  });
+
+  // Stable per-scope source URI so reopening reuses the editor instead of
+  // stacking. The scheme has no resolver — that's fine: passing `resources`
+  // makes the multi-diff editor use them directly (no resolution needed).
+  const multiDiffSourceUri = vscode.Uri.from({
+    scheme: "fresh-file-explorer-changes",
+    path: `/${encodeURIComponent(scopeKey)}`,
+  });
+  const sourceLabel = sourceIsWorkingTree ? "working tree" : sourceRef;
+  const title = `${scopeLabel} (${sourceLabel} ↔ ${baseRef}${diffMode === "full" ? ", full" : ""})`;
+
+  log(`branchCompare: opening ${files.length} change(s) in a multi-diff editor for ${scopeLabel}`);
+  await vscode.commands.executeCommand("_workbench.openMultiDiffEditor", {
+    multiDiffSourceUri,
+    title,
+    resources,
+  });
 }
 
 /**

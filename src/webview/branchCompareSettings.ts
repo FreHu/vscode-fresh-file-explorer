@@ -9,6 +9,7 @@ import type {
 import { enableListDragDrop } from "./listDragDrop";
 import { GROUPING_MODE_OPTIONS } from "../fresh-files/groupingMode";
 import type { GroupingMode } from "../fresh-files/groupingMode";
+import type { DiffMode } from "../branch-compare/branchCompareConstants";
 
 const vscode = acquireVsCodeApi();
 
@@ -70,6 +71,18 @@ function groupingSelect(current: GroupingMode | undefined, onChange: (mode: Grou
     select.appendChild(o);
   }
   select.addEventListener("change", () => onChange(select.value as GroupingMode));
+  return select;
+}
+
+/** Build a per-row diff-mode <select> (Merge vs Full), pre-selected to `current`. */
+function diffSelect(current: DiffMode, onChange: (mode: DiffMode) => void): HTMLSelectElement {
+  const select = document.createElement("select");
+  for (const [value, label] of [["merge", "Merge"], ["full", "Full"]] as const) {
+    const o = new Option(label, value);
+    if (value === current) { o.selected = true; }
+    select.appendChild(o);
+  }
+  select.addEventListener("change", () => onChange(select.value as DiffMode));
   return select;
 }
 
@@ -269,7 +282,7 @@ function render(): void {
     const tr = document.createElement("tr");
     tr.className = "empty-row";
     const td = document.createElement("td");
-    td.colSpan = 9;
+    td.colSpan = 10;
     td.className = "empty-state";
     td.innerHTML = "<p>No comparisons yet.</p><p>Click <strong>+ Add comparison</strong> below to define one.</p>";
     tr.appendChild(td);
@@ -289,16 +302,16 @@ function render(): void {
 }
 
 /**
- * Inspect active comparisons for `(repo, source, target, grouping)` tuples that
- * occur more than once. The tree dedupes only fully-identical comparisons —
- * same triple with a *different* grouping mode renders as its own section, so
- * grouping is part of the key. The warning lets the user clean up true dupes.
+ * Inspect active comparisons for `(repo, source, target, grouping, diff)` tuples
+ * that occur more than once. The tree dedupes only fully-identical comparisons —
+ * a different grouping or diff mode renders as its own section, so both are part
+ * of the key. The warning lets the user clean up true dupes.
  */
 function updateDuplicateWarning(): void {
   const buckets = new Map<string, number>();
   for (const c of comparisons) {
     if (!c.active) { continue; }
-    const key = `${c.repoFullPath}\0${c.source}\0${c.target}\0${c.groupingMode}`;
+    const key = `${c.repoFullPath}\0${c.source}\0${c.target}\0${c.groupingMode}\0${c.diffMode}`;
     buckets.set(key, (buckets.get(key) ?? 0) + 1);
   }
   let dupGroups = 0;
@@ -308,7 +321,7 @@ function updateDuplicateWarning(): void {
   }
   if (dupGroups > 0) {
     dupWarningText.textContent =
-      `${dupTotal} active comparisons are identical (same repo, source, target and grouping)${dupGroups === 1 ? "" : ` across ${dupGroups} groups`} — the tree only renders one of each.`;
+      `${dupTotal} active comparisons are identical (same repo, source, target, grouping and diff mode)${dupGroups === 1 ? "" : ` across ${dupGroups} groups`} — the tree only renders one of each.`;
     dupWarning.classList.add("shown");
   } else {
     dupWarning.classList.remove("shown");
@@ -356,6 +369,14 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   tr.appendChild(refCell(c.repoFullPath, c.target, "target", value => {
     send({ command: "update", id: c.id, patch: { target: value } });
   }));
+
+  // Diff mode (merge vs full)
+  const diffTd = document.createElement("td");
+  diffTd.className = "col-diff";
+  diffTd.appendChild(diffSelect(c.diffMode, mode => {
+    send({ command: "update", id: c.id, patch: { diffMode: mode } });
+  }));
+  tr.appendChild(diffTd);
 
   // Label input
   const labelTd = document.createElement("td");
@@ -501,6 +522,16 @@ function renderDraftRow(d: DraftRow, idx: number): HTMLTableRowElement {
     d.target = v;
     maybeCommitDraft(idx);
   }));
+
+  // Diff mode (defaults to Merge once saved — can't set on a draft)
+  const diffTd = document.createElement("td");
+  diffTd.className = "col-diff";
+  const diffSel = document.createElement("select");
+  diffSel.disabled = true;
+  diffSel.title = "Set diff mode after saving the comparison";
+  diffSel.appendChild(new Option("Merge", "merge"));
+  diffTd.appendChild(diffSel);
+  tr.appendChild(diffTd);
 
   // Label
   const labelTd = document.createElement("td");

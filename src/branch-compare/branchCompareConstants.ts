@@ -13,3 +13,16 @@ export const BranchCompareContextValues = {
   MESSAGE: "freshFileExplorer.branchCompare.message",
   GROUP: "freshFileExplorer.branchCompare.group",
 } as const;
+
+/**
+ * How a comparison's diff is computed against its target ref:
+ * - `merge`: diff against the merge-base of target and source (PR-style — what
+ *   source *adds* since it diverged from target). The default.
+ * - `full`: diff directly against the target ref (the exact `target..source`
+ *   delta, including changes that come from target moving ahead).
+ *
+ * For ancestrally-related refs (e.g. `HEAD~5`..`HEAD`) the two modes coincide.
+ */
+export type DiffMode = "merge" | "full";
+
+export const DEFAULT_DIFF_MODE: DiffMode = "merge";

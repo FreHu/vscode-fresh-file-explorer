@@ -4,7 +4,7 @@ import * as path from "path";
 import { ChangedFile, ChangeStatus, FolderNode } from "./branchCompareData";
 import { Commands } from "../commands/commandConstants";
 import { AbsolutePath } from "../pathTypes";
-import { BranchCompareContextValues } from "./branchCompareConstants";
+import { BranchCompareContextValues, DiffMode } from "./branchCompareConstants";
 
 /** Single-letter status badge shown in the description column. */
 function statusBadge(status: ChangeStatus): string {
@@ -52,6 +52,8 @@ export class RepoSectionItem extends vscode.TreeItem {
     public readonly comparisonId?: string,
     /** Total vs first-parent commit counts. Set when the cone fans out via merges — surfaces a tooltip hint. */
     mergeCone?: { total: number; firstParent: number },
+    /** Diff mode of this comparison. `full` is surfaced so same-ref sections that differ only by mode stay distinguishable. */
+    diffMode: DiffMode = "merge",
   ) {
     // Always expandable — even an empty section renders a "No changes / Loading…"
     // message child, which is meaningful to show. More importantly, VS Code's
@@ -70,12 +72,18 @@ export class RepoSectionItem extends vscode.TreeItem {
     this.id = comparisonId
       ? `branchCompare:section:${comparisonId}`
       : `branchCompare:repo:${repoFullPath}`;
-    this.description = `${fileCount > 0 ? ` · ${fileCount} changes` : " · no changes"}`;
+    // `full` is the non-default mode, so flag it in the description; that also
+    // keeps two same-ref sections (one merge, one full) visually distinct.
+    const modeSuffix = diffMode === "full" ? " · full" : "";
+    this.description = `${fileCount > 0 ? ` · ${fileCount} changes` : " · no changes"}${modeSuffix}`;
     const tooltipLines = [repoName];
     if (currentBranch) {
       tooltipLines.push(`Current branch: ${currentBranch}`);
     }
     tooltipLines.push(`${fileCount} changed file(s)`);
+    if (diffMode === "full") {
+      tooltipLines.push("Full diff (against the target ref, not the merge-base)");
+    }
     if (mergeCone && mergeCone.total > mergeCone.firstParent) {
       const broughtIn = mergeCone.total - mergeCone.firstParent;
       tooltipLines.push(
@@ -133,6 +141,8 @@ export class BranchCompareFileItem extends vscode.TreeItem {
     public readonly targetRef: string,
     /** The comparison this file belongs to — needed so the same path under two comparisons stays distinguishable. */
     public readonly comparisonId: string,
+    /** Diff mode of the owning comparison — decides whether the open path diffs vs the merge-base or the target ref. */
+    public readonly diffMode: DiffMode = "merge",
   ) {
     const uri = vscode.Uri.file(file.absolutePath);
     super(uri, vscode.TreeItemCollapsibleState.None);

@@ -3,6 +3,7 @@
 // tsconfig.webview.json (webview scripts).
 
 import type { GroupingMode } from "../fresh-files/groupingMode";
+import type { DiffMode } from "../branch-compare/branchCompareConstants";
 
 // ── Branch Compare settings panel ───────────────────────────────────────────
 
@@ -15,6 +16,7 @@ export interface SavedComparisonDTO {
   active: boolean;
   isHeatmapBaseline?: boolean;
   groupingMode: GroupingMode;
+  diffMode: DiffMode;
 }
 
 export interface RepoDTO {

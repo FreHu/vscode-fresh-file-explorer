@@ -87,6 +87,7 @@ export function getBranchCompareSettingsHtml(
     .col-repo { white-space: nowrap; }
     .col-source, .col-target { min-width: 220px; }
     .col-label { min-width: 160px; }
+    .col-diff { width: 110px; }
     .col-grouping { width: 150px; }
     .col-heatmap { width: 80px; text-align: center; }
     .col-actions { width: 160px; text-align: right; white-space: nowrap; }
@@ -357,6 +358,7 @@ export function getBranchCompareSettingsHtml(
         <th class="col-repo">Repo</th>
         <th class="col-source">Source</th>
         <th class="col-target">Target</th>
+        <th class="col-diff" title="Merge: diff vs the merge-base (PR-style). Full: exact diff against the target ref.">Diff</th>
         <th class="col-label">Name</th>
         <th class="col-grouping" title="How this comparison's files are grouped in the tree">Grouping</th>
         <th class="col-heatmap" title="Drives the blame heatmap (HEAD-source comparisons only, max one per repo)">Heatmap</th>
@@ -364,7 +366,7 @@ export function getBranchCompareSettingsHtml(
       </tr>
     </thead>
     <tbody id="comparisonsBody">
-      <tr class="empty-row"><td colspan="9" class="empty-state"><p>Loading…</p></td></tr>
+      <tr class="empty-row"><td colspan="10" class="empty-state"><p>Loading…</p></td></tr>
     </tbody>
   </table>
 

@@ -280,8 +280,10 @@ export async function handleOpenAllFoundFiles(): Promise<void> {
 
   for (const uri of uris) {
     try {
-      // Open files in background to not overwhelm the editor
-      await vscode.commands.executeCommand("vscode.open", uri, { background: true });
+      // `preview: false` pins each tab — without it every file lands in the
+      // single shared preview tab and only the last survives. `background: true`
+      // (→ inactive) keeps them off-screen so the editor doesn't flicker.
+      await vscode.commands.executeCommand("vscode.open", uri, { background: true, preview: false });
       openedCount++;
     } catch (error) {
       log(`Failed to open file: ${uri.fsPath} - ${error}`, "warn");

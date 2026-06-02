@@ -370,4 +370,54 @@ suite("SavedComparisonsService", () => {
       assert.strictEqual(service.getById(id)?.groupingMode, "Retrograde");
     });
   });
+
+  suite("diff mode", () => {
+    test("add defaults diffMode to merge", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      assert.strictEqual(service.getById(id)?.diffMode, "merge");
+    });
+
+    test("a record persisted before the field existed loads as merge", () => {
+      service.dispose();
+      WorkspaceStateManager.initialize(makeFakeContext({
+        branchCompareSavedComparisons: [{
+          id: "cmp-legacy",
+          repoFullPath: asNormalizedRepoPath(REPO_A),
+          source: HEAD_SOURCE,
+          target: "main",
+          active: true,
+          // no diffMode
+        }],
+      }));
+      service = new SavedComparisonsService();
+      assert.strictEqual(service.getById("cmp-legacy")?.diffMode, "merge");
+    });
+
+    test("changing diffMode is a data change — fires WITHOUT displayOnly so the diff re-fetches", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      let captured: { ids?: string[]; displayOnly?: boolean } | undefined;
+      service.onDidChange(e => { captured = e; });
+
+      service.update(id, { diffMode: "full" });
+      assert.strictEqual(service.getById(id)?.diffMode, "full");
+      assert.deepStrictEqual(captured?.ids, [id]);
+      assert.notStrictEqual(captured?.displayOnly, true);
+    });
+
+    test("re-setting the same diffMode is a no-op", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      let fired = 0;
+      service.onDidChange(() => { fired++; });
+      service.update(id, { diffMode: "merge" }); // already the default
+      assert.strictEqual(fired, 0);
+    });
+
+    test("diffMode round-trips through persistence", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      service.update(id, { diffMode: "full" });
+      service.dispose();
+      service = new SavedComparisonsService();
+      assert.strictEqual(service.getById(id)?.diffMode, "full");
+    });
+  });
 });

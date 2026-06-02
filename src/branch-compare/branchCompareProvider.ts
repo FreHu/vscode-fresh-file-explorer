@@ -32,6 +32,7 @@ import {
 import { AbsolutePath, asAbsolutePath, NormalizedRepoPath } from "../pathTypes";
 import { normalizePath } from "../utils";
 import { GroupingMode } from "../fresh-files/groupingMode";
+import { DiffMode } from "./branchCompareConstants";
 
 /**
  * In-memory state for one rendered comparison. Mirrors the persisted shape
@@ -63,6 +64,8 @@ interface ResolvedComparison {
   mergeCone: { total: number; firstParent: number } | undefined;
   /** Per-comparison grouping mode, resolved from the saved record (default applied). */
   groupingMode: GroupingMode;
+  /** Per-comparison diff mode — `merge` (vs merge-base) or `full` (vs target ref). */
+  diffMode: DiffMode;
   /**
    * Whether the last successful load fetched commit info. Drives the lazy
    * re-fetch when grouping switches into a mode that needs commit metadata
@@ -287,7 +290,13 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
 
     try {
       const sourceRef = cmp.source;
-      const mergeBase = await this.baselineService.getMergeBase(cmp.repoFullPath, cmp.target, sourceRef);
+      // The base everything diffs against. `full` mode diffs the target ref
+      // directly (exact target..source delta); `merge` mode diffs against the
+      // merge-base (PR-style — what source adds since diverging). Full mode
+      // needs no merge-base, saving a git call.
+      const base = cmp.diffMode === "full"
+        ? cmp.target
+        : await this.baselineService.getMergeBase(cmp.repoFullPath, cmp.target, sourceRef);
       if (this.loadingTokens.get(id) !== myToken) return;
 
       // Working-tree overlay only applies when source === HEAD. Other source
@@ -296,17 +305,17 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       const wantsCommitInfo = this.groupingNeedsCommitInfo(cmp.groupingMode);
 
       const [committed, workingTree, commitInfo, mergeCone] = await Promise.all([
-        fetchCommittedDiff(cmp.repoFullPath, mergeBase, sourceRef),
+        fetchCommittedDiff(cmp.repoFullPath, base, sourceRef),
         includeWorkingTree
           ? fetchWorkingTreeStatus(cmp.repoFullPath)
           : Promise.resolve([]),
         wantsCommitInfo
-          ? fetchCommitInfoInRange(cmp.repoFullPath, mergeBase, sourceRef).catch(err => {
+          ? fetchCommitInfoInRange(cmp.repoFullPath, base, sourceRef).catch(err => {
               log(`branchCompare: commit-info fetch failed (${cmp.repoFullPath}) — ${err}`, "warn");
               return undefined;
             })
           : Promise.resolve(undefined),
-        fetchMergeConeStats(cmp.repoFullPath, mergeBase, sourceRef),
+        fetchMergeConeStats(cmp.repoFullPath, base, sourceRef),
       ]);
       if (this.loadingTokens.get(id) !== myToken) return;
 
@@ -422,6 +431,15 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
         existing.label = sc.label;
         existing.repoName = repoInfo.repoName;
         existing.groupingMode = sc.groupingMode;
+        // diffMode change invalidates the diff — drop cached files so it reloads.
+        if (existing.diffMode !== sc.diffMode) {
+          existing.diffMode = sc.diffMode;
+          existing.files = undefined;
+          existing.tree = undefined;
+          existing.error = undefined;
+          existing.invalidRef = false;
+          existing.mergeCone = undefined;
+        }
         next.set(sc.id, existing);
       } else {
         next.set(sc.id, {
@@ -437,6 +455,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           invalidRef: false,
           mergeCone: undefined,
           groupingMode: sc.groupingMode,
+          diffMode: sc.diffMode,
           hasCommitInfo: false,
         });
       }
@@ -477,10 +496,10 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   private buildRootSections(): RepoSectionItem[] {
     this.syncComparisonsToService();
     const sections: RepoSectionItem[] = [];
-    // Dedupe by (repo, source, target, groupingMode). Two comparisons that
-    // match on all four render byte-identical trees, so collapse them. Same
-    // triple but *different* grouping is intentional — e.g. the same diff as a
-    // flat list and grouped by commit side by side — so those both render. The
+    // Dedupe by (repo, source, target, groupingMode, diffMode). Two comparisons
+    // matching on all of these render byte-identical trees, so collapse them.
+    // A difference in grouping (flat vs by-commit) or diffMode (merge vs full —
+    // different file sets) is intentional, so those render side by side. The
     // settings panel warns only on the fully-identical case.
     // First insertion wins — matches the persisted-list order users can
     // reorder via the panel.
@@ -490,7 +509,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       // panel already shows a red X next to the offending input — surfacing
       // it again here as a broken "vs ddd · no changes" section just adds noise.
       if (cmp.invalidRef) { continue; }
-      const tripleKey = `${cmp.repoFullPath}\0${cmp.source}\0${cmp.target}\0${cmp.groupingMode}`;
+      const tripleKey = `${cmp.repoFullPath}\0${cmp.source}\0${cmp.target}\0${cmp.groupingMode}\0${cmp.diffMode}`;
       if (seenTriples.has(tripleKey)) { continue; }
       seenTriples.add(tripleKey);
       const fileCount = cmp.files?.length ?? 0;
@@ -509,6 +528,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           currentBranch,
           cmp.id,
           cmp.mergeCone,
+          cmp.diffMode,
         ),
       );
     }
@@ -578,19 +598,19 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     const files = node.files
       .slice()
       .sort((a, b) => a.pathInRepo.localeCompare(b.pathInRepo))
-      .map(f => new BranchCompareFileItem(f, cmp.source, baseRef, cmp.id));
+      .map(f => new BranchCompareFileItem(f, cmp.source, baseRef, cmp.id, cmp.diffMode));
 
     return [...folders, ...files];
   }
 
   private renderFlatChildren(cmp: ResolvedComparison): BranchCompareTreeItem[] {
-    return sortFilesForGrouping(cmp.files ?? []).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id));
+    return sortFilesForGrouping(cmp.files ?? []).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode));
   }
 
   private renderGroupChildren(group: BranchCompareGroupItem): BranchCompareTreeItem[] {
     const cmp = this.comparisons.get(group.comparisonId);
     if (!cmp) { return []; }
-    return sortFilesForGrouping(group.files).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id));
+    return sortFilesForGrouping(group.files).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode));
   }
 
   private fireChange(): void {

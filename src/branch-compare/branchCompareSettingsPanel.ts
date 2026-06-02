@@ -261,6 +261,7 @@ export class BranchCompareSettingsPanel {
       active: c.active,
       isHeatmapBaseline: c.isHeatmapBaseline,
       groupingMode: c.groupingMode,
+      diffMode: c.diffMode,
     }));
     void this._panel.webview.postMessage({ command: "state", repos, comparisons });
   }
