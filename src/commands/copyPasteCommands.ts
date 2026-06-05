@@ -209,5 +209,5 @@ export async function handlePasteFile(
     ...(clipboard.isCut ? clipboard.uris.map(u => u.fsPath) : []),
   ];
   const repoPaths = findRepoPathsForFiles(provider.workspaceFolders, affectedPaths);
-  provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+  void provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
 }

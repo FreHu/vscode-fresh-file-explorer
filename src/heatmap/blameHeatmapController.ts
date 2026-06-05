@@ -223,7 +223,7 @@ export class BlameHeatmapController implements vscode.Disposable {
         if (existing) clearTimeout(existing);
         this.reapplyTimers.set(
           fsPath,
-          setTimeout(async () => {
+          setTimeout(() => {
             this.reapplyTimers.delete(fsPath);
             const editor = vscode.window.visibleTextEditors.find(
               ed => ed.document.uri.fsPath === fsPath,
@@ -233,7 +233,11 @@ export class BlameHeatmapController implements vscode.Disposable {
             if (!mode) return;
             this.disposeDeletionsForFile(fsPath);
             this.decorationCache.delete(fsPath);
-            await this.applyToEditor(editor, mode);
+            // Fire-and-forget from a timer: a rejection here has no caller to
+            // catch it, so log-and-swallow rather than leak an unhandled rejection.
+            void this.applyToEditor(editor, mode).catch(e =>
+              log(`blame heatmap reapply failed: ${e instanceof Error ? e.message : String(e)}`, "error"),
+            );
           }, 1500),
         );
       }),

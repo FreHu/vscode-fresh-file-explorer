@@ -253,7 +253,11 @@ export async function setupGitExtensionListener(
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
       }
-      refreshTimeout = setTimeout(handleRefresh, 500);
+      refreshTimeout = setTimeout(() => {
+        handleRefresh().catch(e =>
+          log(`git-state refresh failed: ${e instanceof Error ? e.message : String(e)}`, "error"),
+        );
+      }, 500);
     };
 
     // Listen for git API state changes (extension init/deinit).

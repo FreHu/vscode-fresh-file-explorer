@@ -328,7 +328,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         break;
       case "pending":
         log("Configuration changed: showLineChanges — refreshing pending");
-        this.refreshPending();
+        void this.refreshPending();
         break;
       case "treeOnly":
         log("Configuration changed: display setting — re-rendering tree");
@@ -456,8 +456,15 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.pendingRefreshVersion++;
     const scopeDesc = targetRepoPaths ? ` for ${targetRepoPaths.length} repo(s)` : "";
     log(`Refreshing pending changes only${scopeDesc}`);
-    await this.updatePendingFiles(targetRepoPaths);
-    this._onDidChangeTreeData.fire();
+    try {
+      await this.updatePendingFiles(targetRepoPaths);
+      this._onDidChangeTreeData.fire();
+    } catch (e) {
+      // Callers fire-and-forget this (`void`), so a rejection here would be an
+      // unhandled rejection with no handler. Log and swallow: a failed pending
+      // refresh just leaves the tree showing its last-known state.
+      log(`refreshPending failed${scopeDesc}: ${e instanceof Error ? e.message : String(e)}`, "error");
+    }
   }
 
   private async updatePendingFiles(targetRepoPaths?: NormalizedRepoPath[]): Promise<void> {

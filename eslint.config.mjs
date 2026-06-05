@@ -21,6 +21,13 @@ export default [{
         parser: typescriptEslint.parser,
         ecmaVersion: 2022,
         sourceType: "module",
+        parserOptions: {
+            // Type-aware linting. projectService resolves each file to its
+            // nearest tsconfig (root for extension, src/webview for bundles),
+            // so the two configs are handled automatically.
+            projectService: true,
+            tsconfigRootDir: import.meta.dirname,
+        },
     },
 
     rules: {
@@ -28,6 +35,14 @@ export default [{
             selector: "import",
             format: ["camelCase", "PascalCase"],
         }],
+
+        // Type-aware: the project's #1 footgun. This is heavily async,
+        // git-spawning code whose refreshEpoch/RefreshCancelledError design
+        // throws across async boundaries — a detached refresh promise becomes
+        // an unhandled rejection with no handler. Fire-and-forget must be an
+        // explicit `void`.
+        "@typescript-eslint/no-floating-promises": "error",
+        "@typescript-eslint/no-misused-promises": "error",
 
         // Disable the base rule — the TS-aware version handles everything below
         "no-unused-vars": "off",

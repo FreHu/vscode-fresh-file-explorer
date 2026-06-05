@@ -84,7 +84,7 @@ import {
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
   log("Fresh File Explorer activating");
-  checkForUpdate(context);
+  void checkForUpdate(context);
 
   WorkspaceStateManager.initialize(context);
 
@@ -224,7 +224,7 @@ export async function activate(context: vscode.ExtensionContext) {
       log("File saved, refreshing pending changes");
       const result = findRepoForAbsolutePath(freshFileProvider.workspaceFolders, document.uri.fsPath);
       const targetRepoPaths = result ? [normalizePath(result.repoFullPath) as NormalizedRepoPath] : undefined;
-      freshFileProvider.refreshPending(targetRepoPaths);
+      void freshFileProvider.refreshPending(targetRepoPaths);
       // Branch compare cares about working-tree changes too — re-run the cheap path.
       void branchCompareProvider.refreshWorkingTree(targetRepoPaths?.[0]);
     }),
@@ -234,14 +234,14 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(() => {
       if (ConfigService.getAutoReveal()) {
-        freshFileProvider.revealActiveFile(false);
+        void freshFileProvider.revealActiveFile(false);
       }
     }),
   );
 
   // Listen for git state changes (commits, checkouts, etc.)
   // The git extension exposes an API we can use
-  setupGitExtensionListener(context, freshFileProvider, api => {
+  void setupGitExtensionListener(context, freshFileProvider, api => {
     baselineService.connectGitApi(api);
     blameHeatmapController.connectGitApi(api);
   });
@@ -409,7 +409,7 @@ function registerCommands(
   // context key set by the controller.
   const baselineDiffHandler = () => {
     const editor = vscode.window.activeTextEditor;
-    if (editor) { blameHeatmapController.openBaselineDiff(editor); }
+    if (editor) { void blameHeatmapController.openBaselineDiff(editor); }
   };
   register(Commands.BLAME_DIFF_BASELINE, baselineDiffHandler);
   register(Commands.BLAME_DIFF_BASELINE_CONFIGURED, baselineDiffHandler);

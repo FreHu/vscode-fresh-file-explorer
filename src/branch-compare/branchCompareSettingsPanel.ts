@@ -243,7 +243,7 @@ export class BranchCompareSettingsPanel {
     // Don't cache forever — the user might fetch new refs (so a previously
     // invalid ref becomes valid) or a remote ref might move (so a cached
     // `resolvedSha` goes stale). Failures expire fast; successes more slowly.
-    promise.then(r => {
+    void promise.then(r => {
       const ttl = r.valid ? 60_000 : 10_000;
       setTimeout(() => this._validationCache.delete(key), ttl);
     });

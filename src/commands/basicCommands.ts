@@ -326,7 +326,7 @@ export async function handleDeleteFile(
   }
   if (successCount > 0) {
     const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, targets.map(i => i.resourceUri.fsPath));
-    freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+    void freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
   }
 }
 
@@ -394,7 +394,7 @@ export async function handleRenameFile(
 
     log(`Renamed: ${oldName} → ${newName}`);
     const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, [oldPath, newPath]);
-    freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+    void freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`Rename failed: ${message}`, "error");

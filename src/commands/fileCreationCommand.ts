@@ -135,7 +135,7 @@ async function createFilesInDirectory(
 
   // Refresh the tree to show the new files (if they fall within the time window)
   const repoPaths = findRepoPathsForFiles(provider.workspaceFolders, createdFiles);
-  provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+  void provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
 }
 
 /**

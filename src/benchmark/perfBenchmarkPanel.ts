@@ -97,7 +97,7 @@ export class PerfBenchmarkPanel {
       this._disposables,
     );
 
-    this._initialize();
+    void this._initialize();
   }
 
   private async _initialize() {

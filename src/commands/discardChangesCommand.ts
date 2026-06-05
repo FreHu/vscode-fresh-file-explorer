@@ -289,7 +289,7 @@ export async function handleDiscardChanges(
   if (successCount > 0) {
     const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, pendingItems.map(i => i.resourceUri.fsPath));
     const targetRepoPaths = repoPaths.length > 0 ? repoPaths : undefined;
-    freshFileProvider.refreshPending(targetRepoPaths);
+    void freshFileProvider.refreshPending(targetRepoPaths);
   }
 }
 

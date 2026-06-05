@@ -143,14 +143,14 @@ export class StonksPanel {
         break;
       case "openCommit":
         if (this._selectedRepo) {
-          this._openCommit(message.hash);
+          void this._openCommit(message.hash);
         }
         break;
       case "updateConfig":
         WorkspaceStateManager.setStonksConfig(message.config);
         break;
       case "requestCompareData":
-        this._loadAllReposData();
+        void this._loadAllReposData();
         break;
       case "openHelp": {
         const docPath = vscode.Uri.joinPath(this._extensionUri, "docs", "codestonks.md");
@@ -196,7 +196,7 @@ export class StonksPanel {
     // Baseline: count files at parent of oldest commit in range.
     const oldest = statsArray.reduce((a, b) => a.commit.date < b.commit.date ? a : b);
 
-    execGitWithArgs(["ls-tree", "-r", "--name-only", `${oldest.commit.hash}~1`], repoPath, { timeout: ConfigService.getGitTimeoutMs() })
+    void execGitWithArgs(["ls-tree", "-r", "--name-only", `${oldest.commit.hash}~1`], repoPath, { timeout: ConfigService.getGitTimeoutMs() })
       .then(output => output.trim() ? output.trim().split("\n").length : 0)
       .catch(() => 0) // no parent = initial commit, baseline 0
       .then(baseline => {
