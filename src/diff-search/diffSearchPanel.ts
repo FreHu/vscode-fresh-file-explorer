@@ -8,6 +8,7 @@ import { formatGitCommand } from "../utils/formatUtils";
 import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
 import { DiffSearchParams, DiffSearchHistoryEntry, DiffSearchToWebview, DiffSearchFromWebview } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { parseTimeWindowValue } from "../fresh-files/timeWindowUtils";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 const MAX_HISTORY = 25;
 
@@ -131,7 +132,8 @@ export class DiffSearchPanel {
       includePattern: searchData.includePattern,
       excludePattern: searchData.excludePattern,
       pendingOnly: searchData.pendingOnly,
-      days: searchData.days,
+      window: searchData.window,
+      includeMerges: searchData.includeMerges,
     };
     WorkspaceStateManager.setDiffSearchParams(params);
 
@@ -141,11 +143,12 @@ export class DiffSearchPanel {
     if (searchData.caseInsensitive) { flags.push("ci"); }
     if (searchData.pendingOnly) {
       flags.push("pending only");
-    } else if (searchData.days) {
-      flags.push(searchData.days + "d");
+    } else if (searchData.window.trim()) {
+      flags.push(searchData.window.trim());
     } else {
       flags.push("all history");
     }
+    if (!searchData.pendingOnly && searchData.includeMerges) { flags.push("+merges"); }
     if (searchData.includePattern) { flags.push("+" + searchData.includePattern); }
     if (searchData.excludePattern) { flags.push("-" + searchData.excludePattern); }
     const label = `"${searchData.pattern}"` + (flags.length ? "  ·  " + flags.join("  ·  ") : "");
@@ -163,12 +166,24 @@ export class DiffSearchPanel {
   private async _executeSearch(searchData: SearchRequest) {
     this._saveParams(searchData);
     this._sendHistory();
-    const { pattern, isRegex, caseInsensitive, includePattern, excludePattern, pendingOnly, days } = searchData;
-    const sinceDays = days ?? -1; // null → -1 (unlimited)
+    const { pattern, isRegex, caseInsensitive, includePattern, excludePattern, pendingOnly, window, includeMerges } = searchData;
 
     if (!pattern.trim()) {
       showWarning("Please enter a search pattern");
       return;
+    }
+
+    // Resolve the time window token → fractional days (-1 = unlimited). Empty = unlimited.
+    // Only relevant to history search; pendingOnly ignores it (the field is hidden).
+    let sinceDays = -1;
+    const windowText = window.trim();
+    if (!pendingOnly && windowText) {
+      const parsed = parseTimeWindowValue(windowText);
+      if (parsed === null) {
+        showError(`Invalid time window: "${windowText}" (use e.g. 6h, 2w, 1mo, or a day count)`);
+        return;
+      }
+      sinceDays = parsed;
     }
 
     // Validate regex if needed
@@ -241,7 +256,8 @@ export class DiffSearchPanel {
             caseInsensitive,
             includePattern,
             excludePattern,
-            sinceDays
+            sinceDays,
+            includeMerges
           );
           repoMatches = repoMatches.concat(matches);
         }
@@ -373,12 +389,16 @@ function buildSearchGitCommand(search: SearchRequest): string {
   }
 
   const args: string[] = ["log", "-p"];
+  if (search.includeMerges) {
+    args.push("--diff-merges=first-parent");
+  }
   if (search.caseInsensitive) {
     args.push("-i");
   }
   args.push(search.isRegex ? "-G" : "-S", search.pattern);
-  if (search.days !== null && search.days > 0) {
-    args.push(`--since=${search.days}.days.ago`);
+  const days = parseTimeWindowValue(search.window.trim());
+  if (days !== null) {
+    args.push(`--since=${new Date(Date.now() - days * 86400000).toISOString()}`);
   }
   const pathspecs = buildPathspecsForDisplay(search.includePattern, search.excludePattern);
   if (pathspecs.length > 0) {

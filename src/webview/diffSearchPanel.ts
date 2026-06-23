@@ -1,5 +1,6 @@
 import type { DiffSearchToWebview, DiffSearchFromWebview, DiffSearchHistoryEntry } from "./messages";
 import { html } from "../utils/templateHelpers";
+import { parseTimeWindowValue } from "../fresh-files/timeWindowUtils";
 
 // acquireVsCodeApi is a global injected by VS Code into the webview context.
 // @types/vscode-webview provides its declaration via tsconfig.webview.json.
@@ -11,14 +12,15 @@ const isRegexCheckbox      = document.getElementById("isRegex") as HTMLInputElem
 const caseInsensitiveCheckbox = document.getElementById("caseInsensitive") as HTMLInputElement;
 const includePatternInput  = document.getElementById("includePattern") as HTMLInputElement;
 const excludePatternInput  = document.getElementById("excludePattern") as HTMLInputElement;
-const daysInput            = document.getElementById("daysInput") as HTMLInputElement;
+const windowInput          = document.getElementById("windowInput") as HTMLInputElement;
+const includeMergesCheckbox = document.getElementById("includeMerges") as HTMLInputElement;
 const pendingOnlyCheckbox  = document.getElementById("pendingOnly") as HTMLInputElement;
 const searchBtn            = document.getElementById("searchBtn") as HTMLButtonElement;
 const statusDiv            = document.getElementById("status") as HTMLElement;
 const batchProgressDiv     = document.getElementById("batchProgress") as HTMLElement;
 const batchBarsDiv         = document.getElementById("batchBars") as HTMLElement;
 const aggregateStatsDiv    = document.getElementById("aggregateStats") as HTMLElement;
-const daysRow              = document.getElementById("daysRow") as HTMLElement;
+const historyOptions       = document.getElementById("historyOptions") as HTMLElement;
 const historySection       = document.getElementById("historySection") as HTMLElement;
 const historyList          = document.getElementById("historyList") as HTMLElement;
 const historyClearBtn      = document.getElementById("historyClearBtn") as HTMLButtonElement;
@@ -36,38 +38,12 @@ function postMessage(msg: DiffSearchFromWebview): void {
   vscode.postMessage(msg);
 }
 
-// Validate regex on checkbox change
-isRegexCheckbox.addEventListener("change", () => {
-  if (isRegexCheckbox.checked) {
-    validateRegex();
-  } else {
-    hideStatus();
-  }
-});
-
-patternInput.addEventListener("input", () => {
-  if (isRegexCheckbox.checked) {
-    validateRegex();
-  }
-});
-
-// Toggle days row when pending only checkbox changes
+isRegexCheckbox.addEventListener("change", revalidate);
+patternInput.addEventListener("input", revalidate);
+windowInput.addEventListener("input", revalidate);
 pendingOnlyCheckbox.addEventListener("change", () => {
-  daysRow.style.display = pendingOnlyCheckbox.checked ? "none" : "";
-  if (pendingOnlyCheckbox.checked) {
-    hideStatus();
-  } else if (!daysInput.value) {
-    warnAboutFullHistory();
-  }
-});
-
-// Show warning when days is cleared (unlimited)
-daysInput.addEventListener("input", () => {
-  if (!daysInput.value && !pendingOnlyCheckbox.checked) {
-    warnAboutFullHistory();
-  } else if (statusDiv.textContent?.includes("all history")) {
-    hideStatus();
-  }
+  historyOptions.style.display = pendingOnlyCheckbox.checked ? "none" : "";
+  revalidate();
 });
 
 function warnAboutFullHistory(){
@@ -77,14 +53,34 @@ function warnAboutFullHistory(){
   );
 }
 
-function validateRegex(): void {
-  try {
-    new RegExp(patternInput.value);
-    hideStatus();
-    searchBtn.disabled = false;
-  } catch (e) {
-    showStatus("Invalid regex: " + (e as Error).message, "error");
+/**
+ * Single source of truth for input validity. Checks the regex (when enabled) and the
+ * time-window token, toggles the search button, and surfaces the most relevant hint:
+ * an error blocks submit; an empty window (full history) warns; otherwise clears.
+ */
+function revalidate(): void {
+  if (isRegexCheckbox.checked) {
+    try {
+      new RegExp(patternInput.value);
+    } catch (e) {
+      showStatus("Invalid regex: " + (e as Error).message, "error");
+      searchBtn.disabled = true;
+      return;
+    }
+  }
+
+  const windowText = windowInput.value.trim();
+  if (!pendingOnlyCheckbox.checked && windowText && parseTimeWindowValue(windowText) === null) {
+    showStatus(`Invalid time window: "${windowText}" (use e.g. 6h, 2w, 1mo, or a day count)`, "error");
     searchBtn.disabled = true;
+    return;
+  }
+
+  searchBtn.disabled = false;
+  if (!pendingOnlyCheckbox.checked && !windowText) {
+    warnAboutFullHistory();
+  } else {
+    hideStatus();
   }
 }
 
@@ -121,11 +117,8 @@ form.addEventListener("submit", (e: SubmitEvent) => {
     includePattern: includePatternInput.value.trim(),
     excludePattern: excludePatternInput.value.trim(),
     pendingOnly: pendingOnlyCheckbox.checked,
-    days: pendingOnlyCheckbox.checked
-      ? null
-      : daysInput.value
-        ? parseInt(daysInput.value)
-        : null,
+    window: windowInput.value.trim(),
+    includeMerges: includeMergesCheckbox.checked,
   });
 });
 
@@ -252,8 +245,12 @@ function applyParams(p: import("./messages").DiffSearchParams): void {
   includePatternInput.value = p.includePattern;
   excludePatternInput.value = p.excludePattern;
   pendingOnlyCheckbox.checked = p.pendingOnly;
-  daysRow.style.display = p.pendingOnly ? "none" : "";
-  daysInput.value = p.days !== null ? String(p.days) : "";
+  historyOptions.style.display = p.pendingOnly ? "none" : "";
+  // Migrate params persisted before the time-window switch (numeric `days`).
+  const legacyDays = (p as { days?: number | null }).days;
+  windowInput.value = p.window ?? (legacyDays != null ? String(legacyDays) : "");
+  includeMergesCheckbox.checked = p.includeMerges ?? false;
+  revalidate();
 }
 
 function formatRelativeTime(timestamp: number): string {

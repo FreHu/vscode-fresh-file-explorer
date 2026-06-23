@@ -265,11 +265,15 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
           <input type="checkbox" id="pendingOnly" name="pendingOnly">
           <label for="pendingOnly" style="margin-bottom: 0; font-weight: normal;">Pending changes only (skip history)</label>
         </div>
-        <div id="daysRow">
-          <label for="daysInput">Days to Look Back</label>
+        <div id="historyOptions">
+          <label for="windowInput">Time window</label>
           <div class="days-row">
-            <input type="number" id="daysInput" name="daysInput" min="1" value="7">
-            <span class="help-text">days (empty = full history)</span>
+            <input type="text" id="windowInput" name="windowInput" placeholder="e.g. 6h, 2w, 1mo, 30" value="7d" style="width: 150px;">
+            <span class="help-text">duration token or day count (empty = full history)</span>
+          </div>
+          <div class="checkbox-group" style="margin-top: 8px; margin-bottom: 0;">
+            <input type="checkbox" id="includeMerges" name="includeMerges">
+            <label for="includeMerges" style="margin-bottom: 0; font-weight: normal;">Include merge commits</label>
           </div>
         </div>
       </div>

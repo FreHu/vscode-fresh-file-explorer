@@ -66,7 +66,8 @@ export interface DiffMatch {
  * @param caseInsensitive Whether the search should be case-insensitive
  * @param includePattern Comma-separated glob patterns to include (e.g. "*.ts,src/**")
  * @param excludePattern Comma-separated glob patterns to exclude (e.g. "*.test.ts,dist/**")
- * @param sinceDays Number of days to look back (-1 for unlimited/all history)
+ * @param sinceDays Days to look back (-1 for unlimited/all history); may be fractional (e.g. 0.25 = 6h)
+ * @param includeMerges Include merge commits' first-parent diff (default git log -p omits merges)
  * @param onBatch Optional callback for progressive results (called periodically with new matches)
  * @param onCommitFound Optional callback for commit progress tracking
  * @returns Array of diff matches
@@ -79,6 +80,7 @@ export async function searchHistoricalDiffs(
   includePattern: string,
   excludePattern: string,
   sinceDays: number,
+  includeMerges: boolean,
   onBatch?: (matches: DiffMatch[]) => void,
   onCommitFound?: (commitNumber: number) => void
 ): Promise<DiffMatch[]> {
@@ -87,28 +89,10 @@ export async function searchHistoricalDiffs(
   }
 
   try {
-    // Build git log command with pickaxe search
-    const args = [
-      ...LOG_CONFIG_FLAGS,
-      "log",
-      "-p", // Show patches (diffs)
-      "--date=default", // Override a user's log.date (e.g. =relative) so Date: parses
-      ...(caseInsensitive ? ["-i"] : []), // Case-insensitive pickaxe matching
-      isRegex ? "-G" : "-S", // -G for regex, -S for plain text
-      pattern,
-    ];
-
-    // Add time constraint if specified (sinceDays > 0)
-    // -1 means unlimited (all history)
-    if (sinceDays > 0) {
-      args.push(`--since=${sinceDays}.days.ago`);
-    }
-
-    // Add pathspec filters (must come after -- at end of args)
-    const pathspecs = buildPathspecs(includePattern, excludePattern);
-    if (pathspecs.length > 0) {
-      args.push("--", ...pathspecs);
-    }
+    const args = buildHistoricalSearchArgs({
+      pattern, isRegex, caseInsensitive, includePattern, excludePattern,
+      sinceDays, includeMerges, nowMs: Date.now(),
+    });
 
     // For unlimited searches, don't use timeout (let it run as long as needed)
     // For time-limited searches, use configured timeout
@@ -592,6 +576,55 @@ export function filterMatchesByPattern(matches: DiffMatch[], pattern: string, re
   } else {
     return matches.filter(m => m.lineContent.includes(pattern));
   }
+}
+
+export interface HistoricalSearchArgsOptions {
+  pattern: string;
+  isRegex: boolean;
+  caseInsensitive: boolean;
+  includePattern: string;
+  excludePattern: string;
+  /** Days to look back; -1 (or any non-positive) means unlimited. May be fractional. */
+  sinceDays: number;
+  /** Include merge commits' first-parent diff (plain `git log -p` omits merge diffs). */
+  includeMerges: boolean;
+  /** "Now" in epoch ms, used to compute the `--since` cutoff. */
+  nowMs: number;
+}
+
+/**
+ * Build the `git log` argument vector for a historical pickaxe search. Pure and
+ * deterministic given `nowMs`, so the flag/cutoff logic is unit-testable without git.
+ *
+ * Notes baked in here:
+ * - LOG_CONFIG_FLAGS + `--date=default` neutralize user git config that would break parsing.
+ * - Merges: `--diff-merges=first-parent` surfaces merge commits with a single diff vs the
+ *   mainline (plain `-p` shows no merge diff, so pickaxe can't match them).
+ * - Time window: an exact ISO `--since`, not approxidate "N.days.ago", which silently
+ *   mishandles fractional days (sub-day windows like 6h = 0.25d).
+ */
+export function buildHistoricalSearchArgs(o: HistoricalSearchArgsOptions): string[] {
+  const args = [
+    ...LOG_CONFIG_FLAGS,
+    "log",
+    "-p",
+    "--date=default",
+    ...(o.includeMerges ? ["--diff-merges=first-parent"] : []),
+    ...(o.caseInsensitive ? ["-i"] : []),
+    o.isRegex ? "-G" : "-S",
+    o.pattern,
+  ];
+
+  if (o.sinceDays > 0) {
+    args.push(`--since=${new Date(o.nowMs - o.sinceDays * 86400000).toISOString()}`);
+  }
+
+  const pathspecs = buildPathspecs(o.includePattern, o.excludePattern);
+  if (pathspecs.length > 0) {
+    args.push("--", ...pathspecs);
+  }
+
+  return args;
 }
 
 /**

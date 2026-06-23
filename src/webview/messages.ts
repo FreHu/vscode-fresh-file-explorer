@@ -124,7 +124,13 @@ export interface DiffSearchParams {
   includePattern: string;
   excludePattern: string;
   pendingOnly: boolean;
-  days: number | null;
+  /**
+   * Time window as a duration token ("6h", "2w", "1mo") or bare day number;
+   * empty string means full history. Parsed by `parseTimeWindowValue`.
+   */
+  window: string;
+  /** Include merge commits (their first-parent diff) in the history search. */
+  includeMerges: boolean;
 }
 
 export interface DiffSearchHistoryEntry {
@@ -153,7 +159,8 @@ export type DiffSearchFromWebview =
       includePattern: string;
       excludePattern: string;
       pendingOnly: boolean;
-      days: number | null;
+      window: string;
+      includeMerges: boolean;
     };
 
 // ── Stonks panel ──────────────────────────────────────────────────────────────
