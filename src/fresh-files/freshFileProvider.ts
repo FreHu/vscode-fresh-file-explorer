@@ -7,18 +7,15 @@ import { HistoricalFileCache, type CacheRepoStats } from "./historicalFileCache"
 import { FileIndex } from "./fileIndex";
 import { RefreshEpochGuard, RefreshCancelledError } from "./refreshEpochGuard";
 import { RepoScopeStore } from "./repoScopeStore";
+import { aggregateAuthors, aggregateCommits } from "./freshFilesAggregator";
 export type { CacheRepoStats };
 import {
   WorkspaceFolderInfo,
   FileMetadata,
   AuthorData,
   BranchName,
-  CommitHash,
-  CommitAuthor,
   CommitStats,
-  asCommitAuthor,
   CommitDataWithFileCount,
-  asCommitMessage,
   SortOrder,
 } from "../types";
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
@@ -640,61 +637,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   /** Get list of unique authors from current files */
   getAvailableAuthors(): AuthorData[] {
-    const authorCounts = new Map<CommitAuthor, number>();
-    for (const metadata of this.freshFiles.values()) {
-      const author = asCommitAuthor(metadata.author || "(unknown)");
-      authorCounts.set(author, (authorCounts.get(author) || 0) + 1);
-    }
-    return Array.from(authorCounts.entries())
-      .map(([author, fileCount]) => ({ author, fileCount }))
-      .sort((a, b) => b.fileCount - a.fileCount); // Sort by file count descending
+    return aggregateAuthors(this.freshFiles);
   }
 
   /** Get list of unique commits from current files */
   getAvailableCommits(): CommitDataWithFileCount[] {
-    const commitInfo = new Map<CommitHash, CommitDataWithFileCount>();
-    for (const [filePath, metadata] of this.freshFiles.entries()) {
-      const hash = metadata.commitHash;
-      if (!hash) {
-        continue;
-      }
-
-      if (commitInfo.has(hash)) {
-        commitInfo.get(hash)!.fileCount++;
-      } else {
-        // Find which repo this file belongs to
-        let repoName: string | undefined;
-        for (const folder of this.workspaceFolders) {
-          if (filePath.startsWith(folder.path)) {
-            // For multi-repo workspaces, find the specific repo
-            if (folder.gitRepos.length > 1) {
-              const relativePath = filePath.substring(folder.path.length + 1);
-              for (const repoRelPath of folder.gitRepos) {
-                if (repoRelPath === "" || relativePath.startsWith(repoRelPath + "/")) {
-                  repoName = repoRelPath === "" ? folder.name : repoRelPath.split("/").pop();
-                  break;
-                }
-              }
-            } else {
-              repoName = folder.name;
-            }
-            break;
-          }
-        }
-
-        commitInfo.set(hash, {
-          message: asCommitMessage(metadata.commitMessage || "(no message)"),
-          author: asCommitAuthor(metadata.author || "(unknown)"),
-          date: metadata.date,
-          fileCount: 1,
-          hash: hash,
-          repoName,
-        });
-      }
-    }
-    return Array.from(commitInfo.entries())
-      .map(([_, info]) => ({ ...info }))
-      .sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort by date descending (newest first)
+    return aggregateCommits(this.freshFiles, this.workspaceFolders);
   }
 
   /** Get per-commit file-change stats for a given repo, from the historical cache. */

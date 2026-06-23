@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 
 /** file path (repo-relative, POSIX) -> max allowed line count */
 const CEILINGS = {
-  "src/fresh-files/freshFileProvider.ts": 1628,
+  "src/fresh-files/freshFileProvider.ts": 1547,
   "src/git/gitOperations.ts": 1316,
   "src/heatmap/blameHeatmapController.ts": 1169,
 };
