@@ -1,5 +1,6 @@
 import { log, showInfo } from "../extension/logger";
 import { createAuthorQuickPick, createCommitQuickPick } from "../utils/quickPick";
+import { runQuickPickPromise } from "./commandUtils";
 import { setDifference } from "../utils/collectionUtils";
 import { ContextManager } from "../extension/contextManager";
 import { FilterManager } from "../fresh-files/freshFileFilterManager";
@@ -22,40 +23,18 @@ export async function handleFilterByAuthor(dataProvider: FreshFileProvider): Pro
     return false;
   }
 
-  return new Promise((resolve) => {
-    const filterManager = dataProvider.filterManager;
-    const quickPick = createAuthorQuickPick(authors, filterManager.getExcludedAuthors());
+  const filterManager = dataProvider.filterManager;
+  const quickPick = createAuthorQuickPick(authors, filterManager.getExcludedAuthors());
 
-    let resolved = false;
+  return runQuickPickPromise(quickPick, (qp) => {
+    const selectedAuthors = new Set(qp.selectedItems.map(i => i.author));
+    const excluded = setDifference(
+      authors.map(a => a.author),
+      selectedAuthors,
+    );
 
-    quickPick.onDidAccept(() => {
-      const selected = quickPick.selectedItems;
-      const selectedAuthors = new Set(selected.map(i => i.author));
-
-      const excluded = setDifference(
-        authors.map(a => a.author),
-        selectedAuthors,
-      );
-
-      filterManager.setExcludedAuthors(excluded);
-      updateFilterContext(filterManager);
-
-      quickPick.hide();
-      if (!resolved) {
-        resolved = true;
-        resolve(true); // Selection made
-      }
-    });
-
-    quickPick.onDidHide(() => {
-      if (!resolved) {
-        resolved = true;
-        resolve(false); // Cancelled
-      }
-      quickPick.dispose();
-    });
-
-    quickPick.show();
+    filterManager.setExcludedAuthors(excluded);
+    updateFilterContext(filterManager);
   });
 }
 
@@ -68,39 +47,18 @@ export async function handleFilterByCommit(dataProvider: FreshFileProvider): Pro
     return false;
   }
 
-  return new Promise((resolve) => {
-    const filterManager = dataProvider.filterManager;
-    const quickPick = createCommitQuickPick(commits, filterManager.getExcludedCommits());
+  const filterManager = dataProvider.filterManager;
+  const quickPick = createCommitQuickPick(commits, filterManager.getExcludedCommits());
 
-    let resolved = false;
+  return runQuickPickPromise(quickPick, (qp) => {
+    const selectedHashes = new Set(qp.selectedItems.map(i => i.hash));
+    const excluded = setDifference(
+      commits.map(a => a.hash),
+      selectedHashes,
+    );
 
-    quickPick.onDidAccept(() => {
-      const selected = quickPick.selectedItems;
-      const selectedHashes = new Set(selected.map(i => i.hash));
-      const excluded = setDifference(
-        commits.map(a => a.hash),
-        selectedHashes,
-      );
-
-      filterManager.setExcludedCommits(excluded);
-      updateFilterContext(filterManager);
-
-      quickPick.hide();
-      if (!resolved) {
-        resolved = true;
-        resolve(true); // Selection made
-      }
-    });
-
-    quickPick.onDidHide(() => {
-      if (!resolved) {
-        resolved = true;
-        resolve(false); // Cancelled
-      }
-      quickPick.dispose();
-    });
-
-    quickPick.show();
+    filterManager.setExcludedCommits(excluded);
+    updateFilterContext(filterManager);
   });
 }
 

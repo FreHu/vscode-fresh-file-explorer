@@ -39,3 +39,32 @@ export function refreshPendingForFiles(
   const repoPaths = findRepoPathsForFiles(provider.workspaceFolders, absoluteFilePaths);
   return provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
 }
+
+/**
+ * Show a QuickPick and resolve to whether the user accepted a selection
+ * (`true`) or dismissed it (`false`). `onAccept` runs the side effect for the
+ * accepted selection before the picker hides. Guards against the double-settle
+ * that happens because accepting also fires `onDidHide`, and disposes the
+ * picker on hide.
+ */
+export function runQuickPickPromise<T extends vscode.QuickPickItem>(
+  quickPick: vscode.QuickPick<T>,
+  onAccept: (quickPick: vscode.QuickPick<T>) => void,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const settle = (value: boolean) => {
+      if (!resolved) { resolved = true; resolve(value); }
+    };
+    quickPick.onDidAccept(() => {
+      onAccept(quickPick);
+      quickPick.hide();
+      settle(true);
+    });
+    quickPick.onDidHide(() => {
+      settle(false);
+      quickPick.dispose();
+    });
+    quickPick.show();
+  });
+}

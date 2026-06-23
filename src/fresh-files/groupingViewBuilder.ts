@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { AbsolutePath } from "../pathTypes";
-import { FileMetadata, SortOrder } from "../types";
+import { DescriptionFormat, FileMetadata, SortOrder } from "../types";
 import { ConfigService } from "../config/configService";
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges } from "../utils/formatUtils";
@@ -115,53 +115,58 @@ export class GroupingViewBuilder {
     openChangesMode: boolean,
     skipAuthorInDescription: boolean = false,
   ): FreshFileItem[] {
-    const items: FreshFileItem[] = [];
+    return GroupingViewBuilder.buildGroupFiles(
+      freshFiles,
+      filterPredicate,
+      (metadata) => (metadata.author || "(No author)") === authorName,
+      sortOrder,
+      openChangesMode,
+      skipAuthorInDescription ? { showAuthor: false } : undefined,
+    );
+  }
 
+  /**
+   * Shared filter → sort → build pipeline behind every per-group file list.
+   * `groupPredicate` selects the files belonging to one group (author, commit,
+   * moon phase, …); `descriptionFormatOverride` tweaks the per-file description
+   * (e.g. hide the author inside an author group).
+   */
+  private static buildGroupFiles(
+    freshFiles: Map<AbsolutePath, FileMetadata>,
+    filterPredicate: (metadata: FileMetadata) => boolean,
+    groupPredicate: (metadata: FileMetadata) => boolean,
+    sortOrder: SortOrder,
+    openChangesMode: boolean,
+    descriptionFormatOverride?: Partial<DescriptionFormat>,
+  ): FreshFileItem[] {
     const filesList: Array<{ filePath: AbsolutePath; metadata: FileMetadata }> = [];
-
     for (const [filePath, metadata] of freshFiles) {
-      if (!filterPredicate(metadata)) {
-        continue;
-      }
-
-      // Check if this file is by the specified author
-      const fileAuthor = metadata.author || "(No author)";
-      if (fileAuthor !== authorName) {
-        continue;
-      }
-
+      if (!filterPredicate(metadata)) { continue; }
+      if (!groupPredicate(metadata)) { continue; }
       filesList.push({ filePath, metadata });
     }
 
-    // Sort according to current sort order
     GroupingViewBuilder.sortFilesList(filesList, sortOrder);
 
-    // Create tree items
-    for (const { filePath, metadata } of filesList) {
-      const uri = vscode.Uri.file(filePath);
-      const isDeleted = metadata.isDeleted ?? false;
-      const isPending = metadata.isPending ?? false;
+    const descriptionFormat = descriptionFormatOverride
+      ? { ...ConfigService.getDescriptionFormat(), ...descriptionFormatOverride }
+      : ConfigService.getDescriptionFormat();
 
+    const items: FreshFileItem[] = [];
+    for (const { filePath, metadata } of filesList) {
       const item = FreshFileItem.forFile(
-        uri,
+        vscode.Uri.file(filePath),
         openChangesMode,
-        isDeleted,
+        metadata.isDeleted ?? false,
         metadata.commitHash,
-        isPending,
+        metadata.isPending ?? false,
         metadata.status,
         metadata.renameSource,
       );
-
-      const descriptionFormat = skipAuthorInDescription
-        ? { ...ConfigService.getDescriptionFormat(), showAuthor: false }
-        : ConfigService.getDescriptionFormat();
-
       item.description = formatFileDescription(metadata, descriptionFormat);
       item.tooltip = formatFileTooltip(metadata, descriptionFormat);
-
       items.push(item);
     }
-
     return items;
   }
 
@@ -270,47 +275,15 @@ export class GroupingViewBuilder {
     sortOrder: SortOrder,
     openChangesMode: boolean,
   ): FreshFileItem[] {
-    const items: FreshFileItem[] = [];
-    const filesList: Array<{ filePath: AbsolutePath; metadata: FileMetadata }> = [];
-
-    for (const [filePath, metadata] of freshFiles) {
-      if (!filterPredicate(metadata)) {
-        continue;
-      }
-
-      if (metadata.commitHash !== commitHash) {
-        continue;
-      }
-
-      filesList.push({ filePath, metadata });
-    }
-
-    GroupingViewBuilder.sortFilesList(filesList, sortOrder);
-
-    // Create tree items (hide commit hash in description)
-    for (const { filePath, metadata } of filesList) {
-      const uri = vscode.Uri.file(filePath);
-      const isDeleted = metadata.isDeleted ?? false;
-      const isPending = metadata.isPending ?? false;
-
-      const item = FreshFileItem.forFile(
-        uri,
-        openChangesMode,
-        isDeleted,
-        metadata.commitHash,
-        isPending,
-        metadata.status,
-        metadata.renameSource,
-      );
-
-      const descriptionFormat = { ...ConfigService.getDescriptionFormat(), showCommitHash: false };
-      item.description = formatFileDescription(metadata, descriptionFormat);
-      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
-
-      items.push(item);
-    }
-
-    return items;
+    // Hide the commit hash in the description — every file here shares it.
+    return GroupingViewBuilder.buildGroupFiles(
+      freshFiles,
+      filterPredicate,
+      (metadata) => metadata.commitHash === commitHash,
+      sortOrder,
+      openChangesMode,
+      { showCommitHash: false },
+    );
   }
 
   /**
@@ -413,49 +386,13 @@ export class GroupingViewBuilder {
     sortOrder: SortOrder,
     openChangesMode: boolean,
   ): FreshFileItem[] {
-    const items: FreshFileItem[] = [];
-    const filesList: Array<{ filePath: AbsolutePath; metadata: FileMetadata }> = [];
-
-    for (const [filePath, metadata] of freshFiles) {
-      if (!filterPredicate(metadata)) {
-        continue;
-      }
-
-      const moonPhaseInfo = getMoonPhase(metadata.date);
-      if (moonPhaseInfo.name !== moonPhaseName) {
-        continue;
-      }
-
-      filesList.push({ filePath, metadata });
-    }
-
-    // Sort according to current sort order
-    GroupingViewBuilder.sortFilesList(filesList, sortOrder);
-
-    // Create tree items
-    for (const { filePath, metadata } of filesList) {
-      const uri = vscode.Uri.file(filePath);
-      const isDeleted = metadata.isDeleted ?? false;
-      const isPending = metadata.isPending ?? false;
-
-      const item = FreshFileItem.forFile(
-        uri,
-        openChangesMode,
-        isDeleted,
-        metadata.commitHash,
-        isPending,
-        metadata.status,
-        metadata.renameSource,
-      );
-
-      const descriptionFormat = ConfigService.getDescriptionFormat();
-      item.description = formatFileDescription(metadata, descriptionFormat);
-      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
-
-      items.push(item);
-    }
-
-    return items;
+    return GroupingViewBuilder.buildGroupFiles(
+      freshFiles,
+      filterPredicate,
+      (metadata) => getMoonPhase(metadata.date).name === moonPhaseName,
+      sortOrder,
+      openChangesMode,
+    );
   }
 
   /**
@@ -565,51 +502,13 @@ export class GroupingViewBuilder {
     sortOrder: SortOrder,
     openChangesMode: boolean,
   ): FreshFileItem[] {
-    const items: FreshFileItem[] = [];
-    const filesList: Array<{ filePath: AbsolutePath; metadata: FileMetadata }> = [];
-
-    for (const [filePath, metadata] of freshFiles) {
-      if (!filterPredicate(metadata)) {
-        continue;
-      }
-
-      const retrogradeInfo = getRetrogradeInfo(metadata.date);
-      const key = getRetrogradeKey(retrogradeInfo.planets);
-
-      if (key !== retrogradeKey) {
-        continue;
-      }
-
-      filesList.push({ filePath, metadata });
-    }
-
-    // Sort according to current sort order
-    GroupingViewBuilder.sortFilesList(filesList, sortOrder);
-
-    // Create tree items
-    for (const { filePath, metadata } of filesList) {
-      const uri = vscode.Uri.file(filePath);
-      const isDeleted = metadata.isDeleted ?? false;
-      const isPending = metadata.isPending ?? false;
-
-      const item = FreshFileItem.forFile(
-        uri,
-        openChangesMode,
-        isDeleted,
-        metadata.commitHash,
-        isPending,
-        metadata.status,
-        metadata.renameSource,
-      );
-
-      const descriptionFormat = ConfigService.getDescriptionFormat();
-      item.description = formatFileDescription(metadata, descriptionFormat);
-      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
-
-      items.push(item);
-    }
-
-    return items;
+    return GroupingViewBuilder.buildGroupFiles(
+      freshFiles,
+      filterPredicate,
+      (metadata) => getRetrogradeKey(getRetrogradeInfo(metadata.date).planets) === retrogradeKey,
+      sortOrder,
+      openChangesMode,
+    );
   }
 
   /**
