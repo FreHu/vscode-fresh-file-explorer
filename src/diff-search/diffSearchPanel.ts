@@ -198,7 +198,7 @@ export class DiffSearchPanel {
 
     try {
       let totalMatchCount = 0;
-      let allMatches: any[] = [];
+      let allMatches: DiffMatch[] = [];
 
       // Execute search with commit tracking (no progress notification, only webview updates)
       const reposToSearch = this._workspaceFolders;
@@ -212,11 +212,9 @@ export class DiffSearchPanel {
       // Build repo names map from actual discovered repositories
       const repoNames = new Map<AbsolutePath, string>();
       for (const repo of actualRepos) {
-        log(`Adding repo to map: path="${repo.path}", name="${repo.name}"`, "info");
         repoNames.set(repo.path, repo.name);
       }
-      log(`Total repos in map: ${repoNames.size}`, "info");
-      log(`Searching ${totalRepos} git repositories across ${totalFolders} workspace folders`, "info");
+      log(`Diff search across ${totalRepos} git repositories in ${totalFolders} workspace folders`, "info");
 
       // Notify UI that search is starting (works for 1 or many repos)
       this._post({
@@ -245,7 +243,7 @@ export class DiffSearchPanel {
           status: "Searching...",
         });
 
-        let repoMatches: any[] = [];
+        let repoMatches: DiffMatch[] = [];
 
         // Search historical diffs
         if (!pendingOnly) {

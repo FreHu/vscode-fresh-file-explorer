@@ -113,6 +113,11 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
       border: 1px solid var(--vscode-inputValidation-errorBorder);
       color: var(--vscode-input-foreground);
     }
+    .status.warning {
+      background: var(--vscode-inputValidation-warningBackground);
+      border: 1px solid var(--vscode-inputValidation-warningBorder);
+      color: var(--vscode-input-foreground);
+    }
     .help-text {
       font-size: 0.9em;
       color: var(--vscode-descriptionForeground);

@@ -36,7 +36,7 @@ From cheapest to most expensive:
 
 ## Git Command Execution
 
-Always use **`execGitWithArgs(args[], cwd)`** � uses `spawn()` with an argument array - no injection risk. For large outputs use the streaming variants `streamGitLogNameStatus` / `streamGitDiffOutput`.
+Always use **`execGitWithArgs(args[], cwd)`** — uses `spawn()` with an argument array, no injection risk. For large outputs, stream instead of buffering: `streamGitLogNameStatus` in `gitOperations.ts`, or the diff-search parser's own `streamGitDiffOutput` (local to `diffSearchParser.ts`).
 
 ## Webview Message Protocol
 

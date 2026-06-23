@@ -170,9 +170,11 @@ function createDiffLineProcessor(
   let commitCount = 0;
 
   return function processLine(line: string) {
-    // Parse commit header (from git log -p)
+    // Parse commit header (from git log -p). Take the first token after "commit " rather
+    // than a fixed 40-char slice — works for SHA-256 (64 chars) and ignores any decoration
+    // ("commit <sha> (HEAD -> main)").
     if (extractCommitInfo && line.startsWith("commit ")) {
-      const hash = line.substring(7, 47).trim();
+      const hash = line.slice(7).trim().split(/\s/)[0];
       currentCommit = asCommitHash(hash);
       currentCommitMessage = undefined;
       currentCommitDate = undefined;
