@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { execGitWithArgs, gitUri, getCommitParent, getCommitChanges, getCommitSubject } from "../git/gitOperations";
 import { GitLogLCommit } from "../git/gitLogLParser";
+import { CommitData, GitLogLToWebview, GitLogLFromWebview } from "../webview/messages";
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
 import { log, showError, showInfo } from "../extension/logger";
 import { normalizePath } from "../utils";
@@ -89,7 +90,7 @@ export class GitLogLPanel {
     }, null, this._disposables);
 
     this._panel.webview.onDidReceiveMessage(
-      async (msg) => {
+      async (msg: GitLogLFromWebview) => {
         if (msg.command === "ready") {
           this._sendCommits(commits);
         } else {
@@ -101,6 +102,11 @@ export class GitLogLPanel {
     );
   }
 
+  /** Typed outbound channel — every host→webview message goes through here. */
+  private _post(msg: GitLogLToWebview): Thenable<boolean> {
+    return this._panel.webview.postMessage(msg);
+  }
+
   private _sendCommits(commits: GitLogLCommit[]) {
     this._filePathByHash.clear();
     for (const c of commits) {
@@ -110,9 +116,9 @@ export class GitLogLPanel {
     // Commits are newest-first. For each commit, the "newer neighbour" is the
     // commit at index i-1 (or currentRelative for the first entry). Only show
     // the rename badge when the path actually changes at this boundary.
-    const result = this._panel.webview.postMessage({
+    const result = this._post({
       command: "setCommits",
-      commits: commits.map((c, i) => {
+      commits: commits.map((c, i): CommitData => {
         const newerPath = i === 0 ? currentRelative : (commits[i - 1].filePathAtCommit ?? currentRelative);
         const thisPath = c.filePathAtCommit ?? currentRelative;
         return {
@@ -137,7 +143,7 @@ export class GitLogLPanel {
     );
   }
 
-  private async _handleMessage(msg: any) {
+  private async _handleMessage(msg: GitLogLFromWebview) {
     switch (msg.command) {
       case "compare":
         await this._openDiff(msg.hashA, msg.hashB);

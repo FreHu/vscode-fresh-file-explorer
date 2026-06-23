@@ -12,6 +12,7 @@ import { NormalizedRepoPath } from "../pathTypes";
 import { getBranchCompareSettingsHtml } from "./branchCompareSettingsPanelUI";
 import {
   BranchCompareSettingsFromWebview,
+  BranchCompareSettingsToWebview,
   HeatmapSettingsDTO,
   RefValidationResult,
   RepoDTO,
@@ -129,6 +130,11 @@ export class BranchCompareSettingsPanel {
     try { this._panel.dispose(); } catch { /* may already be disposed */ }
   }
 
+  /** Typed outbound channel — every host→webview message goes through here. */
+  private _post(msg: BranchCompareSettingsToWebview): void {
+    void this._panel.webview.postMessage(msg);
+  }
+
   private async _handleMessage(msg: BranchCompareSettingsFromWebview): Promise<void> {
     switch (msg.command) {
       case "ready":
@@ -207,7 +213,7 @@ export class BranchCompareSettingsPanel {
    */
   private async _sendValidation(repoFullPath: string, ref: string): Promise<void> {
     const result = await this._validateRef(repoFullPath, ref);
-    void this._panel.webview.postMessage({
+    this._post({
       command: "refValidation",
       repoFullPath,
       ref,
@@ -263,7 +269,7 @@ export class BranchCompareSettingsPanel {
       groupingMode: c.groupingMode,
       diffMode: c.diffMode,
     }));
-    void this._panel.webview.postMessage({ command: "state", repos, comparisons });
+    this._post({ command: "state", repos, comparisons });
   }
 
   private _pushHeatmapState(): void {
@@ -272,7 +278,7 @@ export class BranchCompareSettingsPanel {
       autoApply: ConfigService.getBlameHeatmapAutoApply(),
       mode: WorkspaceStateManager.getBlameHeatmapMode() ?? "absolute",
     };
-    void this._panel.webview.postMessage({ command: "heatmapState", settings });
+    this._post({ command: "heatmapState", settings });
   }
 
   private async _sendRefs(repoFullPath: string): Promise<void> {
@@ -286,7 +292,7 @@ export class BranchCompareSettingsPanel {
       this._refsCache.set(key, promise);
     }
     const branches = await promise;
-    void this._panel.webview.postMessage({
+    this._post({
       command: "refs",
       repoFullPath,
       branches: branches.map(b => ({ name: b.name, relativeDate: b.relativeDate })),

@@ -6,21 +6,13 @@ import { AbsolutePath } from "../pathTypes";
 import { log, showError, showInfo, showWarning } from "../extension/logger";
 import { formatGitCommand } from "../utils/formatUtils";
 import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
-import { DiffSearchParams, DiffSearchHistoryEntry } from "../webview/messages";
+import { DiffSearchParams, DiffSearchHistoryEntry, DiffSearchToWebview, DiffSearchFromWebview } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 const MAX_HISTORY = 25;
 
-interface SearchMessage {
-  command: "search";
-  pattern: string;
-  isRegex: boolean;
-  caseInsensitive: boolean;
-  includePattern: string;
-  excludePattern: string;
-  pendingOnly: boolean;
-  days: number | null; // null = unlimited (all history)
-}
+/** The single shared `search` request shape — no longer a hand-duplicated interface. */
+type SearchRequest = Extract<DiffSearchFromWebview, { command: "search" }>;
 
 export class DiffSearchPanel {
   private static currentPanel: DiffSearchPanel | undefined;
@@ -90,17 +82,22 @@ export class DiffSearchPanel {
     );
   }
 
-  private async _handleMessage(message: any) {
+  /** Typed outbound channel — every host→webview message goes through here. */
+  private _post(msg: DiffSearchToWebview): void {
+    void this._panel.webview.postMessage(msg);
+  }
+
+  private async _handleMessage(message: DiffSearchFromWebview) {
     switch (message.command) {
       case "search":
-        await this._executeSearch(message as SearchMessage);
+        await this._executeSearch(message);
         break;
-      case "ready":
+      case "ready": {
         // Webview is ready, send initial data
         // Restore persisted params (overridden by prefill if present)
         const saved = WorkspaceStateManager.getDiffSearchParams();
         if (saved) {
-          this._panel.webview.postMessage({ command: "prefillParams", params: saved });
+          this._post({ command: "prefillParams", params: saved });
         }
         if (this._prefillPattern) {
           this._sendPrefill(this._prefillPattern);
@@ -108,6 +105,7 @@ export class DiffSearchPanel {
         // Send history
         this._sendHistory();
         break;
+      }
 
       case "clearHistory":
         WorkspaceStateManager.setDiffSearchHistory([]);
@@ -117,15 +115,15 @@ export class DiffSearchPanel {
   }
 
   private _sendPrefill(pattern: string) {
-    this._panel.webview.postMessage({ command: "prefill", pattern });
+    this._post({ command: "prefill", pattern });
   }
 
   private _sendHistory(): void {
     const entries = WorkspaceStateManager.getDiffSearchHistory();
-    this._panel.webview.postMessage({ command: "setHistory", entries });
+    this._post({ command: "setHistory", entries });
   }
 
-  private _saveParams(searchData: SearchMessage): void {
+  private _saveParams(searchData: SearchRequest): void {
     const params: DiffSearchParams = {
       pattern: searchData.pattern,
       isRegex: searchData.isRegex,
@@ -162,7 +160,7 @@ export class DiffSearchPanel {
     WorkspaceStateManager.setDiffSearchHistory(updated);
   }
 
-  private async _executeSearch(searchData: SearchMessage) {
+  private async _executeSearch(searchData: SearchRequest) {
     this._saveParams(searchData);
     this._sendHistory();
     const { pattern, isRegex, caseInsensitive, includePattern, excludePattern, pendingOnly, days } = searchData;
@@ -206,7 +204,7 @@ export class DiffSearchPanel {
       log(`Searching ${totalRepos} git repositories across ${totalFolders} workspace folders`, "info");
 
       // Notify UI that search is starting (works for 1 or many repos)
-      this._panel.webview.postMessage({
+      this._post({
         command: "reposStarted",
         repoCount: totalRepos,
         repoNames: actualRepos.map(r => r.name),
@@ -226,10 +224,9 @@ export class DiffSearchPanel {
         const repoStartTime = Date.now();
 
         // Send initial status
-        this._panel.webview.postMessage({
+        this._post({
           command: "repoProgress",
           repoIndex: repoIndex,
-          repoName: repoName,
           status: "Searching...",
         });
 
@@ -270,10 +267,9 @@ export class DiffSearchPanel {
         state.status = "Complete";
 
         // Send final results for this repo
-        this._panel.webview.postMessage({
+        this._post({
           command: "repoComplete",
           repoIndex: repoIndex,
-          repoName: repoName,
           commits: uniqueCommits,
           matches: repoMatches.length,
           pendingMatches: pendingMatches.length,
@@ -302,7 +298,7 @@ export class DiffSearchPanel {
 
       // Send final status back to webview and show notification
       if (totalMatchCount === 0) {
-        this._panel.webview.postMessage({
+        this._post({
           command: "searchComplete",
           message: "No matches found",
           count: 0,
@@ -310,7 +306,7 @@ export class DiffSearchPanel {
         });
         showInfo(`Diff search complete: No matches found for "${pattern}"`);
       } else {
-        this._panel.webview.postMessage({
+        this._post({
           command: "searchComplete",
           message: `Search complete`,
           count: totalMatchCount,
@@ -328,7 +324,7 @@ export class DiffSearchPanel {
       }
     } catch (error: any) {
       showError(`Search failed: ${error.message || error}`, `Diff search error: ${error}`);
-      this._panel.webview.postMessage({
+      this._post({
         command: "searchComplete",
         message: `Error: ${error.message || error}`,
         count: 0,
@@ -362,7 +358,7 @@ export class DiffSearchPanel {
  * Build a representative git command string from the search parameters,
  * mirroring what searchHistoricalDiffs / searchPendingDiffs actually run.
  */
-function buildSearchGitCommand(search: SearchMessage): string {
+function buildSearchGitCommand(search: SearchRequest): string {
   if (search.pendingOnly) {
     const args = ["diff"];
     const pathspecs = buildPathspecsForDisplay(search.includePattern, search.excludePattern);
