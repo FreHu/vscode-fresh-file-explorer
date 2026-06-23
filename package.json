@@ -1744,6 +1744,7 @@
     "pretest": "npm run compile && npm run compile:webview && npm run lint && npm run ratchet",
     "lint": "eslint src",
     "ratchet": "node scripts/sizeRatchet.mjs",
+    "tag": "npm test && node scripts/createReleaseTag.mjs",
     "test": "npm run test:unit && npm run test:host",
     "test:unit": "mocha --ui tdd \"out/test/**/*.unit.test.js\"",
     "test:host": "vscode-test --ignore \"out/test/**/*.unit.test.js\"",
