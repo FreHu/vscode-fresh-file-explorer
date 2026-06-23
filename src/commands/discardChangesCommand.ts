@@ -3,7 +3,7 @@ import * as path from "path";
 
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
-import { findRepoForFile, isPathWithinRoot, findWorkspaceFolderForPath, findRepoPathsForFiles } from "../utils/pathUtils";
+import { findRepoForFile, isPathWithinRoot, findWorkspaceFolderForPath } from "../utils/pathUtils";
 import {
   discardFileChanges,
   discardAllFileChanges,
@@ -15,6 +15,7 @@ import {
 import { normalizePath } from "../utils";
 import { log, showError, showInfo } from "../extension/logger";
 import { asAbsolutePath } from "../pathTypes";
+import { refreshPendingForFiles, resolveCommandSelection } from "./commandUtils";
 
 type DiscardAction = "everything" | "discard-unstaged-only" | "unstage-only";
 
@@ -223,7 +224,7 @@ export async function handleDiscardChanges(
   if (freshFileProvider.warnIfNoWorkspaceFolders()) return undefined;
 
   // Get items to discard - ONLY from explicit selection, filter to pending files only
-  const allItems = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
+  const allItems = resolveCommandSelection(item, selectedItems);
   const pendingItems = allItems.filter(i => i && i.resourceUri && i.isPending && !i.isDirectory);
 
   if (pendingItems.length === 0) {
@@ -287,9 +288,7 @@ export async function handleDiscardChanges(
     showError(`Failed to discard: ${errors.join(", ")}`);
   }
   if (successCount > 0) {
-    const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, pendingItems.map(i => i.resourceUri.fsPath));
-    const targetRepoPaths = repoPaths.length > 0 ? repoPaths : undefined;
-    void freshFileProvider.refreshPending(targetRepoPaths);
+    void refreshPendingForFiles(freshFileProvider, pendingItems.map(i => i.resourceUri.fsPath));
   }
 }
 

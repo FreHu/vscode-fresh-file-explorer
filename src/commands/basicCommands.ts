@@ -8,7 +8,8 @@ import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../fresh-files/groupingMode";
 import { SortOrder } from "../types";
-import { findRepoPathsForFiles, findRepoForAbsolutePath } from "../utils/pathUtils";
+import { findRepoForAbsolutePath } from "../utils/pathUtils";
+import { refreshPendingForFiles, resolveCommandSelection } from "./commandUtils";
 import { execGitWithArgs } from "../git/gitOperations";
 import { ConfigService } from "../config/configService";
 import { normalizePath } from "../utils";
@@ -221,7 +222,7 @@ export async function handleOpenFile(
   selectedItems?: FreshFileItem[],
   options?: { preserveFocus?: boolean },
 ): Promise<void> {
-  const items = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
+  const items = resolveCommandSelection(item, selectedItems);
   const preserveFocus = options?.preserveFocus ?? false;
   for (const fileItem of items.filter(isPossibleToOpen)) {
     await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, {
@@ -241,7 +242,7 @@ export function handleSetOpenMode(freshFileProvider: FreshFileProvider, value: b
 }
 
 export async function handleOpenToSide(item: FreshFileItem, selectedItems?: FreshFileItem[]): Promise<void> {
-  const items = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
+  const items = resolveCommandSelection(item, selectedItems);
   for (const fileItem of items.filter(isPossibleToOpen)) {
     await vscode.commands.executeCommand("vscode.open", fileItem.resourceUri, vscode.ViewColumn.Beside);
   }
@@ -275,10 +276,7 @@ export async function handleDeleteFile(
   // When triggered via keybinding, item and selectedItems are undefined.
   // Fall back to the tree view's current selection.
   const treeSelection = treeView?.selection.filter((i): i is FreshFileItem => i instanceof FreshFileItem);
-  const allItems = selectedItems && selectedItems.length > 0 ? selectedItems
-    : item ? [item]
-    : treeSelection && treeSelection.length > 0 ? treeSelection
-    : [];
+  const allItems = resolveCommandSelection(item, selectedItems, treeSelection);
   // Only delete actual on-disk files — skip deleted files (they don't exist) and directories
   const targets = allItems.filter(i => i && i.resourceUri && !i.isDeleted && !i.isDirectory);
 
@@ -325,8 +323,7 @@ export async function handleDeleteFile(
     vscode.window.showErrorMessage(`Failed to delete: ${errors.join(", ")}`);
   }
   if (successCount > 0) {
-    const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, targets.map(i => i.resourceUri.fsPath));
-    void freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+    void refreshPendingForFiles(freshFileProvider, targets.map(i => i.resourceUri.fsPath));
   }
 }
 
@@ -393,8 +390,7 @@ export async function handleRenameFile(
     }
 
     log(`Renamed: ${oldName} → ${newName}`);
-    const repoPaths = findRepoPathsForFiles(freshFileProvider.workspaceFolders, [oldPath, newPath]);
-    void freshFileProvider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+    void refreshPendingForFiles(freshFileProvider, [oldPath, newPath]);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`Rename failed: ${message}`, "error");

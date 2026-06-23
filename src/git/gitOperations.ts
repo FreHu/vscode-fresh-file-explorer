@@ -755,8 +755,6 @@ export async function collectHistoricalChanges(
   onThresholdCrossed?: (days: number, partial: Map<string, FileMetadata>) => void,
   commitStatsMap?: Map<string, CommitStats>,
 ): Promise<Map<string, FileMetadata>> {
-  const files = new Map<string, FileMetadata>();
-
   const sinceDate = `${days}.days.ago`;
 
   // Build a shared pathspec suffix: ["--", "<pathspec>"] when a pathspec is active.
@@ -790,38 +788,9 @@ export async function collectHistoricalChanges(
     fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs(), commitStatsMap);
   }
 
-  // Step 2: Merge status into FileMetadata
-  const fileStatusEntries = Array.from(fileStatusMap.entries());
-
-  // ideally look into an approach that avoids having to do this check
-  // but need to look into edge cases around detecting deletes
-  const existsResults = await Promise.all(
-    fileStatusEntries.map(
-      ([fileRelativePath]) => fileExists(path.join(workspaceRoot, fileRelativePath)))
-  );
-
-  for (let i = 0; i < fileStatusEntries.length; i++) {
-    const [fileRelativePath, statusInfo] = fileStatusEntries[i];
-    const existsOnDisk = existsResults[i];
-    const isDeleted = statusInfo.status === "D";
-
-    // Include the file if:
-    // 1. It exists on disk (normal case)
-    // 2. It was deleted in this commit and still doesn't exist (historical deletion)
-    if (existsOnDisk || isDeleted) {
-      files.set(fileRelativePath, {
-        date: statusInfo.commit.date,
-        author: statusInfo.commit.author,
-        commitHash: statusInfo.commit.hash,
-        commitMessage: statusInfo.commit.message,
-        status: statusInfo.status,
-        isDeleted: !existsOnDisk,
-        isPending: false,
-      });
-    }
-  }
-
-  return files;
+  // Step 2: Merge status into FileMetadata (same exists-check + delete handling
+  // as the incremental threshold snapshots, so it shares buildPartialMetadataMap).
+  return buildPartialMetadataMap(fileStatusMap, workspaceRoot);
 }
 
 /**

@@ -6,6 +6,7 @@ import { log } from "../extension/logger";
 import { gitUri } from "../git/gitOperations";
 import { openDiff } from "../utils";
 import { shortSha } from "../utils/formatUtils";
+import { resolveCommandSelection } from "./commandUtils";
 
 /**
  * Handler for opening files in diff/changes mode
@@ -18,7 +19,7 @@ export async function handleOpenChanges(
   options?: { preserveFocus?: boolean },
 ): Promise<void> {
   log(`OPEN_CHANGES command triggered`);
-  const items = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
+  const items = resolveCommandSelection(item, selectedItems);
   const preserveFocus = options?.preserveFocus ?? false;
   log(`Processing ${items.length} items, preserveFocus: ${preserveFocus}`);
 

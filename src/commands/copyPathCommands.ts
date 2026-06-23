@@ -9,9 +9,10 @@ import { showPathFormatQuickPick } from "../utils/quickPick";
 import { showInfo, showWarning } from "../extension/logger";
 import { execGitWithArgs } from "../git/gitOperations";
 import { ConfigService } from "../config/configService";
+import { resolveCommandSelection } from "./commandUtils";
 
 function getItems(item: FreshFileItem, selectedItems: FreshFileItem[] | undefined): FreshFileItem[] {
-  return selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
+  return resolveCommandSelection(item, selectedItems);
 }
 
 export async function handleCopyAbsolutePath(

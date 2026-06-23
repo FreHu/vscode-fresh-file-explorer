@@ -4,7 +4,8 @@ import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { log, showError } from "../extension/logger";
 import { asAbsolutePath } from "../pathTypes";
-import { findWorkspaceFolderForPath, isPathWithinRoot, findRepoPathsForFiles } from "../utils/pathUtils";
+import { findWorkspaceFolderForPath, isPathWithinRoot } from "../utils/pathUtils";
+import { refreshPendingForFiles } from "./commandUtils";
 
 export type ResolveInputToPathsResult =
   | { kind: "paths"; paths: string[] }
@@ -134,8 +135,7 @@ async function createFilesInDirectory(
   }
 
   // Refresh the tree to show the new files (if they fall within the time window)
-  const repoPaths = findRepoPathsForFiles(provider.workspaceFolders, createdFiles);
-  void provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+  void refreshPendingForFiles(provider, createdFiles);
 }
 
 /**

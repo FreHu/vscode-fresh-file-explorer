@@ -5,18 +5,16 @@ import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { showError } from "../extension/logger";
 import { setClipboard, getClipboard, clearClipboard } from "./copyPasteService";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
-import { findRepoPathsForFiles } from "../utils/pathUtils";
+import { refreshPendingForFiles, resolveCommandSelection } from "./commandUtils";
 
 function getItems(
   item: FreshFileItem,
   selectedItems: FreshFileItem[] | undefined,
   treeView?: vscode.TreeView<FreshFilesTreeItem>,
 ): FreshFileItem[] {
-  if (selectedItems && selectedItems.length > 0) { return selectedItems; }
-  if (item) { return [item]; }
-  // Keybinding path — fall back to the tree view's current selection
+  // Keybinding path — fall back to the tree view's current selection.
   const treeSelection = treeView?.selection.filter((i): i is FreshFileItem => i instanceof FreshFileItem);
-  return treeSelection && treeSelection.length > 0 ? treeSelection : [];
+  return resolveCommandSelection(item, selectedItems, treeSelection);
 }
 
 /**
@@ -208,6 +206,5 @@ export async function handlePasteFile(
     targetDir.fsPath,
     ...(clipboard.isCut ? clipboard.uris.map(u => u.fsPath) : []),
   ];
-  const repoPaths = findRepoPathsForFiles(provider.workspaceFolders, affectedPaths);
-  void provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+  void refreshPendingForFiles(provider, affectedPaths);
 }

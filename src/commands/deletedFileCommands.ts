@@ -4,9 +4,10 @@ import { log, showError } from "../extension/logger";
 import { getFileFromHistoryAsBuffer } from "../git/gitOperations";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { normalizePath } from "../utils";
-import { findRepoForFile, findWorkspaceFolderForPath, findRepoPathsForFiles } from "../utils/pathUtils";
+import { findRepoForFile, findWorkspaceFolderForPath } from "../utils/pathUtils";
 import { asAbsolutePath } from "../pathTypes";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { refreshPendingForFiles, resolveCommandSelection } from "./commandUtils";
 
 /**
  * Helper function to get deleted file content as Buffer (for binary/non-UTF8 files)
@@ -85,7 +86,7 @@ export async function handleResurrect(
   if (provider.warnIfNoWorkspaceFolders()) return;
 
   // Get items to resurrect - filter to deleted files only
-  const allItems = selectedItems && selectedItems.length > 0 ? selectedItems : item ? [item] : [];
+  const allItems = resolveCommandSelection(item, selectedItems);
   const deletedItems = allItems.filter(i => i && i.resourceUri && i.isDeleted && !i.isDirectory);
 
   if (deletedItems.length === 0) {
@@ -170,8 +171,7 @@ export async function handleResurrect(
       // Open the single resurrected file
       await vscode.commands.executeCommand("vscode.open", deletedItems[0].resourceUri);
     }
-    const repoPaths = findRepoPathsForFiles(provider.workspaceFolders, deletedItems.map(i => i.resourceUri.fsPath));
-    await provider.refreshPending(repoPaths.length > 0 ? repoPaths : undefined);
+    await refreshPendingForFiles(provider, deletedItems.map(i => i.resourceUri.fsPath));
   }
 
   if (errors.length > 0) {
