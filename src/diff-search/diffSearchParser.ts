@@ -19,6 +19,28 @@ const DIFF_PREFIX_FLAGS = ["-c", "diff.noprefix=false", "-c", "diff.mnemonicPref
 const LOG_CONFIG_FLAGS = [...DIFF_PREFIX_FLAGS, "-c", "log.showSignature=false"];
 
 /**
+ * Thrown when the search pattern compiles in JS but git's regex engine rejects it.
+ *
+ * The two engines differ: git pickaxe (`-G`) uses POSIX ERE while the panel pre-validates
+ * and the line-level display filter ({@link filterMatchesByPattern}) use JS `RegExp`. A
+ * pattern can be valid in one and not the other — e.g. `foo\1` (JS treats it as a
+ * backreference, git rejects it) or `a{` (JS reads `{` as a literal, git errors). Such a
+ * pattern clears the JS pre-check, then git fails mid-search. Surfacing this as an error
+ * beats silently reporting "No matches".
+ */
+export class DiffSearchPatternError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DiffSearchPatternError";
+  }
+}
+
+/** True when git's stderr indicates the pickaxe regex failed to compile (POSIX ERE). */
+export function isGitRegexError(stderr: string): boolean {
+  return /invalid regex/i.test(stderr);
+}
+
+/**
  * Represents a single match found in a diff
  */
 export interface DiffMatch {
@@ -111,7 +133,14 @@ export async function searchHistoricalDiffs(
     const filtered = filterMatchesByPattern(allMatches, pattern, searchRegex, caseInsensitive);
     return filtered;
   } catch (error: any) {
-    // Log error for debugging
+    // A git-side regex compile failure must surface, not masquerade as "no matches".
+    // (streamGitDiffOutput rejects with git's stderr string; the child 'error' event
+    // rejects with a message string.)
+    const msg = typeof error === "string" ? error : error?.message ?? String(error);
+    if (isRegex && isGitRegexError(msg)) {
+      throw new DiffSearchPatternError(msg.trim());
+    }
+    // Log other errors for debugging; stay resilient (e.g. empty repo) and return nothing.
     log(`Historical diff search error: ${error}`, "error");
     return [];
   }

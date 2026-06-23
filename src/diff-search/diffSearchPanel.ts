@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { DiffSearchResultProvider } from "./diffSearchResultProvider";
-import { DiffMatch, searchHistoricalDiffs, searchPendingDiffs } from "./diffSearchParser";
+import { DiffMatch, DiffSearchPatternError, searchHistoricalDiffs, searchPendingDiffs } from "./diffSearchParser";
 import { discoverReposInWorkspace } from "../git/gitOperations";
 import { AbsolutePath } from "../pathTypes";
 import { log, showError, showWarning } from "../extension/logger";
@@ -281,6 +281,19 @@ export class DiffSearchPanel {
 
       // Wait for all repos to complete
       const results = await Promise.allSettled(repoPromises);
+
+      // A bad regex fails identically across every repo. Surface git's message once
+      // instead of letting all repos reject and reporting a misleading "No matches".
+      const patternError = results.find(
+        (r): r is PromiseRejectedResult =>
+          r.status === "rejected" && r.reason instanceof DiffSearchPatternError,
+      );
+      if (patternError) {
+        const reason = (patternError.reason as DiffSearchPatternError).message;
+        showError(`Invalid search pattern: ${reason}`);
+        this._post({ command: "searchComplete", message: `Invalid pattern: ${reason}`, count: 0 });
+        return;
+      }
 
       // Aggregate results
       results.forEach((result) => {
