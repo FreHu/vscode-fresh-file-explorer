@@ -34,8 +34,10 @@ export class DiffSearchFileItem extends vscode.TreeItem {
     // Use file icon (don't set resourceUri to avoid conflicts when same file appears in multiple commits)
     this.iconPath = vscode.ThemeIcon.File;
 
-    // Use random ID to avoid any caching/identity conflicts
-    this.id = `file-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`;
+    // Stable id scoped by commit — the same file under two commits is two distinct nodes
+    // (the original reason this used a random id), but expansion now survives refreshes and
+    // TreeView.reveal can address it.
+    this.id = `${commitHash ?? "pending"}::file::${filePath}`;
 
     // Set context value for context menu
     this.contextValue = DiffSearchContextValues.FILE;
@@ -62,8 +64,9 @@ export class DiffSearchMatchItem extends vscode.TreeItem {
     const truncatedContent = lineContent.length > 80 ? lineContent.substring(0, 77) + "..." : lineContent;
     this.label = `L${lineNumber}: ${truncatedContent}`;
 
-    // Set unique ID
-    this.id = `match-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`;
+    // Stable id: scope + line + change type uniquely identify a matched line.
+    const scope = commitHash ?? (isStaged ? "staged" : "unstaged");
+    this.id = `${scope}::match::${changeType}::${lineNumber}::${filePath}`;
 
     // Use appropriate icon based on change type
     if (changeType === "added") {
@@ -108,6 +111,7 @@ export class DiffSearchRepoItem extends vscode.TreeItem {
   ) {
     super(repoName, matchCount > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 
+    this.id = `repo::${repoName}`;
     this.description = `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
     this.iconPath = new vscode.ThemeIcon("repo");
     this.contextValue = DiffSearchContextValues.REPO;
@@ -139,7 +143,7 @@ export class DiffSearchCommitItem extends vscode.TreeItem {
 
     this.iconPath = new vscode.ThemeIcon("git-commit");
     this.contextValue = DiffSearchContextValues.COMMIT;
-    this.id = `commit-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`;
+    this.id = `commit::${commitHash}`;
 
     // Auto-expand if few files
     if (fileCount <= 3) {
@@ -155,6 +159,7 @@ export class DiffSearchPendingItem extends vscode.TreeItem {
   constructor(
     public readonly fileCount: number,
     public readonly matchCount: number,
+    public readonly repoName?: string,
   ) {
     super("Pending Changes", vscode.TreeItemCollapsibleState.Expanded);
 
@@ -164,7 +169,7 @@ export class DiffSearchPendingItem extends vscode.TreeItem {
     );
     this.iconPath = new vscode.ThemeIcon("git-branch");
     this.contextValue = DiffSearchContextValues.PENDING;
-    this.id = `pending-${Math.random().toString(36).substring(2, 15)}-${Date.now()}`;
+    this.id = `pending::${repoName ?? ""}`;
   }
 }
 

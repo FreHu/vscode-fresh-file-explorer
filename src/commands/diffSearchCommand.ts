@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { DiffSearchResultProvider } from "../diff-search/diffSearchResultProvider";
-import { DiffSearchMatchItem, DiffSearchCommitItem, DiffSearchFileItem, DiffSearchRepoItem } from "../diff-search/diffSearchTreeItems";
+import { DiffSearchMatchItem, DiffSearchCommitItem, DiffSearchFileItem, DiffSearchRepoItem, DiffSearchTreeItem } from "../diff-search/diffSearchTreeItems";
 import { gitUri } from "../git/gitOperations";
 import { DiffSearchPanel } from "../diff-search/diffSearchPanel";
 import { showError, showInfo } from "../extension/logger";
@@ -146,16 +146,18 @@ export async function handleCopyDiffPath(item: DiffSearchFileItem | DiffSearchMa
   }
 }
 
-/** "Expand All" on a repo or commit node — expand its whole subtree from cached matches. */
-export function handleDiffSearchExpandAll(
-  provider: DiffSearchResultProvider,
+/**
+ * "Expand All" on a repo or commit node — expand its whole subtree via TreeView.reveal,
+ * the only reliable way to force expansion (stable item ids + getParent make it work).
+ * `expand` is capped at 3 by VS Code: repo → commits → files → matches needs 3, a commit
+ * needs 2 (files → matches).
+ */
+export async function handleDiffSearchExpandAll(
+  treeView: vscode.TreeView<DiffSearchTreeItem>,
   item: DiffSearchRepoItem | DiffSearchCommitItem,
-): void {
-  if (item instanceof DiffSearchRepoItem) {
-    provider.expandAllUnderRepo(item);
-  } else if (item instanceof DiffSearchCommitItem) {
-    provider.expandAllUnderCommit(item);
-  }
+): Promise<void> {
+  const depth = item instanceof DiffSearchRepoItem ? 3 : 2;
+  await treeView.reveal(item, { expand: depth, select: false, focus: false });
 }
 
 /**

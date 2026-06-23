@@ -41,35 +41,24 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
   private commitGroupsCache: Map<CommitHash, DiffMatch[]> | null = null;
   private pendingMatchesCache: DiffMatch[] | null = null;
 
-  /**
-   * Nodes whose subtree should render fully expanded (node open + descendants open).
-   * Populated by the "Expand All" actions; VS Code has no native expand-all and `reveal`
-   * isn't viable here (random item ids, no `getParent`), so we drive `collapsibleState`.
-   * Repos are tracked by name and resolved to their commits inside `getCommitGroups` — which
-   * already groups by repo correctly — rather than re-deriving the repo path here.
-   */
-  private fullyExpandedCommits = new Set<CommitHash>();
-  private fullyExpandedRepos = new Set<string>();
+  /** commitHash → repo name, so `getParent` can walk a commit up to its repo for `reveal`. */
+  private commitRepoNames = new Map<CommitHash, string>();
 
   constructor() {
     ContextManager.setDiffSearchChangeFilter(this.changeTypeFilter);
   }
 
   /**
-   * Expand every file (and its matches) under a single commit. Fires a full refresh rather
-   * than a targeted one so the commit node itself opens even if it was collapsed — and
-   * because item ids are regenerated each render, this view never preserves expansion across
-   * refreshes anyway, so a full re-render is the consistent behavior.
+   * Required for `TreeView.reveal` (which the "Expand All" actions use). Only commit→repo is
+   * walked in practice: the reveal targets are repo and commit nodes, and reveal walks the
+   * target's ancestors up to root. Files/matches are never reveal targets, so undefined is safe.
    */
-  expandAllUnderCommit(item: DiffSearchCommitItem): void {
-    this.fullyExpandedCommits.add(item.commitHash);
-    this._onDidChangeTreeData.fire();
-  }
-
-  /** Expand every commit (and its files/matches) under a repo. */
-  expandAllUnderRepo(item: DiffSearchRepoItem): void {
-    this.fullyExpandedRepos.add(item.repoName);
-    this._onDidChangeTreeData.fire();
+  getParent(element: DiffSearchTreeItem): DiffSearchTreeItem | undefined {
+    if (element instanceof DiffSearchCommitItem) {
+      const repoName = this.commitRepoNames.get(element.commitHash);
+      return repoName ? new DiffSearchRepoItem(repoName, 1) : undefined;
+    }
+    return undefined; // repo is top-level; file/match/pending aren't reveal targets
   }
 
   /**
@@ -82,6 +71,16 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     const historical = this.displayMatches.filter(m => !!m.commitHash);
     this.commitGroupsCache = groupBy(historical, m => m.commitHash!);
     this.pendingMatchesCache = this.displayMatches.filter(m => !m.commitHash);
+
+    // Map each commit to its repo for getParent (reveal). Cheap: one pass over historical.
+    this.commitRepoNames.clear();
+    for (const m of historical) {
+      if (this.commitRepoNames.has(m.commitHash!)) { continue; }
+      const repoPath = this.getRepoPathForFile(m.filePath);
+      if (repoPath) {
+        this.commitRepoNames.set(m.commitHash!, this.repoNames.get(repoPath) || path.basename(repoPath));
+      }
+    }
   }
 
   /**
@@ -111,8 +110,6 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     // stale filter from a previous search silently hiding the new results.
     this.changeTypeFilter = "all";
     ContextManager.setDiffSearchChangeFilter("all");
-    this.fullyExpandedCommits.clear();
-    this.fullyExpandedRepos.clear();
 
     // Apply the (reset) change-type filter and build grouping caches.
     this.rebuildView();
@@ -131,8 +128,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     this.allMatches = [];
     this.displayMatches = [];
     this.repoNames.clear();
-    this.fullyExpandedCommits.clear();
-    this.fullyExpandedRepos.clear();
+    this.commitRepoNames.clear();
 
     // Clear caches
     this.commitGroupsCache = null;
@@ -304,15 +300,6 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
       }
     }
 
-    // If this repo was "Expand All"-ed, mark all of its commits fully expanded. Done here
-    // (not in expandAllUnderRepo) because this is where the repo→commit grouping already
-    // lives — no need to re-derive which commits belong to the repo.
-    if (repoName && this.fullyExpandedRepos.has(repoName)) {
-      for (const commitHash of commitGroups.keys()) {
-        this.fullyExpandedCommits.add(commitHash);
-      }
-    }
-
     // Add commit items (sorted by date, newest first)
     const commitItems: DiffSearchCommitItem[] = [];
     for (const [commitHash, matches] of commitGroups) {
@@ -321,11 +308,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
       const date = firstMatch.commitDate || new Date();
       const fileCount = new Set(matches.map(m => m.filePath)).size;
 
-      const commitItem = new DiffSearchCommitItem(commitHash, message, date, fileCount, matches.length);
-      if (this.fullyExpandedCommits.has(commitHash)) {
-        commitItem.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-      }
-      commitItems.push(commitItem);
+      commitItems.push(new DiffSearchCommitItem(commitHash, message, date, fileCount, matches.length));
     }
     commitItems.sort((a, b) => b.commitDate.getTime() - a.commitDate.getTime());
     items.push(...commitItems);
@@ -333,7 +316,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     // Add pending changes if any
     if (pendingMatches.length > 0) {
       const fileCount = new Set(pendingMatches.map(m => m.filePath)).size;
-      items.unshift(new DiffSearchPendingItem(fileCount, pendingMatches.length));
+      items.unshift(new DiffSearchPendingItem(fileCount, pendingMatches.length, repoName));
     }
 
     return items;
@@ -347,15 +330,10 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     const commitMatches = this.commitGroupsCache?.get(commitHash);
     const matchesToProcess = commitMatches || this.displayMatches.filter(m => m.commitHash === commitHash);
 
-    const expandFiles = this.fullyExpandedCommits.has(commitHash);
     const fileGroups = groupBy(matchesToProcess, m => m.filePath);
-    const items = Array.from(fileGroups.entries()).map(([filePath, matches]) => {
-      const fileItem = new DiffSearchFileItem(filePath, matches.length, commitHash);
-      if (expandFiles) {
-        fileItem.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-      }
-      return fileItem;
-    });
+    const items = Array.from(fileGroups.entries()).map(
+      ([filePath, matches]) => new DiffSearchFileItem(filePath, matches.length, commitHash),
+    );
     return sortFileItemsByName(items);
   }
 

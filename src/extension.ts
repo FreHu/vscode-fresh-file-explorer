@@ -49,6 +49,7 @@ import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
 import { BlameHeatmapController } from "./heatmap/blameHeatmapController";
 import { FreshFilesStatusBar } from "./fresh-files/freshFilesStatusBar";
 import { DiffSearchResultProvider } from "./diff-search/diffSearchResultProvider";
+import { DiffSearchTreeItem } from "./diff-search/diffSearchTreeItems";
 import { DiffSearchPanel } from "./diff-search/diffSearchPanel";
 import { handleOpenDiffMatch, handleClearDiffSearch, handleGitPickaxe, handleCopyDiffCommitSha, handleCopyDiffMatchLine, handleCopyDiffPath, handleDiffSearchExpandAll } from "./commands/diffSearchCommand";
 import { handleGitLogL, handlegitLogFile } from "./commands/gitLogLCommand";
@@ -176,6 +177,7 @@ export async function activate(context: vscode.ExtensionContext) {
     treeView,
     pinnedItemsTreeView,
     diffSearchResultProvider,
+    diffSearchTreeView,
     blameHeatmapController,
     baselineService,
     branchCompareProvider,
@@ -260,6 +262,7 @@ function registerCommands(
   treeView: vscode.TreeView<FreshFilesTreeItem>,
   pinnedItemsTreeView: vscode.TreeView<FreshFilesTreeItem>,
   diffSearchResultProvider: DiffSearchResultProvider,
+  diffSearchTreeView: vscode.TreeView<DiffSearchTreeItem>,
   blameHeatmapController: BlameHeatmapController,
   baselineService: BaselineService,
   branchCompareProvider: BranchCompareProvider,
@@ -447,7 +450,7 @@ function registerCommands(
   register(Commands.DIFF_SEARCH_COPY_COMMIT_SHA, (item: any) => handleCopyDiffCommitSha(item));
   register(Commands.DIFF_SEARCH_COPY_LINE, (item: any) => handleCopyDiffMatchLine(item));
   register(Commands.DIFF_SEARCH_COPY_PATH, (item: any) => handleCopyDiffPath(item));
-  register(Commands.DIFF_SEARCH_EXPAND_ALL, (item: any) => handleDiffSearchExpandAll(diffSearchResultProvider, item));
+  register(Commands.DIFF_SEARCH_EXPAND_ALL, (item: any) => handleDiffSearchExpandAll(diffSearchTreeView, item));
 
   register(Commands.GIT_PICKAXE, () =>
     handleGitPickaxe(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])

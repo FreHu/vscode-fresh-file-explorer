@@ -2,7 +2,9 @@ import * as assert from "assert";
 import { filterMatchesByPattern, buildPathspecs, matchFileLines } from "../../diff-search/diffSearchParser";
 import { DiffMatch } from "../../diff-search/diffSearchParser";
 import { selectMatchesByChangeType } from "../../diff-search/diffSearchResultProvider";
+import { DiffSearchFileItem, DiffSearchCommitItem, DiffSearchRepoItem } from "../../diff-search/diffSearchTreeItems";
 import { asAbsolutePath } from "../../pathTypes";
+import { asCommitHash } from "../../types";
 
 function makeMatch(lineContent: string): DiffMatch {
   return {
@@ -194,6 +196,33 @@ suite("gitDiffSearch", () => {
 
     test("a filter with no hits yields an empty array", () => {
       assert.deepStrictEqual(selectMatchesByChangeType([makeTyped("added")], "removed"), []);
+    });
+  });
+
+  suite("stable tree item ids (reveal/expansion depend on these)", () => {
+    const FILE = asAbsolutePath("/repo/src/a.ts");
+    const C1 = asCommitHash("1111111111111111111111111111111111111111");
+    const C2 = asCommitHash("2222222222222222222222222222222222222222");
+
+    test("ids are deterministic, not random — same inputs give the same id", () => {
+      const a = new DiffSearchFileItem(FILE, 3, C1);
+      const b = new DiffSearchFileItem(FILE, 99, C1); // matchCount differs, id must not
+      assert.strictEqual(a.id, b.id);
+    });
+
+    test("same file under different commits gets distinct ids (the original duplicate worry)", () => {
+      const a = new DiffSearchFileItem(FILE, 1, C1);
+      const b = new DiffSearchFileItem(FILE, 1, C2);
+      assert.notStrictEqual(a.id, b.id);
+    });
+
+    test("commit and repo ids match the namespaced form getParent reconstructs", () => {
+      assert.strictEqual(new DiffSearchCommitItem(C1, "msg", new Date(0), 1, 1).id, `commit::${C1}`);
+      assert.strictEqual(new DiffSearchRepoItem("my-repo", 5).id, "repo::my-repo");
+    });
+
+    test("a repo id is reproducible from just its name (so getParent's stub matches)", () => {
+      assert.strictEqual(new DiffSearchRepoItem("my-repo", 1).id, new DiffSearchRepoItem("my-repo", 99).id);
     });
   });
 });
