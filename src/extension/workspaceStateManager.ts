@@ -4,6 +4,23 @@ import { GroupingMode, DEFAULT_GROUPING_MODE, coerceGroupingMode } from "../fres
 import { DiffMode } from "../branch-compare/branchCompareConstants";
 import { DiffSearchParams, DiffSearchHistoryEntry, StonksConfig } from "../webview/messages";
 import { NormalizedRepoPath } from "../pathTypes";
+import type { SavedComparison } from "../branch-compare/savedComparisonsService";
+
+/**
+ * The persisted shape of a saved comparison — a relaxed {@link SavedComparison}.
+ * It tracks the canonical interface for every shared field, but deliberately
+ * differs at the storage boundary in two ways: the path comes back as a raw
+ * `string` (callers re-brand it to `NormalizedRepoPath`), and `groupingMode` /
+ * `diffMode` are optional because legacy records predate them and are
+ * backfilled on read (see `savedComparisonsService`).
+ */
+export type PersistedSavedComparison =
+  & Omit<SavedComparison, "repoFullPath" | "groupingMode" | "diffMode">
+  & {
+    repoFullPath: string;
+    groupingMode?: GroupingMode;
+    diffMode?: DiffMode;
+  };
 
 /**
  * Centralized manager for all values persisted via `context.workspaceState`.
@@ -216,43 +233,14 @@ export class WorkspaceStateManager {
   // ── Branch compare saved comparisons (multi-comparison list) ─────────────
 
   /** Returns the persisted list as raw objects. Callers re-brand the path field. */
-  static getSavedComparisons(): Array<{
-    id: string;
-    repoFullPath: string;
-    source: string;
-    target: string;
-    label?: string;
-    active: boolean;
-    isHeatmapBaseline?: boolean;
-    groupingMode?: GroupingMode;
-    diffMode?: DiffMode;
-  }> {
+  static getSavedComparisons(): PersistedSavedComparison[] {
     return WorkspaceStateManager.ctx().workspaceState.get(
       "branchCompareSavedComparisons",
-      [] as Array<{
-        id: string;
-        repoFullPath: string;
-        source: string;
-        target: string;
-        label?: string;
-        active: boolean;
-        isHeatmapBaseline?: boolean;
-        groupingMode?: GroupingMode;
-      }>,
+      [] as PersistedSavedComparison[],
     );
   }
 
-  static setSavedComparisons(list: Array<{
-    id: string;
-    repoFullPath: string;
-    source: string;
-    target: string;
-    label?: string;
-    active: boolean;
-    isHeatmapBaseline?: boolean;
-    groupingMode?: GroupingMode;
-    diffMode?: DiffMode;
-  }>): void {
+  static setSavedComparisons(list: PersistedSavedComparison[]): void {
     WorkspaceStateManager.ctx().workspaceState.update("branchCompareSavedComparisons", list);
   }
 }
