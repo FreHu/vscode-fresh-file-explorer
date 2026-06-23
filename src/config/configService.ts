@@ -275,4 +275,13 @@ export class ConfigService {
     return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.STATUS_BAR_HEATMAP, true);
   }
 
+  /**
+   * VS Code's own `workbench.editor.revealIfOpen` preference. Not a Fresh File
+   * Explorer setting, but read here so the diff-open helper mirrors the user's
+   * "reveal vs always-new-tab" choice without bypassing the config facade.
+   */
+  static getWorkbenchRevealIfOpen(): boolean {
+    return vscode.workspace.getConfiguration("workbench.editor").get<boolean>("revealIfOpen", false);
+  }
+
 }

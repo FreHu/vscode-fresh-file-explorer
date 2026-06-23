@@ -31,11 +31,6 @@ export const ItemIdPrefixes = {
 } as const;
 
 /**
- * URI scheme for virtual URIs.
- */
-export const URI_SCHEME_FRESH_FILES = "freshfiles://pinned";
-
-/**
  * Creates an item ID for a pinned file.
  */
 export function createPinnedFileId(normalizedPath: string): string {
@@ -47,17 +42,6 @@ export function createPinnedFileId(normalizedPath: string): string {
  */
 export function createNoteId(noteId: string): string {
   return `${ItemIdPrefixes.NOTE}${noteId}`;
-}
-
-/**
- * Gets the item ID for a pinned item based on its type.
- */
-export function getPinnedItemId(item: { type: "file" | "note"; id: string }, normalized?: boolean): string {
-  if (item.type === "note") {
-    return createNoteId(item.id);
-  }
-  // If already normalized, use as-is, otherwise caller needs to normalize
-  return normalized ? createPinnedFileId(item.id) : `${ItemIdPrefixes.PINNED}${item.id}`;
 }
 
 /**

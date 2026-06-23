@@ -825,22 +825,6 @@ export async function collectHistoricalChanges(
 }
 
 /**
- * Get the content of a file from git history
- * @param repoFullPath Full filesystem path to the repository
- * @param filePath Path to the file relative to the repository
- * @param commitHash Optional commit hash (defaults to HEAD)
- * @returns The file content as a string
- */
-export async function getFileFromHistory(repoFullPath: string, filePath: string, commitHash?: string): Promise<string> {
-  const ref = commitHash || "HEAD";
-  // Use execGitWithArgs to safely handle filenames with special characters
-  const args = ["show", `${ref}:${filePath}`];
-  log(`Exhuming file from history: git ${args.join(" ")}`);
-
-  return await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
-}
-
-/**
  * Get the content of a file from git history as a Buffer (for binary/non-UTF8 files)
  * @param repoFullPath Full filesystem path to the repository
  * @param filePath Path to the file relative to the repository
@@ -1094,14 +1078,6 @@ export async function getCommitSubject(repoFullPath: string, commitHash: string)
 export async function getMergeBase(repoFullPath: string, ref1: string, ref2: string): Promise<string> {
   const output = await execGitWithArgs(["merge-base", ref1, ref2], repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   return output.trim();
-}
-
-/**
- * Get the unix timestamp (seconds) of a commit's author date.
- */
-export async function getCommitTimestamp(repoFullPath: string, commitHash: string): Promise<number> {
-  const output = await execGitWithArgs(["log", "-1", "--format=%at", commitHash], repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
-  return parseInt(output.trim(), 10);
 }
 
 /**

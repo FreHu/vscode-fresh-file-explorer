@@ -403,12 +403,10 @@ export async function handleRenameFile(
 }
 
 export async function handleToggleHeatmap(freshFileProvider: FreshFileProvider): Promise<void> {
-  const config = vscode.workspace.getConfiguration();
-  const currentValue = config.get<boolean>("freshFileExplorer.heatmap.enabled", true);
-  const newValue = !currentValue;
-  
-  await config.update("freshFileExplorer.heatmap.enabled", newValue, vscode.ConfigurationTarget.Global);
-  
+  const newValue = !ConfigService.isHeatmapEnabled();
+
+  await ConfigService.setHeatmapEnabled(newValue);
+
   log(`Heatmap ${newValue ? "enabled" : "disabled"}`);
   
   // Notify the heatmap provider to refresh decorations

@@ -73,19 +73,3 @@ export function getMoonPhase(date: Date): MoonPhaseInfo {
   
   return { name, emoji, phase };
 }
-
-/**
- * Get all moon phases in display order
- */
-export function getAllMoonPhases(): Array<{ name: MoonPhase; emoji: string }> {
-  return [
-    { name: "New Moon", emoji: "🌑" },
-    { name: "Waxing Crescent", emoji: "🌒" },
-    { name: "First Quarter", emoji: "🌓" },
-    { name: "Waxing Gibbous", emoji: "🌔" },
-    { name: "Full Moon", emoji: "🌕" },
-    { name: "Waning Gibbous", emoji: "🌖" },
-    { name: "Last Quarter", emoji: "🌗" },
-    { name: "Waning Crescent", emoji: "🌘" },
-  ];
-}

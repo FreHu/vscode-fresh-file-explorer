@@ -61,4 +61,15 @@ export default [{
         "no-throw-literal": "warn",
         semi: "warn",
     },
+}, {
+    // All settings access must funnel through ConfigService (see CLAUDE.md).
+    // configService.ts itself is the one allowed caller of the raw VS Code API.
+    files: ["**/*.ts"],
+    ignores: ["src/config/configService.ts", "src/test/**"],
+    rules: {
+        "no-restricted-syntax": ["error", {
+            selector: "CallExpression[callee.object.property.name='workspace'][callee.property.name='getConfiguration']",
+            message: "Read settings through ConfigService, not vscode.workspace.getConfiguration directly (see CLAUDE.md).",
+        }],
+    },
 }];

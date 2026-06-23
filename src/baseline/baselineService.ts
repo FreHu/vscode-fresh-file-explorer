@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 
 import { getMergeBase } from "../git/gitOperations";
-import { normalizePath } from "../utils";
 import { NormalizedRepoPath, asNormalizedRepoPath } from "../pathTypes";
 import { GitApi, GitRepository } from "../git/gitExecutionListener";
 import { SavedComparisonsService } from "../branch-compare/savedComparisonsService";
@@ -155,9 +154,4 @@ export class BaselineService implements vscode.Disposable {
     for (const s of this.subscriptions) { s.dispose(); }
     this._onDidChange.dispose();
   }
-}
-
-/** Stable normalized key for the given repo path — exported for callers that want to compare. */
-export function baselineRepoKey(repoFullPath: string): NormalizedRepoPath {
-  return normalizePath(repoFullPath) as NormalizedRepoPath;
 }

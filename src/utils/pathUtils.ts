@@ -175,16 +175,3 @@ export function isPathWithinRoot(filePath: AbsolutePath, rootPath: AbsolutePath)
     const rootWithSep = resolvedRoot.endsWith(path.sep) ? resolvedRoot : resolvedRoot + path.sep;
     return resolvedFile === resolvedRoot || resolvedFile.startsWith(rootWithSep);
 }
-
-/**
- * Returns the absolute path of the parent directory of a file within its workspace folder,
- * or undefined if the file is already at the root of the workspace folder.
- */
-export function getParentPathWithinWorkspace(absolutePath: string, workspaceFolderPath: string): string | undefined {
-    const relativePath = normalizePath(path.relative(workspaceFolderPath, absolutePath));
-    const lastSlash = relativePath.lastIndexOf("/");
-    if (lastSlash === -1) {
-        return undefined;
-    }
-    return path.join(workspaceFolderPath, relativePath.substring(0, lastSlash));
-}

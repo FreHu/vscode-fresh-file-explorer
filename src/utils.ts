@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { ConfigService } from "./config/configService";
 
 /** Helper to normalize path separators to forward slashes */
 export function normalizePath(path: string): string {
@@ -23,9 +24,7 @@ export async function openDiff(
   // VS Code has no built-in dedup for diff editors, but we mirror the user's
   // `workbench.editor.revealIfOpen` preference so this helper doesn't override
   // a deliberate "always open a new tab" choice.
-  const revealIfOpen = vscode.workspace
-    .getConfiguration("workbench.editor")
-    .get<boolean>("revealIfOpen", false);
+  const revealIfOpen = ConfigService.getWorkbenchRevealIfOpen();
 
   if (!revealIfOpen) {
     await vscode.commands.executeCommand("vscode.diff", leftUri, rightUri, title, {

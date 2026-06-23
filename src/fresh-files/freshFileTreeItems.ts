@@ -314,9 +314,6 @@ export type FreshFilesTreeItem =
   | UninitializedSubmoduleItem;
 
 /** Type guards for specific FreshFileItem contextValue variants */
-export function isPinnedFolder(el: FreshFilesTreeItem): el is FreshFileItem {
-  return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.PINNED_FOLDER;
-}
 export function isAuthorGroup(el: FreshFilesTreeItem): el is FreshFileItem {
   return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.AUTHOR_GROUP;
 }

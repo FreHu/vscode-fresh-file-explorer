@@ -20,7 +20,7 @@ import {
   gitUri,
 } from "../git/gitOperations";
 import { openDiff, normalizePath } from "../utils";
-import { findRepoForAbsolutePath, toRelativePaths } from "../utils/pathUtils";
+import { toRelativePaths } from "../utils/pathUtils";
 import { log, showError, showInfo } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
@@ -664,19 +664,4 @@ async function pickRepoForBaseline(
     title: "Branch Compare",
   });
   return picked?.repoFullPath;
-}
-
-/**
- * If the given absolute path is inside a repo with a saved baseline, return
- * that baseline ref. Used by editor open hooks to auto-apply the blame
- * baseline heatmap when launching a file from the branch-compare view.
- */
-export function getBaselineRefForPath(
-  baselineService: BaselineService,
-  freshFileProvider: FreshFileProvider,
-  absolutePath: string,
-): string | undefined {
-  const result = findRepoForAbsolutePath(freshFileProvider.workspaceFolders, absolutePath);
-  if (!result) { return undefined; }
-  return baselineService.getBaseRef(result.repoFullPath);
 }
