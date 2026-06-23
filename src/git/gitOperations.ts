@@ -146,13 +146,18 @@ export function decodeGitPath(gitPath: string): string {
  * `isGitRepositoryRoot` instead — otherwise empty submodule dirs read as repos
  * and every git command run there silently targets the parent superproject.
  */
-export async function isGitRepository(dirPath: string): Promise<boolean> {
+/** Run a git command purely to probe success: `true` if it exits 0, `false` if it throws. */
+async function gitProbeSucceeds(args: string[], cwd: string): Promise<boolean> {
   try {
-    await execGitWithArgs(["rev-parse", "--git-dir"], dirPath, { timeout: ConfigService.getGitTimeoutMs() });
+    await execGitWithArgs(args, cwd, { timeout: ConfigService.getGitTimeoutMs() });
     return true;
   } catch {
     return false;
   }
+}
+
+export async function isGitRepository(dirPath: string): Promise<boolean> {
+  return gitProbeSucceeds(["rev-parse", "--git-dir"], dirPath);
 }
 
 /**
@@ -920,16 +925,7 @@ export async function unstageFile(
 export async function fileExistsAtRef(
   repoFullPath: string, ref: string, fileRelativePath: string,
 ): Promise<boolean> {
-  try {
-    await execGitWithArgs(
-      ["cat-file", "-e", `${ref}:${fileRelativePath}`],
-      repoFullPath,
-      { timeout: ConfigService.getGitTimeoutMs() },
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  return gitProbeSucceeds(["cat-file", "-e", `${ref}:${fileRelativePath}`], repoFullPath);
 }
 
 /**
@@ -1304,16 +1300,7 @@ export function parseBranchHunks(diffOutput: string): BranchDiffHunks {
  * Uses `git ls-files --error-unmatch` — throws if the file is not tracked.
  */
 export async function isFileTracked(repoFullPath: string, filePathInRepo: string): Promise<boolean> {
-  try {
-    await execGitWithArgs(
-      ["ls-files", "--error-unmatch", "--", filePathInRepo],
-      repoFullPath,
-      { timeout: ConfigService.getGitTimeoutMs() },
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  return gitProbeSucceeds(["ls-files", "--error-unmatch", "--", filePathInRepo], repoFullPath);
 }
 
 /**

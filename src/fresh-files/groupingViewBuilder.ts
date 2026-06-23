@@ -29,6 +29,11 @@ function calculateTotalLineChanges<T extends { metadata: FileMetadata }>(
   );
 }
 
+/** The newest commit date among a group's files (epoch 0 for an empty group). */
+function mostRecentDateInGroup<T extends { metadata: FileMetadata }>(group: T[]): Date {
+  return group.reduce((max, item) => (item.metadata.date > max ? item.metadata.date : max), new Date(0));
+}
+
 /**
  * Builds tree views for different grouping modes.
  * Handles author, commit hash, moon phase, and retrograde grouping.
@@ -64,8 +69,8 @@ export class GroupingViewBuilder {
     const sortedAuthors = sortOrder === "date"
       ? Array.from(authorGroups.entries())
           .sort((a, b) => {
-            const maxA = a[1].reduce((m, i) => (i.metadata.date > m ? i.metadata.date : m), new Date(0));
-            const maxB = b[1].reduce((m, i) => (i.metadata.date > m ? i.metadata.date : m), new Date(0));
+            const maxA = mostRecentDateInGroup(a[1]);
+            const maxB = mostRecentDateInGroup(b[1]);
             return maxB.getTime() - maxA.getTime();
           })
           .map(([name]) => name)
@@ -77,9 +82,7 @@ export class GroupingViewBuilder {
 
       const authorUri = vscode.Uri.parse(`freshfiles://author/${encodeURIComponent(authorName)}`);
       
-      const mostRecentDate = group.reduce((max, item) => {
-        return item.metadata.date > max ? item.metadata.date : max;
-      }, new Date(0));
+      const mostRecentDate = mostRecentDateInGroup(group);
 
       // Calculate total line changes for this author
       const totals = calculateTotalLineChanges(group);
@@ -201,8 +204,8 @@ export class GroupingViewBuilder {
     }
 
     const sortedCommits = Array.from(commitGroups.entries()).sort((a, b) => {
-      const dateA = a[1].reduce((max, item) => (item.metadata.date > max ? item.metadata.date : max), new Date(0));
-      const dateB = b[1].reduce((max, item) => (item.metadata.date > max ? item.metadata.date : max), new Date(0));
+      const dateA = mostRecentDateInGroup(a[1]);
+      const dateB = mostRecentDateInGroup(b[1]);
       return dateB.getTime() - dateA.getTime();
     });
 
@@ -337,9 +340,7 @@ export class GroupingViewBuilder {
 
       const phaseUri = vscode.Uri.parse(`freshfiles://moonphase/${encodeURIComponent(phaseName)}`);
       
-      const mostRecentDate = group.reduce((max, item) => {
-        return item.metadata.date > max ? item.metadata.date : max;
-      }, new Date(0));
+      const mostRecentDate = mostRecentDateInGroup(group);
 
       const phaseItem = FreshFileItem.forDirectory(
         phaseUri,
@@ -453,9 +454,7 @@ export class GroupingViewBuilder {
 
       const retrogradeUri = vscode.Uri.parse(`freshfiles://retrograde/${encodeURIComponent(key)}`);
       
-      const mostRecentDate = group.reduce((max, item) => {
-        return item.metadata.date > max ? item.metadata.date : max;
-      }, new Date(0));
+      const mostRecentDate = mostRecentDateInGroup(group);
 
       const retrogradeItem = FreshFileItem.forDirectory(
         retrogradeUri,

@@ -23,3 +23,15 @@ export function positionTooltip(
   tooltip.style.left = tooltipX + "px";
   tooltip.style.top = (clientY - cRect.top - tooltip.offsetHeight - 8) + "px";
 }
+
+/** Show a status message in `el`, coloured for info or error. */
+export function showStatusFor(el: HTMLElement, message: string, type: "info" | "error"): void {
+  el.textContent = message;
+  el.style.color = type === "error" ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)";
+  el.style.display = "";
+}
+
+/** Hide a status element. */
+export function hideStatusFor(el: HTMLElement): void {
+  el.style.display = "none";
+}

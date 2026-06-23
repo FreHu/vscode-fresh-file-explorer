@@ -1,4 +1,5 @@
 import { html } from "../utils/templateHelpers";
+import { showStatusFor, hideStatusFor } from "./webviewUtils";
 
 const vscode = acquireVsCodeApi();
 
@@ -346,29 +347,14 @@ function formatDate(iso: string): string {
   }
 }
 
-function showStatus(message: string, type: "info" | "error") {
-  statusDiv.textContent = message;
-  statusDiv.style.color = type === "error" ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)";
-  statusDiv.style.display = "";
-}
+function showStatus(message: string, type: "info" | "error") { showStatusFor(statusDiv, message, type); }
+function hideStatus() { hideStatusFor(statusDiv); }
 
-function hideStatus() { statusDiv.style.display = "none"; }
+function showStatsStatus(message: string, type: "info" | "error") { showStatusFor(statsStatus, message, type); }
+function hideStatsStatus() { hideStatusFor(statsStatus); }
 
-function showStatsStatus(message: string, type: "info" | "error") {
-  statsStatus.textContent = message;
-  statsStatus.style.color = type === "error" ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)";
-  statsStatus.style.display = "";
-}
-
-function hideStatsStatus() { statsStatus.style.display = "none"; }
-
-function showCacheStatsStatus(message: string, type: "info" | "error") {
-  cacheStatsStatus.textContent = message;
-  cacheStatsStatus.style.color = type === "error" ? "var(--vscode-errorForeground)" : "var(--vscode-descriptionForeground)";
-  cacheStatsStatus.style.display = "";
-}
-
-function hideCacheStatsStatus() { cacheStatsStatus.style.display = "none"; }
+function showCacheStatsStatus(message: string, type: "info" | "error") { showStatusFor(cacheStatsStatus, message, type); }
+function hideCacheStatsStatus() { hideStatusFor(cacheStatsStatus); }
 
 function renderCacheStats(stats: CacheRepoStats[]) {
   hideCacheStatsStatus();
