@@ -396,6 +396,19 @@ export function formatDaysLabel(days: number): string {
   return `${days} days`;
 }
 
+/**
+ * Build a human-readable label for a time window magnitude expressed in
+ * (possibly fractional) days. Sub-day windows are labelled in hours; everything
+ * else defers to {@link formatDaysLabel}.
+ */
+export function formatTimeWindowLabel(days: number): string {
+  if (days < 1) {
+    const hours = Math.round(days * 24);
+    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+  return formatDaysLabel(days);
+}
+
 export function dotsDots(str: string, length = 80): string {
   return str.length > length ? str.substring(0, length - 3) + "..." : str;
 }

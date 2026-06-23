@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { DescriptionFormat, DEFAULT_DESCRIPTION_FORMAT, SortOrder } from "../types";
-import { DEFAULT_TIME_WINDOW_DAYS } from "../fresh-files/timeWindowUtils";
+import { DEFAULT_TIME_WINDOWS, TimeWindowValue } from "../fresh-files/timeWindowUtils";
 import { ConfigKeys } from "./configKeyConstants";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { ChangeLevel } from "../extension/versionGate";
@@ -78,11 +78,14 @@ export class ConfigService {
   }
 
   /**
-   * Get the time window day values
+   * Get the configured time window values. Entries are either bare numbers
+   * (legacy — interpreted as days) or duration tokens like "6h"/"1w".
+   * Parsing/sorting is handled by buildTimeWindows.
    */
-  static getTimeWindowDays(): number[] {
-    const days = vscode.workspace.getConfiguration().get<number[]>(ConfigKeys.TIME_WINDOWS, DEFAULT_TIME_WINDOW_DAYS);
-    return [...days].sort((a, b) => a - b);
+  static getTimeWindows(): TimeWindowValue[] {
+    return vscode.workspace
+      .getConfiguration()
+      .get<TimeWindowValue[]>(ConfigKeys.TIME_WINDOWS, DEFAULT_TIME_WINDOWS);
   }
 
   /**

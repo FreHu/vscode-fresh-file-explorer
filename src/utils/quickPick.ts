@@ -97,12 +97,22 @@ export function buildTimeWindowItems(
     return tw.type === "historical" && currentTimeWindow.type === "historical" && tw.days === currentTimeWindow.days;
   };
 
+  // Raw magnitude shown beside the friendly label (e.g. label "1 month" → "Last 30 days").
+  // Sub-day windows render in hours since "Last 0.25 days" is meaningless.
+  const historicalDescription = (days: number): string => {
+    if (days < 1) {
+      const hours = Math.round(days * 24);
+      return `Last ${hours} ${hours === 1 ? "hour" : "hours"}`;
+    }
+    return `Last ${days} ${days === 1 ? "day" : "days"}`;
+  };
+
   return timeWindows.map(tw => ({
     description: isCurrent(tw)
       ? "(current)"
       : isPendingChangesMode(tw)
         ? "Uncommitted changes"
-        : `Last ${tw.days} days`,
+        : historicalDescription(tw.days),
     picked: isCurrent(tw),
     timeWindow: tw,
     label: tw.label,

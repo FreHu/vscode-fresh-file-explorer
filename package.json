@@ -1505,20 +1505,26 @@
         "freshFileExplorer.timeWindows": {
           "type": "array",
           "items": {
-            "type": "number",
-            "minimum": 1
+            "type": [
+              "number",
+              "string"
+            ],
+            "minimum": 1,
+            "pattern": "^\\s*\\d+(\\.\\d+)?\\s*(h|d|w|mo|y)\\s*$",
+            "patternErrorMessage": "Use a positive number of days (e.g. 14) or a duration token: 6h, 1d, 2w, 1mo, 1y."
           },
           "default": [
-            1,
-            3,
-            7,
-            14,
-            30,
-            60,
-            90,
-            180
+            "3h",
+            "6h",
+            "12h",
+            "1d",
+            "3d",
+            "1w",
+            "2w",
+            "1mo",
+            "3mo"
           ],
-          "description": "List of day values for time window options (e.g. 14 = up to 14 days ago). 'Pending changes' is always available. Commit history up to your highest defined time window will be preloaded in the background to enable near instant switching between windows.",
+          "description": "Time window options. Use a number of days (e.g. 14 = up to 14 days ago) or a duration token: 6h (hours), 1d (days), 2w (weeks), 1mo (months, ~30d), 1y (years, ~365d). 'Pending changes' is always available. Commit history up to your highest defined time window is preloaded in the background to enable near instant switching between windows.",
           "order": 1
         },
         "freshFileExplorer.defaultGroupingMode": {

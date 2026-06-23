@@ -3,7 +3,7 @@ import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { ConfigService } from "../config/configService";
 import { asAbsolutePath } from "../pathTypes";
 import { computeHeatmapColorId, OUT_OF_WINDOW_COLOR_ID } from "./heatmapUtils";
-import { formatRelativeDateLong } from "../utils/formatUtils";
+import { formatRelativeDateLong, formatTimeWindowLabel } from "../utils/formatUtils";
 
 /**
  * Provides file decorations (text color) for the heatmap feature.
@@ -88,7 +88,7 @@ export class HeatmapDecorationProvider implements vscode.FileDecorationProvider 
     // Not a directory with recent files - check if it's a file in our workspace folders
     // If so, color it with the oldest/most faded color (age8) since it's outside time window.
     if (this.isFileInWorkspace(uri)) {
-      const windowLabel = currentTimeWindow.type === "historical" ? `${currentTimeWindow.days} days` : "current window";
+      const windowLabel = currentTimeWindow.type === "historical" ? formatTimeWindowLabel(currentTimeWindow.days) : "current window";
       return new vscode.FileDecoration(
         undefined,
         `last modified over ${windowLabel} ago`,

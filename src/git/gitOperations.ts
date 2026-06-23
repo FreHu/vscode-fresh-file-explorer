@@ -760,7 +760,13 @@ export async function collectHistoricalChanges(
   onThresholdCrossed?: (days: number, partial: Map<string, FileMetadata>) => void,
   commitStatsMap?: Map<string, CommitStats>,
 ): Promise<Map<string, FileMetadata>> {
-  const sinceDate = `${days}.days.ago`;
+  // Compute an exact cutoff timestamp instead of git's approxidate ("N.days.ago").
+  // Approxidate silently mishandles fractional days (e.g. "0.25.days.ago" drops the
+  // "0."), which breaks sub-day windows. An absolute ISO instant is exact and stays
+  // coherent with the threshold-crossing math below, which uses the same `now` and
+  // the same `days * 86400000` arithmetic.
+  const now = new Date();
+  const sinceDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 
   // Build a shared pathspec suffix: ["--", "<pathspec>"] when a pathspec is active.
   // The "--" separator is required to distinguish pathspecs from revision arguments.
@@ -777,7 +783,6 @@ export async function collectHistoricalChanges(
 
   let fileStatusMap: Map<string, { status: string; commit: CommitData }>;
   if (thresholds && thresholds.length > 0 && onThresholdCrossed) {
-    const now = new Date();
     fileStatusMap = await streamGitLogNameStatusWithProgress(
       statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs(),
       thresholds, now,

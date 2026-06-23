@@ -5,6 +5,7 @@ import { ContextKeys, OWNED_NAMESPACES } from "../../extension/contextKeyConstan
 import { TreeItemContextValues } from "../../fresh-files/treeItemConstants";
 import { BranchCompareContextValues } from "../../branch-compare/branchCompareConstants";
 import { DiffSearchContextValues } from "../../diff-search/diffSearchConstants";
+import { DEFAULT_TIME_WINDOWS } from "../../fresh-files/timeWindowUtils";
 import * as fs from "fs";
 import * as path from "path";
 import {
@@ -250,6 +251,16 @@ suite("Manifest assets & integrity", () => {
       }
     }
     assert.deepStrictEqual(bad, [], `numeric default/min/max issue(s): ${bad.join("; ")}`);
+  });
+
+  test("timeWindows default matches the DEFAULT_TIME_WINDOWS constant", () => {
+    const props = configProperties(manifest);
+    const manifestDefault = props[ConfigKeys.TIME_WINDOWS]?.default;
+    assert.deepStrictEqual(
+      manifestDefault,
+      DEFAULT_TIME_WINDOWS,
+      "package.json timeWindows default drifted from the DEFAULT_TIME_WINDOWS constant",
+    );
   });
 
   test("@types/vscode floor does not exceed the engines.vscode floor", () => {

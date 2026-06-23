@@ -218,8 +218,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   private loadTimeWindows(): TimeWindow[] {
-    const dayValues = ConfigService.getTimeWindowDays();
-    return buildTimeWindows(dayValues);
+    return buildTimeWindows(ConfigService.getTimeWindows());
   }
 
   onConfigurationChanged(e: vscode.ConfigurationChangeEvent): void {
