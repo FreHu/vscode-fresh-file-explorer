@@ -65,6 +65,11 @@ export class ContextManager {
     vscode.commands.executeCommand("setContext", ContextKeys.DIFF_SEARCH_HAS_RESULTS, value);
   }
 
+  /** Current results-side change-type filter ("all" | "added" | "removed") — drives the toolbar toggle. */
+  static setDiffSearchChangeFilter(value: "all" | "added" | "removed"): void {
+    vscode.commands.executeCommand("setContext", ContextKeys.DIFF_SEARCH_CHANGE_FILTER, value);
+  }
+
   /** Whether at least one branch-compare entry is active — drives the Branch Compare view welcome message. */
   static setBranchCompareHasActiveComparison(value: boolean): void {
     vscode.commands.executeCommand("setContext", ContextKeys.BRANCH_COMPARE_HAS_ACTIVE_COMPARISON, value);

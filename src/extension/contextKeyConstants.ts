@@ -28,6 +28,8 @@ export const ContextKeys = {
   BRANCH_COMPARE_HAS_ACTIVE_COMPARISON: "freshFileExplorer.branchCompare.hasActiveComparison",
   /** The diff-search results tree has results. */
   DIFF_SEARCH_HAS_RESULTS: "diffSearchResults.hasResults",
+  /** Results-side change-type filter: "all" | "added" | "removed". Drives the toolbar toggle. */
+  DIFF_SEARCH_CHANGE_FILTER: "diffSearchResults.changeFilter",
   /** Blame heatmap is active for the current editor. */
   BLAME_HEATMAP_ACTIVE: "freshFileExplorer.blameHeatmap.active",
   /** A saved baseline ref exists for the current editor. */

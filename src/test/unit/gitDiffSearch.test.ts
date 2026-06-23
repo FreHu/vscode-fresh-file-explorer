@@ -1,6 +1,7 @@
 import * as assert from "assert";
 import { filterMatchesByPattern, buildPathspecs, matchFileLines } from "../../diff-search/diffSearchParser";
 import { DiffMatch } from "../../diff-search/diffSearchParser";
+import { selectMatchesByChangeType } from "../../diff-search/diffSearchResultProvider";
 import { asAbsolutePath } from "../../pathTypes";
 
 function makeMatch(lineContent: string): DiffMatch {
@@ -10,6 +11,10 @@ function makeMatch(lineContent: string): DiffMatch {
     lineContent,
     changeType: "added",
   };
+}
+
+function makeTyped(changeType: "added" | "removed"): DiffMatch {
+  return { filePath: asAbsolutePath("/repo/file.ts"), lineNumber: 1, lineContent: "x", changeType };
 }
 
 suite("gitDiffSearch", () => {
@@ -165,6 +170,30 @@ suite("gitDiffSearch", () => {
 
     test("no matches when pattern absent from all lines", () => {
       assert.deepStrictEqual(matchFileLines(LINES, FILE, "notpresent", false, false), []);
+    });
+  });
+
+  suite("selectMatchesByChangeType (results-side filter)", () => {
+    const mixed = [makeTyped("added"), makeTyped("removed"), makeTyped("added")];
+
+    test('"all" passes the array through unchanged (same reference)', () => {
+      assert.strictEqual(selectMatchesByChangeType(mixed, "all"), mixed);
+    });
+
+    test('"added" keeps only added matches', () => {
+      const r = selectMatchesByChangeType(mixed, "added");
+      assert.strictEqual(r.length, 2);
+      assert.ok(r.every(m => m.changeType === "added"));
+    });
+
+    test('"removed" keeps only removed matches', () => {
+      const r = selectMatchesByChangeType(mixed, "removed");
+      assert.strictEqual(r.length, 1);
+      assert.ok(r.every(m => m.changeType === "removed"));
+    });
+
+    test("a filter with no hits yields an empty array", () => {
+      assert.deepStrictEqual(selectMatchesByChangeType([makeTyped("added")], "removed"), []);
     });
   });
 });

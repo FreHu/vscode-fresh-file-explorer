@@ -306,6 +306,24 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "freshFileExplorer.diffSearch.showingAll",
+        "title": "Diff Search: showing all changes (click to show added only)",
+        "category": "Fresh File Explorer",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "freshFileExplorer.diffSearch.showingAdded",
+        "title": "Diff Search: showing added lines only (click to show removed only)",
+        "category": "Fresh File Explorer",
+        "icon": "$(diff-added)"
+      },
+      {
+        "command": "freshFileExplorer.diffSearch.showingRemoved",
+        "title": "Diff Search: showing removed lines only (click to show all)",
+        "category": "Fresh File Explorer",
+        "icon": "$(diff-removed)"
+      },
+      {
         "command": "freshFileExplorer.gitLogFile",
         "title": "File History"
       },
@@ -766,6 +784,21 @@
           "group": "navigation@1"
         },
         {
+          "command": "freshFileExplorer.diffSearch.showingAll",
+          "when": "view == diffSearchResults && diffSearchResults.hasResults && diffSearchResults.changeFilter == all",
+          "group": "navigation@0"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.showingAdded",
+          "when": "view == diffSearchResults && diffSearchResults.hasResults && diffSearchResults.changeFilter == added",
+          "group": "navigation@0"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.showingRemoved",
+          "when": "view == diffSearchResults && diffSearchResults.hasResults && diffSearchResults.changeFilter == removed",
+          "group": "navigation@0"
+        },
+        {
           "command": "freshFileExplorer.addNote",
           "when": "view == pinnedItems",
           "group": "navigation@1"
@@ -1179,6 +1212,18 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "freshFileExplorer.diffSearch.showingAll",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.showingAdded",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.showingRemoved",
+          "when": "false"
+        },
         {
           "command": "freshFileExplorer.refresh",
           "when": "false"

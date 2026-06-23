@@ -438,6 +438,11 @@ function registerCommands(
 
   register(Commands.CLEAR_DIFF_SEARCH, () => handleClearDiffSearch(diffSearchResultProvider));
 
+  // Results-side change-type filter — cycles all → added → removed → all (display-only, no git).
+  register(Commands.DIFF_SEARCH_SHOWING_ALL, () => diffSearchResultProvider.setChangeFilter("added"));
+  register(Commands.DIFF_SEARCH_SHOWING_ADDED, () => diffSearchResultProvider.setChangeFilter("removed"));
+  register(Commands.DIFF_SEARCH_SHOWING_REMOVED, () => diffSearchResultProvider.setChangeFilter("all"));
+
   register(Commands.GIT_PICKAXE, () =>
     handleGitPickaxe(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])
   );

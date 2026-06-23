@@ -15,6 +15,14 @@ import { CommitHash } from "../types";
 import { log } from "../extension/logger";
 import { ContextManager } from "../extension/contextManager";
 
+/** Results-side filter on change type. Display-only — toggling never re-runs git. */
+export type ChangeTypeFilter = "all" | "added" | "removed";
+
+/** Narrow matches to the active change-type filter. "all" passes the array through unchanged. */
+export function selectMatchesByChangeType(matches: DiffMatch[], filter: ChangeTypeFilter): DiffMatch[] {
+  return filter === "all" ? matches : matches.filter(m => m.changeType === filter);
+}
+
 /**
  * Tree data provider for diff search results
  */
@@ -24,11 +32,42 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
 
   private searchPattern: string = "";
   private allMatches: DiffMatch[] = [];
+  /** allMatches narrowed by {@link changeTypeFilter}; everything the tree renders reads this. */
+  private displayMatches: DiffMatch[] = [];
+  private changeTypeFilter: ChangeTypeFilter = "all";
   private repoNames = new Map<AbsolutePath, string>(); // repo path -> repo name
-  
+
   // Performance optimization: cache groupings to avoid rebuilding on every display
   private commitGroupsCache: Map<CommitHash, DiffMatch[]> | null = null;
   private pendingMatchesCache: DiffMatch[] | null = null;
+
+  constructor() {
+    ContextManager.setDiffSearchChangeFilter(this.changeTypeFilter);
+  }
+
+  /**
+   * Recompute the filtered view and its grouping caches from `allMatches`. Pure derivation
+   * — no git. Called on new results and whenever the change-type filter changes.
+   */
+  private rebuildView(): void {
+    this.displayMatches = selectMatchesByChangeType(this.allMatches, this.changeTypeFilter);
+
+    const historical = this.displayMatches.filter(m => !!m.commitHash);
+    this.commitGroupsCache = groupBy(historical, m => m.commitHash!);
+    this.pendingMatchesCache = this.displayMatches.filter(m => !m.commitHash);
+  }
+
+  /**
+   * Change the results-side filter and re-render from cached matches (no git). Cheapest
+   * refresh tier — lets the user flip between added/removed/all without re-searching.
+   */
+  setChangeFilter(filter: ChangeTypeFilter): void {
+    if (filter === this.changeTypeFilter) { return; }
+    this.changeTypeFilter = filter;
+    ContextManager.setDiffSearchChangeFilter(filter);
+    this.rebuildView();
+    this._onDidChangeTreeData.fire();
+  }
 
   /**
    * Show search results in the tree view
@@ -41,11 +80,13 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     this.allMatches = matches;
     this.repoNames = repoNames;
 
-    // Build caches for better performance with large result sets
-    const pending = matches.filter(m => !m.commitHash);
-    const historical = matches.filter(m => !!m.commitHash);
-    this.commitGroupsCache = groupBy(historical, m => m.commitHash!);
-    this.pendingMatchesCache = pending;
+    // A new search starts unfiltered — show everything, then let the user narrow. Avoids a
+    // stale filter from a previous search silently hiding the new results.
+    this.changeTypeFilter = "all";
+    ContextManager.setDiffSearchChangeFilter("all");
+
+    // Apply the (reset) change-type filter and build grouping caches.
+    this.rebuildView();
 
     // Set context for view visibility
     ContextManager.setDiffSearchHasResults(matches.length > 0);
@@ -59,8 +100,9 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
   clear(): void {
     this.searchPattern = "";
     this.allMatches = [];
+    this.displayMatches = [];
     this.repoNames.clear();
-    
+
     // Clear caches
     this.commitGroupsCache = null;
     this.pendingMatchesCache = null;
@@ -94,17 +136,18 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
    * Get children - required by TreeDataProvider
    */
   async getChildren(element?: DiffSearchTreeItem): Promise<DiffSearchTreeItem[]> {
-    // No results yet
-    if (this.allMatches.length === 0) {
-      if (this.searchPattern) {
-        // Had a search but no results
-        const item = new vscode.TreeItem("No matches found");
-        item.iconPath = new vscode.ThemeIcon("info");
-        return [item as any];
-      } else {
-        // No search performed yet
-        return [];
+    // Nothing to show — either no search yet, no matches, or the active filter hid them all.
+    if (this.displayMatches.length === 0) {
+      if (!this.searchPattern) {
+        return []; // no search performed yet
       }
+      const filteredAway = this.allMatches.length > 0 && this.changeTypeFilter !== "all";
+      const label = filteredAway
+        ? `No ${this.changeTypeFilter} lines (filter active)`
+        : "No matches found";
+      const item = new vscode.TreeItem(label);
+      item.iconPath = new vscode.ThemeIcon("info");
+      return [item as any];
     }
 
     // Root level - always show repos for consistency
@@ -144,7 +187,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
   private getRepoGroups(): DiffSearchRepoItem[] {    
     // Group matches by repo
     const repoGroups = groupBy(
-      this.allMatches.filter(match => {
+      this.displayMatches.filter(match => {
         const repoPath = this.getRepoPathForFile(match.filePath);
         if (!repoPath) {
           log(`WARNING: Could not find repo for file: ${match.filePath}`, "warn");
@@ -195,7 +238,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     const items: DiffSearchTreeItem[] = [];
 
     // Filter matches by repo if specified
-    let matchesToProcess = this.allMatches;
+    let matchesToProcess = this.displayMatches;
     if (repoName) {
       // Find the repo path for this repo name
       let repoPath: AbsolutePath | null = null;
@@ -206,7 +249,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
         }
       }
       if (repoPath) {
-        matchesToProcess = this.allMatches.filter(m => this.getRepoPathForFile(m.filePath) === repoPath);
+        matchesToProcess = this.displayMatches.filter(m => this.getRepoPathForFile(m.filePath) === repoPath);
       }
     }
 
@@ -258,7 +301,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
   private getFilesForCommit(commitHash: CommitHash): DiffSearchFileItem[] {
     // Use cached commit groups if available (much faster for large result sets)
     const commitMatches = this.commitGroupsCache?.get(commitHash);
-    const matchesToProcess = commitMatches || this.allMatches.filter(m => m.commitHash === commitHash);
+    const matchesToProcess = commitMatches || this.displayMatches.filter(m => m.commitHash === commitHash);
 
     const fileGroups = groupBy(matchesToProcess, m => m.filePath);
     const items = Array.from(fileGroups.entries()).map(
@@ -272,7 +315,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
    */
   private getFilesForPending(): DiffSearchFileItem[] {
     // Use cached pending matches if available (much faster for large result sets)
-    const matchesToProcess = this.pendingMatchesCache || this.allMatches.filter(m => !m.commitHash);
+    const matchesToProcess = this.pendingMatchesCache || this.displayMatches.filter(m => !m.commitHash);
     const fileGroups = groupBy(matchesToProcess, m => m.filePath);
     const items = Array.from(fileGroups.entries()).map(
       ([filePath, matches]) => new DiffSearchFileItem(filePath, matches.length, undefined) // undefined = pending
@@ -292,7 +335,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
       if (commitMatches) {
         matches = commitMatches.filter(m => m.filePath === filePath);
       } else {
-        matches = this.allMatches.filter(m => m.filePath === filePath && m.commitHash === commitHash);
+        matches = this.displayMatches.filter(m => m.filePath === filePath && m.commitHash === commitHash);
       }
     } else {
       // Pending file - get from cached pending matches if available
@@ -300,7 +343,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
       if (pendingMatches) {
         matches = pendingMatches.filter(m => m.filePath === filePath);
       } else {
-        matches = this.allMatches.filter(m => m.filePath === filePath && !m.commitHash);
+        matches = this.displayMatches.filter(m => m.filePath === filePath && !m.commitHash);
       }
     }
 

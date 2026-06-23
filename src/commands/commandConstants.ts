@@ -77,6 +77,12 @@ export const Commands = {
   OPEN_DIFF_SEARCH_PANEL: "freshFileExplorer.openDiffSearchPanel",
   OPEN_DIFF_MATCH: "freshFileExplorer.openDiffMatch",
   CLEAR_DIFF_SEARCH: "freshFileExplorer.clearDiffSearch",
+  // Results-side change-type filter — cycles all → added → removed → all (no git re-run).
+  // Each command is shown only in its matching state, so the toolbar icon reflects the
+  // current filter and clicking it advances to the next.
+  DIFF_SEARCH_SHOWING_ALL: "freshFileExplorer.diffSearch.showingAll",
+  DIFF_SEARCH_SHOWING_ADDED: "freshFileExplorer.diffSearch.showingAdded",
+  DIFF_SEARCH_SHOWING_REMOVED: "freshFileExplorer.diffSearch.showingRemoved",
 
   // Git log -L (line / function history)
   GIT_LOG_L: "freshFileExplorer.gitLogL",
