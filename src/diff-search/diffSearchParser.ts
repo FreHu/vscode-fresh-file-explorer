@@ -10,6 +10,15 @@ import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 
 /**
+ * Git config can silently break diff parsing: `diff.noprefix` drops the `b/` we key on
+ * (→ zero matches), `diff.mnemonicPrefix` swaps it for `w/`/`i/`, and `log.showSignature`
+ * interleaves GPG lines. Force the formats this parser expects regardless of the user's
+ * global config. (`log.date` is overridden per-call with `--date=default`.)
+ */
+const DIFF_PREFIX_FLAGS = ["-c", "diff.noprefix=false", "-c", "diff.mnemonicPrefix=false"];
+const LOG_CONFIG_FLAGS = [...DIFF_PREFIX_FLAGS, "-c", "log.showSignature=false"];
+
+/**
  * Represents a single match found in a diff
  */
 export interface DiffMatch {
@@ -58,8 +67,10 @@ export async function searchHistoricalDiffs(
   try {
     // Build git log command with pickaxe search
     const args = [
+      ...LOG_CONFIG_FLAGS,
       "log",
       "-p", // Show patches (diffs)
+      "--date=default", // Override a user's log.date (e.g. =relative) so Date: parses
       ...(caseInsensitive ? ["-i"] : []), // Case-insensitive pickaxe matching
       isRegex ? "-G" : "-S", // -G for regex, -S for plain text
       pattern,
@@ -473,11 +484,14 @@ export async function searchPendingDiffs(
     const pathspecs = buildPathspecs(includePattern, excludePattern);
 
     // Search unstaged changes (working tree vs index)
-    const unstagedArgs = pathspecs.length > 0 ? ["diff", "--", ...pathspecs] : ["diff"];
+    const unstagedArgs = pathspecs.length > 0
+      ? [...DIFF_PREFIX_FLAGS, "diff", "--", ...pathspecs]
+      : [...DIFF_PREFIX_FLAGS, "diff"];
 
     try {
-      // Note: Don't pass onBatch here because we need to filter results first
-      // (git diff doesn't support -G/-S, so we get all diffs and filter manually)
+      // Note: Don't pass onBatch here because we filter line-by-line afterwards.
+      // git diff -S/-G would pre-filter to matching files, but it works on whole-file
+      // occurrence counts, not per-line — so we still need the manual line filter for display.
       const unstagedMatches = await streamGitDiffOutput(unstagedArgs, repoPath, timeout, false);
       const filtered = filterMatchesByPattern(unstagedMatches, pattern, searchRegex, caseInsensitive);
       filtered.forEach(m => {
@@ -495,7 +509,9 @@ export async function searchPendingDiffs(
     }
 
     // Search staged changes (index vs HEAD)
-    const stagedArgs = pathspecs.length > 0 ? ["diff", "--staged", "--", ...pathspecs] : ["diff", "--staged"];
+    const stagedArgs = pathspecs.length > 0
+      ? [...DIFF_PREFIX_FLAGS, "diff", "--staged", "--", ...pathspecs]
+      : [...DIFF_PREFIX_FLAGS, "diff", "--staged"];
 
     try {
       const stagedMatches = await streamGitDiffOutput(stagedArgs, repoPath, timeout, false);

@@ -19,11 +19,10 @@ export class DiffSearchFileItem extends vscode.TreeItem {
     const fileName = path.basename(filePath);
     const dirName = path.dirname(filePath);
     
-    // Make label completely unique with full path and random suffix
-    const randomSuffix = Math.random().toString(36).substring(2, 7);
-    const label = commitHash 
-      ? `${fileName} (${dirName}) [${shortSha(commitHash)}] #${randomSuffix}` 
-      : `${fileName} (${dirName}) [pending] #${randomSuffix}`;
+    // Uniqueness lives in this.id (set below); the label stays human-readable.
+    const label = commitHash
+      ? `${fileName} (${dirName}) [${shortSha(commitHash)}]`
+      : `${fileName} (${dirName}) [pending]`;
     
     super(label, vscode.TreeItemCollapsibleState.Collapsed);
 

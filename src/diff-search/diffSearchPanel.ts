@@ -3,7 +3,7 @@ import { DiffSearchResultProvider } from "./diffSearchResultProvider";
 import { DiffMatch, searchHistoricalDiffs, searchPendingDiffs } from "./diffSearchParser";
 import { discoverReposInWorkspace } from "../git/gitOperations";
 import { AbsolutePath } from "../pathTypes";
-import { log, showError, showInfo, showWarning } from "../extension/logger";
+import { log, showError, showWarning } from "../extension/logger";
 import { formatGitCommand } from "../utils/formatUtils";
 import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
 import { DiffSearchParams, DiffSearchHistoryEntry, DiffSearchToWebview, DiffSearchFromWebview } from "../webview/messages";
@@ -296,7 +296,8 @@ export class DiffSearchPanel {
       // Focus the diff search results view
       await vscode.commands.executeCommand("diffSearchResults.focus");
 
-      // Send final status back to webview and show notification
+      // Report completion through the webview only — the panel's status line and
+      // aggregate stats already convey the result, so no toast notification.
       if (totalMatchCount === 0) {
         this._post({
           command: "searchComplete",
@@ -304,7 +305,6 @@ export class DiffSearchPanel {
           count: 0,
           gitCommand: buildSearchGitCommand(searchData),
         });
-        showInfo(`Diff search complete: No matches found for "${pattern}"`);
       } else {
         this._post({
           command: "searchComplete",
@@ -312,15 +312,6 @@ export class DiffSearchPanel {
           count: totalMatchCount,
           gitCommand: buildSearchGitCommand(searchData),
         });
-        
-        // Count unique commits for notification
-        const uniqueCommits = countUniqueCommits(allMatches);
-        
-        if (uniqueCommits > 0) {
-          showInfo(`Diff search complete: Found ${totalMatchCount} matches in ${uniqueCommits} commits`);
-        } else {
-          showInfo(`Diff search complete: Found ${totalMatchCount} matches in pending changes`);
-        }
       }
     } catch (error: any) {
       showError(`Search failed: ${error.message || error}`, `Diff search error: ${error}`);
