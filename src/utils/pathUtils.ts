@@ -11,7 +11,7 @@ import { normalizePath } from "../utils";
 export interface WorkspaceRepoInfo {
   /** Display name — the workspace-folder name for a root repo, else the basename. */
   name: string;
-  /** Absolute path to the repo root (kept branded — no `as string` cast). */
+  /** Absolute path to the repo root. */
   repoFullPath: AbsolutePath;
   /** Normalized form of `repoFullPath`, suitable as a map / workspace-state key. */
   normalizedPath: NormalizedRepoPath;
@@ -21,9 +21,7 @@ export interface WorkspaceRepoInfo {
 
 /**
  * Expand every workspace folder's `gitRepos` into {@link WorkspaceRepoInfo}.
- * Pure reformatter — does no git work. Collapses the three near-identical
- * `for folder → for repoRel` loops that previously each re-derived the path /
- * name (and one of which dropped the `AbsolutePath` brand via `as string`).
+ * Pure reformatter — does no git work.
  */
 export function listWorkspaceRepos(workspaceFolders: WorkspaceFolderInfo[]): WorkspaceRepoInfo[] {
   const out: WorkspaceRepoInfo[] = [];

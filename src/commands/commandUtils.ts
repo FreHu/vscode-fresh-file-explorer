@@ -9,9 +9,6 @@ import { findRepoPathsForFiles } from "../utils/pathUtils";
  *   3. the tree view's current selection (the keybinding path, where VS Code
  *      passes neither `item` nor `selectedItems` — callers pass an already
  *      type-filtered `treeSelection`).
- *
- * Replaces the `selectedItems?.length ? selectedItems : item ? [item] : []`
- * ternary that was copy-pasted across the command handlers.
  */
 export function resolveCommandSelection<T extends vscode.TreeItem>(
   item: T | undefined,
@@ -27,10 +24,7 @@ export function resolveCommandSelection<T extends vscode.TreeItem>(
 /**
  * Refresh only the repos that the given files belong to (working-tree refresh).
  * Falls back to a full pending refresh when no file maps to a known repo.
- *
- * Replaces the `findRepoPathsForFiles(...) + refreshPending(paths.length ? ...)`
- * pair duplicated after every file-mutating command. Returns the underlying
- * promise so callers can `await` or `void` it as they already do.
+ * Returns the underlying promise so callers can `await` or `void` it.
  */
 export function refreshPendingForFiles(
   provider: FreshFileProvider,

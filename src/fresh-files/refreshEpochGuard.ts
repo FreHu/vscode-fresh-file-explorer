@@ -15,8 +15,8 @@
  *   - fire-and-forget incremental callbacks call {@link RefreshToken.isLive}
  *     and silently drop their update when stale.
  *
- * Extracted from `freshFileProvider` so this contract is unit-testable in
- * isolation — see `refreshEpochGuard.unit.test.ts`.
+ * Kept in its own module so the contract is unit-testable in isolation — see
+ * `refreshEpochGuard.unit.test.ts`.
  */
 
 /** Thrown when a newer refresh has started and the current load should be abandoned. */

@@ -11,7 +11,7 @@ import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 const MAX_HISTORY = 25;
 
-/** The single shared `search` request shape — no longer a hand-duplicated interface. */
+/** The `search` request variant of the inbound message union. */
 type SearchRequest = Extract<DiffSearchFromWebview, { command: "search" }>;
 
 export class DiffSearchPanel {

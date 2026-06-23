@@ -788,8 +788,7 @@ export async function collectHistoricalChanges(
     fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs(), commitStatsMap);
   }
 
-  // Step 2: Merge status into FileMetadata (same exists-check + delete handling
-  // as the incremental threshold snapshots, so it shares buildPartialMetadataMap).
+  // Step 2: Merge status into FileMetadata (exists-check + historical-delete handling).
   return buildPartialMetadataMap(fileStatusMap, workspaceRoot);
 }
 
