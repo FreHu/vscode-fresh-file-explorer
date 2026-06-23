@@ -5,6 +5,7 @@ import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { CommitHash, asCommitHash } from "../types";
 import { decodeGitPath, execGitWithArgs } from "../git/gitOperations";
 import { parseCommitDate } from "../git/gitDateUtils";
+import { escapeRegex } from "../utils/formatUtils";
 import { isPathWithinRoot } from "../utils/pathUtils";
 import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
@@ -38,6 +39,19 @@ export class DiffSearchPatternError extends Error {
 /** True when git's stderr indicates the pickaxe regex failed to compile (POSIX ERE). */
 export function isGitRegexError(stderr: string): boolean {
   return /invalid regex/i.test(stderr);
+}
+
+/**
+ * Re-throw a swallowed git error as {@link DiffSearchPatternError} when it's a regex
+ * compile failure, so callers surface it instead of treating it as "no matches". Other
+ * errors are left for the caller to handle (e.g. log-and-continue).
+ */
+function throwIfGitRegexError(err: unknown, isRegex: boolean): void {
+  if (!isRegex) { return; }
+  const msg = typeof err === "string" ? err : (err as { message?: string })?.message ?? String(err);
+  if (isGitRegexError(msg)) {
+    throw new DiffSearchPatternError(msg.trim());
+  }
 }
 
 /**
@@ -493,38 +507,31 @@ export async function searchPendingDiffs(
   const timeout = ConfigService.getGitTimeout();
 
   try {
-    // Build pathspecs once for reuse in both unstaged and staged
-    const pathspecs = buildPathspecs(includePattern, excludePattern);
+    const argOpts = { pattern, isRegex, caseInsensitive, includePattern, excludePattern };
 
     // Search unstaged changes (working tree vs index)
-    const unstagedArgs = pathspecs.length > 0
-      ? [...DIFF_PREFIX_FLAGS, "diff", "--", ...pathspecs]
-      : [...DIFF_PREFIX_FLAGS, "diff"];
+    const unstagedArgs = buildPendingSearchArgs({ ...argOpts, staged: false });
 
     try {
-      // Note: Don't pass onBatch here because we filter line-by-line afterwards.
-      // git diff -S/-G would pre-filter to matching files, but it works on whole-file
-      // occurrence counts, not per-line — so we still need the manual line filter for display.
+      // Don't pass onBatch here because we filter line-by-line afterwards.
       const unstagedMatches = await streamGitDiffOutput(unstagedArgs, repoPath, timeout, false);
       const filtered = filterMatchesByPattern(unstagedMatches, pattern, searchRegex, caseInsensitive);
       filtered.forEach(m => {
         m.isStaged = false;
         matches.push(m);
       });
-      
+
       // If we have a callback and found matches, send them as a batch
       if (onBatch && filtered.length > 0) {
         onBatch(filtered);
       }
     } catch (err) {
-      // No unstaged changes or error - continue
+      throwIfGitRegexError(err, isRegex); // surface a bad pattern; don't mask as "no changes"
       log(`Unstaged diff search error: ${err}`, "warn");
     }
 
     // Search staged changes (index vs HEAD)
-    const stagedArgs = pathspecs.length > 0
-      ? [...DIFF_PREFIX_FLAGS, "diff", "--staged", "--", ...pathspecs]
-      : [...DIFF_PREFIX_FLAGS, "diff", "--staged"];
+    const stagedArgs = buildPendingSearchArgs({ ...argOpts, staged: true });
 
     try {
       const stagedMatches = await streamGitDiffOutput(stagedArgs, repoPath, timeout, false);
@@ -533,13 +540,13 @@ export async function searchPendingDiffs(
         m.isStaged = true;
         matches.push(m);
       });
-      
+
       // If we have a callback and found matches, send them as a batch
       if (onBatch && filtered.length > 0) {
         onBatch(filtered);
       }
     } catch (err) {
-      // No staged changes or error - continue
+      throwIfGitRegexError(err, isRegex);
       log(`Staged diff search error: ${err}`, "warn");
     }
 
@@ -558,6 +565,7 @@ export async function searchPendingDiffs(
       log(`Untracked files search error: ${err}`, "warn");
     }
   } catch (error: any) {
+    if (error instanceof DiffSearchPatternError) { throw error; } // bubble up to the panel
     log(`Pending diff search error: ${error}`, "error");
   }
 
@@ -625,6 +633,44 @@ export function buildHistoricalSearchArgs(o: HistoricalSearchArgsOptions): strin
   }
 
   return args;
+}
+
+export interface PendingSearchArgsOptions {
+  /** false = working tree vs index (`git diff`); true = index vs HEAD (`git diff --staged`). */
+  staged: boolean;
+  pattern: string;
+  isRegex: boolean;
+  caseInsensitive: boolean;
+  includePattern: string;
+  excludePattern: string;
+}
+
+/**
+ * Build the `git diff` argument vector for a pending (uncommitted) pickaxe search.
+ *
+ * Hands git the pickaxe so it pre-narrows to files that actually touched the pattern,
+ * rather than streaming the entire working-tree diff for JS to filter. Always uses `-G`
+ * (line-based — a changed line matched), never `-S` (net occurrence count): `-S` would drop
+ * a same-line edit like `foo(1)`→`foo(2)` whose count is unchanged, yet the downstream line
+ * filter keeps it, so `-S` would silently lose matches. A literal pattern is regex-escaped
+ * so `-G` matches it verbatim; `-i` keeps the pre-filter case-insensitive in lockstep with
+ * the line filter. The caller still runs a per-line filter for display.
+ */
+export function buildPendingSearchArgs(o: PendingSearchArgsOptions): string[] {
+  const pickaxe = [
+    ...(o.caseInsensitive ? ["-i"] : []),
+    "-G",
+    o.isRegex ? o.pattern : escapeRegex(o.pattern),
+  ];
+  const pathspecs = buildPathspecs(o.includePattern, o.excludePattern);
+  const pathspecTail = pathspecs.length > 0 ? ["--", ...pathspecs] : [];
+  return [
+    ...DIFF_PREFIX_FLAGS,
+    "diff",
+    ...(o.staged ? ["--staged"] : []),
+    ...pickaxe,
+    ...pathspecTail,
+  ];
 }
 
 /**

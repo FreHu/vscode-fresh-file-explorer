@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { parseDiffOutput, filterMatchesByPattern, isGitRegexError, buildHistoricalSearchArgs } from "../../diff-search/diffSearchParser";
+import { parseDiffOutput, filterMatchesByPattern, isGitRegexError, buildHistoricalSearchArgs, buildPendingSearchArgs } from "../../diff-search/diffSearchParser";
 
 const fixture = fs.readFileSync(path.join(__dirname, "..", "fixtures", "pickaxe.txt"), "utf-8");
 const CWD = "/repo";
@@ -117,5 +117,60 @@ suite("buildHistoricalSearchArgs - git log argument construction", () => {
     const specs = args.slice(sep + 1);
     assert.ok(specs.includes("*.ts"));
     assert.ok(specs.includes(":(exclude)*.test.ts"));
+  });
+});
+
+suite("buildPendingSearchArgs - git diff pre-filter for pending changes", () => {
+  const base = {
+    staged: false,
+    pattern: "foo",
+    isRegex: false,
+    caseInsensitive: false,
+    includePattern: "",
+    excludePattern: "",
+  };
+
+  test("uses git diff with -G pickaxe (line-based), never -S (count-based)", () => {
+    // -S would drop same-line edits whose net count is unchanged; the line filter keeps them.
+    const args = buildPendingSearchArgs(base);
+    assert.ok(args.includes("diff"));
+    assert.ok(args.includes("-G"));
+    assert.ok(!args.includes("-S"));
+  });
+
+  test("literal pattern is regex-escaped so -G matches it verbatim", () => {
+    const args = buildPendingSearchArgs({ ...base, pattern: "foo(1)" });
+    assert.ok(args.includes("foo\\(1\\)"), `escaped pattern missing in ${JSON.stringify(args)}`);
+    assert.ok(!args.includes("foo(1)"));
+  });
+
+  test("regex pattern is passed to -G unescaped", () => {
+    const args = buildPendingSearchArgs({ ...base, isRegex: true, pattern: "a.*b" });
+    assert.ok(args.includes("a.*b"));
+  });
+
+  test("unstaged omits --staged; staged includes it", () => {
+    assert.ok(!buildPendingSearchArgs({ ...base, staged: false }).includes("--staged"));
+    assert.ok(buildPendingSearchArgs({ ...base, staged: true }).includes("--staged"));
+  });
+
+  test("caseInsensitive adds -i (keeps pre-filter in lockstep with the line filter)", () => {
+    assert.ok(!buildPendingSearchArgs(base).includes("-i"));
+    assert.ok(buildPendingSearchArgs({ ...base, caseInsensitive: true }).includes("-i"));
+  });
+
+  test("config-neutralizing prefix flags are present", () => {
+    const args = buildPendingSearchArgs(base);
+    assert.ok(args.includes("diff.noprefix=false"));
+    assert.ok(args.includes("diff.mnemonicPrefix=false"));
+  });
+
+  test("include/exclude become pathspecs after a -- separator", () => {
+    const args = buildPendingSearchArgs({ ...base, includePattern: "*.ts", excludePattern: "dist/**" });
+    const sep = args.indexOf("--");
+    assert.ok(sep !== -1, "expected -- separator");
+    const specs = args.slice(sep + 1);
+    assert.ok(specs.includes("*.ts"));
+    assert.ok(specs.includes(":(exclude)dist/**"));
   });
 });
