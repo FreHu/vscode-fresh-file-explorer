@@ -6,6 +6,7 @@ import { ConfigKeys } from "../config/configKeyConstants";
 import { HistoricalFileCache, type CacheRepoStats } from "./historicalFileCache";
 import { FileIndex } from "./fileIndex";
 import { RefreshEpochGuard, RefreshCancelledError } from "./refreshEpochGuard";
+import { RepoScopeStore } from "./repoScopeStore";
 export type { CacheRepoStats };
 import {
   WorkspaceFolderInfo,
@@ -135,14 +136,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // that a pending refresh already happened and skip scheduling a duplicate.
   pendingRefreshVersion: number = 0;
 
-  // Per-repo pathspec filters (normalized repo path → pathspec string).
-  // When active, git log is restricted to the given pathspec for that repo.
-  private repoPathspecs: Map<NormalizedRepoPath, string> = new Map();
-
-  // Per-repo folder scope (normalized repo path → normalized absolute folder path).
-  // Display-only filter: only files under the scoped folder are shown.
-  // Does NOT trigger a git reload — this can only narrow down the data we already have.
-  private repoFolderScopes: Map<NormalizedRepoPath, string> = new Map();
+  // Per-repo scoping state: git pathspec (restricts a repo's `git log`) and
+  // folder scope (display-only narrowing). Owns its own persistence.
+  private readonly repoScope = new RepoScopeStore();
 
   // Target repo paths for the current refresh (undefined = all repos).
   // Set by refresh() to scope updateFreshFiles() to only specific repos.
@@ -206,8 +202,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.groupingMode = WorkspaceStateManager.getGroupingMode(ConfigService.getDefaultGroupingMode());
     this.sortOrder = WorkspaceStateManager.getSortOrder(ConfigService.getDefaultSortOrder());
 
-    this.repoPathspecs = WorkspaceStateManager.getRepoPathspecs();
-    this.repoFolderScopes = WorkspaceStateManager.getRepoFolderScopes();
+    this.repoScope.load();
 
     // Set initial context for when clause
     ContextManager.setOpenChangesMode(this.openChangesMode);
@@ -523,7 +518,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     if (timeWindow.type === "historical") {
       WorkspaceStateManager.setSelectedTimeWindowDays(timeWindow.days);
       // Serve from cache if all repos have a valid cached result that covers this window.
-      if (this.historicalCache.canServeWindow(timeWindow.days, this.workspaceFolders, this.repoPathspecs)) {
+      if (this.historicalCache.canServeWindow(timeWindow.days, this.workspaceFolders, this.repoScope.pathspecs)) {
         log(`Using cache to serve time window ${timeWindow.label}`);
         this.refreshGuard.bump(); // cancel any in-flight updateFreshFiles
         this.dataLoaded = true;
@@ -593,20 +588,14 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    */
   setRepoPathspec(normalizedRepoPath: NormalizedRepoPath, pathspec: string | undefined): void {
     const trimmed = pathspec?.trim();
-    if (trimmed) {
-      log(`Setting pathspec for ${normalizedRepoPath}: ${trimmed}`);
-      this.repoPathspecs.set(normalizedRepoPath, trimmed);
-    } else {
-      log(`Clearing pathspec for ${normalizedRepoPath}`);
-      this.repoPathspecs.delete(normalizedRepoPath);
-    }
-    WorkspaceStateManager.setRepoPathspec(normalizedRepoPath, trimmed || undefined);
+    log(trimmed ? `Setting pathspec for ${normalizedRepoPath}: ${trimmed}` : `Clearing pathspec for ${normalizedRepoPath}`);
+    this.repoScope.setPathspec(normalizedRepoPath, trimmed || undefined);
     this.refresh({ targetRepoPaths: [normalizedRepoPath] });
   }
 
   /** Return the active pathspec for a repo, or undefined if none is set. */
   getRepoPathspec(normalizedRepoPath: NormalizedRepoPath): string | undefined {
-    return this.repoPathspecs.get(normalizedRepoPath);
+    return this.repoScope.getPathspec(normalizedRepoPath);
   }
 
   /**
@@ -615,20 +604,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * Pass undefined to clear the scope.
    */
   setFolderScope(normalizedRepoPath: NormalizedRepoPath, normalizedFolderPath: string | undefined): void {
-    if (normalizedFolderPath) {
-      log(`Scoping repo ${normalizedRepoPath} to folder: ${normalizedFolderPath}`);
-      this.repoFolderScopes.set(normalizedRepoPath, normalizedFolderPath);
-    } else {
-      log(`Clearing folder scope for repo ${normalizedRepoPath}`);
-      this.repoFolderScopes.delete(normalizedRepoPath);
-    }
-    WorkspaceStateManager.setRepoFolderScope(normalizedRepoPath, normalizedFolderPath);
+    log(normalizedFolderPath
+      ? `Scoping repo ${normalizedRepoPath} to folder: ${normalizedFolderPath}`
+      : `Clearing folder scope for repo ${normalizedRepoPath}`);
+    this.repoScope.setFolderScope(normalizedRepoPath, normalizedFolderPath);
     this.refreshTreeOnly();
   }
 
   /** Return the active folder scope for a repo, or undefined if none is set. */
   getFolderScope(normalizedRepoPath: NormalizedRepoPath): string | undefined {
-    return this.repoFolderScopes.get(normalizedRepoPath);
+    return this.repoScope.getFolderScope(normalizedRepoPath);
   }
 
   /**
@@ -636,20 +621,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * When no scope is active for the repo, all files pass.
    */
   private passesRepoScope(normalizedFilePath: string): boolean {
-    if (this.repoFolderScopes.size === 0) {
-      return true;
-    }
-    // Find which repo this file belongs to, then check its scope
-    for (const { normalizedRepoPath } of this.resolvedRepos) {
-      if (normalizedFilePath.startsWith(normalizedRepoPath + "/") || normalizedFilePath === normalizedRepoPath) {
-        const scope = this.repoFolderScopes.get(normalizedRepoPath);
-        if (scope === undefined) {
-          return true; // No scope for this repo
-        }
-        return normalizedFilePath.startsWith(scope + "/") || normalizedFilePath === scope;
-      }
-    }
-    return true;
+    return this.repoScope.passesScope(normalizedFilePath, this.resolvedRepos);
   }
 
   private updateGroupingModeMessage(): void {
@@ -1007,7 +979,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Default: group by file structure
     for (const { folder, repoRelPath, repoFullPath, normalizedRepoPath } of this.resolvedRepos) {
       const repoName = repoRelPath || folder.name;
-      const activeFolderScope = this.repoFolderScopes.get(normalizedRepoPath);
+      const activeFolderScope = this.repoScope.getFolderScope(normalizedRepoPath);
 
       const filesInRepo = Array.from(this.freshFiles.keys()).filter(filePath => {
         const normalized = normalizePath(filePath);
@@ -1027,7 +999,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       const branchName = this.repoBranches.get(normalizedRepoPath);
       const isLoading = this.reposLoading.has(normalizedRepoPath);
       const isLoadingHistorical = this.reposLoadingHistorical.has(normalizedRepoPath);
-      const activePathspec = this.repoPathspecs.get(normalizedRepoPath);
+      const activePathspec = this.repoScope.getPathspec(normalizedRepoPath);
 
       // Compute a display-friendly folder scope label
       const folderScopeDisplay = activeFolderScope
@@ -1293,9 +1265,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
       if (repoError) {
         if (repoError.isPathspecError) {
-          const badPathspec = this.repoPathspecs.get(normalizedRepoPath);
-          this.repoPathspecs.delete(normalizedRepoPath);
-          WorkspaceStateManager.clearRepoPathspec(normalizedRepoPath);
+          const badPathspec = this.repoScope.getPathspec(normalizedRepoPath);
+          this.repoScope.setPathspec(normalizedRepoPath, undefined);
           showWarning(`Invalid pathspec "${badPathspec}" was cleared. The tree will reload without it.`, true);
           this.refresh({ targetRepoPaths: [normalizedRepoPath] });
           throw new RefreshCancelledError();
@@ -1349,13 +1320,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
       // Update the historical cache incrementally so that a time-window switch
       // to any already-loaded window can be served instantly without re-running git.
-      this.historicalCache.upgradeEntry(normalizedRepoPath, days, partial, this.repoPathspecs.get(normalizedRepoPath));
+      this.historicalCache.upgradeEntry(normalizedRepoPath, days, partial, this.repoScope.getPathspec(normalizedRepoPath));
 
       // If the user switched to a smaller window while this load was in-flight,
       // filter the display to that window so we don't over-expose data.
       const currentDays = this.currentTimeWindow.type === "historical" ? this.currentTimeWindow.days : undefined;
       let displayPartial = partial;
-      if (currentDays !== undefined && currentDays < days && this.historicalCache.canServeWindow(currentDays, this.workspaceFolders, this.repoPathspecs)) {
+      if (currentDays !== undefined && currentDays < days && this.historicalCache.canServeWindow(currentDays, this.workspaceFolders, this.repoScope.pathspecs)) {
         log(`Threshold ≤${days}d crossed but current window is ${currentDays}d — filtering display`);
         const cacheEntry = this.historicalCache.getEntry(normalizedRepoPath);
         if (cacheEntry) {
@@ -1387,14 +1358,14 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         maxDays,
         newFiles,
         newHistoricalFiles,
-        this.repoPathspecs.get(normalizedRepoPath),
+        this.repoScope.getPathspec(normalizedRepoPath),
         thresholds,
         onThresholdCrossed,
         commitStatsMap,
       );
 
       if (!repoError && fullData.size > 0) {
-        this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoPathspecs.get(normalizedRepoPath), commitStatsMap);
+        this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoScope.getPathspec(normalizedRepoPath), commitStatsMap);
         log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath}`);
       }
 
