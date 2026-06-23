@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.11.0]
+- Branch Compare now has its own left-click toggle (Open Changes / Open File), independent of Fresh Files and defaulting to diffs. The left-click toggle buttons now alternate their icons (file ↔ diff) to reflect the current mode.
+- "Open All Changes" (Branch Compare) now opens a single multi-diff editor instead of one tab per file 
+- Fix: "Open All Found Files" (Diff Search) opened only the last file (a recycled preview tab); all files now open as quiet background tabs
+- Branch Compare: per-comparison **diff mode** — *merge* (diff vs the merge-base, PR-style) or *full* (exact diff against the target ref), chosen per comparison in the settings panel.
+- Branch Compare: grouping mode can now be set per-comparison from the comparisons settings panel
+
 ## [1.10.2]
 
 - Right click option to reveal file in OS file manager (matches the built-in Explorer)

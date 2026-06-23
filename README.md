@@ -30,11 +30,12 @@ GitLens companion or lean alternative. No telemetry. No AI buttons.
 | Share a permalink to this file? | [Copy Remote URL](#context-menu-actions) |
 | I can't read? | [CodeStonks Charts](#codestonks) |
 
-# Links
+## Links
 
-[Marketplace](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer) | [OpenVSX](https://open-vsx.org/extension/frehu/fresh-file-explorer) | [Github](https://github.com/FreHu/vscode-fresh-file-explorer) | [Caveman Readme](README.caveman.md)
-# Features 
-## Time Window based File Explorer
+[Marketplace](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer) | [OpenVSX](https://open-vsx.org/extension/frehu/fresh-file-explorer) | [Github](https://github.com/FreHu/vscode-fresh-file-explorer)
+## Features
+
+### Time Window based File Explorer
 
 Switch between viewing pending changes or files last modified in configurable time periods. The view is a hybrid of File Explorer (which sometimes shows too much) and Source Control (which sometimes shows too little).
 
@@ -165,7 +166,7 @@ Use **"Fresh Files: Quick Open"** to get a quick pick showing files from your Fr
 
 Routine file operations (copy / cut / paste / rename / create / delete, and path copying) work like File Explorer with the standard keybindings. Beyond that:
 
-- **Open / Open to Side** — opens either the file or its diff depending on `freshFileExplorer.defaultOpenChangesMode`. The file/diff icon in the view title toggles the default. Respects `workbench.editor.revealIfOpen` for both files and diffs.
+- **Open / Open to Side** — opens either the file or its diff depending on `freshFileExplorer.defaultOpenChangesMode`. A view-title button toggles the left-click action, alternating between a file icon and a diff icon to show the current mode. Branch Compare has its own independent toggle (defaulting to diffs). Respects `workbench.editor.revealIfOpen` for both files and diffs.
 - **Copy Remote URL** — generates a browser link for the file at the current branch + path. Supports GitHub, GitLab, Bitbucket, and Azure DevOps (incl. SSH-style remotes and legacy `*.visualstudio.com`). Multi-select copies one URL per line.
 - **Copy Subtree Structure** — pastes the directory tree as text. From the Fresh Files tree it's **filtered to fresh files**. From the regular File Explorer it lists the full subtree, respecting `.gitignore`. Choice of absolute / relative / filename labels. Useful for chat, docs, and LLM prompts.
 - **Compare Selected** (`Ctrl+Alt+C`) — diff any two files against each other. With 3+ files, choose between *all permutations* or *one vs. all others* in a multi-diff editor.
@@ -349,9 +350,9 @@ There are several new action buttons in the search editor results:
 - Open all found files - opens all files as background tabs
 - Copy paths - copies all absolute or relative paths from the results
 
-# Use Cases
+## Use Cases
 
-## "I just cloned a large repo and don't know where to start"
+### "I just cloned a large repo and don't know where to start"
 
 You joined a new company and the codebase has thousands of files. Most haven't been touched in the last 75 years. But the file explorer shows everything, making it overwhelming to find where active development is happening.
 
@@ -363,7 +364,7 @@ You joined a new company and the codebase has thousands of files. Most haven't b
 
 ---
 
-## "I swear this file was here at some point"
+### "I swear this file was here at some point"
 
 You remember a file existed, but it's not there. Was it renamed? Moved? Did you misremember the path? Have you been drinking again? It's someone else's fault _this time_, but you're questioning your own sanity.
 
@@ -375,7 +376,7 @@ You remember a file existed, but it's not there. Was it renamed? Moved? Did you 
 
 ---
 
-## "I accidentally deleted some files and need them back"
+### "I accidentally deleted some files and need them back"
 
 **Pain Point:** You deleted files and realize you need them. They're committed to git but you wish it was easier to get them back.
 
@@ -387,7 +388,7 @@ You remember a file existed, but it's not there. Was it renamed? Moved? Did you 
 
 ---
 
-## "I made a commit and now I've lost track of what I was working on"
+### "I made a commit and now I've lost track of what I was working on"
 
 You make a commit but now your "pending changes" view is empty. You've lost the mental map of which files you were touching. This actually discourages small, frequent commits because you want to keep that overview.
 
@@ -397,7 +398,7 @@ You make a commit but now your "pending changes" view is empty. You've lost the 
 | **GitLens**             | Can view recent commits, but context switch required                                         | Medium - the information is there, but in a different place, and you can only have so many views open at a time |
 | [Fresh File Explorer](#time-window-selection) | Set time window to "Last 7 days" - your committed files still appear, organized by directory | Low - commit freely, overview persists                                                                          |
 
-## "I was using Fresh File Explorer and it was going great, but then someone reformatted the entire codebase and now all the files are fresh"
+### "I was using Fresh File Explorer and it was going great, but then someone reformatted the entire codebase and now all the files are fresh"
 
 **Pain Point:** A large automated change (formatting, linting, dependency updates) pollutes your view of what actually changed.
 
@@ -410,7 +411,7 @@ You make a commit but now your "pending changes" view is empty. You've lost the 
 ---
 
 
-## "Cool extension but I was looking for a todo list app"
+### "Cool extension but I was looking for a todo list app"
 
 **Pain Point:** There just aren't enough todo list apps out there.
 
@@ -421,15 +422,15 @@ You make a commit but now your "pending changes" view is empty. You've lost the 
 | [Fresh File Explorer](#pinned-section) | Is *also* a todo list | Low - Can't miss it |
 ---
 
-## "Cool extension but can it group my files by moon phase"
+### "Cool extension but can it group my files by moon phase"
 
 [Yes.](#grouping-modes) It might even be the *only* piece of software that does that.
 
-# Extension Settings
+## Extension Settings
 
 Look under `freshfileexplorer.` to see all configurable settings.
 
-# Performance
+## Performance
 
 Unlike File Explorer, which just needs the files on your disk, Fresh File Explorer must load part of your git history to work. This is done in one streaming pass on startup, after which the results are cached. For the view to become usable, you only wait as long as your configured time window takes to load. The remaining time windows keep loading in the background, so that by the time you need them, they are ready. Reloads happen when switching branches or syncing changes.
 
@@ -437,11 +438,11 @@ Unlike File Explorer, which just needs the files on your disk, Fresh File Explor
 
 Not looking 5 years back in a large repo will go a long way in terms of performance. But you can. Also avoid configuring long time windows you never need - adds pointless startup overhead in the background.
 
-# Security
+## Security
 
 I got some feedback around what is essentially an inherent problem with the trustworthiness of extensions in general. It's a valid concern and not one I can solve. 
 
-All I can give you is some assurrances:
+All I can give you is some assurances:
 
 - Fresh File Explorer contains no telemetry and does not make any web requests. It doesn't ask AI to do anything.
 - The code is right here for you to audit. There are zero runtime dependencies.
@@ -460,23 +461,28 @@ As well as some warnings:
 - Don't install random extensions from the internet just because they look cool. They can do pretty much whatever on your computer. Except for mine, mine's good.
 - A person who doesn't already know this is unlikely to bother reading this documentation.
 
-# Contributing
+## Contributing
 
 If you find a bug or have an idea for a faster horse, open an issue.
 
 For bug reports, it is extremely helpful if the problem is reproducible on a public repository.
 
 
-# Comparison with GitLens
+## Comparison with GitLens
 
-Fresh File Explorer is **not** a GitLens replacement. It's a more focused, opinionated tool oriented around finding things you need right now. It doesn't make commits, manage branches, stashes, tags...
+Fresh File Explorer is a focused **companion** to GitLens, not a replacement. It does the recent-changes navigation you reach for most of the day, and leaves the full SCM management to more comprehensive tools.
 
-**Use Fresh File Explorer when**
-- You want one view
+> A time-window view isn't *better* than a commit-centric one — but it's often handier. Your brain doesn't have git installed, but it usually knows what day it is.
 
-**Use GitLens when**
-- You want 25 views
-
-![gitlens views](img/gitlens-views.png)
-
-Because one of those 25 is actually very similar to Fresh File Explorer, some more comparison can be found [here](./COMPARISON_WITH_GITLENS.md).
+| Feature | Fresh File Explorer | GitLens |
+| --- | --- | --- |
+| **Focus** | Recent-file navigation | Comprehensive git integration |
+| **Learning curve** | Minimal | Significant |
+| **Time-window view** (files from the last *N* days) | ✅ Built in | ❌ Reference-based only (branch / tag / commit) |
+| **Multi-repo unified view** | ✅ Automatic across the workspace | ⚠️ Manual per-repo comparisons |
+| **Deleted file restore** | ✅ One-click, shown inline in the tree | ✅ Via commit history (more steps) |
+| **Blame** | ✅ Ambient heatmap — line-recency or branch-baseline coloring | ✅ Inline annotations + hover detail (richer) |
+| **Line / function history** | ✅ Incl. pickaxe diff search | ✅ Detailed |
+| **Commit graph** | ❌ Per-file history only | ✅ Visual graph |
+| **Author / commit filtering** | ✅ Visual multi-select | ✅ Via search |
+| **Price** | Free (will always accept your money) | Free (will sometimes demand your money) |
