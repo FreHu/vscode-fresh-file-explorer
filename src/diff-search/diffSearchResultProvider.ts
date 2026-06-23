@@ -42,11 +42,14 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
   private pendingMatchesCache: DiffMatch[] | null = null;
 
   /**
-   * Commits whose subtree should render fully expanded (commit node open + its files open).
+   * Nodes whose subtree should render fully expanded (node open + descendants open).
    * Populated by the "Expand All" actions; VS Code has no native expand-all and `reveal`
    * isn't viable here (random item ids, no `getParent`), so we drive `collapsibleState`.
+   * Repos are tracked by name and resolved to their commits inside `getCommitGroups` — which
+   * already groups by repo correctly — rather than re-deriving the repo path here.
    */
   private fullyExpandedCommits = new Set<CommitHash>();
+  private fullyExpandedRepos = new Set<string>();
 
   constructor() {
     ContextManager.setDiffSearchChangeFilter(this.changeTypeFilter);
@@ -65,15 +68,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
 
   /** Expand every commit (and its files/matches) under a repo. */
   expandAllUnderRepo(item: DiffSearchRepoItem): void {
-    let repoPath: AbsolutePath | null = null;
-    for (const [rPath, name] of this.repoNames) {
-      if (name === item.repoName) { repoPath = rPath; break; }
-    }
-    for (const m of this.displayMatches) {
-      if (m.commitHash && this.getRepoPathForFile(m.filePath) === repoPath) {
-        this.fullyExpandedCommits.add(m.commitHash);
-      }
-    }
+    this.fullyExpandedRepos.add(item.repoName);
     this._onDidChangeTreeData.fire();
   }
 
@@ -117,6 +112,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     this.changeTypeFilter = "all";
     ContextManager.setDiffSearchChangeFilter("all");
     this.fullyExpandedCommits.clear();
+    this.fullyExpandedRepos.clear();
 
     // Apply the (reset) change-type filter and build grouping caches.
     this.rebuildView();
@@ -136,6 +132,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     this.displayMatches = [];
     this.repoNames.clear();
     this.fullyExpandedCommits.clear();
+    this.fullyExpandedRepos.clear();
 
     // Clear caches
     this.commitGroupsCache = null;
@@ -304,6 +301,15 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
       if (!repoName) {
         this.commitGroupsCache = commitGroups;
         this.pendingMatchesCache = pendingMatches;
+      }
+    }
+
+    // If this repo was "Expand All"-ed, mark all of its commits fully expanded. Done here
+    // (not in expandAllUnderRepo) because this is where the repo→commit grouping already
+    // lives — no need to re-derive which commits belong to the repo.
+    if (repoName && this.fullyExpandedRepos.has(repoName)) {
+      for (const commitHash of commitGroups.keys()) {
+        this.fullyExpandedCommits.add(commitHash);
       }
     }
 
