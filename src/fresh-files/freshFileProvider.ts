@@ -5,6 +5,7 @@ import { ConfigService } from "../config/configService";
 import { ConfigKeys } from "../config/configKeyConstants";
 import { HistoricalFileCache, type CacheRepoStats } from "./historicalFileCache";
 import { FileIndex } from "./fileIndex";
+import { RefreshEpochGuard, RefreshCancelledError } from "./refreshEpochGuard";
 export type { CacheRepoStats };
 import {
   WorkspaceFolderInfo,
@@ -103,8 +104,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private reposLoading: Set<NormalizedRepoPath> = new Set();
   // Normalized absolute paths of repos that have pending files loaded but historical is still running
   private reposLoadingHistorical: Set<NormalizedRepoPath> = new Set();
-  // Incremented on every refresh() so in-flight updateFreshFiles calls can detect staleness
-  private refreshEpoch: number = 0;
+  // Bumped on every refresh() so in-flight updateFreshFiles calls can detect staleness
+  private readonly refreshGuard = new RefreshEpochGuard();
 
   // Sync status warnings
   private syncWarnings: string[] = [];
@@ -362,7 +363,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     log(`Refresh of files in ${scopeDesc} with time window: ${this.currentTimeWindow.label}`);
     this.dataLoaded = false;
     this._targetRepoPaths = targetRepoPaths;
-    this.refreshEpoch++;
+    this.refreshGuard.bump();
     clearRetrogradeCache();
     this.reposLoading.clear();
     this.reposLoadingHistorical.clear();
@@ -410,7 +411,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this._repoItemCache.clear();
     this.reposLoading.clear();
     this.reposLoadingHistorical.clear();
-    this.refreshEpoch++;
+    this.refreshGuard.bump();
     this._setFreshFiles(new Map());
     this.historicalCache.clear();
     clearRetrogradeCache();
@@ -524,7 +525,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       // Serve from cache if all repos have a valid cached result that covers this window.
       if (this.historicalCache.canServeWindow(timeWindow.days, this.workspaceFolders, this.repoPathspecs)) {
         log(`Using cache to serve time window ${timeWindow.label}`);
-        this.refreshEpoch++; // cancel any in-flight updateFreshFiles
+        this.refreshGuard.bump(); // cancel any in-flight updateFreshFiles
         this.dataLoaded = true;
         this._setFreshFiles(this.historicalCache
           .applyWindowToFiles(timeWindow.days, this.workspaceFolders, this.freshFiles));
@@ -543,7 +544,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     } else if (timeWindow.type === "pending" && this.dataLoaded) {
       // Pending files are already present in freshFiles — no git operations needed.
       log(`Serving pending window from existing data`);
-      this.refreshEpoch++; // cancel any in-flight updateFreshFiles
+      this.refreshGuard.bump(); // cancel any in-flight updateFreshFiles
       this._setFreshFiles(this.historicalCache.applyPendingOnly(this.freshFiles));
       this.refreshTreeOnly();
       return;
@@ -1161,10 +1162,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       return;
     }
 
-    const epoch = this.refreshEpoch;
-    const assertNotCancelled = () => {
-      if (this.refreshEpoch !== epoch) { throw new RefreshCancelledError(); }
-    };
+    const token = this.refreshGuard.capture();
+    const assertNotCancelled = () => token.assertLive();
 
     try {
       // --- Phase 1: Discover repositories (skipped on soft refresh) ---
@@ -1344,9 +1343,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   ): Promise<{ message: string; isPathspecError: boolean } | undefined> {
     // --- Phase 3: Historical changes (potentially slow) ---
     // Capture epoch so incremental callbacks from stale loads are silently dropped.
-    const capturedEpoch = this.refreshEpoch;
+    const token = this.refreshGuard.capture();
     const onThresholdCrossed = (days: number, partial: Map<AbsolutePath, FileMetadata>) => {
-      if (this.refreshEpoch !== capturedEpoch) { return; }
+      if (!token.isLive()) { return; }
 
       // Update the historical cache incrementally so that a time-window switch
       // to any already-loaded window can be served instantly without re-running git.
@@ -1583,11 +1582,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     return items;
   }
-}
-
-/** Thrown when a newer refresh has started and the current load should be abandoned. */
-class RefreshCancelledError extends Error {
-  constructor() { super("refresh cancelled"); }
 }
 
 /** Returns true if `normalizedFilePath` belongs to any of the given normalized repo paths. */
