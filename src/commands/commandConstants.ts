@@ -83,6 +83,10 @@ export const Commands = {
   DIFF_SEARCH_SHOWING_ALL: "freshFileExplorer.diffSearch.showingAll",
   DIFF_SEARCH_SHOWING_ADDED: "freshFileExplorer.diffSearch.showingAdded",
   DIFF_SEARCH_SHOWING_REMOVED: "freshFileExplorer.diffSearch.showingRemoved",
+  // Result-item context-menu copies (silent clipboard writes).
+  DIFF_SEARCH_COPY_COMMIT_SHA: "freshFileExplorer.diffSearch.copyCommitSha",
+  DIFF_SEARCH_COPY_LINE: "freshFileExplorer.diffSearch.copyLine",
+  DIFF_SEARCH_COPY_PATH: "freshFileExplorer.diffSearch.copyPath",
 
   // Git log -L (line / function history)
   GIT_LOG_L: "freshFileExplorer.gitLogL",

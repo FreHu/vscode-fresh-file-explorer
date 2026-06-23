@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { DiffSearchResultProvider } from "../diff-search/diffSearchResultProvider";
-import { DiffSearchMatchItem } from "../diff-search/diffSearchTreeItems";
+import { DiffSearchMatchItem, DiffSearchCommitItem, DiffSearchFileItem } from "../diff-search/diffSearchTreeItems";
 import { gitUri } from "../git/gitOperations";
 import { DiffSearchPanel } from "../diff-search/diffSearchPanel";
 import { showError, showInfo } from "../extension/logger";
@@ -123,6 +123,27 @@ export async function handleOpenDiffMatch(matchItem: DiffSearchMatchItem): Promi
 export async function handleClearDiffSearch(diffSearchResultProvider: DiffSearchResultProvider): Promise<void> {
   diffSearchResultProvider.clear();
   showInfo("Diff search results cleared");
+}
+
+/** Copy a result commit's full SHA to the clipboard (silent — matches the path-copy commands). */
+export async function handleCopyDiffCommitSha(item: DiffSearchCommitItem): Promise<void> {
+  if (item?.commitHash) {
+    await vscode.env.clipboard.writeText(item.commitHash);
+  }
+}
+
+/** Copy a matched line's content to the clipboard. */
+export async function handleCopyDiffMatchLine(item: DiffSearchMatchItem): Promise<void> {
+  if (item?.lineContent !== undefined) {
+    await vscode.env.clipboard.writeText(item.lineContent);
+  }
+}
+
+/** Copy a result file's path (already normalized to forward slashes) to the clipboard. */
+export async function handleCopyDiffPath(item: DiffSearchFileItem | DiffSearchMatchItem): Promise<void> {
+  if (item?.filePath) {
+    await vscode.env.clipboard.writeText(item.filePath);
+  }
 }
 
 /**

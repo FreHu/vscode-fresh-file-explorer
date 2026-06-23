@@ -324,6 +324,21 @@
         "icon": "$(diff-removed)"
       },
       {
+        "command": "freshFileExplorer.diffSearch.copyCommitSha",
+        "title": "Copy Commit SHA",
+        "category": "Fresh File Explorer"
+      },
+      {
+        "command": "freshFileExplorer.diffSearch.copyLine",
+        "title": "Copy Line",
+        "category": "Fresh File Explorer"
+      },
+      {
+        "command": "freshFileExplorer.diffSearch.copyPath",
+        "title": "Copy Path",
+        "category": "Fresh File Explorer"
+      },
+      {
         "command": "freshFileExplorer.gitLogFile",
         "title": "File History"
       },
@@ -856,6 +871,21 @@
       ],
       "view/item/context": [
         {
+          "command": "freshFileExplorer.diffSearch.copyCommitSha",
+          "when": "view == diffSearchResults && viewItem == diffSearchCommit",
+          "group": "5_copypath@1"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.copyLine",
+          "when": "view == diffSearchResults && viewItem == diffSearchMatch",
+          "group": "5_copypath@1"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.copyPath",
+          "when": "view == diffSearchResults && viewItem =~ /^(diffSearchFile|diffSearchMatch)$/",
+          "group": "5_copypath@2"
+        },
+        {
           "command": "freshFileExplorer.openFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
           "group": "1_open@1"
@@ -1222,6 +1252,18 @@
         },
         {
           "command": "freshFileExplorer.diffSearch.showingRemoved",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.copyCommitSha",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.copyLine",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.copyPath",
           "when": "false"
         },
         {
