@@ -38,6 +38,16 @@ From cheapest to most expensive:
 
 Always use **`execGitWithArgs(args[], cwd)`** � uses `spawn()` with an argument array - no injection risk. For large outputs use the streaming variants `streamGitLogNameStatus` / `streamGitDiffOutput`.
 
+## Webview Message Protocol
+
+The host↔webview boundary is a `postMessage` contract typed by discriminated
+unions in `src/webview/messages.ts` (compiled by both tsconfigs). Every host
+panel sends through a typed `_post(msg: XToWebview)` wrapper and types its
+inbound handler as `XFromWebview`; webview scripts mirror this. **Never** call
+`webview.postMessage({...})` with a bare object literal — it re-opens the `any`
+hole and field drift ships green. See [docs/webview-message-protocol.md](docs/webview-message-protocol.md)
+for the per-panel command tables and the enforcement rationale.
+
 ## Context Menus
 
 Adding or changing a context menu item requires **both**:
@@ -67,7 +77,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 
 ## Configuration
 
-- All settings access goes through [ConfigService](src/config/configService.ts). Never read `vscode.workspace.getConfiguration` directly elsewhere.
+- All settings access goes through [ConfigService](src/config/configService.ts). Never read `vscode.workspace.getConfiguration` directly elsewhere — a `no-restricted-syntax` ESLint rule enforces this (configService.ts and tests excepted).
 
 ## Commands
 

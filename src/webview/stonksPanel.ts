@@ -390,8 +390,8 @@ function handleSetCompareData(series: StonksRepoSeries[]): void {
   render();
 }
 
-window.addEventListener("message", (event) => {
-  const msg = event.data as StonksToWebview;
+window.addEventListener("message", (event: MessageEvent<StonksToWebview>) => {
+  const msg = event.data;
   switch (msg.command) {
     case "setRepos": handleSetRepos(msg.repos); break;
     case "setTimeWindows": handleSetTimeWindows(msg.options, msg.selectedDays); break;
