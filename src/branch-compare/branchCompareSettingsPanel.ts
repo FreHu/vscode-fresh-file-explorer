@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 
 import { SavedComparisonsService } from "./savedComparisonsService";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
@@ -9,6 +8,7 @@ import { log } from "../extension/logger";
 import { normalizePath } from "../utils";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 import { NormalizedRepoPath } from "../pathTypes";
+import { listWorkspaceRepos } from "../utils/pathUtils";
 import { getBranchCompareSettingsHtml } from "./branchCompareSettingsPanelUI";
 import {
   BranchCompareSettingsFromWebview,
@@ -301,21 +301,11 @@ export class BranchCompareSettingsPanel {
 
   /** Build the list of workspace repos with current-branch hints for the picker. */
   private _collectRepos(): RepoDTO[] {
-    const out: RepoDTO[] = [];
-    for (const folder of this.freshFileProvider.workspaceFolders) {
-      for (const repoRel of folder.gitRepos) {
-        const repoFullPath = repoRel === ""
-          ? folder.path
-          : (path.join(folder.path, repoRel) as string);
-        const normalized = normalizePath(repoFullPath) as NormalizedRepoPath;
-        const name = repoRel === "" ? folder.name : path.basename(repoFullPath);
-        out.push({
-          fullPath: normalized,
-          name,
-          currentBranch: this.freshFileProvider.getRepoBranch(normalized),
-        });
-      }
-    }
+    const out: RepoDTO[] = listWorkspaceRepos(this.freshFileProvider.workspaceFolders).map(repo => ({
+      fullPath: repo.normalizedPath,
+      name: repo.name,
+      currentBranch: this.freshFileProvider.getRepoBranch(repo.normalizedPath),
+    }));
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;
   }

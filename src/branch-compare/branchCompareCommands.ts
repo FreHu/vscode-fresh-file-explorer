@@ -20,7 +20,7 @@ import {
   gitUri,
 } from "../git/gitOperations";
 import { openDiff, normalizePath } from "../utils";
-import { toRelativePaths } from "../utils/pathUtils";
+import { toRelativePaths, listWorkspaceRepos } from "../utils/pathUtils";
 import { log, showError, showInfo } from "../extension/logger";
 import { AbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
@@ -85,20 +85,8 @@ async function openOneAsDiff(
   // Merge-base is re-derived from the comparison's actual source — not HEAD.
   // They diverge when the comparison is against a branch the user isn't on
   // (e.g. `feat-x vs origin/main` while checked out on `main`).
-  let baseSha: string;
-  if (diffMode === "full") {
-    baseSha = baseRef;
-  } else {
-    try {
-      baseSha = await getMergeBase(file.repoFullPath, sourceRef, baseRef);
-    } catch (err) {
-      showInfo(
-        `Could not find a common ancestor between ${sourceRef} and ${baseRef}.`,
-        `Branch compare open: no common ancestor between ${sourceRef} and ${baseRef} — ${err}`,
-      );
-      return;
-    }
-  }
+  const baseSha = await resolveDiffBase(file.repoFullPath, sourceRef, baseRef, diffMode, "Branch compare open");
+  if (baseSha === undefined) { return; }
 
   const workingTreeUri = vscode.Uri.file(file.absolutePath);
   // The right-side URI is the working tree when source === HEAD (includes
@@ -152,6 +140,32 @@ async function openOneAsDiff(
 }
 
 /**
+ * Resolve the baseline SHA a comparison diffs against, matching how its file
+ * set was computed: `full` diffs against the target ref directly, `merge`
+ * against the merge-base of source and target. Returns `undefined` (after
+ * surfacing a notification) when no common ancestor exists, so the caller can
+ * bail. `callerLabel` distinguishes the open path in the output log.
+ */
+async function resolveDiffBase(
+  repoFullPath: string,
+  sourceRef: string,
+  baseRef: string,
+  diffMode: DiffMode,
+  callerLabel: string,
+): Promise<string | undefined> {
+  if (diffMode === "full") { return baseRef; }
+  try {
+    return await getMergeBase(repoFullPath, sourceRef, baseRef);
+  } catch (err) {
+    showInfo(
+      `Could not find a common ancestor between ${sourceRef} and ${baseRef}.`,
+      `${callerLabel}: no common ancestor between ${sourceRef} and ${baseRef} — ${err}`,
+    );
+    return undefined;
+  }
+}
+
+/**
  * Open the file in the editor (skip the diff). Used by the inline action /
  * context menu when the user wants the file directly.
  */
@@ -189,20 +203,8 @@ export async function handleBranchCompareOpenAtBaseline(item: BranchCompareFileI
   }
 
   // Match the comparison's diff base
-  let baseSha: string;
-  if (item.diffMode === "full") {
-    baseSha = item.targetRef;
-  } else {
-    try {
-      baseSha = await getMergeBase(file.repoFullPath, item.sourceRef, item.targetRef);
-    } catch (err) {
-      showInfo(
-        `Could not find a common ancestor between ${item.sourceRef} and ${item.targetRef}.`,
-        `Branch compare open-at-baseline: no common ancestor — ${err}`,
-      );
-      return;
-    }
-  }
+  const baseSha = await resolveDiffBase(file.repoFullPath, item.sourceRef, item.targetRef, item.diffMode, "Branch compare open-at-baseline");
+  if (baseSha === undefined) { return; }
 
   // For renames, the baseline-side path is the source path.
   const baselineRelPath = file.renameSource ?? file.pathInRepo;
@@ -576,20 +578,8 @@ export async function handleBranchCompareOpenAll(
 
   // One base for the whole scope (the diff was computed against it — see
   // refreshComparison): `full` → the target ref directly, `merge` → merge-base.
-  let baseSha: string;
-  if (diffMode === "full") {
-    baseSha = baseRef;
-  } else {
-    try {
-      baseSha = await getMergeBase(repoFullPath, sourceRef, baseRef);
-    } catch (err) {
-      showInfo(
-        `Could not find a common ancestor between ${sourceRef} and ${baseRef}.`,
-        `Branch compare open-all: no common ancestor — ${err}`,
-      );
-      return;
-    }
-  }
+  const baseSha = await resolveDiffBase(repoFullPath, sourceRef, baseRef, diffMode, "Branch compare open-all");
+  if (baseSha === undefined) { return; }
 
   const sourceIsWorkingTree = sourceRef === HEAD_SOURCE;
   // Build (original ↔ modified) URI pairs. A `undefined` side renders as a pure
@@ -637,20 +627,15 @@ async function pickRepoForBaseline(
   baselineService?: BaselineService,
 ): Promise<AbsolutePath | undefined> {
   const candidates: { repoFullPath: AbsolutePath; label: string; description?: string }[] = [];
-  for (const folder of freshFileProvider.workspaceFolders) {
-    for (const repoRel of folder.gitRepos) {
-      const repoFullPath = repoRel === ""
-        ? folder.path
-        : (path.join(folder.path, repoRel) as AbsolutePath);
-      if (onlyWithBaseline && !baselineService?.getBaseRef(repoFullPath)) { continue; }
-      const label = repoRel === "" ? folder.name : path.basename(repoFullPath);
-      const desc = baselineService?.getBaseRef(repoFullPath);
-      candidates.push({
-        repoFullPath,
-        label,
-        description: desc ? `vs ${desc}` : undefined,
-      });
-    }
+  for (const repo of listWorkspaceRepos(freshFileProvider.workspaceFolders)) {
+    const repoFullPath = repo.repoFullPath;
+    if (onlyWithBaseline && !baselineService?.getBaseRef(repoFullPath)) { continue; }
+    const desc = baselineService?.getBaseRef(repoFullPath);
+    candidates.push({
+      repoFullPath,
+      label: repo.name,
+      description: desc ? `vs ${desc}` : undefined,
+    });
   }
   if (candidates.length === 0) {
     showInfo(onlyWithBaseline ? "No repos with a saved baseline." : "No git repositories found in the workspace.");

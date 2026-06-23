@@ -5,6 +5,45 @@ import { WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 
 /**
+ * A git repository discovered in the workspace, expanded from the
+ * `(workspaceFolder, repoRel)` pair into the path forms callers actually use.
+ */
+export interface WorkspaceRepoInfo {
+  /** Display name — the workspace-folder name for a root repo, else the basename. */
+  name: string;
+  /** Absolute path to the repo root (kept branded — no `as string` cast). */
+  repoFullPath: AbsolutePath;
+  /** Normalized form of `repoFullPath`, suitable as a map / workspace-state key. */
+  normalizedPath: NormalizedRepoPath;
+  /** Repo path relative to its workspace folder; `""` when the folder root is the repo. */
+  repoRel: string;
+}
+
+/**
+ * Expand every workspace folder's `gitRepos` into {@link WorkspaceRepoInfo}.
+ * Pure reformatter — does no git work. Collapses the three near-identical
+ * `for folder → for repoRel` loops that previously each re-derived the path /
+ * name (and one of which dropped the `AbsolutePath` brand via `as string`).
+ */
+export function listWorkspaceRepos(workspaceFolders: WorkspaceFolderInfo[]): WorkspaceRepoInfo[] {
+  const out: WorkspaceRepoInfo[] = [];
+  for (const folder of workspaceFolders) {
+    for (const repoRel of folder.gitRepos) {
+      const repoFullPath = repoRel === ""
+        ? folder.path
+        : asAbsolutePath(path.join(folder.path, repoRel));
+      out.push({
+        name: repoRel === "" ? folder.name : path.basename(repoFullPath),
+        repoFullPath,
+        normalizedPath: normalizePath(repoFullPath) as NormalizedRepoPath,
+        repoRel,
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * Result of finding which git repository a file belongs to
  */
 export interface RepoLocationResult {

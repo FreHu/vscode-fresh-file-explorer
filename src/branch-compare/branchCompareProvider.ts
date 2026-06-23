@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 
 import { BaselineService } from "../baseline/baselineService";
 import { SavedComparisonsService, HEAD_SOURCE } from "./savedComparisonsService";
@@ -30,8 +29,9 @@ import {
   buildGroupedItems,
   sortFilesForGrouping,
 } from "./branchCompareGroupingBuilder";
-import { AbsolutePath, asAbsolutePath, NormalizedRepoPath } from "../pathTypes";
+import { AbsolutePath, NormalizedRepoPath } from "../pathTypes";
 import { normalizePath } from "../utils";
+import { listWorkspaceRepos } from "../utils/pathUtils";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { DiffMode } from "./branchCompareConstants";
 
@@ -504,15 +504,8 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
    */
   private buildRepoLookup(): Map<NormalizedRepoPath, { repoFullPath: AbsolutePath; repoName: string }> {
     const out = new Map<NormalizedRepoPath, { repoFullPath: AbsolutePath; repoName: string }>();
-    for (const folder of this.freshFileProvider.workspaceFolders) {
-      for (const repoRel of folder.gitRepos) {
-        const repoFullPath = repoRel === ""
-          ? folder.path
-          : asAbsolutePath(path.join(folder.path, repoRel));
-        const key = normalizePath(repoFullPath) as NormalizedRepoPath;
-        const repoName = repoRel === "" ? folder.name : path.basename(repoFullPath);
-        out.set(key, { repoFullPath, repoName });
-      }
+    for (const repo of listWorkspaceRepos(this.freshFileProvider.workspaceFolders)) {
+      out.set(repo.normalizedPath, { repoFullPath: repo.repoFullPath, repoName: repo.name });
     }
     return out;
   }
