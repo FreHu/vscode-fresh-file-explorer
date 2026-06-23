@@ -50,7 +50,7 @@ import { BlameHeatmapController } from "./heatmap/blameHeatmapController";
 import { FreshFilesStatusBar } from "./fresh-files/freshFilesStatusBar";
 import { DiffSearchResultProvider } from "./diff-search/diffSearchResultProvider";
 import { DiffSearchPanel } from "./diff-search/diffSearchPanel";
-import { handleOpenDiffMatch, handleClearDiffSearch, handleGitPickaxe, handleCopyDiffCommitSha, handleCopyDiffMatchLine, handleCopyDiffPath } from "./commands/diffSearchCommand";
+import { handleOpenDiffMatch, handleClearDiffSearch, handleGitPickaxe, handleCopyDiffCommitSha, handleCopyDiffMatchLine, handleCopyDiffPath, handleDiffSearchExpandAll } from "./commands/diffSearchCommand";
 import { handleGitLogL, handlegitLogFile } from "./commands/gitLogLCommand";
 import { GitLogLContentProvider } from "./logL/gitLogLPanel";
 import { ContextManager } from "./extension/contextManager";
@@ -447,6 +447,7 @@ function registerCommands(
   register(Commands.DIFF_SEARCH_COPY_COMMIT_SHA, (item: any) => handleCopyDiffCommitSha(item));
   register(Commands.DIFF_SEARCH_COPY_LINE, (item: any) => handleCopyDiffMatchLine(item));
   register(Commands.DIFF_SEARCH_COPY_PATH, (item: any) => handleCopyDiffPath(item));
+  register(Commands.DIFF_SEARCH_EXPAND_ALL, (item: any) => handleDiffSearchExpandAll(diffSearchResultProvider, item));
 
   register(Commands.GIT_PICKAXE, () =>
     handleGitPickaxe(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])

@@ -339,6 +339,12 @@
         "category": "Fresh File Explorer"
       },
       {
+        "command": "freshFileExplorer.diffSearch.expandAll",
+        "title": "Expand All",
+        "category": "Fresh File Explorer",
+        "icon": "$(expand-all)"
+      },
+      {
         "command": "freshFileExplorer.gitLogFile",
         "title": "File History"
       },
@@ -871,6 +877,16 @@
       ],
       "view/item/context": [
         {
+          "command": "freshFileExplorer.diffSearch.expandAll",
+          "when": "view == diffSearchResults && viewItem =~ /^(diffSearchRepo|diffSearchCommit)$/",
+          "group": "inline"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.expandAll",
+          "when": "view == diffSearchResults && viewItem =~ /^(diffSearchRepo|diffSearchCommit)$/",
+          "group": "0_expand@1"
+        },
+        {
           "command": "freshFileExplorer.diffSearch.copyCommitSha",
           "when": "view == diffSearchResults && viewItem == diffSearchCommit",
           "group": "5_copypath@1"
@@ -1264,6 +1280,10 @@
         },
         {
           "command": "freshFileExplorer.diffSearch.copyPath",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.diffSearch.expandAll",
           "when": "false"
         },
         {

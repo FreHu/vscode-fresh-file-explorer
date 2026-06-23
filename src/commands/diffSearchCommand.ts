@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { DiffSearchResultProvider } from "../diff-search/diffSearchResultProvider";
-import { DiffSearchMatchItem, DiffSearchCommitItem, DiffSearchFileItem } from "../diff-search/diffSearchTreeItems";
+import { DiffSearchMatchItem, DiffSearchCommitItem, DiffSearchFileItem, DiffSearchRepoItem } from "../diff-search/diffSearchTreeItems";
 import { gitUri } from "../git/gitOperations";
 import { DiffSearchPanel } from "../diff-search/diffSearchPanel";
 import { showError, showInfo } from "../extension/logger";
@@ -143,6 +143,18 @@ export async function handleCopyDiffMatchLine(item: DiffSearchMatchItem): Promis
 export async function handleCopyDiffPath(item: DiffSearchFileItem | DiffSearchMatchItem): Promise<void> {
   if (item?.filePath) {
     await vscode.env.clipboard.writeText(item.filePath);
+  }
+}
+
+/** "Expand All" on a repo or commit node — expand its whole subtree from cached matches. */
+export function handleDiffSearchExpandAll(
+  provider: DiffSearchResultProvider,
+  item: DiffSearchRepoItem | DiffSearchCommitItem,
+): void {
+  if (item instanceof DiffSearchRepoItem) {
+    provider.expandAllUnderRepo(item);
+  } else if (item instanceof DiffSearchCommitItem) {
+    provider.expandAllUnderCommit(item);
   }
 }
 

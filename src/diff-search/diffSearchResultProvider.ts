@@ -41,8 +41,40 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
   private commitGroupsCache: Map<CommitHash, DiffMatch[]> | null = null;
   private pendingMatchesCache: DiffMatch[] | null = null;
 
+  /**
+   * Commits whose subtree should render fully expanded (commit node open + its files open).
+   * Populated by the "Expand All" actions; VS Code has no native expand-all and `reveal`
+   * isn't viable here (random item ids, no `getParent`), so we drive `collapsibleState`.
+   */
+  private fullyExpandedCommits = new Set<CommitHash>();
+
   constructor() {
     ContextManager.setDiffSearchChangeFilter(this.changeTypeFilter);
+  }
+
+  /**
+   * Expand every file (and its matches) under a single commit. Fires a full refresh rather
+   * than a targeted one so the commit node itself opens even if it was collapsed — and
+   * because item ids are regenerated each render, this view never preserves expansion across
+   * refreshes anyway, so a full re-render is the consistent behavior.
+   */
+  expandAllUnderCommit(item: DiffSearchCommitItem): void {
+    this.fullyExpandedCommits.add(item.commitHash);
+    this._onDidChangeTreeData.fire();
+  }
+
+  /** Expand every commit (and its files/matches) under a repo. */
+  expandAllUnderRepo(item: DiffSearchRepoItem): void {
+    let repoPath: AbsolutePath | null = null;
+    for (const [rPath, name] of this.repoNames) {
+      if (name === item.repoName) { repoPath = rPath; break; }
+    }
+    for (const m of this.displayMatches) {
+      if (m.commitHash && this.getRepoPathForFile(m.filePath) === repoPath) {
+        this.fullyExpandedCommits.add(m.commitHash);
+      }
+    }
+    this._onDidChangeTreeData.fire();
   }
 
   /**
@@ -84,6 +116,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     // stale filter from a previous search silently hiding the new results.
     this.changeTypeFilter = "all";
     ContextManager.setDiffSearchChangeFilter("all");
+    this.fullyExpandedCommits.clear();
 
     // Apply the (reset) change-type filter and build grouping caches.
     this.rebuildView();
@@ -102,6 +135,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     this.allMatches = [];
     this.displayMatches = [];
     this.repoNames.clear();
+    this.fullyExpandedCommits.clear();
 
     // Clear caches
     this.commitGroupsCache = null;
@@ -281,7 +315,11 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
       const date = firstMatch.commitDate || new Date();
       const fileCount = new Set(matches.map(m => m.filePath)).size;
 
-      commitItems.push(new DiffSearchCommitItem(commitHash, message, date, fileCount, matches.length));
+      const commitItem = new DiffSearchCommitItem(commitHash, message, date, fileCount, matches.length);
+      if (this.fullyExpandedCommits.has(commitHash)) {
+        commitItem.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+      }
+      commitItems.push(commitItem);
     }
     commitItems.sort((a, b) => b.commitDate.getTime() - a.commitDate.getTime());
     items.push(...commitItems);
@@ -303,10 +341,15 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     const commitMatches = this.commitGroupsCache?.get(commitHash);
     const matchesToProcess = commitMatches || this.displayMatches.filter(m => m.commitHash === commitHash);
 
+    const expandFiles = this.fullyExpandedCommits.has(commitHash);
     const fileGroups = groupBy(matchesToProcess, m => m.filePath);
-    const items = Array.from(fileGroups.entries()).map(
-      ([filePath, matches]) => new DiffSearchFileItem(filePath, matches.length, commitHash)
-    );
+    const items = Array.from(fileGroups.entries()).map(([filePath, matches]) => {
+      const fileItem = new DiffSearchFileItem(filePath, matches.length, commitHash);
+      if (expandFiles) {
+        fileItem.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+      }
+      return fileItem;
+    });
     return sortFileItemsByName(items);
   }
 

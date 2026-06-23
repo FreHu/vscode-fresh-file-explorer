@@ -87,6 +87,8 @@ export const Commands = {
   DIFF_SEARCH_COPY_COMMIT_SHA: "freshFileExplorer.diffSearch.copyCommitSha",
   DIFF_SEARCH_COPY_LINE: "freshFileExplorer.diffSearch.copyLine",
   DIFF_SEARCH_COPY_PATH: "freshFileExplorer.diffSearch.copyPath",
+  // Expand a repo or commit node's whole subtree (VS Code has no native expand-all).
+  DIFF_SEARCH_EXPAND_ALL: "freshFileExplorer.diffSearch.expandAll",
 
   // Git log -L (line / function history)
   GIT_LOG_L: "freshFileExplorer.gitLogL",
