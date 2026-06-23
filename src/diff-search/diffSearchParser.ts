@@ -606,6 +606,10 @@ export interface HistoricalSearchArgsOptions {
  *
  * Notes baked in here:
  * - LOG_CONFIG_FLAGS + `--date=default` neutralize user git config that would break parsing.
+ * - Always `-G` (line-based: matched a changed line), never `-S` (net occurrence count) —
+ *   `-S` would miss a same-line edit like `foo(1)`→`foo(2)` whose count is unchanged, which
+ *   the line filter would otherwise show. A literal pattern is regex-escaped so `-G` matches
+ *   it verbatim. Mirrors {@link buildPendingSearchArgs} so history and pending agree.
  * - Merges: `--diff-merges=first-parent` surfaces merge commits with a single diff vs the
  *   mainline (plain `-p` shows no merge diff, so pickaxe can't match them).
  * - Time window: an exact ISO `--since`, not approxidate "N.days.ago", which silently
@@ -619,8 +623,8 @@ export function buildHistoricalSearchArgs(o: HistoricalSearchArgsOptions): strin
     "--date=default",
     ...(o.includeMerges ? ["--diff-merges=first-parent"] : []),
     ...(o.caseInsensitive ? ["-i"] : []),
-    o.isRegex ? "-G" : "-S",
-    o.pattern,
+    "-G",
+    o.isRegex ? o.pattern : escapeRegex(o.pattern),
   ];
 
   if (o.sinceDays > 0) {

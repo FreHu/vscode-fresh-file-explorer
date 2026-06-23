@@ -4,7 +4,7 @@ import { DiffMatch, DiffSearchPatternError, searchHistoricalDiffs, searchPending
 import { discoverReposInWorkspace } from "../git/gitOperations";
 import { AbsolutePath } from "../pathTypes";
 import { log, showError, showWarning } from "../extension/logger";
-import { formatGitCommand } from "../utils/formatUtils";
+import { formatGitCommand, escapeRegex } from "../utils/formatUtils";
 import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
 import { DiffSearchParams, DiffSearchHistoryEntry, DiffSearchToWebview, DiffSearchFromWebview } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
@@ -395,7 +395,7 @@ function buildSearchGitCommand(search: SearchRequest): string {
   if (search.caseInsensitive) {
     args.push("-i");
   }
-  args.push(search.isRegex ? "-G" : "-S", search.pattern);
+  args.push("-G", search.isRegex ? search.pattern : escapeRegex(search.pattern));
   const days = parseTimeWindowValue(search.window.trim());
   if (days !== null) {
     args.push(`--since=${new Date(Date.now() - days * 86400000).toISOString()}`);

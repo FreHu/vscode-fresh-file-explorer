@@ -75,14 +75,20 @@ suite("buildHistoricalSearchArgs - git log argument construction", () => {
     nowMs: NOW,
   };
 
-  test("plain unlimited search: -S, no --since / --diff-merges / -i", () => {
+  test("plain unlimited search: -G (line-based) not -S, no --since / --diff-merges / -i", () => {
     const args = buildHistoricalSearchArgs(base);
     assert.ok(args.includes("log") && args.includes("-p"));
-    assert.ok(args.includes("-S") && !args.includes("-G"));
+    // Always -G so same-line edits surface; never -S (count-based). Mirrors pending.
+    assert.ok(args.includes("-G") && !args.includes("-S"));
     assert.strictEqual(args[args.length - 1], "foo");
     assert.ok(!args.some(a => a.startsWith("--since=")));
     assert.ok(!args.includes("--diff-merges=first-parent"));
     assert.ok(!args.includes("-i"));
+  });
+
+  test("literal pattern is regex-escaped for -G; regex pattern passed raw", () => {
+    assert.ok(buildHistoricalSearchArgs({ ...base, pattern: "foo(1)" }).includes("foo\\(1\\)"));
+    assert.ok(buildHistoricalSearchArgs({ ...base, isRegex: true, pattern: "a.*b" }).includes("a.*b"));
   });
 
   test("config-neutralizing flags are always present", () => {
