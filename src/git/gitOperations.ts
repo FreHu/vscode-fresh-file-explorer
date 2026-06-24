@@ -778,7 +778,7 @@ export async function collectHistoricalChanges(
   // and our threshold-crossing logic assumes commit dates
   // arrive in monotonically-decreasing order. Default git log order is by committer date, which
   // can diverge from author date on rebased or cherry-picked commits and break threshold detection.
-  const statusArgs = ["log", `--since=${sinceDate}`, "--author-date-order", "--name-status", "--pretty=format:__COMMIT__%h|%an|%aI|%s", ...pathspecSuffix];
+  const statusArgs = ["log", `--since=${sinceDate}`, "--author-date-order", "--name-status", "--pretty=format:__COMMIT__%h|%aN|%aI|%s", ...pathspecSuffix];
   log(`Executing git command for status in ${repoRelativePath || "root"}: git ${statusArgs.join(" ")}`);
 
   let fileStatusMap: Map<string, { status: string; commit: CommitData }>;

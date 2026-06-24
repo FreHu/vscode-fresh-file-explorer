@@ -267,7 +267,7 @@ export async function fetchCommitInfoInRange(
     "log",
     "--name-status",
     "--author-date-order",
-    "--pretty=format:__COMMIT__%h|%an|%aI|%s",
+    "--pretty=format:__COMMIT__%h|%aN|%aI|%s",
     `${mergeBaseSha}..${source}`,
   ];
   const fileMap = await streamGitLogNameStatus(

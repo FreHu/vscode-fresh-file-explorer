@@ -90,7 +90,7 @@ export async function handleGitLogL(): Promise<void> {
   }
 
   try {
-    const args = ["log", "-L", lArg];
+    const args = ["log", "--use-mailmap", "-L", lArg];
     const rawOutput = await execGitWithArgs(args, repoRoot, { timeout: ConfigService.getGitTimeoutMs() });
     const commits = parseGitLogL(rawOutput);
     log(`git log -L: parsed ${commits.length} commits`, "info");
@@ -146,7 +146,7 @@ export async function handlegitLogFile(arg?: FreshFileItem | vscode.Uri): Promis
   log(`git log --follow -p: ${relativePath}`, "info");
 
   try {
-    const args = ["log", "--follow", "-p", "--", relativePath];
+    const args = ["log", "--use-mailmap", "--follow", "-p", "--", relativePath];
     const rawOutput = await execGitWithArgs(
       args,
       repoRoot,
