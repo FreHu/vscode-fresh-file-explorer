@@ -34,60 +34,18 @@ jobs:
       - name: Run tests
         run: xvfb-run -a npm test
 
-  gh-release:
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push'
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '20'
-
-      - name: Assert tag matches package.json version
-        run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          PKG=$(node -p "require('./package.json').version")
-          if [ "$TAG" != "$PKG" ]; then
-            echo "Tag v$TAG does not match package.json version $PKG"
-            exit 1
-          fi
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install vsce
-        run: npm install -g @vscode/vsce
-
-      - name: Build VSIX
-        run: vsce package
-
-      - name: Read changelog entry
-        id: changelog
-        uses: mindsers/changelog-reader-action@5ca6b859dbd794b56d53077cf5969269e676ec66 # v2
-        with:
-          path: CHANGELOG.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          files: '*.vsix'
-          body: ${{ steps.changelog.outputs.changes }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish:
+  # Single gated job that does BOTH the GitHub Release and the marketplace /
+  # OpenVSX publish. Runs only on a manual workflow_dispatch (never on a tag
+  # push — a tag push runs `test` and stops). It references the
+  # required-reviewer `marketplace` environment, so the whole run pauses for
+  # approval before anything is built or published.
+  release:
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'workflow_dispatch'
     environment: marketplace
     permissions:
-      contents: read
+      contents: write # create the GitHub Release
 
     steps:
       - name: Assert dispatched from a v* tag
@@ -113,16 +71,31 @@ jobs:
             exit 1
           fi
 
-      - name: Download VSIX from GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.vsix'
-          ls -la *.vsix
+      - name: Install dependencies
+        run: npm ci
 
       - name: Install vsce and ovsx
         run: npm install -g @vscode/vsce ovsx
+
+      # Build the VSIX once, in this job, and use the SAME file for the GitHub
+      # Release and both publishes — no cross-job artifact hand-off, so what's
+      # on the Release is byte-identical to what ships to the marketplace.
+      - name: Build VSIX
+        run: vsce package
+
+      - name: Read changelog entry
+        id: changelog
+        uses: mindsers/changelog-reader-action@5ca6b859dbd794b56d53077cf5969269e676ec66 # v2
+        with:
+          path: CHANGELOG.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: '*.vsix'
+          body: ${{ steps.changelog.outputs.changes }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to VS Code Marketplace
         run: vsce publish --packagePath *.vsix
