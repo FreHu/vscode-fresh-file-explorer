@@ -71,6 +71,7 @@ import {
   handleBranchCompareOpenToSide,
   handleBranchCompareOpenAtBaseline,
   handleBranchCompareRefresh,
+  handleBranchCompareFocusSourceControl,
   handleBranchCompareRefreshRepo,
   handleSetBaseline,
   handleClearBaseline,
@@ -567,6 +568,7 @@ function registerCommands(
   register(Commands.BRANCH_COMPARE_SWAP_SIDES, (arg: any) =>
     handleBranchCompareSwapSides(arg, savedComparisons),
   );
+  register(Commands.BRANCH_COMPARE_FOCUS_SOURCE_CONTROL, () => handleBranchCompareFocusSourceControl());
   register(Commands.BRANCH_COMPARE_OPEN_MODE_CHANGES, () => branchCompareProvider.setOpenMode(true));
   register(Commands.BRANCH_COMPARE_OPEN_MODE_FILE, () => branchCompareProvider.setOpenMode(false));
 }

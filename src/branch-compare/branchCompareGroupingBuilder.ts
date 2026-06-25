@@ -5,7 +5,7 @@ import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase } from "../fresh-files/moonPhase";
 import { getRetrogradeInfo, getRetrogradeKey } from "../fresh-files/planetaryRetrograde";
 import { formatRelativeDate } from "../utils/formatUtils";
-import { BranchCompareContextValues } from "./branchCompareConstants";
+import { BranchCompareContextValues, PENDING_GROUP_KEY } from "./branchCompareConstants";
 
 /**
  * Tree item for a group header in the Branch Compare view.
@@ -34,7 +34,11 @@ export class BranchCompareGroupItem extends vscode.TreeItem {
     this.description = description;
     this.tooltip = tooltip;
     this.iconPath = new vscode.ThemeIcon(icon);
-    this.contextValue = BranchCompareContextValues.GROUP;
+    // The pending bucket gets its own contextValue so working-tree actions
+    // (focus Source Control) attach to it and not to real commit/author groups.
+    this.contextValue = groupKey === PENDING_GROUP_KEY
+      ? BranchCompareContextValues.GROUP_PENDING
+      : BranchCompareContextValues.GROUP;
   }
 }
 
@@ -47,7 +51,7 @@ function groupKeyFor(file: ChangedFile, mode: GroupingMode): { key: string; labe
     // Any non-File-Structure mode buckets uncommitted / unattributed entries
     // together — none of the grouping keys (author/hash/date) are defined for
     // them.
-    return { key: "(Pending)", label: "(Pending)", icon: "edit" };
+    return { key: PENDING_GROUP_KEY, label: PENDING_GROUP_KEY, icon: "edit" };
   }
 
   switch (mode) {

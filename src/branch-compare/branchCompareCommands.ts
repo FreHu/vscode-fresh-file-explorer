@@ -525,6 +525,16 @@ export async function handleBranchCompareRefresh(provider: BranchCompareProvider
 }
 
 /**
+ * Focus VS Code's Source Control view. Surfaced on the pending bucket so the
+ * user can jump from "here are my uncommitted changes" to the SCM view where
+ * they can stage / commit them. Deliberately a thin pass-through — staging is
+ * the SCM view's job, not ours.
+ */
+export async function handleBranchCompareFocusSourceControl(): Promise<void> {
+  await vscode.commands.executeCommand("workbench.view.scm");
+}
+
+/**
  * Open every changed file in the targeted scope (repo section or folder
  * subtree) in a single multi-diff editor. Above {@link OPEN_ALL_CONFIRM_THRESHOLD}
  * files the user gets a modal confirmation — same UX as `handleOpenAllFoundFiles`.

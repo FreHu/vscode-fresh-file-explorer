@@ -21,7 +21,10 @@
 - **Copy actions** on result items.
 - **Expand All** on repo and commit nodes.
 - Hardening against git config and UI noise.
-- 
+
+### Branch compare
+
+- A "focus source control" action was added to the pending changes group (visible in commit/author/moon phase grouping modes)
 
 ## [1.11.0]
 - Branch Compare now has its own left-click toggle (Open Changes / Open File), independent of Fresh Files and defaulting to diffs. The left-click toggle buttons now alternate their icons (file ↔ diff) to reflect the current mode.

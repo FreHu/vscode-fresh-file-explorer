@@ -154,4 +154,5 @@ export const Commands = {
   BRANCH_COMPARE_OPEN_SETTINGS: "freshFileExplorer.branchCompare.openSettings",
   BRANCH_COMPARE_TOGGLE_ACTIVE: "freshFileExplorer.branchCompare.toggleActive",
   BRANCH_COMPARE_SWAP_SIDES: "freshFileExplorer.branchCompare.swapSides",
+  BRANCH_COMPARE_FOCUS_SOURCE_CONTROL: "freshFileExplorer.branchCompare.focusSourceControl",
 } as const;

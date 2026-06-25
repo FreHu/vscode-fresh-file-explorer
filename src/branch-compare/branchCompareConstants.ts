@@ -12,7 +12,16 @@ export const BranchCompareContextValues = {
   EMPTY: "freshFileExplorer.branchCompare.empty",
   MESSAGE: "freshFileExplorer.branchCompare.message",
   GROUP: "freshFileExplorer.branchCompare.group",
+  /** The pending/uncommitted bucket — distinct so it can carry working-tree actions (e.g. focus Source Control). */
+  GROUP_PENDING: "freshFileExplorer.branchCompare.groupPending",
 } as const;
+
+/**
+ * Group key + label for the bucket that collects uncommitted / unattributed
+ * entries in every non-File-Structure grouping mode. Shared so the grouping
+ * builder and any code that needs to recognise the pending bucket agree.
+ */
+export const PENDING_GROUP_KEY = "(Pending)";
 
 /**
  * How a comparison's diff is computed against its target ref:
