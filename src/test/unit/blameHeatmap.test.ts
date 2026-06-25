@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { blameTimestampToBucket, HEATMAP_IN_WINDOW_BUCKETS } from "../../heatmap/heatmapUtils";
-import { parseBranchHunks, parseGitBlamePorcelain } from "../../git/gitOperations";
+import { parseBranchHunks, parseGitBlamePorcelain } from "../../git/blameDiffParsers";
 
 suite("blameHeatmapController", () => {
   // ─── parseGitBlamePorcelain ──────────────────────────────────────────────

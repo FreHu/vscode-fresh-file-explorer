@@ -1,0 +1,23 @@
+#!/bin/sh
+# Pre-push gate. Runs the fast checks that nothing else enforces (no CI on
+# ordinary pushes — release.yml only fires on v* tags). Mirrors the gates a
+# human would otherwise have to remember: typecheck, lint, size ratchet, unit
+# tests. test:host is intentionally excluded — it downloads a VS Code build and
+# needs a display, far too heavy for a push hook.
+#
+# Bypass for a genuine emergency with:  git push --no-verify
+set -e
+
+echo "pre-push: compile…"
+npm run compile
+
+echo "pre-push: lint…"
+npm run lint
+
+echo "pre-push: size ratchet…"
+npm run ratchet
+
+echo "pre-push: unit tests…"
+npm run test:unit
+
+echo "pre-push: all gates passed."

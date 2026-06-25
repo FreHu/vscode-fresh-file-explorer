@@ -1875,6 +1875,7 @@
     "watch": "npm run copy:fixtures && run-p watch:ext watch:webview",
     "watch:ext": "tsc -watch -p ./",
     "watch:webview": "esbuild src/webview/gitLogLPanel.ts src/webview/diffSearchPanel.ts src/webview/perfBenchmarkPanel.ts src/webview/stonksPanel.ts src/webview/branchCompareSettings.ts --bundle --outdir=media --format=iife --platform=browser --watch",
+    "prepare": "git config core.hooksPath .githooks || true",
     "pretest": "npm run compile && npm run compile:webview && npm run lint && npm run ratchet",
     "lint": "eslint src",
     "ratchet": "node scripts/sizeRatchet.mjs",

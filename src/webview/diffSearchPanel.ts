@@ -248,7 +248,7 @@ function applyParams(p: import("./messages").DiffSearchParams): void {
   historyOptions.style.display = p.pendingOnly ? "none" : "";
   // Migrate params persisted before the time-window switch (numeric `days`).
   const legacyDays = (p as { days?: number | null }).days;
-  windowInput.value = p.window ?? (legacyDays != null ? String(legacyDays) : "");
+  windowInput.value = p.window ?? (legacyDays !== null && legacyDays !== undefined ? String(legacyDays) : "");
   includeMergesCheckbox.checked = p.includeMerges ?? false;
   revalidate();
 }

@@ -19,7 +19,7 @@ const CEILINGS = {
   // irreducible coordinator wiring (display-map setter hook, config dispatch)
   // landed here.
   "src/fresh-files/freshFileProvider.ts": 1618,
-  "src/git/gitOperations.ts": 1316,
+  "src/git/gitOperations.ts": 1200,
   "src/heatmap/blameHeatmapController.ts": 1169,
 };
 

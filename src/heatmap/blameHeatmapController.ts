@@ -7,9 +7,8 @@ import {
   isFileTracked,
   fileExistsAtRef,
   runGitBlamePorcelain,
-  parseGitBlamePorcelain,
-  parseBranchHunks,
 } from "../git/gitOperations";
+import { parseGitBlamePorcelain, parseBranchHunks } from "../git/blameDiffParsers";
 import { GitApi, GitRepository } from "../git/gitExecutionListener";
 import { findRepoForAbsolutePath } from "../utils/pathUtils";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
