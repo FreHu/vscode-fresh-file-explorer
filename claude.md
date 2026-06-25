@@ -28,6 +28,14 @@ From cheapest to most expensive:
 
 **`refreshEpoch`** is incremented by `refresh()` and `hardRefresh()`. `updateFreshFiles()` checks it at each async boundary and throws `RefreshCancelledError` if a newer refresh started. Always preserve this check when adding async work to the load path.
 
+## `files.exclude` is Per-Node, Not Global
+
+The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclude`, default on). The non-obvious part: a glob is evaluated **relative to the workspace folder of the node it's rendered under**, so the *same* absolute file can be hidden under one root and shown under another. The motivating case (issue #3): a repo root added alongside its own `backend/` subfolder, with the root excluding `backend` — `backend/app.js` must vanish under the root node yet remain under the backend node. A single global "display map" cannot express this; don't try to filter `_freshFiles` once and reuse it everywhere.
+
+- Pure glob matching: [filesExcludeMatcher.ts](src/fresh-files/filesExcludeMatcher.ts) — a faithful port of VS Code's own `vs/base/common/glob.ts` engine (not minimatch). A bare `backend` matches the path *and its ancestor prefixes* (mirrors the Explorer pruning the `backend` dir node); bare patterns stay root-anchored.
+- Per-node application: [FilesExcludeFilter](src/fresh-files/filesExcludeFilter.ts). `isExcludedUnder(path, folder)` is the per-node check used by `buildTree`/`buildFlatList`/`buildRepoView`. `isExcludedByOwner` / `filterByOwner` handle the flat lenses (group-by-author/commit, search) that have no node context.
+- Both are pure/unit-tested; the provider holds only wiring + a compiled-glob cache invalidated on config change. `when`-clause (sibling) excludes are unsupported.
+
 ## Path Handling
 
 - Git uses forward slashes; Windows uses backslashes. We try to stick to normalized paths `/`.

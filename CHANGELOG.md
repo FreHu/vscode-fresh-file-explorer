@@ -1,5 +1,28 @@
 # Change Log
 
+## [1.12.0]
+
+### Respect `files.exclude`
+
+- The tree now hides files matching each workspace folder's `files.exclude` setting, mirroring the VS Code Explorer. **On by default**. Turn it off with `freshFileExplorer.respectFilesExclude`.
+- Matching mirrors VS Code's own glob engine (`*`, `?`, `**`, `{a,b}`, `[a-z]`). Sibling (`when`-clause) excludes are not yet supported.
+
+### Respect `.mailmap`
+
+### Time windows
+- Time windows everywhere now accept duration tokens including sub-day (e.g. `6h, 2w, 1mo`). The defaults have been refined (your set windows are untouched by this).
+
+### Diff Search (pickaxe)
+
+- **Include merge commits** toggle
+- String search now uses `-G` so same-line edits surface (previously `-S`, which only counts occurrence changes).
+- Git regex errors are surfaced in the panel instead of being swallowed as "No matches".
+- Results-side **added/removed filter** to narrow the result set.
+- **Copy actions** on result items.
+- **Expand All** on repo and commit nodes.
+- Hardening against git config and UI noise.
+- 
+
 ## [1.11.0]
 - Branch Compare now has its own left-click toggle (Open Changes / Open File), independent of Fresh Files and defaulting to diffs. The left-click toggle buttons now alternate their icons (file ↔ diff) to reflect the current mode.
 - "Open All Changes" (Branch Compare) now opens a single multi-diff editor instead of one tab per file 

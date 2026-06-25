@@ -287,4 +287,22 @@ export class ConfigService {
     return vscode.workspace.getConfiguration("workbench.editor").get<boolean>("revealIfOpen", false);
   }
 
+  /**
+   * Whether the tree should hide files matching each workspace folder's
+   * `files.exclude` setting (mirrors the VS Code Explorer). Default on.
+   */
+  static getRespectFilesExclude(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.RESPECT_FILES_EXCLUDE, true);
+  }
+
+  /**
+   * VS Code's own `files.exclude` expression, resolved at the given folder's
+   * scope (so per-folder `.vscode/settings.json` overrides are honored). Read
+   * here rather than in the provider so all config access stays behind the
+   * facade. Returns the raw `{ [glob]: boolean | { when } }` map.
+   */
+  static getFilesExcludeExpression(folderUri: vscode.Uri): Record<string, unknown> {
+    return vscode.workspace.getConfiguration("files", folderUri).get<Record<string, unknown>>("exclude", {});
+  }
+
 }

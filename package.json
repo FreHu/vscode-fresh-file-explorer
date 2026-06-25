@@ -16,7 +16,7 @@
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer/issues"
   },
   "qna": false,
-  "version": "1.11.0",
+  "version": "1.12.0",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
@@ -1686,6 +1686,11 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically reveal and select the active editor's file in the Fresh Files tree when switching tabs."
+        },
+        "freshFileExplorer.respectFilesExclude": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide files matching each workspace folder's `files.exclude` setting, mirroring the VS Code Explorer. Per-folder settings are honored, so a folder added as its own workspace root can exclude its subprojects. Sibling (`when`-clause) excludes are not supported. Turn off to show every changed file regardless of `files.exclude`."
         },
         "freshFileExplorer.notifyOn": {
           "type": "string",

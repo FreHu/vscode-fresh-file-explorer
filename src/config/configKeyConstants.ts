@@ -64,4 +64,7 @@ export const ConfigKeys = {
 
   // Smallest version bump worth an update notification (patch | minor | major)
   NOTIFY_ON: "freshFileExplorer.notifyOn",
+
+  // Hide files matching each workspace folder's `files.exclude` setting
+  RESPECT_FILES_EXCLUDE: "freshFileExplorer.respectFilesExclude",
 } as const;

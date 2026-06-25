@@ -35,6 +35,7 @@ import { findWorkspaceFolderForPath, findRepoForFile, getRelativeDepth } from ".
 import { FreshFileItemSorter } from "./freshFileItemSorter";
 import { ContextManager } from "../extension/contextManager";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { FilesExcludeFilter, findOwningFolder } from "./filesExcludeFilter";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -77,6 +78,20 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // Map of absolute file path to file metadata
   private _freshFiles: Map<AbsolutePath, FileMetadata> = new Map();
   get freshFiles(): Map<AbsolutePath, FileMetadata> { return this._freshFiles; }
+
+  /**
+   * `_freshFiles` with files.exclude applied by each file's *owning* folder —
+   * used only by the flat lenses (group-by-author/commit, search) that have no
+   * folder-node context. The File Structure / Flat List trees instead evaluate
+   * files.exclude per node at render time. Same reference as `_freshFiles` when
+   * the feature is off or nothing is excluded. Recomputed in `_setFreshFiles`.
+   */
+  private _displayFreshFiles: Map<AbsolutePath, FileMetadata> = new Map();
+  /** Applies each folder's `files.exclude` to produce `_displayFreshFiles`. */
+  private filesExcludeFilter = new FilesExcludeFilter(
+    () => ConfigService.getRespectFilesExclude(),
+    (folderPath) => ConfigService.getFilesExcludeExpression(vscode.Uri.file(folderPath)),
+  );
 
   // Path index + per-render dir-stats cache.
   private fileIndex = new FileIndex();
@@ -244,6 +259,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       WorkspaceStateManager.clearSortOrder();
       this.sortOrder = ConfigService.getDefaultSortOrder();
     }
+    // Toggling files.exclude support changes the display view, not the data —
+    // rebuild the exclude-filtered map + index from cache before the treeOnly
+    // refresh below re-renders.
+    if (e.affectsConfiguration(ConfigKeys.RESPECT_FILES_EXCLUDE)) {
+      this.filesExcludeFilter.invalidate();
+      this._setFreshFiles(this._freshFiles);
+    }
 
     this.timeWindows = this.loadTimeWindows();
     // If the current window was removed from the configured list, fall back to another one.
@@ -302,6 +324,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       BRANCH_COMPARE_WORKING_TREE_SIDE: "none",
       BULK_ACTION_CONFIRM_THRESHOLD:    "none",
       NOTIFY_ON:                       "none",
+
+      // Display-only — recompute the exclude-filtered view; handled below before
+      // the treeOnly refresh fires (so the matcher cache and display map rebuild).
+      RESPECT_FILES_EXCLUDE:           "treeOnly",
     };
 
     let action: RefreshAction = "none";
@@ -636,12 +662,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   /** Get list of unique authors from current files */
   getAvailableAuthors(): AuthorData[] {
-    return aggregateAuthors(this.freshFiles);
+    return aggregateAuthors(this._displayFreshFiles);
   }
 
   /** Get list of unique commits from current files */
   getAvailableCommits(): CommitDataWithFileCount[] {
-    return aggregateCommits(this.freshFiles, this.workspaceFolders);
+    return aggregateCommits(this._displayFreshFiles, this.workspaceFolders);
   }
 
   /** Get per-commit file-change stats for a given repo, from the historical cache. */
@@ -657,7 +683,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   /** Get all visible file paths (excluding deleted files) for search operations */
   getVisibleFilePaths(): AbsolutePath[] {
     const files: AbsolutePath[] = [];
-    for (const [filePath, metadata] of this.freshFiles.entries()) {
+    for (const [filePath, metadata] of this._displayFreshFiles.entries()) {
       if (this.isFileVisible(metadata)) {
         files.push(filePath);
       }
@@ -668,7 +694,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   /** Get all visible files with their metadata (excluding deleted files) */
   getVisibleFilesWithMetadata(): Map<AbsolutePath, FileMetadata> {
     const files = new Map<AbsolutePath, FileMetadata>();
-    for (const [filePath, metadata] of this.freshFiles.entries()) {
+    for (const [filePath, metadata] of this._displayFreshFiles.entries()) {
       if (this.isFileVisible(metadata)) {
         files.set(filePath, metadata);
       }
@@ -915,7 +941,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     if (this.groupingMode !== "File Structure" && this.groupingMode !== "Flat List") {
       return GroupingViewBuilder.buildForGroupingMode(
         this.groupingMode,
-        this.freshFiles,
+        this._displayFreshFiles,
         (metadata) => this.filterManager.passesFilters(metadata),
         this.sortOrder,
         this.openChangesMode,
@@ -923,18 +949,26 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       );
     }
 
+    // Read once: when off, the per-file exclude check below is skipped entirely.
+    const excludeOn = this.filesExcludeFilter.enabled;
+
     // Default: group by file structure
     for (const { folder, repoRelPath, repoFullPath, normalizedRepoPath } of this.resolvedRepos) {
       const repoName = repoRelPath || folder.name;
       const activeFolderScope = this.repoScope.getFolderScope(normalizedRepoPath);
 
-      const filesInRepo = Array.from(this.freshFiles.keys()).filter(filePath => {
+      const filesInRepo = Array.from(this._freshFiles.keys()).filter(filePath => {
         const normalized = normalizePath(filePath);
         // File must be in this repo
         if (normalized !== normalizedRepoPath && !normalized.startsWith(normalizedRepoPath + "/")) {
           return false;
         }
         if (activeFolderScope && !normalized.startsWith(activeFolderScope + "/") && normalized !== activeFolderScope) {
+          return false;
+        }
+        // Hidden under this node by its folder's files.exclude — keep the count
+        // in step with what buildTree/buildFlatList render under this node.
+        if (excludeOn && this.filesExcludeFilter.isExcludedUnder(filePath, folder)) {
           return false;
         }
         return true;
@@ -1341,7 +1375,24 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    */
   private _setFreshFiles(map: Map<AbsolutePath, FileMetadata>): void {
     this._freshFiles = map;
+    // The flat lenses (group-by-author/commit, search) have no folder-node
+    // context, so they get an owner-filtered view. The File Structure / Flat
+    // List trees evaluate files.exclude PER NODE at render time (see buildTree /
+    // buildFlatList / buildRepoView) — a file can be hidden under one root yet
+    // shown under another — so their index is built from the raw map.
+    this._displayFreshFiles = this.filesExcludeFilter.filterByOwner(map, this.workspaceFolders);
     this.fileIndex.rebuild(map);
+  }
+
+  /**
+   * React to a `files.exclude` or respect-toggle change: drop compiled matchers,
+   * recompute the display view + tree index from the unchanged raw data, and
+   * re-render. No git I/O — this is a `refreshTreeOnly`-class operation.
+   */
+  applyFilesExcludeChange(): void {
+    this.filesExcludeFilter.invalidate();
+    this._setFreshFiles(this._freshFiles);
+    this.refreshTreeOnly();
   }
 
   getCacheStats(): CacheRepoStats[] {
@@ -1349,10 +1400,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   private _dirStats() {
+    const excludeOn = this.filesExcludeFilter.enabled;
     return this.fileIndex.ensureDirStats(
       this._freshFiles,
       (m) => this.filterManager.passesFilters(m),
-      (p) => this.passesRepoScope(p),
+      (p) => this.passesRepoScope(p) && !(excludeOn && this.filesExcludeFilter.isExcludedByOwner(p, this.workspaceFolders)),
       ConfigService.getDescriptionFormat().showLineChanges,
     );
   }
@@ -1373,10 +1425,22 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     // Build the dir stats cache once (shared across all buildTree calls this render pass).
     const descriptionFormat = ConfigService.getDescriptionFormat();
+    // files.exclude is evaluated relative to the workspace folder of THIS node,
+    // so excluding `backend` at a root prunes the whole `backend/` subtree here
+    // (and stops descent into it) while a backend-rooted node still shows it.
+    // Must be the MOST-SPECIFIC owning folder: with overlapping roots, a generic
+    // first-match would resolve the backend node to the root and wrongly apply
+    // the root's excludes to it. `excludeOn` is read once so that, when the
+    // feature is off, every per-file/per-dir check below short-circuits — no work.
+    const excludeOn = this.filesExcludeFilter.enabled;
+    const nodeFolder = excludeOn
+      ? findOwningFolder(normalizePath(normalizedParent), this.workspaceFolders)
+      : undefined;
+
     const dirStats = this.fileIndex.ensureDirStats(
       this._freshFiles,
       (m) => this.filterManager.passesFilters(m),
-      (p) => this.passesRepoScope(p),
+      (p) => this.passesRepoScope(p) && !(excludeOn && this.filesExcludeFilter.isExcludedByOwner(p, this.workspaceFolders)),
       descriptionFormat.showLineChanges,
     );
     const autoExpandDepth = ConfigService.getAutoExpandDepth();
@@ -1384,6 +1448,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const items: (FreshFileItem | SubmoduleEntryItem)[] = [];
 
     for (const childPath of directChildren) {
+      if (nodeFolder && this.filesExcludeFilter.isExcludedUnder(childPath, nodeFolder)) { continue; }
       const isFile = this._freshFiles.has(childPath);
       const name = childPath.substring(normalizedParent.length + 1);
       const fullPath = path.join(parentPath, name);
@@ -1459,6 +1524,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const normalizedRepoPath = asAbsolutePath(normalizePath(repoFsPath));
     const descriptionFormat = ConfigService.getDescriptionFormat();
     const items: FreshFileItem[] = [];
+    // Evaluate files.exclude relative to this node's workspace folder (per-node,
+    // most-specific owner — see buildTree for why first-match is wrong here).
+    // Undefined when the feature is off → the per-file check below is skipped.
+    const nodeFolder = this.filesExcludeFilter.enabled
+      ? findOwningFolder(normalizePath(normalizedRepoPath), this.workspaceFolders)
+      : undefined;
 
     for (const [filePath, metadata] of this._freshFiles) {
       if (!filePath.startsWith(normalizedRepoPath + "/") && filePath !== normalizedRepoPath) {
@@ -1466,6 +1537,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
       if (!this.filterManager.passesFilters(metadata)) { continue; }
       if (!this.passesRepoScope(filePath)) { continue; }
+      if (nodeFolder && this.filesExcludeFilter.isExcludedUnder(filePath, nodeFolder)) { continue; }
 
       const uri = vscode.Uri.file(filePath);
       const item = FreshFileItem.forFile(

@@ -14,7 +14,11 @@ import { readFileSync } from "node:fs";
 
 /** file path (repo-relative, POSIX) -> max allowed line count */
 const CEILINGS = {
-  "src/fresh-files/freshFileProvider.ts": 1547,
+  // Bumped for files.exclude support: the pure matching/filtering logic lives in
+  // filesExcludeMatcher.ts + filesExcludeFilter.ts (both unit-tested); only the
+  // irreducible coordinator wiring (display-map setter hook, config dispatch)
+  // landed here.
+  "src/fresh-files/freshFileProvider.ts": 1618,
   "src/git/gitOperations.ts": 1316,
   "src/heatmap/blameHeatmapController.ts": 1169,
 };

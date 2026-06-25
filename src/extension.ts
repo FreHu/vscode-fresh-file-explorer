@@ -201,9 +201,16 @@ export async function activate(context: vscode.ExtensionContext) {
   // Listen for configuration changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async e => {
+      // VS Code's own files.exclude lives outside our namespace — when it
+      // changes, recompute the exclude-filtered tree (display-only, no git).
+      // No-op when the feature is off, so it stays inert for users who don't use it.
+      if (e.affectsConfiguration("files.exclude") && ConfigService.getRespectFilesExclude()) {
+        freshFileProvider.applyFilesExcludeChange();
+      }
+
       if (e.affectsConfiguration("freshFileExplorer")) {
         freshFileProvider.onConfigurationChanged(e);
-        
+
         // If heatmap setting changed, refresh decorations
         if (e.affectsConfiguration("freshFileExplorer.heatmap.enabled")) {
           heatmapProvider.fireDidChange();
