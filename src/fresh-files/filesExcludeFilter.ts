@@ -52,7 +52,12 @@ export class FilesExcludeFilter {
   private matchers = new Map<string, ExcludePredicate>();
 
   constructor(
-    /** Whether the feature is enabled (reads the respect-files-exclude setting). */
+    /**
+     * Whether the feature is enabled (reads the respect-files-exclude setting).
+     * Called once per file during a render, so the supplied reader must be cheap
+     * — the production wiring goes through `ConfigService`, which caches the
+     * config snapshot, so no per-call cache is needed here.
+     */
     private readonly isEnabled: () => boolean,
     /** The raw `files.exclude` expression resolved at a folder's scope. */
     private readonly expressionFor: (folderPath: string) => Record<string, unknown>,
@@ -73,7 +78,7 @@ export class FilesExcludeFilter {
    * (and never errors) when the feature is off or the path isn't under `folder`.
    */
   isExcludedUnder(absPath: string, folder: FolderPath): boolean {
-    if (!this.isEnabled()) {
+    if (!this.enabled) {
       return false;
     }
     const folderPath = toForwardSlash(folder.path);
@@ -90,7 +95,7 @@ export class FilesExcludeFilter {
    * the flat lenses (group-by-author/commit, search) that have no node context.
    */
   isExcludedByOwner(absPath: string, folders: readonly FolderPath[]): boolean {
-    if (!this.isEnabled()) {
+    if (!this.enabled) {
       return false;
     }
     const owner = findOwningFolder(toForwardSlash(absPath), folders);
@@ -102,7 +107,7 @@ export class FilesExcludeFilter {
    * when the feature is off or nothing is excluded (the common case is free).
    */
   filterByOwner<K extends string, V>(map: Map<K, V>, folders: readonly FolderPath[]): Map<K, V> {
-    if (!this.isEnabled()) {
+    if (!this.enabled) {
       return map;
     }
     let filtered: Map<K, V> | undefined;

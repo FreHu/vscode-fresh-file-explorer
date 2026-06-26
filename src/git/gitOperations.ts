@@ -411,6 +411,15 @@ export async function collectPendingChanges(
     const statusCode = line.substring(0, 2);
     let filePath = decodeGitPath(line.substring(3));
 
+    // An untracked entry with a trailing slash is a *directory* git refused to descend into.
+    // With `-uall`, ordinary untracked dirs are expanded to their individual files, so a surviving
+    // trailing-slash entry is always a git boundary: a submodule, a nested repo, or a nested
+    // worktree (e.g. `git worktree add ./feature` inside the repo). These are not files — rendering
+    // them produces phantom entries like a "feate2" file under a "feate2" folder. Skip them.
+    if (statusCode === "??" && filePath.endsWith("/")) {
+      continue;
+    }
+
     // Handle renamed files: "R  old -> new"
     // Track the old path for removal so it doesn't linger in the tree from historical data.
     // Also store the old repo-relative path so discard can properly undo the rename.

@@ -87,6 +87,12 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 
 - All settings access goes through [ConfigService](src/config/configService.ts). Never read `vscode.workspace.getConfiguration` directly elsewhere — a `no-restricted-syntax` ESLint rule enforces this (configService.ts and tests excepted).
 
+### `ConfigService` reads are expensive — never call them per-item in a hot loop
+
+Every `ConfigService.getX()` calls `vscode.workspace.getConfiguration().get(...)`, and `getConfiguration()` builds a fresh configuration snapshot each time. A single call is cheap; **thousands are not**.
+
+`ConfigService` mitigates this centrally: it caches the default-scope `getConfiguration()` snapshot (`ConfigService.cfg()`) and rebuilds it only on `onDidChangeConfiguration`, so `getX()` reads are now plain lookups and consumers do **not** need their own per-value caches. Section/resource-scoped reads (`getConfiguration("files", uri)`) bypass the cache and are still relatively costly — keep those out of per-file loops. Never add a second caching layer on top of `ConfigService`.
+
 ## Commands
 
 - `commandConstants.ts` - contains available command names

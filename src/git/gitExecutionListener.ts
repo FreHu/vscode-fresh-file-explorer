@@ -260,6 +260,20 @@ export async function setupGitExtensionListener(
       }, 500);
     };
 
+    // Re-run repository discovery when a brand-new repo is opened (e.g. `git worktree add`).
+    // Debounced so creating several worktrees at once (or the initial open burst) collapses into a single re-discovery.
+    let rediscoverTimeout: NodeJS.Timeout | undefined;
+    const scheduleRediscover = () => {
+      if (rediscoverTimeout) {
+        clearTimeout(rediscoverTimeout);
+      }
+      rediscoverTimeout = setTimeout(() => {
+        rediscoverTimeout = undefined;
+        log("New git repository/worktree detected — re-running discovery");
+        freshFileProvider.hardRefresh();
+      }, 500);
+    };
+
     // Listen for git API state changes (extension init/deinit).
     // We intentionally do NOT force here — the initial git extension activation fires
     // this event before any repo state is populated, which would cancel the in-flight
@@ -279,11 +293,37 @@ export async function setupGitExtensionListener(
     // Listen for new repositories being opened
     context.subscriptions.push(
       api.onDidOpenRepository((repo: InternalRepository) => {
+        const key = normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath;
         // Snapshot the new repo immediately so first change can be compared
-        repoSnapshots.set(normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath, takeSnapshot(repo));
+        repoSnapshots.set(key, takeSnapshot(repo));
         context.subscriptions.push(
           repo.state.onDidChange(() => scheduleRefresh()),
         );
+
+        // If FFE has already finished its initial discovery and this is a repo within the
+        // workspace that we don't yet track, it's newly created (most often a worktree) — re-run
+        // discovery so it shows up without a manual refresh. The areReposReady gate skips the
+        // startup burst (those repos are picked up by the initial discovery anyway), and
+        // knowsRepoPath avoids a redundant hard refresh for repos we already have.
+        if (
+          freshFileProvider.areReposReady &&
+          freshFileProvider.isWithinWorkspace(key) &&
+          !freshFileProvider.knowsRepoPath(key)
+        ) {
+          scheduleRediscover();
+        }
+      }),
+    );
+
+    // Listen for repositories being closed (e.g. `git worktree remove`). Drop the snapshot and,
+    // if FFE currently tracks it, re-run discovery so the stale repo leaves the tree.
+    context.subscriptions.push(
+      api.onDidCloseRepository((repo: InternalRepository) => {
+        const key = normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath;
+        repoSnapshots.delete(key);
+        if (freshFileProvider.areReposReady && freshFileProvider.knowsRepoPath(key)) {
+          scheduleRediscover();
+        }
       }),
     );
 
@@ -300,6 +340,7 @@ interface GitExtension {
 interface InternalGitAPI {
   onDidChangeState: vscode.Event<void>;
   onDidOpenRepository: vscode.Event<InternalRepository>;
+  onDidCloseRepository: vscode.Event<InternalRepository>;
   repositories: InternalRepository[];
 }
 

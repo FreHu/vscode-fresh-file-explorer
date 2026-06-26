@@ -693,6 +693,28 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return this.workspaceFolders.some(folder => folder.gitRepos.length > 0);
   }
 
+  /**
+   * True if `normalizedRepoPath` is already in FFE's discovered set (a scannable repo or a
+   * known uninitialized submodule). The git-extension listener uses this to tell a genuinely
+   * new repository (e.g. a freshly created worktree) apart from one we already track.
+   */
+  knowsRepoPath(normalizedRepoPath: NormalizedRepoPath): boolean {
+    return this._resolvedRepos.some(r => r.normalizedRepoPath === normalizedRepoPath)
+      || this._uninitializedSubmodules.some(r => r.normalizedRepoPath === normalizedRepoPath);
+  }
+
+  /**
+   * True if `normalizedAbsPath` lies within one of the workspace folders FFE scans. A repository
+   * VS Code opens outside the workspace can never be picked up by discovery, so the listener
+   * should ignore it rather than trigger a pointless hard refresh.
+   */
+  isWithinWorkspace(normalizedAbsPath: string): boolean {
+    return this.workspaceFolders.some(folder => {
+      const root = normalizePath(folder.path);
+      return normalizedAbsPath === root || normalizedAbsPath.startsWith(root + "/");
+    });
+  }
+
   /** Ensure data is loaded, triggering a load if necessary. Returns true if data is available. */
   async ensureDataLoaded(): Promise<boolean> {
     // Initialize workspace folders if not done
@@ -938,29 +960,35 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Read once: when off, the per-file exclude check below is skipped entirely.
     const excludeOn = this.filesExcludeFilter.enabled;
 
+    // Per-repo file counts in a SINGLE pass over the file map. Each file is attributed to
+    // its most-specific owning repo; repo roots don't overlap in practice
+    // (sibling worktrees / submodules live in separate paths)
+    const reposBySpecificity = [...this.resolvedRepos].sort(
+      (a, b) => b.normalizedRepoPath.length - a.normalizedRepoPath.length,
+    );
+    const repoFileCounts = new Map<string, number>();
+    for (const filePath of this._freshFiles.keys()) {
+      const p = filePath as string;
+      for (const repo of reposBySpecificity) {
+        const rp = repo.normalizedRepoPath as string;
+        if (p !== rp && !p.startsWith(rp + "/")) { continue; }
+        // Owning repo found — count it unless out of folder scope or hidden by
+        // this folder's files.exclude (keeps the count in step with buildTree).
+        const scope = this.repoScope.getFolderScope(repo.normalizedRepoPath);
+        const inScope = !scope || p === scope || p.startsWith(scope + "/");
+        if (inScope && !(excludeOn && this.filesExcludeFilter.isExcludedUnder(filePath, repo.folder))) {
+          repoFileCounts.set(rp, (repoFileCounts.get(rp) ?? 0) + 1);
+        }
+        break; // most-specific owner; don't double-count under a parent repo
+      }
+    }
+
     // Default: group by file structure
     for (const { folder, repoRelPath, repoFullPath, normalizedRepoPath } of this.resolvedRepos) {
       const repoName = repoRelPath || folder.name;
       const activeFolderScope = this.repoScope.getFolderScope(normalizedRepoPath);
 
-      const filesInRepo = Array.from(this._freshFiles.keys()).filter(filePath => {
-        const normalized = normalizePath(filePath);
-        // File must be in this repo
-        if (normalized !== normalizedRepoPath && !normalized.startsWith(normalizedRepoPath + "/")) {
-          return false;
-        }
-        if (activeFolderScope && !normalized.startsWith(activeFolderScope + "/") && normalized !== activeFolderScope) {
-          return false;
-        }
-        // Hidden under this node by its folder's files.exclude — keep the count
-        // in step with what buildTree/buildFlatList render under this node.
-        if (excludeOn && this.filesExcludeFilter.isExcludedUnder(filePath, folder)) {
-          return false;
-        }
-        return true;
-      });
-
-      const fileCount = filesInRepo.length;
+      const fileCount = repoFileCounts.get(normalizedRepoPath as string) ?? 0;
 
       const repoUri = vscode.Uri.file(repoFullPath);
       const branchName = this.repoBranches.get(normalizedRepoPath);
@@ -1351,7 +1379,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
       if (partial.size > 0) {
         this._setFreshFiles(merged);
-        this._onDidChangeTreeData.fire();
+        this.fireRepoScoped(normalizedRepoPath);
         log(`Incremental update for ${normalizedRepoPath}: ${partial.size} file(s) at ≤${days}d`);
       } else log(`Incremental update skipped (no changes at ≤${days}d)`);
 
@@ -1365,6 +1393,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         maxDays,
         newFiles,
         newHistoricalFiles,
+        histDays,
         this.repoScope.getPathspec(normalizedRepoPath),
         thresholds,
         onThresholdCrossed,
@@ -1399,6 +1428,26 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * Replace freshFiles, rebuild the path index, and invalidate the stats cache.
    * All internal assignments to freshFiles must go through here.
    */
+  
+  /**
+   * Fire a tree-data change scoped to one repo's subtree when that repo's root
+   * item is in the cache, else fall back to a full-tree refresh.
+   *
+   * Incremental historical loading fires a threshold update per time-window per
+   * repo. A bare `fire()` invalidates the WHOLE tree, so VS Code re-renders
+   * every *other* repo's expanded subtree too — turning a load of N small repos
+   * into O(N²) re-render work (each repo's update re-renders all repos loaded so
+   * far). With many sibling worktrees of one repo this dominates: standalone
+   * `git status` stays ~35ms but per-repo load time climbs linearly. Scoping the
+   * update to the repo that actually changed keeps each one O(1) in repo count.
+   * The repo's file-count label is refreshed by the full `fire()` at pending /
+   * historical completion, so a briefly-stale count mid-load is acceptable.
+   */
+  private fireRepoScoped(normalizedRepoPath: NormalizedRepoPath): void {
+    const repoItem = this._repoItemCache.get("repo:" + vscode.Uri.file(normalizedRepoPath).fsPath);
+    this._onDidChangeTreeData.fire(repoItem);
+  }
+
   private _setFreshFiles(map: Map<AbsolutePath, FileMetadata>): void {
     this._freshFiles = map;
     // The flat lenses (group-by-author/commit, search) have no folder-node

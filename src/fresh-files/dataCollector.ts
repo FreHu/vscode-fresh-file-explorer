@@ -136,6 +136,7 @@ export class DataCollector {
     maxDays: number,
     targetMap: Map<AbsolutePath, FileMetadata>,
     historicalTargetMap: Map<AbsolutePath, FileMetadata>,
+    histDays: number,
     pathspec?: string,
     thresholds?: number[],
     onThresholdCrossed?: (days: number, partial: Map<AbsolutePath, FileMetadata>) => void,
@@ -166,8 +167,12 @@ export class DataCollector {
         wrappedOnThreshold,
         commitStatsMap,
       );
+      // Cache map gets the full maxDays window (instant time-window switches).
       DataCollector.addFilesToMap(folder, historicalFiles, historicalTargetMap);
-      DataCollector.addFilesToMap(folder, historicalFiles, targetMap);
+      // Display map gets only the currently-selected window — 
+      // otherwise newFiles accumulates every repo's full maxDays history, ballooning the tree the provider renders
+      const displayCutoff = histDays < maxDays ? new Date(Date.now() - histDays * 24 * 60 * 60 * 1000) : undefined;
+      DataCollector.addFilesToMap(folder, historicalFiles, targetMap, displayCutoff);
 
       // Build the per-repo AbsolutePath-keyed map for caching.
       const fullData = new Map<AbsolutePath, FileMetadata>();
@@ -236,8 +241,14 @@ export class DataCollector {
     folder: WorkspaceFolderInfo,
     files: Map<string, FileMetadata>,
     targetMap: Map<AbsolutePath, FileMetadata>,
+    minDate?: Date,
   ): void {
     for (const [filePath, metadata] of files) {
+      // When a cutoff is given, keep only files within the display window. The
+      // wide (maxDays) set still flows to the cache map and fullData unfiltered.
+      if (minDate && metadata.date && metadata.date < minDate) {
+        continue;
+      }
       const absolutePath = asAbsolutePath(normalizePath(path.join(folder.path, filePath)));
       if (!targetMap.has(absolutePath)) {
         targetMap.set(absolutePath, metadata);

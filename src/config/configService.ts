@@ -41,17 +41,42 @@ function resolvePalette(prefix: "age" | "added"): string[] {
  * Centralized configuration service for Fresh File Explorer settings
  */
 export class ConfigService {
+  
+  /**
+   * Cached default-scope configuration snapshot.
+   *
+   * `vscode.workspace.getConfiguration()` builds a merged snapshot on every
+   * call — cheap once, but can turn ugly in hot paths, so we hold one snapshot and rebuild it only when
+   * configuration actually changes. Only the default (no-arg) scope is cached; section- or
+   * resource-scoped reads (`getConfiguration("files", uri)`) stay direct.
+   *
+   * Invalidation is driven by the central `onDidChangeConfiguration` handler in extension.ts
+   */
+  private static _cfg: vscode.WorkspaceConfiguration | undefined;
+
+  /** Drop the cached config snapshot. */
+  static invalidate(): void {
+    ConfigService._cfg = undefined;
+  }
+
+  private static cfg(): vscode.WorkspaceConfiguration {
+    if (!ConfigService._cfg) {
+      ConfigService._cfg = vscode.workspace.getConfiguration();
+    }
+    return ConfigService._cfg;
+  }
+
   /**
    * Get the description format configuration
    */
   static getDescriptionFormat(): DescriptionFormat {
     return {
-      showDate: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_DATE, DEFAULT_DESCRIPTION_FORMAT.showDate),
-      showAuthor: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_AUTHOR, DEFAULT_DESCRIPTION_FORMAT.showAuthor),
-      showCommitHash: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_COMMIT_HASH, DEFAULT_DESCRIPTION_FORMAT.showCommitHash),
-      showCommitMessage: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_COMMIT_MESSAGE, DEFAULT_DESCRIPTION_FORMAT.showCommitMessage),
-      showStatus: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_STATUS, DEFAULT_DESCRIPTION_FORMAT.showStatus),
-      showLineChanges: vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_LINE_CHANGES, DEFAULT_DESCRIPTION_FORMAT.showLineChanges),
+      showDate: ConfigService.cfg().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_DATE, DEFAULT_DESCRIPTION_FORMAT.showDate),
+      showAuthor: ConfigService.cfg().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_AUTHOR, DEFAULT_DESCRIPTION_FORMAT.showAuthor),
+      showCommitHash: ConfigService.cfg().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_COMMIT_HASH, DEFAULT_DESCRIPTION_FORMAT.showCommitHash),
+      showCommitMessage: ConfigService.cfg().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_COMMIT_MESSAGE, DEFAULT_DESCRIPTION_FORMAT.showCommitMessage),
+      showStatus: ConfigService.cfg().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_STATUS, DEFAULT_DESCRIPTION_FORMAT.showStatus),
+      showLineChanges: ConfigService.cfg().get<boolean>(ConfigKeys.DESCRIPTION_SHOW_LINE_CHANGES, DEFAULT_DESCRIPTION_FORMAT.showLineChanges),
     };
   }
 
@@ -59,14 +84,14 @@ export class ConfigService {
    * Get the auto-expand depth setting
    */
   static getAutoExpandDepth(): number {
-    return vscode.workspace.getConfiguration().get<number>(ConfigKeys.AUTO_EXPAND_DEPTH, 2);
+    return ConfigService.cfg().get<number>(ConfigKeys.AUTO_EXPAND_DEPTH, 2);
   }
 
   /**
    * Get the git timeout in milliseconds
    */
   static getGitTimeoutMs(): number {
-    const timeoutSeconds = vscode.workspace.getConfiguration().get<number>(ConfigKeys.GIT_TIMEOUT, 30);
+    const timeoutSeconds = ConfigService.cfg().get<number>(ConfigKeys.GIT_TIMEOUT, 30);
     return timeoutSeconds * 1000; // Convert to milliseconds
   }
 
@@ -83,55 +108,53 @@ export class ConfigService {
    * Parsing/sorting is handled by buildTimeWindows.
    */
   static getTimeWindows(): TimeWindowValue[] {
-    return vscode.workspace
-      .getConfiguration()
-      .get<TimeWindowValue[]>(ConfigKeys.TIME_WINDOWS, DEFAULT_TIME_WINDOWS);
+    return ConfigService.cfg().get<TimeWindowValue[]>(ConfigKeys.TIME_WINDOWS, DEFAULT_TIME_WINDOWS);
   }
 
   /**
    * Get whether to show current branch sync status
    */
   static getShowCurrentBranchSync(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.SHOW_CURRENT_BRANCH_SYNC, true);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.SHOW_CURRENT_BRANCH_SYNC, true);
   }
 
   /**
    * Get whether to show base branch sync status
    */
   static getShowBaseBranchSync(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.SHOW_BASE_BRANCH_SYNC, true);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.SHOW_BASE_BRANCH_SYNC, true);
   }
 
   /**
    * Get the maximum length for search include patterns
    */
   static getSearchPatternMaxLength(): number {
-    return vscode.workspace.getConfiguration().get<number>(ConfigKeys.SEARCH_PATTERN_MAX_LENGTH, 4000);
+    return ConfigService.cfg().get<number>(ConfigKeys.SEARCH_PATTERN_MAX_LENGTH, 4000);
   }
 
   /**
    * Get whether to open search in editor instead of view
    */
   static getOpenSearchInEditor(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.OPEN_SEARCH_IN_EDITOR, false);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.OPEN_SEARCH_IN_EDITOR, false);
   }
 
   static getCodeTelescopeIntegration(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.CODE_TELESCOPE_INTEGRATION, false);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.CODE_TELESCOPE_INTEGRATION, false);
   }
 
   /**
    * Get whether to progressively update the tree at each time window threshold during history loading
    */
   static getincrementalTreeLoading(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.INCREMENTAL_TREE_LOADING, true);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.INCREMENTAL_TREE_LOADING, true);
   }
 
   /**
    * Get whether heatmap coloring is enabled
    */
   static isHeatmapEnabled(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.HEATMAP_ENABLED, false);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.HEATMAP_ENABLED, false);
   }
 
   /**
@@ -139,7 +162,7 @@ export class ConfigService {
    * switching to a new editor tab.
    */
   static getBlameHeatmapAutoApply(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.BLAME_HEATMAP_AUTO_APPLY, true);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.BLAME_HEATMAP_AUTO_APPLY, true);
   }
 
   static setBlameHeatmapAutoApply(value: boolean): Thenable<void> {
@@ -159,11 +182,11 @@ export class ConfigService {
   }
 
   static getBlameHeatmapBackgroundOpacity(): number {
-    return vscode.workspace.getConfiguration().get<number>(ConfigKeys.BLAME_HEATMAP_BG_OPACITY, 0.15);
+    return ConfigService.cfg().get<number>(ConfigKeys.BLAME_HEATMAP_BG_OPACITY, 0.15);
   }
 
   static getBlameHeatmapMaxLines(): number {
-    return vscode.workspace.getConfiguration().get<number>(ConfigKeys.BLAME_HEATMAP_MAX_LINES, 1500);
+    return ConfigService.cfg().get<number>(ConfigKeys.BLAME_HEATMAP_MAX_LINES, 1500);
   }
 
   static getBlameHeatmapAgeColors(): string[] {
@@ -182,14 +205,14 @@ export class ConfigService {
    * Get whether the tree should automatically reveal the active editor's file
    */
   static getAutoReveal(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.AUTO_REVEAL, false);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.AUTO_REVEAL, false);
   }
 
   /**
    * Get the default grouping mode (used when no workspace state is persisted yet)
    */
   static getDefaultGroupingMode(): GroupingMode {
-    return vscode.workspace.getConfiguration().get<GroupingMode>(
+    return ConfigService.cfg().get<GroupingMode>(
       ConfigKeys.DEFAULT_GROUPING_MODE,
       "File Structure",
     );
@@ -199,7 +222,7 @@ export class ConfigService {
    * Get the default sort order (used when no workspace state is persisted yet)
    */
   static getDefaultSortOrder(): SortOrder {
-    return vscode.workspace.getConfiguration().get<SortOrder>(
+    return ConfigService.cfg().get<SortOrder>(
       ConfigKeys.DEFAULT_SORT_ORDER,
       "name",
     );
@@ -209,7 +232,7 @@ export class ConfigService {
    * Get the default open-changes mode (used when no workspace state is persisted yet)
    */
   static getDefaultOpenChangesMode(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(
+    return ConfigService.cfg().get<boolean>(
       ConfigKeys.DEFAULT_OPEN_CHANGES_MODE,
       false,
     );
@@ -221,7 +244,7 @@ export class ConfigService {
    * "filename": basename is the label; directory path is prepended to the description.
    */
   static getFlatListLabelStyle(): "path" | "filename" {
-    return vscode.workspace.getConfiguration().get<"path" | "filename">(
+    return ConfigService.cfg().get<"path" | "filename">(
       ConfigKeys.FLAT_LIST_LABEL_STYLE,
       "path",
     );
@@ -232,7 +255,7 @@ export class ConfigService {
    * so patch releases stay silent.
    */
   static getUpdateNotifyThreshold(): ChangeLevel {
-    return vscode.workspace.getConfiguration().get<ChangeLevel>(
+    return ConfigService.cfg().get<ChangeLevel>(
       ConfigKeys.NOTIFY_ON,
       "minor",
     );
@@ -242,7 +265,7 @@ export class ConfigService {
    * Get whether to use git mv for renames (auto-stages the rename)
    */
   static getAutoStageRename(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.AUTO_STAGE_RENAME, true);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.AUTO_STAGE_RENAME, true);
   }
 
   /**
@@ -251,7 +274,7 @@ export class ConfigService {
    * convention (baseline left, current right).
    */
   static getBranchCompareWorkingTreeSide(): "left" | "right" {
-    return vscode.workspace.getConfiguration().get<"left" | "right">(
+    return ConfigService.cfg().get<"left" | "right">(
       ConfigKeys.BRANCH_COMPARE_WORKING_TREE_SIDE,
       "right",
     );
@@ -262,7 +285,7 @@ export class ConfigService {
    * Found Files, etc.) prompt for confirmation.
    */
   static getBulkActionConfirmThreshold(): number {
-    return vscode.workspace.getConfiguration().get<number>(
+    return ConfigService.cfg().get<number>(
       ConfigKeys.BULK_ACTION_CONFIRM_THRESHOLD,
       15,
     );
@@ -270,12 +293,12 @@ export class ConfigService {
 
   /** Show the Fresh Files loading-progress status-bar entry. */
   static getStatusBarLoadingEnabled(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.STATUS_BAR_LOADING, true);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.STATUS_BAR_LOADING, true);
   }
 
   /** Show the blame-heatmap status-bar entry. */
   static getStatusBarHeatmapEnabled(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.STATUS_BAR_HEATMAP, true);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.STATUS_BAR_HEATMAP, true);
   }
 
   /**
@@ -292,7 +315,7 @@ export class ConfigService {
    * `files.exclude` setting (mirrors the VS Code Explorer). Default on.
    */
   static getRespectFilesExclude(): boolean {
-    return vscode.workspace.getConfiguration().get<boolean>(ConfigKeys.RESPECT_FILES_EXCLUDE, true);
+    return ConfigService.cfg().get<boolean>(ConfigKeys.RESPECT_FILES_EXCLUDE, true);
   }
 
   /**
@@ -311,7 +334,7 @@ export class ConfigService {
    * Set for case-insensitive exact-match lookup by the co-author detector.
    */
   static getAiCoAuthorEmails(): ReadonlySet<string> {
-    const raw = vscode.workspace.getConfiguration().get<string[]>(ConfigKeys.AI_COAUTHOR_EMAILS, []);
+    const raw = ConfigService.cfg().get<string[]>(ConfigKeys.AI_COAUTHOR_EMAILS, []);
     return new Set(raw.map(e => e.trim().toLowerCase()).filter(e => e.length > 0));
   }
 

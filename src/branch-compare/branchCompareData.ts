@@ -157,7 +157,15 @@ export function parseStatusPorcelainZ(output: string): Array<{
       continue;
     }
     if (xy === "??") {
-      out.push({ status: "U", pathInRepo: decodeGitPath(pathField) });
+      // A trailing slash on an untracked entry means git refused to descend into
+      // a nested git boundary (worktree / submodule / nested repo). With `-uall`
+      // ordinary untracked dirs are already expanded to files, so this is never a
+      // plain directory — drop it so nested worktrees don't appear as phantom
+      // changed files.
+      const p = decodeGitPath(pathField);
+      if (!p.endsWith("/")) {
+        out.push({ status: "U", pathInRepo: p });
+      }
       continue;
     }
 
@@ -249,11 +257,17 @@ export async function fetchMergeConeStats(
   }
 }
 
-/** Run `git status --porcelain=v1 -z` and parse it. */
+/** Run `git status --porcelain=v1 -z -uall` and parse it. */
 export async function fetchWorkingTreeStatus(
   repoFullPath: string,
 ): Promise<Array<{ status: ChangeStatus; pathInRepo: string; renameSource?: string }>> {
-  const args = ["status", "--porcelain=v1", "-z"];
+  // `-uall` expands untracked directories into individual files. Without it an
+  // untracked dir collapses to `dir/` and can't be told apart from a nested git
+  // boundary (worktree/submodule/nested repo), which git also reports as `dir/`.
+  // With it, a surviving trailing-slash `??` entry is unambiguously a boundary
+  // and parseStatusPorcelainZ drops it (see there) — otherwise a worktree nested
+  // in the repo shows up as a phantom changed "file".
+  const args = ["status", "--porcelain=v1", "-z", "-uall"];
   const out = await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   return parseStatusPorcelainZ(out);
 }

@@ -202,6 +202,9 @@ export async function activate(context: vscode.ExtensionContext) {
   // Listen for configuration changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async e => {
+      // Drop ConfigService's cached config snapshot first, so every read below sees post-change values, not the stale snapshot.
+      ConfigService.invalidate();
+
       // VS Code's own files.exclude lives outside our namespace — when it
       // changes, recompute the exclude-filtered tree (display-only, no git).
       // No-op when the feature is off, so it stays inert for users who don't use it.

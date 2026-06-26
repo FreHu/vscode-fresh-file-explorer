@@ -70,6 +70,14 @@ suite("branchCompareData", () => {
       assert.deepStrictEqual(out, [{ status: "U", pathInRepo: "src/new.ts" }]);
     });
 
+    test("drops trailing-slash untracked entry (nested worktree/submodule boundary)", () => {
+      // With -uall, ordinary untracked dirs are expanded to files; a surviving
+      // `dir/` entry is a nested git boundary git refused to descend into and
+      // must not render as a phantom changed file.
+      const out = parseStatusPorcelainZ("?? feature-worktree/\0?? src/real.ts\0");
+      assert.deepStrictEqual(out, [{ status: "U", pathInRepo: "src/real.ts" }]);
+    });
+
     test("parses index modification → M", () => {
       const out = parseStatusPorcelainZ("M  src/foo.ts\0");
       assert.deepStrictEqual(out, [{ status: "M", pathInRepo: "src/foo.ts" }]);

@@ -213,6 +213,23 @@ export type ExcludePredicate = (relativePath: string) => boolean;
 
 const NEVER_EXCLUDES: ExcludePredicate = () => false;
 
+/** Glob metacharacters. A pattern with none of these is a plain literal path. */
+const GLOB_META_REGEX = /[*?{}[\]]/;
+
+/**
+ * If `glob` is a basename-anywhere pattern (`**​/<literal>` with no further glob
+ * metacharacters), return the literal segment; otherwise undefined. These are by
+ * far the most common excludes (`**​/.git`, `**​/node_modules`, …) and reduce to a
+ * cheap "is `<literal>` a path segment" test instead of the regex engine.
+ */
+function basenameGlobLiteral(glob: string): string | undefined {
+  if (!glob.startsWith("**/")) {
+    return undefined;
+  }
+  const rest = glob.slice(3);
+  return rest && !GLOB_META_REGEX.test(rest) && !rest.includes("/") ? rest : undefined;
+}
+
 /**
  * Compile a `files.exclude` expression into a predicate over folder-relative
  * paths. Only entries whose value is exactly `true` are honored; `false` and
@@ -220,6 +237,18 @@ const NEVER_EXCLUDES: ExcludePredicate = () => false;
  *
  * The returned predicate tolerates either slash style and tests the path plus
  * each ancestor directory prefix (see the ANCESTOR RULE in the file header).
+ *
+ * Patterns are classified at compile time so the hot path avoids the regex
+ * engine wherever possible — this matters because the predicate runs once per
+ * file per render over potentially thousands of files:
+ *   - `**​/<literal>` → the literal must appear as a whole path segment.
+ *   - bare `<literal>` (no glob metachars) → the path equals it or descends from
+ *     it (this is exactly the ancestor rule, with no split/loop).
+ *   - anything else → the original regex + ancestor-prefix walk, taken only when
+ *     at least one such pattern exists.
+ * VS Code's own engine ships equivalent "trivia" fast paths; the default
+ * `files.exclude` (`**​/.git`, `**​/.svn`, …) is entirely basename globs, so the
+ * regex branch is never even entered.
  */
 export function compileFilesExclude(
   expression: Record<string, unknown> | undefined,
@@ -228,13 +257,24 @@ export function compileFilesExclude(
     return NEVER_EXCLUDES;
   }
 
-  const regexes: RegExp[] = [];
+  const literals: string[] = []; // bare literal: match self + descendants
+  const basenames: string[] = []; // `**/x`: match x as any whole segment (+ descendants)
+  const regexes: RegExp[] = []; // general glob: regex + ancestor-prefix rule
   for (const [glob, value] of Object.entries(expression)) {
     if (value !== true) {
       continue; // skip disabled (false) and when-clause (object) entries
     }
     const normalized = normalizeExcludeGlob(glob);
     if (!normalized) {
+      continue;
+    }
+    const basename = basenameGlobLiteral(normalized);
+    if (basename) {
+      basenames.push(basename);
+      continue;
+    }
+    if (!GLOB_META_REGEX.test(normalized)) {
+      literals.push(normalized);
       continue;
     }
     try {
@@ -244,27 +284,51 @@ export function compileFilesExclude(
     }
   }
 
-  if (regexes.length === 0) {
+  if (literals.length === 0 && basenames.length === 0 && regexes.length === 0) {
     return NEVER_EXCLUDES;
   }
 
   return (relativePath: string): boolean => {
-    const normalized = relativePath
-      .replace(/\\/g, "/")
-      .replace(/^\/+/, "")
-      .replace(/\/+$/, "");
+    let normalized = relativePath.indexOf("\\") === -1 ? relativePath : relativePath.replace(/\\/g, "/");
+    // Trim leading/trailing slashes without regex (the common case is neither).
+    let start = 0;
+    let end = normalized.length;
+    while (start < end && normalized[start] === "/") { start++; }
+    while (end > start && normalized[end - 1] === "/") { end--; }
+    if (start !== 0 || end !== normalized.length) {
+      normalized = normalized.slice(start, end);
+    }
     if (!normalized) {
       return false;
     }
 
-    // Test the full path and every ancestor directory prefix.
-    const segments = normalized.split("/");
-    let prefix = "";
-    for (let i = 0; i < segments.length; i++) {
-      prefix = i === 0 ? segments[0] : `${prefix}/${segments[i]}`;
-      for (const re of regexes) {
-        if (re.test(prefix)) {
+    // Bare literal: path equals it or descends from it.
+    for (const lit of literals) {
+      if (normalized === lit || normalized.startsWith(lit + "/")) {
+        return true;
+      }
+    }
+
+    // `**/x`: x must appear as a whole path segment.
+    if (basenames.length > 0) {
+      const wrapped = `/${normalized}/`;
+      for (const b of basenames) {
+        if (wrapped.includes(`/${b}/`)) {
           return true;
+        }
+      }
+    }
+
+    // General globs: test the full path and every ancestor directory prefix.
+    if (regexes.length > 0) {
+      const segments = normalized.split("/");
+      let prefix = "";
+      for (let i = 0; i < segments.length; i++) {
+        prefix = i === 0 ? segments[0] : `${prefix}/${segments[i]}`;
+        for (const re of regexes) {
+          if (re.test(prefix)) {
+            return true;
+          }
         }
       }
     }
