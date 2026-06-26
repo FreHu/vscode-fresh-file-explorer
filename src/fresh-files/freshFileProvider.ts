@@ -1144,8 +1144,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
 
     // --- Phase 1: Discover repositories ---
-    const discoveredRepos = await DataCollector.discoverAllRepos(this.workspaceFolders);
+    const { repos: discoveredRepos, brokenWorktrees } = await DataCollector.discoverAllRepos(this.workspaceFolders);
     assertNotCancelled();
+
+    // Surface broken worktrees (gitdir link stale, e.g. after a move). These silently failed to
+    // load as repos; without a nudge the user just sees a too-short repo list. Fire-and-forget so
+    // the tree still renders immediately.
+    void this.notifyBrokenWorktrees(brokenWorktrees);
 
     // Apply discovered repos only after confirming we're not cancelled,
     // so state is never mutated by a stale load.
@@ -1177,6 +1182,41 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.reposDiscovered = true;
     this._onReposReady.fire();
     this._onDidChangeTreeData.fire(); // Show repo list with per-repo loading indicators
+  }
+
+  /** Worktree paths already surfaced to the user, so manual refreshes don't re-toast the same breakage. */
+  private readonly notifiedBrokenWorktrees = new Set<string>();
+
+  /**
+   * Warn (once per path) when a directory looks like a git worktree but git no longer recognizes
+   * it — typically a stale gitdir pointer after the worktree folder was moved. Such repos silently
+   * drop out of the tree; the toast names them and offers the `git worktree repair` fix.
+   */
+  private async notifyBrokenWorktrees(brokenWorktrees: AbsolutePath[]): Promise<void> {
+    const fresh = brokenWorktrees.filter(p => !this.notifiedBrokenWorktrees.has(p));
+    if (fresh.length === 0) {
+      return;
+    }
+    fresh.forEach(p => this.notifiedBrokenWorktrees.add(p));
+
+    const names = fresh.map(p => path.basename(p));
+    const message = fresh.length === 1
+      ? `Fresh File Explorer skipped "${names[0]}": it looks like a git worktree but its .git link is broken (its gitdir pointer is stale — common after moving the folder). That repository won't appear in the tree.`
+      : `Fresh File Explorer skipped ${fresh.length} folders with broken git worktree links (${names.join(", ")}). They won't appear in the tree.`;
+
+    const COPY = "Copy repair command";
+    const LEARN = "Learn more";
+    const choice = await vscode.window.showWarningMessage(message, COPY, LEARN);
+    if (choice === COPY) {
+      // Run from the worktree's owning repository checkout. We can't reliably know that path from
+      // here, so hand the user the exact per-worktree commands keyed by absolute path.
+      const command = fresh.map(p => `git worktree repair "${p}"`).join("\n");
+      await vscode.env.clipboard.writeText(command);
+    } else if (choice === LEARN) {
+      await vscode.env.openExternal(
+        vscode.Uri.parse("https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-repair"),
+      );
+    }
   }
 
   private async loadPendingAndHistoricalFiles(assertNotCancelled: () => void): Promise<string | undefined> {

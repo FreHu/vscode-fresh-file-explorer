@@ -36,19 +36,29 @@ export class DataCollector {
   /**
    * Discover all Git repositories across workspace folders.
    * Populates `folder.gitRepos` for each folder without loading any files.
+   *
+   * Also returns `brokenWorktrees`: absolute paths of directories that look like git worktrees
+   * but whose gitdir pointer git no longer accepts (typically after the working tree was moved).
+   * They don't load as repos; the caller surfaces them so the degraded setup isn't silent.
    */
-  static async discoverAllRepos(workspaceFolders: WorkspaceFolderInfo[]): Promise<RepoInfo[]> {
+  static async discoverAllRepos(workspaceFolders: WorkspaceFolderInfo[]): Promise<{ repos: RepoInfo[]; brokenWorktrees: AbsolutePath[] }> {
     const result: RepoInfo[] = [];
+    const brokenWorktrees: AbsolutePath[] = [];
     for (const folder of workspaceFolders) {
       const rootIsGit = await isGitRepository(folder.path);
-      const relPaths = rootIsGit ? [""] : await discoverGitReposInSubdirs(folder.path);
-      for (const repoRelPath of relPaths) {
+      const discovered = rootIsGit
+        ? { repos: [""], brokenWorktrees: [] }
+        : await discoverGitReposInSubdirs(folder.path);
+      for (const brokenRelPath of discovered.brokenWorktrees) {
+        brokenWorktrees.push(asAbsolutePath(path.join(folder.path, brokenRelPath)));
+      }
+      for (const repoRelPath of discovered.repos) {
         const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
         result.push({ folder, repoRelPath, repoFullPath, normalizedRepoPath: asNormalizedRepoPath(repoFullPath) });
         await DataCollector.collectSubmoduleRepos(folder, repoFullPath, repoRelPath, result);
       }
     }
-    return result;
+    return { repos: result, brokenWorktrees };
   }
 
   /**

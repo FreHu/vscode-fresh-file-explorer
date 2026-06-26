@@ -214,39 +214,112 @@ export function fileExists(filePath: string): Promise<boolean> {
   });
 }
 
+/** What to do with a single directory entry while discovering repos. */
+export type DiscoveryAction =
+  | "skip" // not a candidate (non-dir, dotdir, node_modules) — ignore entirely
+  | "add" // a git repository root — record it, do not recurse
+  | "skip-broken" // has a .git entry but git rejects it (e.g. moved worktree) — skip, do not recurse
+  | "recurse"; // ordinary directory — descend to find nested repos
+
+/**
+ * Pure decision for a single directory entry during repo discovery.
+ *
+ * A `.git` entry (a directory for normal clones, a *file* for worktrees and submodules) marks a
+ * git boundary: never recurse past it, even when git refuses to recognize it. The motivating bug —
+ * a linked worktree whose `.git` gitdir pointer goes stale after its working tree is moved to a new
+ * parent folder: `git rev-parse` then fails, and the old behavior fell through to recursing the
+ * worktree's entire subtree. We are now able to detect this scenario and offer a fix to the user.
+ *
+ * `gitRecognizesRepo` is only meaningful when `hasGitEntry` is true; the caller may pass `false`
+ * otherwise (the recurse/skip branches never read it) to avoid spawning git when there is no
+ * `.git` to validate.
+ */
+export function classifyDiscoveryEntry(opts: {
+  isDirectory: boolean;
+  name: string;
+  hasGitEntry: boolean;
+  gitRecognizesRepo: boolean;
+}): DiscoveryAction {
+  const { isDirectory, name, hasGitEntry, gitRecognizesRepo } = opts;
+  // node_modules is never a repo and is enormous — skipping it avoids a pointless deep fs walk.
+  if (!isDirectory || name.startsWith(".") || name === "node_modules") {
+    return "skip";
+  }
+  if (hasGitEntry) {
+    return gitRecognizesRepo ? "add" : "skip-broken";
+  }
+  return "recurse";
+}
+
 /**
  * Discover git repositories in subdirectories of a path, recursing into non-repo directories.
- * Stops recursing once a git repository is found (repos inside repos are not considered).
+ * Stops recursing once a git repository (or any `.git` boundary) is found — repos inside repos,
+ * and the contents of a broken/moved worktree, are not scanned.
  * @param rootPath The directory to scan
  * @param relativePrefix Internal: the path prefix accumulated during recursion (forward-slash separated)
  */
-export async function discoverGitReposInSubdirs(rootPath: string, relativePrefix: string = ""): Promise<string[]> {
+export interface DiscoveredRepos {
+  /** Repo roots found, as paths relative to the scanned root (forward-slash separated). */
+  repos: string[];
+  /**
+   * Directories that have a `.git` entry but which git refuses to recognize — most commonly a
+   * linked worktree whose gitdir pointer went stale after the working tree was moved. Surfaced so
+   * the UI can tell the user their setup is silently degraded (some repos didn't load) and hint at
+   * `git worktree repair`, rather than the breakage living only in the log.
+   */
+  brokenWorktrees: string[];
+}
+
+export async function discoverGitReposInSubdirs(rootPath: string, relativePrefix: string = ""): Promise<DiscoveredRepos> {
   const repos: string[] = [];
+  const brokenWorktrees: string[] = [];
 
   try {
     const entries = await fs.promises.readdir(rootPath, { withFileTypes: true });
 
     for (const entry of entries) {
-      if (entry.isDirectory() && !entry.name.startsWith(".")) {
-        const subDirPath = path.join(rootPath, entry.name);
-        const relativePath = relativePrefix ? `${relativePrefix}/${entry.name}` : entry.name;
-        const isGit = await isGitRepository(subDirPath);
+      const isDirectory = entry.isDirectory();
+      const subDirPath = path.join(rootPath, entry.name);
 
-        if (isGit) {
+      // Cheap fs check first: only spawn a git probe when there is actually a `.git` to validate.
+      // Previously every non-repo directory cost a `git rev-parse` spawn, which made deep trees
+      // (node_modules) and broken worktrees crawl.
+      const hasGitEntry = isDirectory && !entry.name.startsWith(".") && entry.name !== "node_modules"
+        ? await fileExists(path.join(subDirPath, ".git"))
+        : false;
+      const gitRecognizesRepo = hasGitEntry ? await isGitRepository(subDirPath) : false;
+
+      const relativePath = relativePrefix ? `${relativePrefix}/${entry.name}` : entry.name;
+      const action = classifyDiscoveryEntry({ isDirectory, name: entry.name, hasGitEntry, gitRecognizesRepo });
+
+      switch (action) {
+        case "add":
           log(`Found Git repository in subdirectory: ${relativePath}`);
           repos.push(relativePath);
-        } else {
-          // Not a git repo — recurse deeper to find nested repos
+          break;
+        case "skip-broken":
+          log(
+            `Skipping ${relativePath}: it has a .git entry but git does not recognize it as a repository ` +
+              `(e.g. a worktree whose gitdir pointer is stale after being moved). Not recursing into it.`,
+            "warn",
+          );
+          brokenWorktrees.push(relativePath);
+          break;
+        case "recurse": {
           const nested = await discoverGitReposInSubdirs(subDirPath, relativePath);
-          repos.push(...nested);
+          repos.push(...nested.repos);
+          brokenWorktrees.push(...nested.brokenWorktrees);
+          break;
         }
+        case "skip":
+          break;
       }
     }
   } catch (error) {
     log(`Error scanning subdirectories: ${error}`, "error");
   }
 
-  return repos;
+  return { repos, brokenWorktrees };
 }
 
 export interface RepoInfo {
@@ -273,7 +346,7 @@ export async function discoverReposInWorkspace(
       repos.push({ name: folder.name, path: asAbsolutePath(folderPath) });
     } else {
       const subRepos = await discoverGitReposInSubdirs(folderPath);
-      for (const repoRelPath of subRepos) {
+      for (const repoRelPath of subRepos.repos) {
         const repoFullPath = asAbsolutePath(`${folderPath}/${repoRelPath}`);
         const repoName = totalFolders > 1 ? `${folder.name}/${repoRelPath}` : repoRelPath;
         repos.push({ name: repoName, path: repoFullPath });
