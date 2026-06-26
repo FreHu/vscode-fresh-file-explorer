@@ -67,4 +67,7 @@ export const ConfigKeys = {
 
   // Hide files matching each workspace folder's `files.exclude` setting
   RESPECT_FILES_EXCLUDE: "freshFileExplorer.respectFilesExclude",
+
+  // Additional Co-authored-by emails to treat as AI agents (in-house/custom agents)
+  AI_COAUTHOR_EMAILS: "freshFileExplorer.aiCoAuthorEmails",
 } as const;

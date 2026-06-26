@@ -5,6 +5,7 @@ import { ChangedFile, ChangeStatus, FolderNode } from "./branchCompareData";
 import { Commands } from "../commands/commandConstants";
 import { AbsolutePath } from "../pathTypes";
 import { BranchCompareContextValues, DiffMode } from "./branchCompareConstants";
+import { formatLineChanges } from "../utils/formatUtils";
 
 /** Single-letter status badge shown in the description column. */
 function statusBadge(status: ChangeStatus): string {
@@ -151,10 +152,15 @@ export class BranchCompareFileItem extends vscode.TreeItem {
     this.id = `branchCompare:file:${comparisonId}:${file.absolutePath}`;
     this.resourceUri = uri;
 
-    const badge = statusBadge(file.status);
+    // Pending entries are skipped:
+    // VS Code's native git decoration already badges them
+    const badge = file.isPending ? "" : statusBadge(file.status);
     const pendingMark = file.isPending ? "•" : "";
-    this.description = `${badge}${pendingMark}`;
+    // Line deltas exist only for pending entries (tracked working-tree changes).
+    const lineChanges = formatLineChanges(file.linesAdded, file.linesDeleted);
+    this.description = `${badge}${pendingMark}${lineChanges ? ` ${lineChanges}` : ""}`;
     this.tooltip = `${file.pathInRepo}\n${statusTooltip(file.status, file.isPending)}`
+      + (lineChanges ? `\n${lineChanges}` : "")
       + (file.renameSource ? `\nfrom: ${file.renameSource}` : "")
       + `\nbaseline: ${targetRef}`;
 

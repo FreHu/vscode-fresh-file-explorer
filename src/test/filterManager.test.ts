@@ -36,6 +36,55 @@ suite("FilterManager", () => {
       filterManager.clearFilters();
       assert.strictEqual(filterManager.hasActiveFilters(), false);
     });
+
+    test("should return true when AI filter is set to only", () => {
+      filterManager.setAiFilter("only");
+      assert.strictEqual(filterManager.hasActiveFilters(), true);
+    });
+
+    test("should return true when AI filter is set to hide", () => {
+      filterManager.setAiFilter("hide");
+      assert.strictEqual(filterManager.hasActiveFilters(), true);
+    });
+
+    test("should return false after clearing the AI filter", () => {
+      filterManager.setAiFilter("hide");
+      filterManager.clearFilters();
+      assert.strictEqual(filterManager.hasActiveFilters(), false);
+      assert.strictEqual(filterManager.getAiFilter(), "all");
+    });
+  });
+
+  suite("AI co-authorship filter", () => {
+    const aiFile: FileMetadata = { date: new Date(), author: "Alice" as any, aiCoAuthored: true };
+    const humanFile: FileMetadata = { date: new Date(), author: "Bob" as any, aiCoAuthored: false };
+    const pendingFile: FileMetadata = { date: new Date(), isPending: true };
+
+    test("mode 'all' passes both AI and human changes", () => {
+      assert.strictEqual(filterManager.passesFilters(aiFile), true);
+      assert.strictEqual(filterManager.passesFilters(humanFile), true);
+    });
+
+    test("mode 'only' passes AI changes, drops human + pending", () => {
+      filterManager.setAiFilter("only");
+      assert.strictEqual(filterManager.passesFilters(aiFile), true);
+      assert.strictEqual(filterManager.passesFilters(humanFile), false);
+      assert.strictEqual(filterManager.passesFilters(pendingFile), false);
+    });
+
+    test("mode 'hide' drops AI changes, passes human + pending", () => {
+      filterManager.setAiFilter("hide");
+      assert.strictEqual(filterManager.passesFilters(aiFile), false);
+      assert.strictEqual(filterManager.passesFilters(humanFile), true);
+      assert.strictEqual(filterManager.passesFilters(pendingFile), true);
+    });
+
+    test("AI filter composes with author exclusion", () => {
+      filterManager.setAiFilter("only");
+      filterManager.setExcludedAuthors(new Set(["Alice"]));
+      // aiFile is AI co-authored (passes AI filter) but author Alice is excluded → dropped.
+      assert.strictEqual(filterManager.passesFilters(aiFile), false);
+    });
   });
 
   suite("getFilterSummary", () => {
@@ -57,6 +106,13 @@ suite("FilterManager", () => {
       filterManager.setExcludedAuthors(new Set(["Alice"]));
       filterManager.setExcludedCommits(new Set([asCommitHash("abc123")]));
       assert.strictEqual(filterManager.getFilterSummary(), "1 author(s) hidden, 1 commit(s) hidden");
+    });
+
+    test("should describe AI filter modes", () => {
+      filterManager.setAiFilter("only");
+      assert.strictEqual(filterManager.getFilterSummary(), "only AI co-authored");
+      filterManager.setAiFilter("hide");
+      assert.strictEqual(filterManager.getFilterSummary(), "AI co-authored hidden");
     });
   });
 

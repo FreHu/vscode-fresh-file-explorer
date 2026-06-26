@@ -1,9 +1,10 @@
+import * as vscode from "vscode";
 import { log, showInfo } from "../extension/logger";
 import { createAuthorQuickPick, createCommitQuickPick } from "../utils/quickPick";
 import { runQuickPickPromise } from "./commandUtils";
 import { setDifference } from "../utils/collectionUtils";
 import { ContextManager } from "../extension/contextManager";
-import { FilterManager } from "../fresh-files/freshFileFilterManager";
+import { AiFilterMode, FilterManager } from "../fresh-files/freshFileFilterManager";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 
 
@@ -60,6 +61,38 @@ export async function handleFilterByCommit(dataProvider: FreshFileProvider): Pro
     filterManager.setExcludedCommits(excluded);
     updateFilterContext(filterManager);
   });
+}
+
+/**
+ * Show a 3-way picker for the AI co-authorship filter. Returns true if the user
+ * picked an option (so the View Options menu doesn't reopen), false on ESC.
+ */
+export async function handleFilterAiAuthored(dataProvider: FreshFileProvider): Promise<boolean> {
+  log("Filter by AI co-authorship command triggered");
+  const filterManager = dataProvider.filterManager;
+  const current = filterManager.getAiFilter();
+
+  const items: (vscode.QuickPickItem & { mode: AiFilterMode })[] = [
+    { mode: "all", label: "$(list-flat) Show all changes", description: "No AI filtering" },
+    { mode: "only", label: "$(sparkle) Only AI co-authored", description: "Changes with a known AI-agent Co-authored-by trailer" },
+    { mode: "hide", label: "$(circle-slash) Hide AI co-authored", description: "Only human-authored changes" },
+  ];
+  for (const item of items) {
+    if (item.mode === current) {
+      item.label = `$(check) ${item.label.replace(/^\$\([^)]+\)\s*/, "")}`;
+    }
+  }
+
+  const picked = await vscode.window.showQuickPick(items, {
+    title: "Filter by AI Co-authorship",
+    placeHolder: "Filter changes by whether an AI agent co-authored them",
+  });
+  if (!picked) {
+    return false;
+  }
+  filterManager.setAiFilter(picked.mode);
+  updateFilterContext(filterManager);
+  return true;
 }
 
 export function handleClearFilters(filterManager: FilterManager): void {

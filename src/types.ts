@@ -81,6 +81,8 @@ export interface FileMetadata {
   linesAdded?: number; // Number of lines added in this change
   linesDeleted?: number; // Number of lines deleted in this change
   renameSource?: string; // For renames: repo-relative path of the old file
+  aiCoAuthored?: boolean; // True if the originating commit has a known AI-agent Co-authored-by trailer
+  aiTools?: readonly string[]; // Display names of detected AI agents (for badge/tooltip)
 }
 
 /**
@@ -122,6 +124,10 @@ export interface CommitData {
   /** Committer's timezone offset in minutes east of UTC (from `git log %aI`). */
   tzOffsetMinutes?: number;
   repoName?: string;
+  /** True if this commit has a known AI-agent `Co-authored-by` trailer. */
+  aiCoAuthored?: boolean;
+  /** Display names of detected AI agents (for badge/tooltip). */
+  aiTools?: readonly string[];
 }
 
 export interface CommitDataWithFileCount extends CommitData {

@@ -196,6 +196,82 @@ export function getStatusLabel(status: string): string {
 }
 
 /**
+ * Single-letter status badge (M/A/D/R/T/U…) for the description column. Mirrors
+ * {@link getStatusLabel}'s porcelain-code canonicalization but returns the bare
+ * letter, so the Fresh Files tree matches the Branch Compare badge vocabulary.
+ * The word form stays in tooltips (hover detail).
+ */
+export function getStatusLetter(status: string): string {
+  if (status === "??") { return "U"; } // untracked
+  if (status === "!!") { return "!"; } // ignored
+  // git log name-status renames/copies: R<score>/C<score>. Collapse copy → R to
+  // match Branch Compare, which treats copies as renames for display.
+  if (status.length >= 1 && (status[0] === "R" || status[0] === "C")) { return "R"; }
+  // 2-char porcelain XY: prefer the working-tree (Y) position, else staged (X) —
+  // same selection getStatusLabel uses.
+  if (status.length === 2) {
+    const key = status[1] !== " " ? status[1] : status[0];
+    return key.toUpperCase();
+  }
+  return status.toUpperCase();
+}
+
+/** Emoji badge marking an AI co-authored change in tree descriptions. */
+export const AI_COAUTHOR_BADGE = "🤖";
+
+/**
+ * Single source of truth for how AI co-authorship is presented.
+ * `metadata` is any object carrying the two co-author fields (FileMetadata or
+ * CommitData both qualify), so every tree surface renders it identically.
+ */
+export function formatAiCoAuthorTooltip(
+  meta: { aiCoAuthored?: boolean; aiTools?: readonly string[] },
+): string | undefined {
+  if (!meta.aiCoAuthored) {
+    return undefined;
+  }
+  const tools = meta.aiTools && meta.aiTools.length > 0 ? meta.aiTools.join(", ") : "AI agent";
+  return `${AI_COAUTHOR_BADGE} Co-authored by: ${tools}`;
+}
+
+/**
+ * Tooltip for a commit-group header, shared by the Fresh Files tree and the
+ * Branch Compare tree so the two can't drift. Both render
+ * `Commit / Author / Date / Files / [+X -Y] / [🤖 co-authored] / Message`;
+ * the only structural difference is that Fresh Files knows per-commit line
+ * totals (pass `lineChanges`) while Branch Compare does not (omit it).
+ */
+export function formatCommitTooltip(commit: {
+  hash: string;
+  author?: string;
+  date: Date;
+  fileCount: number;
+  /** Pre-formatted "+X -Y" line, or undefined to omit the line entirely. */
+  lineChanges?: string;
+  aiCoAuthored?: boolean;
+  aiTools?: readonly string[];
+  message?: string;
+}): string {
+  const lines = [
+    `Commit: ${commit.hash}`,
+    `Author: ${commit.author || "(No author)"}`,
+    `Date: ${formatRelativeDate(commit.date)}`,
+    `Files: ${commit.fileCount}`,
+  ];
+  if (commit.lineChanges) {
+    lines.push(commit.lineChanges);
+  }
+  const aiLine = formatAiCoAuthorTooltip(commit);
+  if (aiLine) {
+    lines.push(aiLine);
+  }
+  if (commit.message) {
+    lines.push(`\nMessage:\n${commit.message}`);
+  }
+  return lines.join("\n");
+}
+
+/**
  * Truncate a string to a maximum length, adding ellipsis if needed
  */
 export function truncate(str: string, maxLength: number): string {
@@ -261,9 +337,10 @@ export function formatTooltipLineChanges(linesAdded?: number, linesDeleted?: num
 export function formatFileDescription(metadata: FileMetadata, format: DescriptionFormat): string {
   const parts: string[] = [];
 
-  // For pending changes, show status
-  if (format.showStatus && metadata.status) {
-    parts.push(getStatusLabel(metadata.status));
+  // Pending entries are skipped:
+  // VS Code's native git decoration already badges them
+  if (format.showStatus && metadata.status && !metadata.isPending) {
+    parts.push(getStatusLetter(metadata.status));
   }
 
   // Show line changes (+X -Y)
@@ -289,9 +366,18 @@ export function formatFileDescription(metadata: FileMetadata, format: Descriptio
     parts.push(metadata.commitHash);
   }
 
-  // Show commit message (truncated)
+  // Badge AI co-authored changes. Always shown (independent of format toggles)
+  // and placed BEFORE the message so it survives the tree's single-line
+  // ellipsis — a long message would otherwise push the badge off the right edge.
+  if (metadata.aiCoAuthored) {
+    parts.push(AI_COAUTHOR_BADGE);
+  }
+
+  // Show full commit message — it's the last part, so VS Code ellipsizes it at
+  // the view edge. No manual truncation: the row can't wrap, so trimming only
+  // discards text the user could otherwise read by widening the view.
   if (format.showCommitMessage && metadata.commitMessage) {
-    parts.push(truncate(metadata.commitMessage, 30));
+    parts.push(metadata.commitMessage);
   }
 
   return parts.join(" • ");
@@ -350,6 +436,11 @@ export function formatFileTooltip(metadata: FileMetadata, format: DescriptionFor
 
   if (metadata.commitMessage) {
     lines.push(`Message: ${metadata.commitMessage}`);
+  }
+
+  const aiLine = formatAiCoAuthorTooltip(metadata);
+  if (aiLine) {
+    lines.push(aiLine);
   }
 
   return lines.join("\n");

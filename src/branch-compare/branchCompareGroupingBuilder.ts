@@ -4,7 +4,7 @@ import { ChangedFile } from "./branchCompareData";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase } from "../fresh-files/moonPhase";
 import { getRetrogradeInfo, getRetrogradeKey } from "../fresh-files/planetaryRetrograde";
-import { formatRelativeDate } from "../utils/formatUtils";
+import { formatRelativeDate, formatCommitTooltip, AI_COAUTHOR_BADGE } from "../utils/formatUtils";
 import { BranchCompareContextValues, PENDING_GROUP_KEY } from "./branchCompareConstants";
 
 /**
@@ -121,19 +121,23 @@ export function buildGroupedItems(
       // is known. Pending bucket falls back to a count-only description.
       const firstCommit = group.files.find(f => f.commit)?.commit;
       if (firstCommit) {
-        const messageSnippet = firstCommit.message.length > 40
-          ? firstCommit.message.slice(0, 40) + "…"
-          : firstCommit.message;
         const parts = [`${fileCount} file${fileCount === 1 ? "" : "s"}`, firstCommit.author];
-        if (messageSnippet) { parts.push(messageSnippet); }
+        // Time on the header (matches Fresh Files); the file rows carry only name + status.
+        parts.push(formatRelativeDate(firstCommit.date));
+        // Badge before the message so it survives the tree's single-line ellipsis.
+        if (firstCommit.aiCoAuthored) { parts.push(AI_COAUTHOR_BADGE); }
+        // Full message, last — VS Code ellipsizes it at the view edge; no manual trim.
+        if (firstCommit.message) { parts.push(firstCommit.message); }
         description = parts.join(" • ");
-        tooltip = [
-          `Commit: ${firstCommit.hash}`,
-          `Author: ${firstCommit.author}`,
-          `Date: ${formatRelativeDate(firstCommit.date)}`,
-          `Files: ${fileCount}`,
-          firstCommit.message ? `\nMessage:\n${firstCommit.message}` : "",
-        ].filter(Boolean).join("\n");
+        tooltip = formatCommitTooltip({
+          hash: firstCommit.hash,
+          author: firstCommit.author,
+          date: firstCommit.date,
+          fileCount,
+          aiCoAuthored: firstCommit.aiCoAuthored,
+          aiTools: firstCommit.aiTools,
+          message: firstCommit.message,
+        });
       } else {
         description = `${fileCount} file${fileCount === 1 ? "" : "s"}`;
         tooltip = `Pending changes\n${fileCount} file(s)`;

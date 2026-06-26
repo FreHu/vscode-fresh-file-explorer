@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { createNameStatusLineProcessor } from "../../git/gitOperations";
+import { COMMIT_NAME_STATUS_PRETTY, createNameStatusLineProcessor } from "../../git/gitOperations";
 import type { CommitData } from "../../types";
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ suite("parseGitLogNameStatus", () => {
 
     test("single commit, single modified file", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Alice|2024-01-01T00:00:00+00:00|Initial",
+        "__COMMIT__abc1234|Alice|2024-01-01T00:00:00+00:00||Initial",
         "M\tsrc/foo.ts",
       );
       const map = parseGitLogNameStatus(raw, "");
@@ -61,7 +61,7 @@ suite("parseGitLogNameStatus", () => {
 
     test("captures committer timezone offset from %aI", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Alice|2024-04-14T19:28:54+02:00|CEST commit",
+        "__COMMIT__abc1234|Alice|2024-04-14T19:28:54+02:00||CEST commit",
         "M\tsrc/foo.ts",
       );
       const map = parseGitLogNameStatus(raw, "");
@@ -70,9 +70,9 @@ suite("parseGitLogNameStatus", () => {
 
     test("only the most recent (first) commit is kept for each file", () => {
       const raw = lines(
-        "__COMMIT__newer|Dev|2024-02-01T00:00:00+00:00|New",
+        "__COMMIT__newer|Dev|2024-02-01T00:00:00+00:00||New",
         "M\tsrc/foo.ts",
-        "__COMMIT__older|Dev|2024-01-01T00:00:00+00:00|Old",
+        "__COMMIT__older|Dev|2024-01-01T00:00:00+00:00||Old",
         "M\tsrc/foo.ts",
         "A\tsrc/bar.ts",
       );
@@ -83,7 +83,7 @@ suite("parseGitLogNameStatus", () => {
 
     test("deleted file status is preserved", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00|Remove file",
+        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00||Remove file",
         "D\tsrc/gone.ts",
       );
       const map = parseGitLogNameStatus(raw, "");
@@ -94,7 +94,7 @@ suite("parseGitLogNameStatus", () => {
 
     test("rename: new path is stored, old path is not", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00|Rename",
+        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00||Rename",
         "R100\tsrc/old.ts\tsrc/new.ts",
       );
       const map = parseGitLogNameStatus(raw, "");
@@ -105,7 +105,7 @@ suite("parseGitLogNameStatus", () => {
 
     test("copy: destination path is stored", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00|Copy",
+        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00||Copy",
         "C100\tsrc/orig.ts\tsrc/copy.ts",
       );
       const map = parseGitLogNameStatus(raw, "");
@@ -115,7 +115,7 @@ suite("parseGitLogNameStatus", () => {
 
     test("repoRelativePath is prepended to file paths", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00|Init",
+        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00||Init",
         "A\tsrc/foo.ts",
       );
       const map = parseGitLogNameStatus(raw, "packages/lib");
@@ -125,18 +125,60 @@ suite("parseGitLogNameStatus", () => {
 
     test("commit message containing | is preserved intact", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00|Fix foo|bar issue",
+        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00||Fix foo|bar issue",
         "M\tsrc/fix.ts",
       );
       const map = parseGitLogNameStatus(raw, "");
       assert.strictEqual(map.get("src/fix.ts")!.commit.message, "Fix foo|bar issue");
     });
 
+    test("co-author trailer field populates aiCoAuthored + aiTools", () => {
+      const raw = lines(
+        "__COMMIT__abc1234|Alice|2024-01-01T00:00:00+00:00|Claude <noreply@anthropic.com>|Agent change",
+        "M\tsrc/agentic.ts",
+      );
+      const commit = parseGitLogNameStatus(raw, "").get("src/agentic.ts")!.commit;
+      assert.strictEqual(commit.aiCoAuthored, true);
+      assert.deepStrictEqual(commit.aiTools, ["Claude"]);
+      assert.strictEqual(commit.message, "Agent change", "subject still parses after the trailer field");
+    });
+
+    // Regression: branch compare once duplicated the pretty format and kept the
+    // pre-trailers 4-field layout, so the parser (which requires the trailers
+    // field) rejected every commit line and only pending changes rendered. The
+    // shared constant + this guard keep the format and parser in lockstep.
+    test("shared pretty format declares exactly the 5 fields the parser expects", () => {
+      const fields = COMMIT_NAME_STATUS_PRETTY.replace("--pretty=format:__COMMIT__", "").split("|");
+      assert.strictEqual(fields.length, 5, "format must emit hash|author|date|trailers|subject");
+      assert.ok(COMMIT_NAME_STATUS_PRETTY.includes("Co-authored-by"), "must request the co-author trailers");
+      assert.ok(COMMIT_NAME_STATUS_PRETTY.endsWith("%s"), "subject must stay last so it can absorb literal |");
+    });
+
+    test("legacy 4-field commit lines are rejected (no trailers field)", () => {
+      const raw = lines(
+        "__COMMIT__abc1234|Alice|2024-01-01T00:00:00+00:00|Legacy format",
+        "M\tsrc/legacy.ts",
+      );
+      // No entry: the parser needs >= 5 fields. This is the failure mode that
+      // hit branch compare; it documents why callers must use the shared format.
+      assert.strictEqual(parseGitLogNameStatus(raw, "").size, 0);
+    });
+
+    test("empty trailer field leaves the commit not AI co-authored", () => {
+      const raw = lines(
+        "__COMMIT__abc1234|Alice|2024-01-01T00:00:00+00:00||Human change",
+        "M\tsrc/human.ts",
+      );
+      const commit = parseGitLogNameStatus(raw, "").get("src/human.ts")!.commit;
+      assert.strictEqual(commit.aiCoAuthored, false);
+      assert.strictEqual(commit.aiTools, undefined);
+    });
+
     test("file-less commits produce no entries", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00|Empty commit",
+        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00||Empty commit",
         "",
-        "__COMMIT__def5678|Dev|2024-01-02T00:00:00+00:00|Another",
+        "__COMMIT__def5678|Dev|2024-01-02T00:00:00+00:00||Another",
         "M\tsrc/real.ts",
       );
       const map = parseGitLogNameStatus(raw, "");
@@ -146,7 +188,7 @@ suite("parseGitLogNameStatus", () => {
 
     test("multiple files in one commit all get the same commit info", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00|Bulk change",
+        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00||Bulk change",
         "M\tsrc/a.ts",
         "A\tsrc/b.ts",
         "D\tsrc/c.ts",
@@ -160,7 +202,7 @@ suite("parseGitLogNameStatus", () => {
 
     test("lines without a tab are ignored", () => {
       const raw = lines(
-        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00|Msg",
+        "__COMMIT__abc1234|Dev|2024-01-01T00:00:00+00:00||Msg",
         "no-tab-here",
         "M\tsrc/valid.ts",
       );

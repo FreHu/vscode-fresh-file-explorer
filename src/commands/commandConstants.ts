@@ -15,6 +15,7 @@ export const Commands = {
   // Filter commands
   FILTER_BY_AUTHOR: "freshFileExplorer.filterByAuthor",
   FILTER_BY_COMMIT: "freshFileExplorer.filterByCommit",
+  FILTER_AI_AUTHORED: "freshFileExplorer.filterAiAuthored",
   CLEAR_FILTERS: "freshFileExplorer.clearFilters",
 
   // Search commands

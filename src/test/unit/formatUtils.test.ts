@@ -8,9 +8,109 @@ import {
   getStatusLabel,
   truncate,
   formatLineChanges,
+  formatAiCoAuthorTooltip,
+  formatCommitTooltip,
+  formatFileDescription,
+  getStatusLetter,
+  AI_COAUTHOR_BADGE,
 } from "../../utils/formatUtils";
+import { DescriptionFormat } from "../../types";
+
+const STATUS_ONLY_FORMAT: DescriptionFormat = {
+  showDate: false, showAuthor: false, showCommitHash: false,
+  showCommitMessage: false, showStatus: true, showLineChanges: false,
+};
 
 suite("Format Utils", () => {
+  suite("formatFileDescription status letter", () => {
+    test("committed file shows the status letter", () => {
+      const desc = formatFileDescription({ date: new Date(), status: "M" } as any, STATUS_ONLY_FORMAT);
+      assert.strictEqual(desc, "M");
+    });
+
+    test("pending file omits the letter (git's native right-side badge covers it)", () => {
+      const desc = formatFileDescription({ date: new Date(), status: " M", isPending: true } as any, STATUS_ONLY_FORMAT);
+      assert.strictEqual(desc, "");
+    });
+  });
+
+  suite("getStatusLetter", () => {
+    test("untracked → U, ignored → !", () => {
+      assert.strictEqual(getStatusLetter("??"), "U");
+      assert.strictEqual(getStatusLetter("!!"), "!");
+    });
+
+    test("porcelain XY codes collapse to the canonical letter", () => {
+      assert.strictEqual(getStatusLetter(" M"), "M"); // worktree-modified
+      assert.strictEqual(getStatusLetter("M "), "M"); // staged-modified
+      assert.strictEqual(getStatusLetter("A "), "A");
+      assert.strictEqual(getStatusLetter(" D"), "D");
+      assert.strictEqual(getStatusLetter("AM"), "M"); // prefers worktree position
+    });
+
+    test("name-status renames and copies collapse to R", () => {
+      assert.strictEqual(getStatusLetter("R078"), "R");
+      assert.strictEqual(getStatusLetter("C100"), "R");
+      assert.strictEqual(getStatusLetter("R"), "R");
+    });
+
+    test("single-letter historical codes pass through uppercased", () => {
+      assert.strictEqual(getStatusLetter("M"), "M");
+      assert.strictEqual(getStatusLetter("A"), "A");
+      assert.strictEqual(getStatusLetter("D"), "D");
+    });
+  });
+
+  suite("formatAiCoAuthorTooltip", () => {
+    test("returns undefined when not AI co-authored", () => {
+      assert.strictEqual(formatAiCoAuthorTooltip({ aiCoAuthored: false }), undefined);
+      assert.strictEqual(formatAiCoAuthorTooltip({}), undefined);
+    });
+
+    test("lists detected tools", () => {
+      assert.strictEqual(
+        formatAiCoAuthorTooltip({ aiCoAuthored: true, aiTools: ["Claude", "Cursor"] }),
+        `${AI_COAUTHOR_BADGE} Co-authored by: Claude, Cursor`,
+      );
+    });
+
+    test("falls back to a generic label when tools are unknown", () => {
+      assert.strictEqual(
+        formatAiCoAuthorTooltip({ aiCoAuthored: true }),
+        `${AI_COAUTHOR_BADGE} Co-authored by: AI agent`,
+      );
+    });
+  });
+
+  suite("formatCommitTooltip", () => {
+    const base = { hash: "abc1234", author: "Alice", date: new Date("2024-01-01T00:00:00Z"), fileCount: 3 };
+
+    test("includes core fields and the message block", () => {
+      const t = formatCommitTooltip({ ...base, message: "Fix the thing" });
+      assert.ok(t.includes("Commit: abc1234"));
+      assert.ok(t.includes("Author: Alice"));
+      assert.ok(t.includes("Files: 3"));
+      assert.ok(t.includes("Message:\nFix the thing"));
+    });
+
+    test("omits the line-changes line when not provided", () => {
+      assert.ok(!formatCommitTooltip(base).includes("+"));
+    });
+
+    test("includes line-changes line when provided (Fresh Files path)", () => {
+      assert.ok(formatCommitTooltip({ ...base, lineChanges: "+10 -2" }).includes("+10 -2"));
+    });
+
+    test("includes the AI co-author line only when co-authored", () => {
+      assert.ok(formatCommitTooltip({ ...base, aiCoAuthored: true, aiTools: ["Claude"] }).includes("Co-authored by: Claude"));
+      assert.ok(!formatCommitTooltip(base).includes("Co-authored by"));
+    });
+
+    test("falls back to (No author) when author is missing", () => {
+      assert.ok(formatCommitTooltip({ ...base, author: undefined }).includes("Author: (No author)"));
+    });
+  });
+
   suite("formatRepoDescription", () => {
     test("should format with branch name and file count", () => {
       assert.strictEqual(formatRepoDescription("main", 5), "(5) 🔀 main");

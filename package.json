@@ -242,6 +242,11 @@
         "icon": "$(git-commit)"
       },
       {
+        "command": "freshFileExplorer.filterAiAuthored",
+        "title": "Filter by AI Co-authorship",
+        "icon": "$(sparkle)"
+      },
+      {
         "command": "freshFileExplorer.clearFilters",
         "title": "Clear Filters",
         "icon": "$(clear-all)"
@@ -1707,6 +1712,14 @@
           "type": "boolean",
           "default": true,
           "description": "Hide files matching each workspace folder's `files.exclude` setting, mirroring the VS Code Explorer. Per-folder settings are honored, so a folder added as its own workspace root can exclude its subprojects. Sibling (`when`-clause) excludes are not supported. Turn off to show every changed file regardless of `files.exclude`."
+        },
+        "freshFileExplorer.aiCoAuthorEmails": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Additional `Co-authored-by` email addresses to treat as AI agents when filtering by AI co-authorship. Use this for in-house or custom agents not covered by the built-in table (which already detects Claude, GitHub Copilot, Cursor, aider, Devin, and Codex). Matched case-insensitively as exact emails, e.g. `bot@yourcompany.com`."
         },
         "freshFileExplorer.notifyOn": {
           "type": "string",

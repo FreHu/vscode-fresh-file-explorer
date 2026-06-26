@@ -15,6 +15,7 @@ import {
   fetchCommitInfoInRange,
   fetchMergeConeStats,
   fetchWorkingTreeStatus,
+  fetchWorkingTreeNumstat,
   FolderNode,
 } from "./branchCompareData";
 import {
@@ -314,11 +315,18 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       const includeWorkingTree = sourceRef === HEAD_SOURCE;
       const wantsCommitInfo = this.groupingNeedsCommitInfo(cmp.groupingMode);
 
-      const [committed, workingTree, commitInfo, mergeCone] = await Promise.all([
+      const [committed, workingTree, workingTreeNumstat, commitInfo, mergeCone] = await Promise.all([
         fetchCommittedDiff(cmp.repoFullPath, base, sourceRef),
         includeWorkingTree
           ? fetchWorkingTreeStatus(cmp.repoFullPath)
           : Promise.resolve([]),
+        // Cheap working-tree line counts for pending entries (HEAD diff only).
+        includeWorkingTree
+          ? fetchWorkingTreeNumstat(cmp.repoFullPath).catch(err => {
+              log(`branchCompare: working-tree numstat failed (${cmp.repoFullPath}) — ${err}`, "warn");
+              return undefined;
+            })
+          : Promise.resolve(undefined),
         wantsCommitInfo
           ? fetchCommitInfoInRange(cmp.repoFullPath, base, sourceRef).catch(err => {
               log(`branchCompare: commit-info fetch failed (${cmp.repoFullPath}) — ${err}`, "warn");
@@ -329,7 +337,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       ]);
       if (this.loadingTokens.get(id) !== myToken) return;
 
-      cmp.files = buildChangedFiles(cmp.repoFullPath, committed, workingTree, commitInfo);
+      cmp.files = buildChangedFiles(cmp.repoFullPath, committed, workingTree, commitInfo, workingTreeNumstat);
       cmp.tree = buildFolderTree(cmp.files);
       cmp.error = undefined;
       cmp.mergeCone = mergeCone;

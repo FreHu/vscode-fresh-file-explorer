@@ -4,7 +4,7 @@ import { AbsolutePath } from "../pathTypes";
 import { DescriptionFormat, FileMetadata, SortOrder } from "../types";
 import { ConfigService } from "../config/configService";
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges } from "../utils/formatUtils";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitTooltip, AI_COAUTHOR_BADGE } from "../utils/formatUtils";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
 import { getRetrogradeInfo, getRetrogradeKey, type Planet } from "../fresh-files/planetaryRetrograde";
@@ -224,40 +224,37 @@ export class GroupingViewBuilder {
 
       commitItem.label = commitHash;
       
-      const commitMessageTruncated = firstFile.metadata.commitMessage
-        ? firstFile.metadata.commitMessage.length > 40
-          ? firstFile.metadata.commitMessage.substring(0, 40) + "..."
-          : firstFile.metadata.commitMessage
-        : "";
-
+      // The header carries author / time / message for the whole group; the
+      // file rows below intentionally omit them (see buildCommitHashFiles) since
+      // every file in a commit shares the same values — repeating is noise.
       const descriptionParts = [`${fileCount} file${fileCount === 1 ? "" : "s"}`];
       if (firstFile.metadata.author) {
         descriptionParts.push(firstFile.metadata.author);
       }
-      if (commitMessageTruncated) {
-        descriptionParts.push(commitMessageTruncated);
+      descriptionParts.push(formatRelativeDate(firstFile.metadata.date));
+      // Badge before the message so it survives the single-line ellipsis.
+      if (firstFile.metadata.aiCoAuthored) {
+        descriptionParts.push(AI_COAUTHOR_BADGE);
+      }
+      // Full message, last — VS Code ellipsizes it at the view edge.
+      if (firstFile.metadata.commitMessage) {
+        descriptionParts.push(firstFile.metadata.commitMessage);
       }
       commitItem.description = descriptionParts.join(" • ");
       
       // Calculate total line changes for this commit
       const totals = calculateTotalLineChanges(group);
-      
-      const tooltipLines = [
-        `Commit: ${commitHash}`,
-        `Author: ${firstFile.metadata.author || "(No author)"}`,
-        `Date: ${formatRelativeDate(firstFile.metadata.date)}`,
-        `Files: ${fileCount}`,
-      ];
-      
-      const lineChangesLine = formatTooltipLineChanges(totals?.added, totals?.deleted);
-      if (lineChangesLine) {
-        tooltipLines.push(lineChangesLine);
-      }
-      
-      if (firstFile.metadata.commitMessage) {
-        tooltipLines.push(`\nMessage:\n${firstFile.metadata.commitMessage}`);
-      }
-      commitItem.tooltip = tooltipLines.join("\n");
+
+      commitItem.tooltip = formatCommitTooltip({
+        hash: commitHash,
+        author: firstFile.metadata.author,
+        date: firstFile.metadata.date,
+        fileCount,
+        lineChanges: formatTooltipLineChanges(totals?.added, totals?.deleted) || undefined,
+        aiCoAuthored: firstFile.metadata.aiCoAuthored,
+        aiTools: firstFile.metadata.aiTools,
+        message: firstFile.metadata.commitMessage,
+      });
 
       commitItem.iconPath = new vscode.ThemeIcon("git-commit");
       commitItem.contextValue = TreeItemContextValues.COMMIT_HASH_GROUP;
@@ -278,14 +275,15 @@ export class GroupingViewBuilder {
     sortOrder: SortOrder,
     openChangesMode: boolean,
   ): FreshFileItem[] {
-    // Hide the commit hash in the description — every file here shares it.
+    // Every file in a commit shares the same hash / author / date / message —
+    // the commit header already shows them, so the rows carry only name + status.
     return GroupingViewBuilder.buildGroupFiles(
       freshFiles,
       filterPredicate,
       (metadata) => metadata.commitHash === commitHash,
       sortOrder,
       openChangesMode,
-      { showCommitHash: false },
+      { showCommitHash: false, showAuthor: false, showDate: false, showCommitMessage: false },
     );
   }
 

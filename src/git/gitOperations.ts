@@ -8,6 +8,7 @@ import { CommitData, CommitStats, FileMetadata, asCommitAuthor, asCommitHash, as
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { ConfigService } from "../config/configService";
 import { parseCommitDate } from "./gitDateUtils";
+import { detectAiCoAuthors } from "../fresh-files/aiCoAuthor";
 
 const gitPathDecoder = new TextDecoder("utf-8");
 const gitPathEncoder = new TextEncoder();
@@ -468,6 +469,17 @@ function accumulateCommitStats(
 }
 
 /**
+ * `git log` pretty-format token consumed by {@link createNameStatusLineProcessor}.
+ * SINGLE SOURCE OF TRUTH — every caller of `streamGitLogNameStatus*` must pass
+ * this exact format, or the parser's positional field assumptions (and the
+ * `parts.length >= 5` guard) reject every commit line. The Co-authored-by
+ * trailers field sits BEFORE `%s` so the subject stays last and can absorb any
+ * literal `|` it contains via `parts.slice(4)`.
+ */
+export const COMMIT_NAME_STATUS_PRETTY =
+  "--pretty=format:__COMMIT__%h|%aN|%aI|%(trailers:key=Co-authored-by,valueonly,separator=%x1f)|%s";
+
+/**
  * Stateful line processor for `git log --name-status` output.
  * Calls `onFileEntry` for every file entry parsed, passing the workspace-relative
  * path, the git status code, and the enclosing commit.
@@ -475,21 +487,30 @@ function accumulateCommitStats(
 export function createNameStatusLineProcessor(
   repoRelativePath: string,
   onFileEntry: (relativePath: string, status: string, commit: CommitData) => void,
+  aiCoAuthorEmails: ReadonlySet<string> = new Set(),
 ): (line: string) => void {
   let currentCommit: CommitData | null = null;
 
   return function processLine(rawLine: string) {
     const line = rawLine.trim();
     if (line.startsWith("__COMMIT__")) {
+      // Pretty format: __COMMIT__%h|%aN|%aI|<co-author trailers>|%s
+      // The trailers field sits BEFORE the subject (parts[3]) so the subject can
+      // stay last and absorb any literal `|` it contains via slice(4).join("|").
+      // The trailers field itself joins multiple co-authors with AI_TRAILER_SEPARATOR
+      // (0x1f), so it never contains `|` unless a co-author *name* does — vanishingly rare.
       const parts = line.substring("__COMMIT__".length).split("|");
-      if (parts.length >= 4) {
+      if (parts.length >= 5) {
         const { date, tzOffsetMinutes } = parseCommitDate(parts[2]);
+        const { aiCoAuthored, tools } = detectAiCoAuthors(parts[3], aiCoAuthorEmails);
         currentCommit = {
           hash: asCommitHash(parts[0]),
           author: asCommitAuthor(parts[1]),
           date,
           tzOffsetMinutes,
-          message: asCommitMessage(parts.slice(3).join("|")),
+          message: asCommitMessage(parts.slice(4).join("|")),
+          aiCoAuthored,
+          aiTools: tools.length > 0 ? tools : undefined,
         };
       }
       return;
@@ -578,6 +599,7 @@ export function streamGitLogNameStatus(
   repoRelativePath: string,
   timeout: number | undefined,
   commitStatsMap?: Map<string, CommitStats>,
+  aiCoAuthorEmails?: ReadonlySet<string>,
 ): Promise<Map<string, { status: string; commit: CommitData }>> {
   const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
   const processLine = createNameStatusLineProcessor(repoRelativePath, (relativePath, status, commit) => {
@@ -587,7 +609,7 @@ export function streamGitLogNameStatus(
     if (commitStatsMap) {
       accumulateCommitStats(commitStatsMap, status, commit);
     }
-  });
+  }, aiCoAuthorEmails);
   return spawnGitLines(args, cwd, timeout, processLine).then(() => fileStatusMap);
 }
 
@@ -612,6 +634,7 @@ export function streamGitLogNameStatusWithProgress(
   now: Date,
   onThresholdCrossed: (days: number, snapshot: Map<string, { status: string; commit: CommitData }>) => void,
   commitStatsMap?: Map<string, CommitStats>,
+  aiCoAuthorEmails?: ReadonlySet<string>,
 ): Promise<Map<string, { status: string; commit: CommitData }>> {
   const fileStatusMap = new Map<string, { status: string; commit: CommitData }>();
   // Work through thresholds ascending so smaller windows fire first.
@@ -624,7 +647,7 @@ export function streamGitLogNameStatusWithProgress(
     if (commitStatsMap) {
       accumulateCommitStats(commitStatsMap, status, commit);
     }
-  });
+  }, aiCoAuthorEmails);
 
   const processLine = (rawLine: string) => {
     const line = rawLine.trim();
@@ -730,6 +753,8 @@ async function buildPartialMetadataMap(
         status: statusInfo.status,
         isDeleted: !existsOnDisk,
         isPending: false,
+        aiCoAuthored: statusInfo.commit.aiCoAuthored,
+        aiTools: statusInfo.commit.aiTools,
       });
     }
   }
@@ -778,8 +803,10 @@ export async function collectHistoricalChanges(
   // and our threshold-crossing logic assumes commit dates
   // arrive in monotonically-decreasing order. Default git log order is by committer date, which
   // can diverge from author date on rebased or cherry-picked commits and break threshold detection.
-  const statusArgs = ["log", `--since=${sinceDate}`, "--author-date-order", "--name-status", "--pretty=format:__COMMIT__%h|%aN|%aI|%s", ...pathspecSuffix];
+  const statusArgs = ["log", `--since=${sinceDate}`, "--author-date-order", "--name-status", COMMIT_NAME_STATUS_PRETTY, ...pathspecSuffix];
   log(`Executing git command for status in ${repoRelativePath || "root"}: git ${statusArgs.join(" ")}`);
+
+  const aiCoAuthorEmails = ConfigService.getAiCoAuthorEmails();
 
   let fileStatusMap: Map<string, { status: string; commit: CommitData }>;
   if (thresholds && thresholds.length > 0 && onThresholdCrossed) {
@@ -793,9 +820,10 @@ export async function collectHistoricalChanges(
         }).catch(() => { /* ignore — best-effort incremental update */ });
       },
       commitStatsMap,
+      aiCoAuthorEmails,
     );
   } else {
-    fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs(), commitStatsMap);
+    fileStatusMap = await streamGitLogNameStatus(statusArgs, repoFullPath, repoRelativePath, ConfigService.getGitTimeoutMs(), commitStatsMap, aiCoAuthorEmails);
   }
 
   // Step 2: Merge status into FileMetadata (exists-check + historical-delete handling).

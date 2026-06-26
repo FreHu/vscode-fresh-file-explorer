@@ -305,4 +305,14 @@ export class ConfigService {
     return vscode.workspace.getConfiguration("files", folderUri).get<Record<string, unknown>>("exclude", {});
   }
 
+  /**
+   * Additional `Co-authored-by` emails to treat as AI agents, for in-house or
+   * custom agents not in the built-in table. Returned lowercased + trimmed as a
+   * Set for case-insensitive exact-match lookup by the co-author detector.
+   */
+  static getAiCoAuthorEmails(): ReadonlySet<string> {
+    const raw = vscode.workspace.getConfiguration().get<string[]>(ConfigKeys.AI_COAUTHOR_EMAILS, []);
+    return new Set(raw.map(e => e.trim().toLowerCase()).filter(e => e.length > 0));
+  }
+
 }

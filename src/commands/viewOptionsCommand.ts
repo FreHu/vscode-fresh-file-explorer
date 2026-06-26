@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log } from "../extension/logger";
 import { handleSetGroupingMode, handleSetSortOrder } from "./basicCommands";
-import { handleFilterByAuthor, handleFilterByCommit } from "./filterCommands";
+import { handleFilterAiAuthored, handleFilterByAuthor, handleFilterByCommit } from "./filterCommands";
 
 /**
  * Handles the "View Options" command - shows a menu of view configuration options
@@ -31,6 +31,11 @@ const options = [
     label: "$(git-commit) Filter by Commit",
     description: "Show only files from specific commits",
     action: "filterCommit",
+  },
+  {
+    label: "$(sparkle) Filter by AI Co-authorship",
+    description: "Show only / hide changes co-authored by an AI agent",
+    action: "filterAi",
   },
 ];
 
@@ -68,6 +73,9 @@ async function showViewOptionsMenu(freshFileProvider: FreshFileProvider): Promis
         break;
       case "filterCommit":
         selectionMade = await handleFilterByCommit(freshFileProvider);
+        break;
+      case "filterAi":
+        selectionMade = await handleFilterAiAuthored(freshFileProvider);
         break;
     }
 

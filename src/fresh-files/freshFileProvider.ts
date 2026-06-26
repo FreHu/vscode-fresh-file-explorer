@@ -53,12 +53,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   /**
    * Snapshot of where loading currently sits — drives the fresh-files status
-   * bar entry. Listeners react via `onDidChangeTreeData` (already fired at
-   * every state transition); this getter just packages the relevant flags.
-   *
+   * bar entry. Listeners react via `onDidChangeTreeData`.
+   * 
    * - `discovering` — repo discovery still in flight.
-   * - `loading` — repos discovered, files (pending and/or historical) loading.
-   * - `idle`       — caught up. `totalRepos` may be 0 when the workspace has none.
+   * - `loading`     — repos discovered, files (pending and/or historical) loading.
+   * - `idle`        — caught up. `totalRepos` may be 0 when the workspace has none.
    */
   getLoadingProgress(): { state: "discovering" | "loading" | "idle"; totalRepos: number; loadedRepos: number } {
     if (!this.reposDiscovered) {
@@ -97,14 +96,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private fileIndex = new FileIndex();
   currentTimeWindow: TimeWindow;
   timeWindows: TimeWindow[];
-  // Multi-root workspace support
   workspaceFolders: WorkspaceFolderInfo[] = [];
   private errorToShowInTreeView: string | undefined;
   private refreshPromise: Promise<void> | undefined;
   private _dataLoaded: boolean = false;
-  /**
-   * Whether file data is loaded and usable. Exact inverse of the `freshFileExplorer.loading` context key
-   */
   private get dataLoaded(): boolean { return this._dataLoaded; }
   private set dataLoaded(value: boolean) {
     this._dataLoaded = value;
@@ -141,7 +136,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // Open mode toggle - persisted
   openChangesMode: boolean = false;
 
-  // Managers for specific concerns
   readonly filterManager = new FilterManager();
 
   // Incremented every time refreshPending() runs, so external listeners can detect
@@ -175,8 +169,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.initializeWorkspaceFolders();
     this.timeWindows = this.loadTimeWindows();
     this.currentTimeWindow = this.timeWindows[0]; // Will be overridden by persisted value
-
-    // Set initial context - we're loading
     ContextManager.setLoading(true);
   }
 
@@ -328,6 +320,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       // Display-only — recompute the exclude-filtered view; handled below before
       // the treeOnly refresh fires (so the matcher cache and display map rebuild).
       RESPECT_FILES_EXCLUDE:           "treeOnly",
+      AI_COAUTHOR_EMAILS:              "hard", // re-parse git log: changes which co-author trailers count as AI
     };
 
     let action: RefreshAction = "none";
@@ -356,8 +349,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         // No freshFileProvider-side action needed. Handled elsewhere or purely behavioural.
         break;
       default: {
-        // Exhaustiveness guard — `never` makes TypeScript fail compile if a
-        // new RefreshAction variant is added without a case here.
         const _exhaustive: never = action;
         throw new Error(`Unhandled RefreshAction: ${_exhaustive}`);
       }
@@ -366,7 +357,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   /**
    * Soft refresh: reload files from the already-known set of repositories.
-   * Skips repo discovery.
    * Falls back to hardRefresh() if repos have never been discovered yet.
    * @param preserveHistoricalCache When true, the historical cache is kept intact (e.g. time-window display switch).
    */
@@ -409,15 +399,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
     }
     this._onDidChangeTreeData.fire();
-    // Drive the load ourselves — relying on getChildren() to kick it off leaves
-    // the status bar stuck on "Loading X/Y" when the view is hidden at the moment
-    // refresh() runs (e.g. branch switch with focus elsewhere).
     this.kickOffLoad();
   }
 
   /**
    * Hard refresh: re-discover repositories then reload all files.
-   * Use this when the repo list may have changed (refresh button, workspace folder change).
    */
   hardRefresh(): void {
     log(`Hard refresh (repo discovery + history) with time window: ${this.currentTimeWindow.label}`);
@@ -654,9 +640,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       this.treeView.message = undefined;
     } else {
       this.treeView.message =
-        "Only the most recent commit per file is examined. " +
-        "If a file was modified multiple times in " +
-        "this period, the latest change is shown.";
+        "This view checks the most recent commit per file. " +
+        "If a file was modified multiple times, " +
+        "only the latest change is shown.";
     }
   }
 
@@ -1574,7 +1560,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 }
 
-/** Returns true if `normalizedFilePath` belongs to any of the given normalized repo paths. */
+/** Checks whether `normalizedFilePath` belongs to any of the given normalized repo paths. */
 function fileInTargetRepo(normalizedFilePath: string, targetRepoPaths: string[]): boolean {
   return targetRepoPaths.some(rp => normalizedFilePath.startsWith(rp + "/") || normalizedFilePath === rp);
 }

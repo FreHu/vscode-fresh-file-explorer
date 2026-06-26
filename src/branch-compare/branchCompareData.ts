@@ -1,6 +1,6 @@
 import * as path from "path";
 
-import { execGitWithArgs, streamGitLogNameStatus } from "../git/gitOperations";
+import { COMMIT_NAME_STATUS_PRETTY, execGitWithArgs, streamGitDiffNumstat, streamGitLogNameStatus } from "../git/gitOperations";
 import { ConfigService } from "../config/configService";
 import { decodeGitPath } from "../git/gitOperations";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
@@ -37,6 +37,15 @@ export interface ChangedFile {
    * entries fetched without commit info (when grouping mode doesn't need it).
    */
   commit?: CommitData;
+  /**
+   * Working-tree line deltas, set ONLY for pending entries (from the cheap
+   * `git diff --numstat HEAD`). Historical entries never carry these — counting
+   * lines across a commit range needs content diffs, which were deliberately
+   * dropped from the historical path for performance. Untracked files have no
+   * counts (they aren't in the HEAD diff).
+   */
+  linesAdded?: number;
+  linesDeleted?: number;
 }
 
 /**
@@ -250,6 +259,28 @@ export async function fetchWorkingTreeStatus(
 }
 
 /**
+ * Working-tree line deltas from `git diff --numstat HEAD` (staged + unstaged
+ * tracked changes), keyed by normalized repo-relative path. Cheap — it diffs
+ * only the working tree against HEAD, never a commit range. Untracked files are
+ * absent (they aren't in the HEAD diff), so they carry no counts.
+ */
+export async function fetchWorkingTreeNumstat(
+  repoFullPath: string,
+): Promise<Map<string, { added: number; deleted: number }>> {
+  const raw = await streamGitDiffNumstat(
+    ["diff", "--numstat", "HEAD"],
+    repoFullPath,
+    ConfigService.getGitTimeoutMs(),
+  );
+  // Normalize keys so they match ChangedFile.pathInRepo lookups.
+  const normalized = new Map<string, { added: number; deleted: number }>();
+  for (const [p, counts] of raw) {
+    normalized.set(normalizePath(p), counts);
+  }
+  return normalized;
+}
+
+/**
  * For every file changed between `mergeBaseSha` and HEAD, return its most
  * recent commit (author / date / hash / message). Used by grouping modes
  * Author / Commit Hash / Moon Phase / Retrograde — none of which work
@@ -267,7 +298,7 @@ export async function fetchCommitInfoInRange(
     "log",
     "--name-status",
     "--author-date-order",
-    "--pretty=format:__COMMIT__%h|%aN|%aI|%s",
+    COMMIT_NAME_STATUS_PRETTY,
     `${mergeBaseSha}..${source}`,
   ];
   const fileMap = await streamGitLogNameStatus(
@@ -275,6 +306,8 @@ export async function fetchCommitInfoInRange(
     repoFullPath,
     "",
     ConfigService.getGitTimeoutMs(),
+    undefined,
+    ConfigService.getAiCoAuthorEmails(),
   );
   // streamGitLogNameStatus already keeps the first occurrence per file (newest
   // commit, since git log streams newest-first), which is what we want.
@@ -306,6 +339,8 @@ export function buildChangedFiles(
   committed: Array<{ status: ChangeStatus; pathInRepo: string; renameSource?: string }>,
   workingTree: Array<{ status: ChangeStatus; pathInRepo: string; renameSource?: string }>,
   commitInfo?: Map<string, CommitData>,
+  /** Working-tree line deltas keyed by repo-relative path. Applied to pending entries only. */
+  workingTreeNumstat?: Map<string, { added: number; deleted: number }>,
 ): ChangedFile[] {
   const byPath = new Map<string, ChangedFile>();
 
@@ -328,13 +363,17 @@ export function buildChangedFiles(
 
   for (const entry of workingTree) {
     const key = entry.pathInRepo;
+    const normalizedPath = normalizePath(entry.pathInRepo);
+    const counts = workingTreeNumstat?.get(normalizedPath);
     byPath.set(key, {
       repoFullPath,
-      pathInRepo: normalizePath(entry.pathInRepo),
+      pathInRepo: normalizedPath,
       absolutePath: join(entry.pathInRepo),
       status: entry.status,
       renameSource: entry.renameSource ? normalizePath(entry.renameSource) : undefined,
       isPending: true,
+      linesAdded: counts?.added,
+      linesDeleted: counts?.deleted,
     });
   }
 

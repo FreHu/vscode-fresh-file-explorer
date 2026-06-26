@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 import { initializeLogger, log } from "./extension/logger";
 import { FreshFileItem, FreshFilesTreeItem } from "./fresh-files/freshFileTreeItems";
-import { handleClearFilters, handleFilterByAuthor, handleFilterByCommit } from "./commands/filterCommands";
+import { handleClearFilters, handleFilterAiAuthored, handleFilterByAuthor, handleFilterByCommit } from "./commands/filterCommands";
 import {
   handleDeleteFile,
   handleRenameFile,
@@ -294,6 +294,8 @@ function registerCommands(
   register(Commands.FILTER_BY_AUTHOR, () => handleFilterByAuthor(freshFileProvider));
 
   register(Commands.FILTER_BY_COMMIT, () => handleFilterByCommit(freshFileProvider));
+
+  register(Commands.FILTER_AI_AUTHORED, () => handleFilterAiAuthored(freshFileProvider));
 
   register(Commands.CLEAR_FILTERS, () => handleClearFilters(freshFileProvider.filterManager));
 

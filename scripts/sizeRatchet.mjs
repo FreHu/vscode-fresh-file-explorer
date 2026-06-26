@@ -18,7 +18,7 @@ const CEILINGS = {
   // filesExcludeMatcher.ts + filesExcludeFilter.ts (both unit-tested); only the
   // irreducible coordinator wiring (display-map setter hook, config dispatch)
   // landed here.
-  "src/fresh-files/freshFileProvider.ts": 1618,
+  "src/fresh-files/freshFileProvider.ts": 1619,
   "src/git/gitOperations.ts": 1200,
   "src/heatmap/blameHeatmapController.ts": 1169,
 };

@@ -157,6 +157,24 @@ suite("branchCompareData", () => {
       assert.strictEqual(out[0].renameSource, "old.ts");
     });
 
+    test("working-tree numstat is attached to pending entries only", () => {
+      const committed = [{ status: "M" as ChangeStatus, pathInRepo: "committed.ts" }];
+      const wt = [
+        { status: "M" as ChangeStatus, pathInRepo: "pending.ts" },
+        { status: "U" as ChangeStatus, pathInRepo: "untracked.ts" }, // absent from numstat
+      ];
+      const numstat = new Map([["pending.ts", { added: 12, deleted: 4 }]]);
+      const out = buildChangedFiles(repo, committed, wt, undefined, numstat);
+
+      const byPath = new Map(out.map(f => [f.pathInRepo, f]));
+      assert.strictEqual(byPath.get("pending.ts")!.linesAdded, 12);
+      assert.strictEqual(byPath.get("pending.ts")!.linesDeleted, 4);
+      // Untracked has no numstat entry → no counts.
+      assert.strictEqual(byPath.get("untracked.ts")!.linesAdded, undefined);
+      // Committed entries never get working-tree counts.
+      assert.strictEqual(byPath.get("committed.ts")!.linesAdded, undefined);
+    });
+
     test("output is sorted by path for deterministic rendering", () => {
       const committed = [
         { status: "M" as ChangeStatus, pathInRepo: "z.ts" },

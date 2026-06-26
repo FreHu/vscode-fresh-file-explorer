@@ -1,7 +1,7 @@
-__COMMIT__4298420|FreHu|2026-02-24T18:43:05+01:00|1.1.3
+__COMMIT__4298420|FreHu|2026-02-24T18:43:05+01:00||1.1.3
 M	package.json
 
-__COMMIT__9c3bf17|FreHu|2026-02-24T18:42:54+01:00|Add perf benchmark view
+__COMMIT__9c3bf17|FreHu|2026-02-24T18:42:54+01:00||Add perf benchmark view
 M	CHANGELOG.md
 M	src/commands/constants.ts
 M	src/extension.ts
@@ -10,10 +10,10 @@ A	src/perfBenchmarkPanelUI.ts
 A	src/webview/perfBenchmarkPanel.ts
 M	tsconfig.json
 
-__COMMIT__e09af0b|FreHu|2026-02-24T17:43:18+01:00|Logger - show time delta since last message
+__COMMIT__e09af0b|FreHu|2026-02-24T17:43:18+01:00||Logger - show time delta since last message
 M	src/utils/logger.ts
 
-__COMMIT__23aa48c|FreHu|2026-02-23T20:26:26+01:00|Eliminating unnecessary refreshes
+__COMMIT__23aa48c|FreHu|2026-02-23T20:26:26+01:00||Eliminating unnecessary refreshes
 M	CHANGELOG.md
 M	src/commands/discardChangesCommand.ts
 M	src/commands/fileCreationCommand.ts
@@ -22,10 +22,10 @@ M	src/extension.ts
 M	src/freshFileProvider.ts
 M	src/gitExecutionListener.ts
 
-__COMMIT__690a23e|FreHu|2026-02-23T19:57:53+01:00|Git parsing quick perf wins
+__COMMIT__690a23e|FreHu|2026-02-23T19:57:53+01:00||Git parsing quick perf wins
 M	src/git/gitOperations.ts
 
-__COMMIT__c66eed0|FreHu|2026-02-23T19:52:47+01:00|Add notes on security, vsix cleanup
+__COMMIT__c66eed0|FreHu|2026-02-23T19:52:47+01:00||Add notes on security, vsix cleanup
 M	.vscodeignore
 M	README.md
 M	package-lock.json
@@ -33,11 +33,11 @@ M	package.json
 M	src/commands/deletedFileCommands.ts
 M	src/utils/planetaryRetrograde.ts
 
-__COMMIT__238ead6|FreHu|2026-02-23T00:02:42+01:00|1.1.2
+__COMMIT__238ead6|FreHu|2026-02-23T00:02:42+01:00||1.1.2
 M	CHANGELOG.md
 M	package.json
 
-__COMMIT__a4f510d|FreHu|2026-02-22T18:05:10+01:00|More tests
+__COMMIT__a4f510d|FreHu|2026-02-22T18:05:10+01:00||More tests
 M	.gitignore
 M	.vscode-test.mjs
 M	eslint.config.mjs
@@ -72,18 +72,18 @@ A	src/test/unit/searchCommand.test.ts
 M	src/utils/formatUtils.ts
 M	src/utils/quickPick.ts
 
-__COMMIT__2998be2|FreHu|2026-02-22T16:22:29+01:00|Create file option for folders
+__COMMIT__2998be2|FreHu|2026-02-22T16:22:29+01:00||Create file option for folders
 M	package.json
 M	src/commands/constants.ts
 M	src/commands/fileCreationCommand.ts
 M	src/extension.ts
 
-__COMMIT__e0c7957|FreHu|2026-02-22T14:36:35+01:00|Detect repos not in immediate subfolders https://github.com/FreHu/vscode-fresh-file-explorer/issues/1
+__COMMIT__e0c7957|FreHu|2026-02-22T14:36:35+01:00||Detect repos not in immediate subfolders https://github.com/FreHu/vscode-fresh-file-explorer/issues/1
 M	CHANGELOG.md
 M	package.json
 M	src/git/gitOperations.ts
 
-__COMMIT__ccdbfbb|FreHu|2026-02-22T14:14:48+01:00|1.1
+__COMMIT__ccdbfbb|FreHu|2026-02-22T14:14:48+01:00||1.1
 M	.gitignore
 D	.mocharc.json
 M	CHANGELOG.md
@@ -118,7 +118,7 @@ A	src/webview/messages.ts
 M	tsconfig.json
 A	tsconfig.webview.json
 
-__COMMIT__8a74405|FreHu|2026-02-18T18:20:03+01:00|Diff search
+__COMMIT__8a74405|FreHu|2026-02-18T18:20:03+01:00||Diff search
 M	package.json
 M	src/commands/constants.ts
 A	src/commands/diffSearchCommand.ts
@@ -134,7 +134,7 @@ A	src/test/unit/gitDiffSearch.test.ts
 A	src/utils/collectionUtils.ts
 A	src/utils/templateHelpers.ts
 
-__COMMIT__fc143b6|FreHu|2026-02-17T18:29:19+01:00|line change counts
+__COMMIT__fc143b6|FreHu|2026-02-17T18:29:19+01:00||line change counts
 M	package.json
 M	src/config/configService.ts
 M	src/config/constants.ts
@@ -144,16 +144,16 @@ M	src/groupingViewBuilder.ts
 M	src/types.ts
 M	src/utils/formatUtils.ts
 
-__COMMIT__880c974|FreHu|2026-02-16T22:00:45+01:00|Never open duplicate diff tabs either
+__COMMIT__880c974|FreHu|2026-02-16T22:00:45+01:00||Never open duplicate diff tabs either
 M	src/commands/openChangesCommand.ts
 M	src/utils.ts
 
-__COMMIT__bb17a8e|FreHu|2026-02-16T20:06:55+01:00|Never open duplicate tabs with the same file - if the opened file is already in some other editor group, just focus it
+__COMMIT__bb17a8e|FreHu|2026-02-16T20:06:55+01:00||Never open duplicate tabs with the same file - if the opened file is already in some other editor group, just focus it
 M	src/commands/basicCommands.ts
 M	src/commands/quickPickCommand.ts
 M	src/utils.ts
 
-__COMMIT__82112a6|FreHu|2026-02-16T19:54:34+01:00|Reorganize tests according to best practices https://code.visualstudio.com/api/working-with-extensions/testing-extension
+__COMMIT__82112a6|FreHu|2026-02-16T19:54:34+01:00||Reorganize tests according to best practices https://code.visualstudio.com/api/working-with-extensions/testing-extension
 M	.mocharc.json
 M	.vscode-test.mjs
 M	package-lock.json
@@ -167,24 +167,24 @@ M	src/test/unit/timeWindowUtils.test.ts
 M	src/test/unit/utils.test.ts
 M	tsconfig.json
 
-__COMMIT__ab45773|FreHu|2026-02-16T19:19:45+01:00|Reorganize code
+__COMMIT__ab45773|FreHu|2026-02-16T19:19:45+01:00||Reorganize code
 A	src/dataCollector.ts
 A	src/filterManager.ts
 M	src/freshFileProvider.ts
 A	src/groupingViewBuilder.ts
 A	src/pinnedItemsManager.ts
 
-__COMMIT__92988d5|FreHu|2026-02-16T18:47:16+01:00|1.0.7
+__COMMIT__92988d5|FreHu|2026-02-16T18:47:16+01:00||1.0.7
 M	CHANGELOG.md
 M	package.json
 
-__COMMIT__c14f16c|FreHu|2026-02-16T18:43:13+01:00|There's too many buttons - part 2 - full recursive expand gone (still in folder right click menu) - a few less common actions in ... menu now
+__COMMIT__c14f16c|FreHu|2026-02-16T18:43:13+01:00||There's too many buttons - part 2 - full recursive expand gone (still in folder right click menu) - a few less common actions in ... menu now
 M	package.json
 
-__COMMIT__46a05a8|FreHu|2026-02-16T18:33:14+01:00|Respect new sort order setting in other group modes
+__COMMIT__46a05a8|FreHu|2026-02-16T18:33:14+01:00||Respect new sort order setting in other group modes
 M	src/freshFileProvider.ts
 
-__COMMIT__8cbf1a8|FreHu|2026-02-16T18:29:26+01:00|There's too many buttons - part 1
+__COMMIT__8cbf1a8|FreHu|2026-02-16T18:29:26+01:00||There's too many buttons - part 1
 M	package.json
 M	src/commands/basicCommands.ts
 M	src/commands/constants.ts
@@ -192,7 +192,7 @@ M	src/commands/filterCommands.ts
 A	src/commands/viewOptionsCommand.ts
 M	src/extension.ts
 
-__COMMIT__abcd9e0|FreHu|2026-02-16T17:51:22+01:00|Sorting modes
+__COMMIT__abcd9e0|FreHu|2026-02-16T17:51:22+01:00||Sorting modes
 M	package.json
 M	src/commands/basicCommands.ts
 M	src/commands/constants.ts
@@ -201,20 +201,20 @@ M	src/freshFileProvider.ts
 M	src/git/gitOperations.ts
 M	src/types.ts
 
-__COMMIT__e67a7cc|FreHu|2026-02-16T17:23:40+01:00|Add way to create files from fresh file tree
+__COMMIT__e67a7cc|FreHu|2026-02-16T17:23:40+01:00||Add way to create files from fresh file tree
 M	package.json
 M	src/commands/constants.ts
 A	src/commands/fileCreationCommand.ts
 M	src/extension.ts
 
-__COMMIT__591a9f0|FreHu|2026-02-16T16:59:13+01:00|New commands for search editor - open all files - copy file paths
+__COMMIT__591a9f0|FreHu|2026-02-16T16:59:13+01:00||New commands for search editor - open all files - copy file paths
 M	.vscode/settings.json
 M	package.json
 M	src/commands/constants.ts
 M	src/commands/searchCommand.ts
 M	src/extension.ts
 
-__COMMIT__4fe1912|Frederik Hudák|2026-02-10T19:43:08+01:00|1.0.6
+__COMMIT__4fe1912|Frederik Hudák|2026-02-10T19:43:08+01:00||1.0.6
 M	CHANGELOG.md
 M	README.md
 A	img/search-in-found-files.png
@@ -224,36 +224,36 @@ M	src/commands/searchCommand.ts
 M	src/extension.ts
 M	src/test/unit/searchCommand.test.ts
 
-__COMMIT__9f5495e|Frederik Hudák|2026-02-10T18:19:17+01:00|Workaround for search limitation
+__COMMIT__9f5495e|Frederik Hudák|2026-02-10T18:19:17+01:00||Workaround for search limitation
 M	README.md
 M	package.json
 M	src/commands/searchCommand.ts
 M	src/test/unit/searchCommand.test.ts
 
-__COMMIT__419aa8d|Frederik Hudák|2026-02-09T19:33:30+01:00|1.0.5
+__COMMIT__419aa8d|Frederik Hudák|2026-02-09T19:33:30+01:00||1.0.5
 M	CHANGELOG.md
 M	package.json
 
-__COMMIT__da77852|Frederik Hudák|2026-02-09T19:29:25+01:00|Fix opening changes of recently added file failed due to previous version not existing
+__COMMIT__da77852|Frederik Hudák|2026-02-09T19:29:25+01:00||Fix opening changes of recently added file failed due to previous version not existing
 M	src/commands/openChangesCommand.ts
 
-__COMMIT__d46f047|Frederik Hudák|2026-02-09T19:19:55+01:00|Open commit in multi-diff editor
+__COMMIT__d46f047|Frederik Hudák|2026-02-09T19:19:55+01:00||Open commit in multi-diff editor
 M	package.json
 M	src/commands/constants.ts
 A	src/commands/openCommitCommand.ts
 M	src/extension.ts
 M	src/git/gitOperations.ts
 
-__COMMIT__2488a39|Frederik Hudák|2026-02-09T17:15:19+01:00|Reduce notification spam
+__COMMIT__2488a39|Frederik Hudák|2026-02-09T17:15:19+01:00||Reduce notification spam
 M	src/commands/basicCommands.ts
 
-__COMMIT__6f9bfc7|Frederik Hudák|2026-02-09T17:13:47+01:00|Remove initialize repo, it's useless, just do it in SCM view
+__COMMIT__6f9bfc7|Frederik Hudák|2026-02-09T17:13:47+01:00||Remove initialize repo, it's useless, just do it in SCM view
 M	package.json
 M	src/commands/basicCommands.ts
 M	src/commands/constants.ts
 M	src/extension.ts
 
-__COMMIT__ed0b16c|Frederik Hudák|2026-02-06T21:14:03+01:00|1.0.4
+__COMMIT__ed0b16c|Frederik Hudák|2026-02-06T21:14:03+01:00||1.0.4
 M	CHANGELOG.md
 M	README.md
 A	img/grouping-modes.png
@@ -267,7 +267,7 @@ M	src/treeItemConstants.ts
 A	src/utils/moonPhase.ts
 A	src/utils/planetaryRetrograde.ts
 
-__COMMIT__24bc682|Frederik Hudák|2026-02-06T18:37:46+01:00|Grouping by author
+__COMMIT__24bc682|Frederik Hudák|2026-02-06T18:37:46+01:00||Grouping by author
 M	package.json
 M	src/commands/basicCommands.ts
 M	src/commands/constants.ts
@@ -277,7 +277,7 @@ M	src/git/gitOperations.ts
 A	src/groupingMode.ts
 M	src/treeItemConstants.ts
 
-__COMMIT__76cfbf5|Frederik Hudák|2026-02-06T18:24:02+01:00|Add heatmap
+__COMMIT__76cfbf5|Frederik Hudák|2026-02-06T18:24:02+01:00||Add heatmap
 M	package.json
 M	src/commands/basicCommands.ts
 M	src/commands/constants.ts
@@ -287,7 +287,7 @@ M	src/extension.ts
 M	src/freshFileProvider.ts
 A	src/heatmapDecorationProvider.ts
 
-__COMMIT__93feca5|Frederik Hudák|2026-02-06T17:01:48+01:00|1.0.3
+__COMMIT__93feca5|Frederik Hudák|2026-02-06T17:01:48+01:00||1.0.3
 M	CHANGELOG.md
 M	README.md
 A	img/pinned.png
@@ -302,7 +302,7 @@ A	src/treeItemConstants.ts
 M	src/treeItems.ts
 M	src/types.ts
 
-__COMMIT__4c9bfa8|Frederik Hudák|2026-01-30T17:20:00+01:00|1.0.2
+__COMMIT__4c9bfa8|Frederik Hudák|2026-01-30T17:20:00+01:00||1.0.2
 M	CHANGELOG.md
 A	COMPARISON_WITH_GITLENS.md
 M	README.md
@@ -326,7 +326,7 @@ M	src/freshFileProvider.ts
 M	src/utils/formatUtils.ts
 M	src/utils/quickPick.ts
 
-__COMMIT__6191c9d|Frederik Hudák|2026-01-28T21:26:07+01:00|1.0.1 - Add fulltext search function
+__COMMIT__6191c9d|Frederik Hudák|2026-01-28T21:26:07+01:00||1.0.1 - Add fulltext search function
 M	CHANGELOG.md
 M	README.md
 M	package.json
@@ -339,7 +339,7 @@ M	src/freshFileProvider.ts
 A	src/test/unit/searchCommand.test.ts
 A	src/utils/patternUtils.ts
 
-__COMMIT__efc337d|Frederik Hudák|2026-01-28T18:16:47+01:00|1.0
+__COMMIT__efc337d|Frederik Hudák|2026-01-28T18:16:47+01:00||1.0
 A	.gitignore
 A	.mocharc.json
 A	.vscode-test.mjs
