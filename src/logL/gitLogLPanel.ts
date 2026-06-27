@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { execGitWithArgs, gitUri, getCommitParent, getCommitChanges, getCommitSubject } from "../git/gitOperations";
+import { execGitWithArgs, gitUri } from "../git/gitOperations";
+import { getCommitParent, getCommitChanges, getCommitSubject } from "../git/gitCommitQueries";
 import { GitLogLCommit } from "../git/gitLogLParser";
 import { CommitData, GitLogLToWebview, GitLogLFromWebview } from "../webview/messages";
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";

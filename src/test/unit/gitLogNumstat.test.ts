@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { createDiffNumstatLineProcessor } from "../../git/gitOperations";
+import { createDiffNumstatLineProcessor } from "../../git/gitLogStream";
 
 // ---------------------------------------------------------------------------
 // Fixtures: real git numstat output from this repository

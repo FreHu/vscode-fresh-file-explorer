@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { execGitWithArgs, discoverReposInWorkspace } from "../git/gitOperations";
+import { execGitWithArgs } from "../git/gitOperations";
+import { discoverReposInWorkspace, RepoInfo } from "../git/gitRepoDiscovery";
 import { getWebviewHtml } from "./perfBenchmarkPanelUI";
 import { Benchmark, BenchmarkInputValues } from "../benchmark/benchmark";
-import { RepoInfo } from "../git/gitOperations";
 import { CacheRepoStats } from "../fresh-files/freshFileProvider";
 import { createBranchCompareRefreshBenchmark } from "../branch-compare/branchCompareRefreshBenchmark";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";

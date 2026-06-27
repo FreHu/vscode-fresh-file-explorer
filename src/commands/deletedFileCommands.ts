@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { log, showError } from "../extension/logger";
-import { getFileFromHistoryAsBuffer } from "../git/gitOperations";
+import { getFileFromHistoryAsBuffer } from "../git/gitCommitQueries";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { findRepoForFile, findWorkspaceFolderForPath } from "../utils/pathUtils";

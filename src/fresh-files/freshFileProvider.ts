@@ -20,9 +20,8 @@ import {
 } from "../types";
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "../utils/formatUtils";
 import { log, showWarning } from "../extension/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, SubmoduleEntryItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, isPendingGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, isPendingGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
@@ -31,11 +30,12 @@ import { FilterManager } from "./freshFileFilterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
 import { DataCollector, RepoInfo } from "./dataCollector";
 import { NormalizedRepoPath } from "../pathTypes";
-import { findWorkspaceFolderForPath, findRepoForFile, getRelativeDepth } from "../utils/pathUtils";
-import { FreshFileItemSorter } from "./freshFileItemSorter";
+import { findWorkspaceFolderForPath, findRepoForFile } from "../utils/pathUtils";
 import { ContextManager } from "../extension/contextManager";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
-import { FilesExcludeFilter, findOwningFolder } from "./filesExcludeFilter";
+import { FilesExcludeFilter } from "./filesExcludeFilter";
+import { buildTree, buildFlatList, buildRepoRootItems, type TreeBuildContext, type RepoViewContext } from "./treeStructureBuilder";
+import { resolveConfigRefreshAction } from "./configRefreshAction";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -269,68 +269,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       this.currentTimeWindow = this.timeWindows.length > 1 ? this.timeWindows[1] : this.timeWindows[0];
     }
 
-    
-    // Map each setting to the cheapest refresh that makes its change visible.
-    // "none"        — handled outside freshFileProvider (heatmap, git timeout, etc.)
-    // "treeOnly"    — re-render from cached data; no git I/O
-    // "pending"     — re-run git status + numstat; rebuilds from cached history baseline
-    // "hard"        — full repo discovery + git log; only when history scope changes
-    type RefreshAction = "none" | "treeOnly" | "pending" | "hard";
-    
-    //prettier-ignore
-    const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
-      // History scope — must re-fetch git log data.
-      TIME_WINDOWS:                    "hard",
-
-      // Pending-path data — gates a git diff --numstat call.
-      DESCRIPTION_SHOW_LINE_CHANGES:   "pending",
-
-      // Display-only — all data is already cached.
-      DESCRIPTION_SHOW_DATE:           "treeOnly",
-      DESCRIPTION_SHOW_AUTHOR:         "treeOnly",
-      DESCRIPTION_SHOW_COMMIT_HASH:    "treeOnly",
-      DESCRIPTION_SHOW_COMMIT_MESSAGE: "treeOnly",
-      DESCRIPTION_SHOW_STATUS:         "treeOnly",
-      DEFAULT_GROUPING_MODE:           "treeOnly",
-      DEFAULT_SORT_ORDER:              "treeOnly",
-      FLAT_LIST_LABEL_STYLE:           "treeOnly",
-      AUTO_EXPAND_DEPTH:               "treeOnly",
-      SHOW_CURRENT_BRANCH_SYNC:        "treeOnly",
-      SHOW_BASE_BRANCH_SYNC:           "treeOnly",
-      INCREMENTAL_TREE_LOADING:        "treeOnly",
-
-      // Handled elsewhere or behavioural only — no tree refresh needed.
-      HEATMAP_ENABLED:                 "none",
-      BLAME_HEATMAP_AUTO_APPLY:        "none",
-      BLAME_HEATMAP_BG_OPACITY:        "none",
-      BLAME_HEATMAP_MAX_LINES:         "none",
-      AUTO_REVEAL:                     "none",
-      GIT_TIMEOUT:                     "none",
-      SEARCH_PATTERN_MAX_LENGTH:       "none",
-      OPEN_SEARCH_IN_EDITOR:           "none",
-      CODE_TELESCOPE_INTEGRATION:      "none",
-      DEFAULT_OPEN_CHANGES_MODE:       "none",
-      AUTO_STAGE_RENAME:               "none",
-      STATUS_BAR_LOADING:              "none",
-      STATUS_BAR_HEATMAP:              "none",
-      BRANCH_COMPARE_WORKING_TREE_SIDE: "none",
-      BULK_ACTION_CONFIRM_THRESHOLD:    "none",
-      NOTIFY_ON:                       "none",
-
-      // Display-only — recompute the exclude-filtered view; handled below before
-      // the treeOnly refresh fires (so the matcher cache and display map rebuild).
-      RESPECT_FILES_EXCLUDE:           "treeOnly",
-      AI_COAUTHOR_EMAILS:              "hard", // re-parse git log: changes which co-author trailers count as AI
-    };
-
-    let action: RefreshAction = "none";
-    for (const [key, candidate] of Object.entries(CONFIG_ACTIONS) as [keyof typeof ConfigKeys, RefreshAction][]) {
-      if (!e.affectsConfiguration(ConfigKeys[key])) continue;
-      // Escalate to the most expensive action required by any changed key.
-      if (candidate === "hard" || (candidate === "pending" && action !== "hard") || (candidate === "treeOnly" && action === "none")) {
-        action = candidate;
-      }
-    }
+    const action = resolveConfigRefreshAction(section => e.affectsConfiguration(section));
 
     switch (action) {
       case "hard":
@@ -863,7 +802,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       const contextValue = this.workspaceFolders.length === 1 && this.workspaceFolders[0].gitRepos.length === 1
         ? "workspaceFolder"
         : "repoFolder";
-      const children = this.buildRepoView(results, contextValue);
+      const repoItems = buildRepoRootItems(contextValue, this.repoViewContext);
+      // Cache the exact instances VS Code registers — reveal() rejects fresh duplicates.
+      for (const repoItem of repoItems) { this._repoItemCache.set(repoItem.id!, repoItem); }
+      results.push(...repoItems);
+      const children = results;
 
       // Park uninitialized submodules under a single collapsed node at the bottom,
       // regardless of grouping mode, so the user knows they exist without scanning them.
@@ -946,8 +889,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         isRepoNode && isGroupingMode
           ? this.buildGroupedChildrenForRepo(element.resourceUri.fsPath)
           : (this.groupingMode === "Flat List" && isRepoNode)
-            ? this.buildFlatList(element.resourceUri.fsPath)
-            : this.buildTree(element.resourceUri.fsPath);
+            ? buildFlatList(element.resourceUri.fsPath, this.treeBuildContext)
+            : buildTree(element.resourceUri.fsPath, this.treeBuildContext);
       // If pending is shown but historical is still running, prepend a history spinner
       if (this.reposLoadingHistorical.has(normalizedPath)) {
         children.unshift(new MessageTreeItem("Loading history…", "loading~spin"));
@@ -989,76 +932,19 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     );
   }
 
-  private buildRepoView(results: FreshFilesTreeItem[], contextValue: string) {
-    // Read once: when off, the per-file exclude check below is skipped entirely.
-    const excludeOn = this.filesExcludeFilter.enabled;
-
-    // Per-repo file counts in a SINGLE pass over the file map. Each file is attributed to
-    // its most-specific owning repo; repo roots don't overlap in practice
-    // (sibling worktrees / submodules live in separate paths)
-    const reposBySpecificity = [...this.resolvedRepos].sort(
-      (a, b) => b.normalizedRepoPath.length - a.normalizedRepoPath.length,
-    );
-    const repoFileCounts = new Map<string, number>();
-    for (const filePath of this._freshFiles.keys()) {
-      const p = filePath as string;
-      for (const repo of reposBySpecificity) {
-        const rp = repo.normalizedRepoPath as string;
-        if (p !== rp && !p.startsWith(rp + "/")) { continue; }
-        // Owning repo found — count it unless out of folder scope or hidden by
-        // this folder's files.exclude (keeps the count in step with buildTree).
-        const scope = this.repoScope.getFolderScope(repo.normalizedRepoPath);
-        const inScope = !scope || p === scope || p.startsWith(scope + "/");
-        if (inScope && !(excludeOn && this.filesExcludeFilter.isExcludedUnder(filePath, repo.folder))) {
-          repoFileCounts.set(rp, (repoFileCounts.get(rp) ?? 0) + 1);
-        }
-        break; // most-specific owner; don't double-count under a parent repo
-      }
-    }
-
-    // Default: group by file structure
-    for (const { folder, repoRelPath, repoFullPath, normalizedRepoPath } of this.resolvedRepos) {
-      const repoName = repoRelPath || folder.name;
-      const activeFolderScope = this.repoScope.getFolderScope(normalizedRepoPath);
-
-      const fileCount = repoFileCounts.get(normalizedRepoPath as string) ?? 0;
-
-      const repoUri = vscode.Uri.file(repoFullPath);
-      const branchName = this.repoBranches.get(normalizedRepoPath);
-      const isLoading = this.reposLoading.has(normalizedRepoPath);
-      const isLoadingHistorical = this.reposLoadingHistorical.has(normalizedRepoPath);
-      const activePathspec = this.repoScope.getPathspec(normalizedRepoPath);
-
-      // Compute a display-friendly folder scope label
-      const folderScopeDisplay = activeFolderScope
-        ? normalizePath(path.relative(repoFullPath, activeFolderScope))
-        : undefined;
-
-      // Respect auto-expand depth setting for repository roots. We must commit
-      // to the expansion preference on the *first* render — VS Code's TreeView
-      // locks in collapsibleState by item id, so a "Collapsed during load,
-      // Expanded after" sequence leaves the repo permanently collapsed. During
-      // loading we expand under the assumption that data is coming.
-      const expectFiles = fileCount > 0 || isLoading || isLoadingHistorical;
-      const shouldExpand = ConfigService.getAutoExpandDepth() > 0 && expectFiles;
-
-      const repoItem = FreshFileItem.forRepository(
-        repoUri,
-        this.openChangesMode,
-        fileCount,
-        repoName,
-        branchName,
-        contextValue,
-        shouldExpand,
-        isLoading,
-        activePathspec,
-        folderScopeDisplay,
-        isLoadingHistorical,
-      );
-      this._repoItemCache.set(repoItem.id!, repoItem);
-      results.push(repoItem);
-    }
-    return results;
+  /** Bundle the state the repo-root view builder needs (see treeStructureBuilder.ts). */
+  private get repoViewContext(): RepoViewContext {
+    return {
+      resolvedRepos: this.resolvedRepos,
+      freshFiles: this._freshFiles,
+      filesExcludeFilter: this.filesExcludeFilter,
+      getFolderScope: (repo) => this.repoScope.getFolderScope(repo),
+      getPathspec: (repo) => this.repoScope.getPathspec(repo),
+      repoBranches: this.repoBranches,
+      reposLoading: this.reposLoading,
+      reposLoadingHistorical: this.reposLoadingHistorical,
+      openChangesMode: this.openChangesMode,
+    };
   }
 
   /** Total count of all git repositories across all workspace folders. */
@@ -1087,6 +973,21 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
     }
     return set;
+  }
+
+  /** Bundle the state the structural tree builders need (see treeStructureBuilder.ts). */
+  private get treeBuildContext(): TreeBuildContext {
+    return {
+      freshFiles: this._freshFiles,
+      fileIndex: this.fileIndex,
+      filterManager: this.filterManager,
+      filesExcludeFilter: this.filesExcludeFilter,
+      workspaceFolders: this.workspaceFolders,
+      submoduleRootPaths: this.submoduleRootPaths,
+      passesRepoScope: (p) => this.passesRepoScope(p),
+      sortOrder: this.sortOrder,
+      openChangesMode: this.openChangesMode,
+    };
   }
 
   /**
@@ -1525,161 +1426,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return this._dirStats().get(asAbsolutePath(dirPath))?.mostRecent;
   }
 
-  private buildTree(parentPath: string): (FreshFileItem | SubmoduleEntryItem)[] {
-    const normalizedParent = asAbsolutePath(parentPath);
-
-    const directChildren = this.fileIndex.getDirectChildren(normalizedParent);
-    if (!directChildren || directChildren.size === 0) { return []; }
-
-    // Build the dir stats cache once (shared across all buildTree calls this render pass).
-    const descriptionFormat = ConfigService.getDescriptionFormat();
-    // files.exclude is evaluated relative to the workspace folder of THIS node,
-    // so excluding `backend` at a root prunes the whole `backend/` subtree here
-    // (and stops descent into it) while a backend-rooted node still shows it.
-    // Must be the MOST-SPECIFIC owning folder: with overlapping roots, a generic
-    // first-match would resolve the backend node to the root and wrongly apply
-    // the root's excludes to it. `excludeOn` is read once so that, when the
-    // feature is off, every per-file/per-dir check below short-circuits — no work.
-    const excludeOn = this.filesExcludeFilter.enabled;
-    const nodeFolder = excludeOn
-      ? findOwningFolder(normalizePath(normalizedParent), this.workspaceFolders)
-      : undefined;
-
-    const dirStats = this.fileIndex.ensureDirStats(
-      this._freshFiles,
-      (m) => this.filterManager.passesFilters(m),
-      (p) => this.passesRepoScope(p) && !(excludeOn && this.filesExcludeFilter.isExcludedByOwner(p, this.workspaceFolders)),
-      descriptionFormat.showLineChanges,
-    );
-    const autoExpandDepth = ConfigService.getAutoExpandDepth();
-
-    const items: (FreshFileItem | SubmoduleEntryItem)[] = [];
-
-    for (const childPath of directChildren) {
-      if (nodeFolder && this.filesExcludeFilter.isExcludedUnder(childPath, nodeFolder)) { continue; }
-      const isFile = this._freshFiles.has(childPath);
-      const name = childPath.substring(normalizedParent.length + 1);
-      const fullPath = path.join(parentPath, name);
-      const uri = vscode.Uri.file(fullPath);
-
-      if (isFile) {
-        const metadata = this._freshFiles.get(childPath)!;
-        if (!this.filterManager.passesFilters(metadata)) { continue; }
-        if (!this.passesRepoScope(childPath)) { continue; }
-
-        // Submodule roots are shown as a custom entry (no file URI) to work around weirdness with duplicates in the tree
-        if (this.submoduleRootPaths.has(childPath)) {
-          items.push(new SubmoduleEntryItem(fullPath, parentPath));
-          continue;
-        }
-
-        const item = FreshFileItem.forFile(
-          uri, this.openChangesMode,
-          metadata.isDeleted ?? false,
-          metadata.commitHash,
-          metadata.isPending ?? false,
-          metadata.status,
-          metadata.renameSource,
-        );
-        item.description = formatFileDescription(metadata, descriptionFormat);
-        item.tooltip = formatFileTooltip(metadata, descriptionFormat);
-        items.push(item);
-      } else {
-        // Directory — stats already respect filters and scopes
-        const stats = dirStats.get(childPath);
-        if (!stats || stats.count === 0) { continue; }
-
-        const relativeDepth = getRelativeDepth(fullPath, this.workspaceFolders);
-        const shouldExpand = relativeDepth < autoExpandDepth;
-        const item = FreshFileItem.forDirectory(uri, this.openChangesMode, stats.count, shouldExpand);
-
-        if (stats.mostRecent) {
-          const lineChanges = descriptionFormat.showLineChanges && (stats.linesAdded > 0 || stats.linesDeleted > 0)
-            ? { added: stats.linesAdded, deleted: stats.linesDeleted }
-            : undefined;
-          item.description = formatGroupDescription(stats.count, lineChanges?.added, lineChanges?.deleted);
-          item.tooltip = formatDirectoryTooltip(stats.count, stats.mostRecent, lineChanges?.added, lineChanges?.deleted);
-        }
-        items.push(item);
-      }
-    }
-
-    FreshFileItemSorter.sort(
-      items,
-      this.sortOrder,
-      (item) => {
-        if (item instanceof SubmoduleEntryItem) {
-          return this._freshFiles.get(asAbsolutePath(item.submoduleFsPath))?.date;
-        }
-        return item.isDirectory
-          ? dirStats.get(asAbsolutePath(item.resourceUri.fsPath))?.mostRecent
-          : this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.date;
-      },
-      (item) => {
-        if (item instanceof SubmoduleEntryItem) {
-          return this._freshFiles.get(asAbsolutePath(item.submoduleFsPath))?.author || "";
-        }
-        return item.isDirectory
-          ? ""
-          : (this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.author || "");
-      },
-    );
-
-    return items;
-  }
-
-  private buildFlatList(repoFsPath: string): FreshFileItem[] {
-    const normalizedRepoPath = asAbsolutePath(normalizePath(repoFsPath));
-    const descriptionFormat = ConfigService.getDescriptionFormat();
-    const items: FreshFileItem[] = [];
-    // Evaluate files.exclude relative to this node's workspace folder (per-node,
-    // most-specific owner — see buildTree for why first-match is wrong here).
-    // Undefined when the feature is off → the per-file check below is skipped.
-    const nodeFolder = this.filesExcludeFilter.enabled
-      ? findOwningFolder(normalizePath(normalizedRepoPath), this.workspaceFolders)
-      : undefined;
-
-    for (const [filePath, metadata] of this._freshFiles) {
-      if (!filePath.startsWith(normalizedRepoPath + "/") && filePath !== normalizedRepoPath) {
-        continue;
-      }
-      if (!this.filterManager.passesFilters(metadata)) { continue; }
-      if (!this.passesRepoScope(filePath)) { continue; }
-      if (nodeFolder && this.filesExcludeFilter.isExcludedUnder(filePath, nodeFolder)) { continue; }
-
-      const uri = vscode.Uri.file(filePath);
-      const item = FreshFileItem.forFile(
-        uri,
-        this.openChangesMode,
-        metadata.isDeleted ?? false,
-        metadata.commitHash,
-        metadata.isPending ?? false,
-        metadata.status,
-        metadata.renameSource,
-      );
-      if (ConfigService.getFlatListLabelStyle() === "filename") {
-        item.label = path.basename(filePath);
-        const dirRel = normalizePath(path.relative(repoFsPath, path.dirname(filePath)));
-        const fileDesc = formatFileDescription(metadata, descriptionFormat);
-        item.description = dirRel ? `${dirRel}  ${fileDesc}` : fileDesc;
-      } else {
-        // "path" (default): repo-relative path as label.
-        item.label = normalizePath(path.relative(repoFsPath, filePath));
-        item.description = formatFileDescription(metadata, descriptionFormat);
-      }
-      item.tooltip = formatFileTooltip(metadata, descriptionFormat);
-      items.push(item);
-    }
-
-    FreshFileItemSorter.sort(
-      items,
-      this.sortOrder,
-      (item) => item.resourceUri ? this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.date : undefined,
-      (item) => item.resourceUri ? (this._freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.author || "") : "",
-    );
-
-    return items;
-  }
 }
 
 /** Checks whether `normalizedFilePath` belongs to any of the given normalized repo paths. */

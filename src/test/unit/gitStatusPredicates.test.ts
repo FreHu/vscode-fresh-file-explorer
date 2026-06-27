@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { suite, test } from "mocha";
-import { hasStagedChanges, hasUnstagedChanges, isStagedOnly } from "../../git/gitOperations";
+import { hasStagedChanges, hasUnstagedChanges, isStagedOnly } from "../../git/gitStatusPredicates";
 
 suite("git status predicates", () => {
   suite("hasStagedChanges", () => {

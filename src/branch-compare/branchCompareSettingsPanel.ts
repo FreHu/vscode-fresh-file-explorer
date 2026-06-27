@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 
 import { SavedComparisonsService } from "./savedComparisonsService";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
-import { getAvailableBranches, execGitWithArgs } from "../git/gitOperations";
+import { execGitWithArgs } from "../git/gitOperations";
+import { getAvailableBranches } from "../git/gitCommitQueries";
 import { ConfigService } from "../config/configService";
 import { log } from "../extension/logger";
 import { normalizePath } from "../utils";

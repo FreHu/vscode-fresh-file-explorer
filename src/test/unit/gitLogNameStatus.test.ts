@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { COMMIT_NAME_STATUS_PRETTY, createNameStatusLineProcessor } from "../../git/gitOperations";
+import { COMMIT_NAME_STATUS_PRETTY, createNameStatusLineProcessor } from "../../git/gitLogStream";
 import type { CommitData } from "../../types";
 
 // ---------------------------------------------------------------------------

@@ -15,9 +15,8 @@ import { readFileSync } from "node:fs";
 /** file path (repo-relative, POSIX) -> max allowed line count */
 const CEILINGS = {
   // These keep getting bumped instead of refactored - needs some work
-  "src/fresh-files/freshFileProvider.ts": 1750,
-  "src/git/gitOperations.ts": 1275,
-  "src/heatmap/blameHeatmapController.ts": 1169,
+  "src/fresh-files/freshFileProvider.ts": 1480,
+  "src/heatmap/blameHeatmapController.ts": 1080,
 };
 
 function lineCount(path) {

@@ -4,14 +4,8 @@ import * as path from "path";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { findRepoForFile, isPathWithinRoot, findWorkspaceFolderForPath } from "../utils/pathUtils";
-import {
-  discardFileChanges,
-  discardAllFileChanges,
-  discardRename,
-  unstageFile,
-  hasStagedChanges,
-  hasUnstagedChanges,
-} from "../git/gitOperations";
+import { discardFileChanges, discardAllFileChanges, discardRename, unstageFile } from "../git/gitMutations";
+import { hasStagedChanges, hasUnstagedChanges } from "../git/gitStatusPredicates";
 import { normalizePath } from "../utils";
 import { log, showError, showInfo } from "../extension/logger";
 import { asAbsolutePath } from "../pathTypes";

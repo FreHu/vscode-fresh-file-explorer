@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { suite, test } from "mocha";
-import { classifyDiscoveryEntry, type DiscoveryAction } from "../../git/gitOperations";
+import { classifyDiscoveryEntry, type DiscoveryAction } from "../../git/gitRepoDiscovery";
 
 const classify = (over: Partial<Parameters<typeof classifyDiscoveryEntry>[0]>): DiscoveryAction =>
   classifyDiscoveryEntry({

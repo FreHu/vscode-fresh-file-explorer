@@ -7,20 +7,29 @@ import {
   isFileTracked,
   fileExistsAtRef,
   runGitBlamePorcelain,
-} from "../git/gitOperations";
+} from "../git/gitCommitQueries";
 import { parseGitBlamePorcelain, parseBranchHunks } from "../git/blameDiffParsers";
 import { GitApi, GitRepository } from "../git/gitExecutionListener";
 import { findRepoForAbsolutePath } from "../utils/pathUtils";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { ConfigService } from "../config/configService";
-import { blameTimestampToBucket, HEATMAP_BUCKET_COUNT } from "./heatmapUtils";
+import { HEATMAP_BUCKET_COUNT } from "./heatmapUtils";
+import {
+  computeBranchWindow,
+  computeAbsoluteWindow,
+  detectAllNewFile,
+  clampDeletionLineIndex,
+  type BucketFn,
+} from "./blameHeatmapCompute";
+import { deletionBadgeSvg } from "./heatmapSvg";
+import { buildDecorationTypes } from "./heatmapDecorationTypes";
+import { isEditorInDiff } from "./editorDiffDetection";
 import { formatRelativeDateLong } from "../utils/formatUtils";
 import { log, showInfo, showError } from "../extension/logger";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { normalizePath } from "../utils";
 import { Commands } from "../commands/commandConstants";
 import { FeatureStatusBar } from "../ui/featureStatusBar";
-import { hexToRgba } from "../utils/colorUtils";
 import { gitUri } from "../git/gitOperations";
 import { openDiff } from "../utils";
 import { BaselineService } from "../baseline/baselineService";
@@ -28,58 +37,6 @@ import { ContextManager } from "../extension/contextManager";
 
 /** Which mode is active for a given editor file. */
 export type BlameHeatmapMode = "absolute" | "branch";
-
-/**
- * True when the given editor is one side of an open diff tab.
- *
- * Diff editors already convey what changed visually — overlaying our blame
- * heatmap on top duplicates the signal and clutters the gutter. We detect this
- * by walking `vscode.window.tabGroups` and checking whether any tab in the
- * editor's view column is a `TabInputTextDiff` whose `original` or `modified`
- * URI matches the editor's document URI.
- *
- * Duck-typed instead of `instanceof vscode.TabInputTextDiff` so it stays
- * resilient if VS Code reshapes the type.
- */
-function isEditorInDiff(editor: vscode.TextEditor): boolean {
-  // VS Code reports `undefined` viewColumn for diff sides — the column belongs
-  // to the diff tab, not the individual TextEditor side. So if we know the
-  // editor's column, restrict the scan to that group; otherwise (undefined →
-  // probably a diff side) scan every group's active tab and match any diff
-  // input that contains this URI.
-  //
-  // Only the active tab in a group renders its TextEditor(s) into
-  // `visibleTextEditors`, so checking the active tab is sufficient — and
-  // necessary: scanning every tab would falsely match a regular tab of the
-  // same file that happens to coexist with a diff tab in the same column.
-  const uriString = editor.document.uri.toString();
-  const targetCol = editor.viewColumn;
-  for (const group of vscode.window.tabGroups.all) {
-    if (targetCol !== undefined && group.viewColumn !== targetCol) { continue; }
-    const activeTab = group.activeTab;
-    if (!activeTab) { continue; }
-    const input = activeTab.input;
-    if (!input || typeof input !== "object") { continue; }
-    if ("original" in input && "modified" in input) {
-      const orig = (input as { original: vscode.Uri }).original;
-      const mod = (input as { modified: vscode.Uri }).modified;
-      if (orig.toString() === uriString || mod.toString() === uriString) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-/**
- * Build a gutter icon URI for a given hex color.
- * Produces a 16×16 SVG with a full-height colored bar on the right edge,
- * mimicking the GitLens-style gutter indicator.
- */
-function makeGutterIconUri(hexColor: string): vscode.Uri {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><rect x='12' y='0' width='2' height='16' fill='${hexColor.replace(/#/g, "%23")}'/></svg>`;
-  return vscode.Uri.parse(`data:image/svg+xml,${svg}`);
-}
 
 /** A dynamically-created decoration type + options pair for a single deletion marker. */
 interface DeletionDecoration {
@@ -89,27 +46,9 @@ interface DeletionDecoration {
   lines: string[];
 }
 
-/**
- * Build a gutter icon URI for a deletion badge — a red circle containing the
- * deleted-line count (e.g. "36"). The leading minus that earlier versions
- * baked into the label was redundant (the red circle already signals deletion)
- * and ate the budget the digits needed to stay readable, so the badge now
- * shows just the number at a much larger font size.
- *
- * `viewBox` lets VS Code scale the SVG to whatever gutter width it allocates.
- */
+/** Wrap the deletion-badge SVG in a `data:image/svg+xml` gutter icon URI. */
 function makeDeletionGutterIcon(count: number): vscode.Uri {
-  const num = count > 999 ? "999+" : String(count);
-  // Sized to fit 1–4 chars in a 16-unit circle.
-  const fontSize = num.length === 1 ? 11 : num.length === 2 ? 9 : num.length === 3 ? 7 : 6;
-  // Use rgb() to avoid URL-encoding issues with '#' in data URIs.
-  const svg =
-    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' width='16' height='16'>` +
-    `<circle cx='8' cy='8' r='7.5' fill='rgb(248,81,73)'/>` +
-    `<text x='8' y='8' text-anchor='middle' dominant-baseline='central' ` +
-    `fill='white' font-size='${fontSize}' font-family='sans-serif' font-weight='bold'>${num}</text>` +
-    `</svg>`;
-  return vscode.Uri.parse(`data:image/svg+xml,${svg}`);
+  return vscode.Uri.parse(`data:image/svg+xml,${deletionBadgeSvg(count)}`);
 }
 
 /**
@@ -165,7 +104,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     private readonly freshFileProvider: FreshFileProvider,
     private readonly baselineService: BaselineService,
   ) {
-    const built = this.buildDecorationTypes();
+    const built = buildDecorationTypes();
     this.decorationTypes = built.decorationTypes;
     this.addedDecorationTypes = built.addedDecorationTypes;
 
@@ -333,32 +272,11 @@ export class BlameHeatmapController implements vscode.Disposable {
   }
 
   /**
-   * Build a bucket of decoration types from a colors array + the matching
-   * `freshFileExplorer.heatmap.<idPrefix>${1..N}` overview-ruler theme color.
-   * Used twice in `buildDecorationTypes()` — once for the modified palette,
-   * once for the added palette.
+   * Rebuild the bucket decoration types (e.g. after a color-theme or config
+   * change): clear + dispose the old types, build fresh ones from current
+   * config, then re-apply cached decorations to visible editors. Deletion types
+   * are per-file dynamic types and survive the rebuild unchanged.
    */
-  private buildBucketTypes(colors: string[], idPrefix: "age" | "added"): vscode.TextEditorDecorationType[] {
-    const opacity = ConfigService.getBlameHeatmapBackgroundOpacity();
-    return Array.from({ length: HEATMAP_BUCKET_COUNT }, (_, i) =>
-      vscode.window.createTextEditorDecorationType({
-        isWholeLine: true,
-        gutterIconPath: makeGutterIconUri(colors[i]),
-        gutterIconSize: "contain",
-        backgroundColor: hexToRgba(colors[i], opacity),
-        overviewRulerColor: new vscode.ThemeColor(`freshFileExplorer.heatmap.${idPrefix}${i + 1}`),
-        overviewRulerLane: vscode.OverviewRulerLane.Left,
-      }),
-    );
-  }
-
-  private buildDecorationTypes(): { decorationTypes: vscode.TextEditorDecorationType[]; addedDecorationTypes: vscode.TextEditorDecorationType[] } {
-    return {
-      decorationTypes: this.buildBucketTypes(ConfigService.getBlameHeatmapAgeColors(), "age"),
-      addedDecorationTypes: this.buildBucketTypes(ConfigService.getBlameHeatmapAddedColors(), "added"),
-    };
-  }
-
   private rebuildDecorationTypes(): void {
     // Clear old bucket decorations from all visible editors before disposing the types.
     // Deletion types are per-file dynamic types and survive the rebuild unchanged.
@@ -368,7 +286,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     }
     for (const dt of this.decorationTypes) { dt.dispose(); }
     for (const dt of this.addedDecorationTypes) { dt.dispose(); }
-    const built = this.buildDecorationTypes();
+    const built = buildDecorationTypes();
     this.decorationTypes = built.decorationTypes;
     this.addedDecorationTypes = built.addedDecorationTypes;
     // Re-apply from cache so active heatmaps update immediately. Skip diff
@@ -637,7 +555,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       () => [],
     );
 
-    let getBucket: (sha: string, timestamp: number) => number;
+    let getBucket: BucketFn;
     let windowDays: number;
     let isAllNewFile = false;
     /** 1-based new-file line numbers that appeared as pure additions in branch mode (empty in absolute mode). */
@@ -670,21 +588,12 @@ export class BlameHeatmapController implements vscode.Disposable {
 
       if (isStale()) { return; }
 
-      // Window spans the actual age range of branch-touched lines in **this file**
-      // (not from merge-base to now). Using merge-base→now collapses every line
-      // into bucket 0 when the branch's edits cluster near the recent end of a
-      // long-lived branch — palette becomes a single colour. Anchoring on the
-      // oldest branch-line in the file restores per-bucket spread.
-      const branchLineTimestamps = blameLines.filter(l => branchCommitShas.has(l.sha)).map(l => l.timestamp);
-      const oldestBranchTimestamp = branchLineTimestamps.length > 0
-        ? Math.min(...branchLineTimestamps)
-        : Math.floor(nowMs / 1000); // no branch lines in this file → window irrelevant
-      windowDays = Math.max(1, (nowMs - oldestBranchTimestamp * 1000) / (24 * 60 * 60 * 1000));
-      getBucket = (sha, timestamp) =>
-        branchCommitShas.has(sha) ? blameTimestampToBucket(timestamp, windowDays, nowMs) : -1; // sentinel: skip this line
+      const branchWindow = computeBranchWindow(blameLines, branchCommitShas, nowMs);
+      windowDays = branchWindow.windowDays;
+      getBucket = branchWindow.getBucket;
 
       log(
-        `Branch blame heatmap: baseRef=${baseRef!}, mergeBase=${mergeBaseSha.slice(0, 7)}, branchCommits=${branchCommitShas.size}, branchLinesInFile=${branchLineTimestamps.length}, window=${windowDays.toFixed(1)}d`,
+        `Branch blame heatmap: baseRef=${baseRef!}, mergeBase=${mergeBaseSha.slice(0, 7)}, branchCommits=${branchCommitShas.size}, branchLinesInFile=${branchWindow.branchLinesInFile}, window=${windowDays.toFixed(1)}d`,
       );
 
       // Fetch the branch diff once: deletions (gutter badges) + added-line set
@@ -700,9 +609,7 @@ export class BlameHeatmapController implements vscode.Disposable {
 
       const lineCount = editor.document.lineCount;
       for (const { afterNewLine1, count, lines } of branchHunks.deletions) {
-        // afterNewLine1 is 1-based; clamp to valid [0, lineCount-1] range.
-        // A value of 0 means the deletion is before the first surviving line.
-        const lineIndex = Math.max(0, Math.min(afterNewLine1, lineCount) - 1);
+        const lineIndex = clampDeletionLineIndex(afterNewLine1, lineCount);
 
         // Each deletion gets its own decoration type so the gutter badge can
         // show the specific count (e.g. "36"). The user-facing actions live in
@@ -722,20 +629,16 @@ export class BlameHeatmapController implements vscode.Disposable {
         });
       }
 
-      // Suppress decorations only when the file is **genuinely new** since the
-      // merge base — every line a fresh addition. A fully-rewritten file
-      // (existed at mergeBase, every line replaced) also blames entirely to
-      // branch with no pure-deletion hunks, but it's *not* new — we want
-      // normal age decorations there.
-      if (!existedAtMergeBase && rangesByDeletions.length === 0) {
-        isAllNewFile = blameLines.every(l => branchCommitShas.has(l.sha));
-      }
+      isAllNewFile = detectAllNewFile(
+        blameLines,
+        branchCommitShas,
+        existedAtMergeBase,
+        rangesByDeletions.length > 0,
+      );
     } else {
-      // Absolute mode: derive window from the oldest line in the file so that
-      // the full colour range is always used regardless of configured windows.
-      const oldestTimestamp = Math.min(...blameLines.map(l => l.timestamp));
-      windowDays = Math.max(1, (nowMs - oldestTimestamp * 1000) / (24 * 60 * 60 * 1000));
-      getBucket = (_sha, timestamp) => blameTimestampToBucket(timestamp, windowDays, nowMs);
+      const absoluteWindow = computeAbsoluteWindow(blameLines, nowMs);
+      windowDays = absoluteWindow.windowDays;
+      getBucket = absoluteWindow.getBucket;
     }
 
     for (const { lineIndex, timestamp, author, summary, sha } of blameLines) {

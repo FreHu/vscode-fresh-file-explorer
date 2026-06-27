@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { DiffSearchResultProvider } from "./diffSearchResultProvider";
 import { DiffMatch, DiffSearchPatternError, searchHistoricalDiffs, searchPendingDiffs } from "./diffSearchParser";
-import { discoverReposInWorkspace } from "../git/gitOperations";
+import { discoverReposInWorkspace } from "../git/gitRepoDiscovery";
 import { AbsolutePath } from "../pathTypes";
 import { log, showError, showWarning } from "../extension/logger";
 import { formatGitCommand, escapeRegex } from "../utils/formatUtils";

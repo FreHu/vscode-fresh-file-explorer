@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-import { getMergeBase } from "../git/gitOperations";
+import { getMergeBase } from "../git/gitCommitQueries";
 import { NormalizedRepoPath, asNormalizedRepoPath } from "../pathTypes";
 import { GitApi, GitRepository } from "../git/gitExecutionListener";
 import { SavedComparisonsService } from "../branch-compare/savedComparisonsService";

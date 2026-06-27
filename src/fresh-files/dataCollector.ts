@@ -3,14 +3,9 @@ import { AbsolutePath, asAbsolutePath, NormalizedRepoPath, asNormalizedRepoPath 
 import { CommitStats, FileMetadata, WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 import { log } from "../extension/logger";
-import {
-  collectHistoricalChanges,
-  collectPendingChanges,
-  discoverGitReposInSubdirs,
-  isGitRepository,
-  isGitRepositoryRoot,
-  readGitModulesSubmodulePaths,
-} from "../git/gitOperations";
+import { collectHistoricalChanges } from "../git/gitLogStream";
+import { collectPendingChanges } from "../git/gitPendingChanges";
+import { discoverGitReposInSubdirs, isGitRepository, isGitRepositoryRoot, readGitModulesSubmodulePaths } from "../git/gitRepoDiscovery";
 
 /** Fully-resolved information about a single Git repository within a workspace folder. */
 export interface RepoInfo {

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { execGitWithArgs, getCommitParent, getCommitSubject, getCommitChanges, gitUri } from "../git/gitOperations";
+import { execGitWithArgs, gitUri } from "../git/gitOperations";
+import { getCommitParent, getCommitSubject, getCommitChanges } from "../git/gitCommitQueries";
 import { buildStonksData } from "./stonksDataCollector";
 import { getWebviewHtml } from "./stonksPanelUI";
 import { log, showError } from "../extension/logger";

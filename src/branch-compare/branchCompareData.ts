@@ -1,8 +1,8 @@
 import * as path from "path";
 
-import { COMMIT_NAME_STATUS_PRETTY, execGitWithArgs, streamGitDiffNumstat, streamGitLogNameStatus } from "../git/gitOperations";
+import { execGitWithArgs, decodeGitPath } from "../git/gitOperations";
+import { COMMIT_NAME_STATUS_PRETTY, streamGitDiffNumstat, streamGitLogNameStatus } from "../git/gitLogStream";
 import { ConfigService } from "../config/configService";
-import { decodeGitPath } from "../git/gitOperations";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { normalizePath } from "../utils";
 import { CommitData } from "../types";

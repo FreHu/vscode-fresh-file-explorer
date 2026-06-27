@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 
 import { Benchmark } from "../benchmark/benchmark";
-import { discoverReposInWorkspace, getMergeBase } from "../git/gitOperations";
+import { discoverReposInWorkspace } from "../git/gitRepoDiscovery";
+import { getMergeBase } from "../git/gitCommitQueries";
 import {
   fetchCommittedDiff,
   fetchWorkingTreeStatus,

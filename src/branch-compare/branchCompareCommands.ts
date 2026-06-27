@@ -14,13 +14,8 @@ import { BranchCompareGroupItem } from "./branchCompareGroupingBuilder";
 import { HEAD_SOURCE, SavedComparisonsService } from "./savedComparisonsService";
 import { DiffMode } from "./branchCompareConstants";
 import { openCommitByHash, openPendingChangesMultiDiff } from "../commands/openCommitCommand";
-import {
-  execGitWithArgs,
-  fileExistsAtRef,
-  getAvailableBranches,
-  getMergeBase,
-  gitUri,
-} from "../git/gitOperations";
+import { execGitWithArgs, gitUri } from "../git/gitOperations";
+import { fileExistsAtRef, getAvailableBranches, getMergeBase } from "../git/gitCommitQueries";
 import { openDiff, normalizePath } from "../utils";
 import { toRelativePaths, listWorkspaceRepos } from "../utils/pathUtils";
 import { log, showError, showInfo } from "../extension/logger";
