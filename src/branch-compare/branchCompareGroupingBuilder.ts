@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 
 import { ChangedFile } from "./branchCompareData";
+import { SortOrder } from "../types";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase } from "../fresh-files/moonPhase";
 import { getRetrogradeInfo, getRetrogradeKey } from "../fresh-files/planetaryRetrograde";
@@ -26,6 +27,8 @@ export class BranchCompareGroupItem extends vscode.TreeItem {
     description: string,
     tooltip: string,
     icon: string,
+    /** Precomputed by the builder — pending / commit / generic group (see {@link buildGroupedItems}). */
+    contextValue: string,
   ) {
     super(label, vscode.TreeItemCollapsibleState.Expanded);
     // Distinct id prefix per comparison so VS Code's tree-state cache doesn't
@@ -34,11 +37,7 @@ export class BranchCompareGroupItem extends vscode.TreeItem {
     this.description = description;
     this.tooltip = tooltip;
     this.iconPath = new vscode.ThemeIcon(icon);
-    // The pending bucket gets its own contextValue so working-tree actions
-    // (focus Source Control) attach to it and not to real commit/author groups.
-    this.contextValue = groupKey === PENDING_GROUP_KEY
-      ? BranchCompareContextValues.GROUP_PENDING
-      : BranchCompareContextValues.GROUP;
+    this.contextValue = contextValue;
   }
 }
 
@@ -108,7 +107,12 @@ export function buildGroupedItems(
     }
   }
 
-  const sorted = [...groups.entries()].sort((a, b) => b[1].mostRecent.getTime() - a[1].mostRecent.getTime());
+  // Pending pins to the top (matches Fresh Files); the rest sort most-recent first.
+  const sorted = [...groups.entries()].sort((a, b) => {
+    if (a[0] === PENDING_GROUP_KEY) { return -1; }
+    if (b[0] === PENDING_GROUP_KEY) { return 1; }
+    return b[1].mostRecent.getTime() - a[1].mostRecent.getTime();
+  });
 
   const items: BranchCompareGroupItem[] = [];
   for (const [key, group] of sorted) {
@@ -150,20 +154,42 @@ export function buildGroupedItems(
       tooltip = `${group.label}\n${fileCount} file(s)${dateLabel}`;
     }
 
+    // Pending bucket carries working-tree actions; a real commit-hash group
+    // carries "open commit"
+    const contextValue = key === PENDING_GROUP_KEY
+      ? BranchCompareContextValues.GROUP_PENDING
+      : mode === "Commit Hash"
+        ? BranchCompareContextValues.GROUP_COMMIT
+        : BranchCompareContextValues.GROUP;
+
     items.push(
-      new BranchCompareGroupItem(key, repoFullPath, comparisonId, group.files, group.label, description, tooltip, group.icon),
+      new BranchCompareGroupItem(key, repoFullPath, comparisonId, group.files, group.label, description, tooltip, group.icon, contextValue),
     );
   }
 
   return items;
 }
 
-/** Sort the file list under a group / under flat-list mode. */
-export function sortFilesForGrouping(files: ChangedFile[]): ChangedFile[] {
+/**
+ * Sort a file list by the active sort order — mirrors Fresh Files'
+ * `sortFilesList` so both trees order file rows identically. Basename is the tiebreaker.
+ */
+export function sortFilesForGrouping(files: ChangedFile[], sortOrder: SortOrder): ChangedFile[] {
+  const basename = (p: string) => p.substring(p.lastIndexOf("/") + 1);
   return files.slice().sort((a, b) => {
-    const da = a.commit?.date.getTime() ?? 0;
-    const db = b.commit?.date.getTime() ?? 0;
-    if (da !== db) { return db - da; } // most recent first
-    return a.pathInRepo.localeCompare(b.pathInRepo);
+    switch (sortOrder) {
+      case "name":
+        return basename(a.pathInRepo).localeCompare(basename(b.pathInRepo));
+      case "author": {
+        const cmp = (a.commit?.author ?? "").localeCompare(b.commit?.author ?? "");
+        return cmp !== 0 ? cmp : basename(a.pathInRepo).localeCompare(basename(b.pathInRepo));
+      }
+      case "date":
+      default: {
+        const da = a.commit?.date.getTime() ?? 0;
+        const db = b.commit?.date.getTime() ?? 0;
+        return da !== db ? db - da : basename(a.pathInRepo).localeCompare(basename(b.pathInRepo));
+      }
+    }
   });
 }

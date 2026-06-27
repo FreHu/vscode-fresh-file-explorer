@@ -3,6 +3,7 @@ import * as path from "path";
 
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { BranchCompareProvider } from "../branch-compare/branchCompareProvider";
 import { log, showOutputChannel } from "../extension/logger";
 import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
@@ -71,7 +72,7 @@ export async function handleSetGroupingMode(freshFileProvider: FreshFileProvider
   });
 }
 
-export async function handleSetSortOrder(freshFileProvider: FreshFileProvider): Promise<boolean> {
+export async function handleSetSortOrder(freshFileProvider: FreshFileProvider, branchCompareProvider?: BranchCompareProvider): Promise<boolean> {
   log("Set sort order command triggered");
 
   const quickPick = vscode.window.createQuickPick();
@@ -108,6 +109,7 @@ export async function handleSetSortOrder(freshFileProvider: FreshFileProvider): 
     const selected = qp.selectedItems[0] as any;
     if (selected && selected.order !== freshFileProvider.sortOrder) {
       freshFileProvider.setSortOrder(selected.order as SortOrder);
+      branchCompareProvider?.rerenderForSortChange();
     }
   });
 }

@@ -14,6 +14,8 @@ export const TreeItemContextValues = {
   PINNED_NOTE: "pinnedNote",
   AUTHOR_GROUP: "authorGroup",
   COMMIT_HASH_GROUP: "commitHashGroup",
+  /** The "(Pending)" bucket shown in every non-File-Structure grouping mode — collects uncommitted files */
+  PENDING_GROUP: "pendingGroup",
   MOON_PHASE_GROUP: "moonPhaseGroup",
   RETROGRADE_GROUP: "retrogradeGroup",
   UNINITIALIZED_SUBMODULE_GROUP: "uninitializedSubmoduleGroup",

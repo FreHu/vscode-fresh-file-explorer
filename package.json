@@ -145,6 +145,16 @@
         "title": "Open Commit"
       },
       {
+        "command": "freshFileExplorer.openCommitGroup",
+        "title": "Open Commit",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "freshFileExplorer.openPendingGroup",
+        "title": "Open Changes",
+        "icon": "$(git-compare)"
+      },
+      {
         "command": "freshFileExplorer.openCommitFromBlame",
         "title": "Open Commit (from Blame)"
       },
@@ -582,6 +592,18 @@
         "title": "Focus Source Control",
         "icon": "$(source-control)",
         "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openCommit",
+        "title": "Open Commit",
+        "icon": "$(git-compare)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openPendingChanges",
+        "title": "Open Changes",
+        "icon": "$(git-compare)",
+        "category": "Branch Compare"
       }
     ],
     "keybindings": [
@@ -933,6 +955,26 @@
           "group": "3_reveal@3"
         },
         {
+          "command": "freshFileExplorer.openCommitGroup",
+          "when": "view == freshFileExplorer && viewItem == commitHashGroup",
+          "group": "inline"
+        },
+        {
+          "command": "freshFileExplorer.openCommitGroup",
+          "when": "view == freshFileExplorer && viewItem == commitHashGroup",
+          "group": "1_open@1"
+        },
+        {
+          "command": "freshFileExplorer.openPendingGroup",
+          "when": "view == freshFileExplorer && viewItem == pendingGroup",
+          "group": "inline"
+        },
+        {
+          "command": "freshFileExplorer.openPendingGroup",
+          "when": "view == freshFileExplorer && viewItem == pendingGroup",
+          "group": "1_open@1"
+        },
+        {
           "command": "freshFileExplorer.gitLogFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile)$/",
           "group": "3_reveal@4"
@@ -1276,6 +1318,26 @@
           "command": "freshFileExplorer.branchCompare.focusSourceControl",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupPending",
           "group": "inline@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openPendingChanges",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupPending",
+          "group": "1_open@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openPendingChanges",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupPending",
+          "group": "inline@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openCommit",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupCommit",
+          "group": "1_open@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openCommit",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupCommit",
+          "group": "inline@1"
         }
       ],
       "commandPalette": [
@@ -1401,6 +1463,22 @@
         },
         {
           "command": "freshFileExplorer.openCommit",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openCommitGroup",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openPendingGroup",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openCommit",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openPendingChanges",
           "when": "false"
         },
         {

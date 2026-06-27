@@ -12,6 +12,7 @@ export const BranchCompareContextValues = {
   EMPTY: "freshFileExplorer.branchCompare.empty",
   MESSAGE: "freshFileExplorer.branchCompare.message",
   GROUP: "freshFileExplorer.branchCompare.group",
+  GROUP_COMMIT: "freshFileExplorer.branchCompare.groupCommit",
   /** The pending/uncommitted bucket — distinct so it can carry working-tree actions (e.g. focus Source Control). */
   GROUP_PENDING: "freshFileExplorer.branchCompare.groupPending",
 } as const;

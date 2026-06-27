@@ -58,6 +58,11 @@ export const Commands = {
   // Commit viewing
   OPEN_COMMIT: "freshFileExplorer.openCommit",
   OPEN_COMMIT_FROM_BLAME: "freshFileExplorer.openCommitFromBlame",
+  // Open-commit from a commit *header* row (grouped-by-commit view), where there
+  // is no single file to derive the repo from — the header carries the hash.
+  OPEN_COMMIT_GROUP: "freshFileExplorer.openCommitGroup",
+  // Multi-diff (HEAD ↔ working) of the "(Pending)" bucket in non-File-Structure groupings.
+  OPEN_PENDING_GROUP: "freshFileExplorer.openPendingGroup",
 
   // Heatmap commands
   TOGGLE_HEATMAP: "freshFileExplorer.toggleHeatmap",
@@ -156,4 +161,6 @@ export const Commands = {
   BRANCH_COMPARE_TOGGLE_ACTIVE: "freshFileExplorer.branchCompare.toggleActive",
   BRANCH_COMPARE_SWAP_SIDES: "freshFileExplorer.branchCompare.swapSides",
   BRANCH_COMPARE_FOCUS_SOURCE_CONTROL: "freshFileExplorer.branchCompare.focusSourceControl",
+  BRANCH_COMPARE_OPEN_COMMIT: "freshFileExplorer.branchCompare.openCommit",
+  BRANCH_COMPARE_OPEN_PENDING_CHANGES: "freshFileExplorer.branchCompare.openPendingChanges",
 } as const;

@@ -27,7 +27,7 @@ import { setupGitExtensionListener } from "./git/gitExecutionListener";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleCreateFileNextTo, handleCreateFileInside } from "./commands/fileCreationCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
-import { handleOpenCommit, openCommitByHash } from "./commands/openCommitCommand";
+import { handleOpenCommit, handleOpenCommitGroup, handleOpenPendingGroup, openCommitByHash } from "./commands/openCommitCommand";
 import { handleSearchInFreshFiles, handlesearchInFoundFiles, handleOpenAllFoundFiles, handleCopyPathsFromSearchResults } from "./commands/searchCommand";
 import { handleQuickPickFile } from "./commands/quickPickCommand";
 import { showBlameHeatmapPicker } from "./commands/heatmapQuickPickCommand";
@@ -64,6 +64,7 @@ import { checkForUpdate } from "./extension/updateNotifier";
 import { BaselineService } from "./baseline/baselineService";
 import { SavedComparisonsService } from "./branch-compare/savedComparisonsService";
 import { BranchCompareProvider } from "./branch-compare/branchCompareProvider";
+import { BranchCompareGroupItem } from "./branch-compare/branchCompareGroupingBuilder";
 import { BranchCompareSettingsPanel } from "./branch-compare/branchCompareSettingsPanel";
 import {
   handleBranchCompareOpen,
@@ -72,6 +73,8 @@ import {
   handleBranchCompareOpenAtBaseline,
   handleBranchCompareRefresh,
   handleBranchCompareFocusSourceControl,
+  handleBranchCompareOpenCommit,
+  handleBranchCompareOpenPendingChanges,
   handleBranchCompareRefreshRepo,
   handleSetBaseline,
   handleClearBaseline,
@@ -215,6 +218,11 @@ export async function activate(context: vscode.ExtensionContext) {
       if (e.affectsConfiguration("freshFileExplorer")) {
         freshFileProvider.onConfigurationChanged(e);
 
+        // Branch Compare shares the sort order — re-render it when the default changes.
+        if (e.affectsConfiguration("freshFileExplorer.defaultSortOrder")) {
+          branchCompareProvider.rerenderForSortChange();
+        }
+
         // If heatmap setting changed, refresh decorations
         if (e.affectsConfiguration("freshFileExplorer.heatmap.enabled")) {
           heatmapProvider.fireDidChange();
@@ -292,7 +300,7 @@ function registerCommands(
 
   register(Commands.SET_GROUPING_MODE, () => handleSetGroupingMode(freshFileProvider));
 
-  register(Commands.SET_SORT_ORDER, () => handleSetSortOrder(freshFileProvider));
+  register(Commands.SET_SORT_ORDER, () => handleSetSortOrder(freshFileProvider, branchCompareProvider));
 
   register(Commands.FILTER_BY_AUTHOR, () => handleFilterByAuthor(freshFileProvider));
 
@@ -402,6 +410,8 @@ function registerCommands(
   register(Commands.REVEAL_IN_SOURCE_CONTROL, handleRevealInSourceControl);
 
   register(Commands.OPEN_COMMIT, (item: FreshFileItem) => handleOpenCommit(item, freshFileProvider));
+  register(Commands.OPEN_COMMIT_GROUP, (item: FreshFileItem) => handleOpenCommitGroup(item));
+  register(Commands.OPEN_PENDING_GROUP, (item: FreshFileItem) => handleOpenPendingGroup(item, freshFileProvider));
   register(Commands.OPEN_COMMIT_FROM_BLAME, (commitHash: string, repoRoot: string) => openCommitByHash(commitHash, repoRoot));
 
   // Gutter right-click menu paths — receive `{ lineNumber, uri }` from the
@@ -574,6 +584,8 @@ function registerCommands(
     handleBranchCompareSwapSides(arg, savedComparisons),
   );
   register(Commands.BRANCH_COMPARE_FOCUS_SOURCE_CONTROL, () => handleBranchCompareFocusSourceControl());
+  register(Commands.BRANCH_COMPARE_OPEN_COMMIT, (item: BranchCompareGroupItem) => handleBranchCompareOpenCommit(item));
+  register(Commands.BRANCH_COMPARE_OPEN_PENDING_CHANGES, (item: BranchCompareGroupItem) => handleBranchCompareOpenPendingChanges(item));
   register(Commands.BRANCH_COMPARE_OPEN_MODE_CHANGES, () => branchCompareProvider.setOpenMode(true));
   register(Commands.BRANCH_COMPARE_OPEN_MODE_FILE, () => branchCompareProvider.setOpenMode(false));
 }

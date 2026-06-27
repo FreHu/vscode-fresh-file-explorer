@@ -10,8 +10,10 @@ import {
   RepoSectionItem,
 } from "./branchCompareTreeItems";
 import { ChangedFile, collectFilesIn } from "./branchCompareData";
+import { BranchCompareGroupItem } from "./branchCompareGroupingBuilder";
 import { HEAD_SOURCE, SavedComparisonsService } from "./savedComparisonsService";
 import { DiffMode } from "./branchCompareConstants";
+import { openCommitByHash, openPendingChangesMultiDiff } from "../commands/openCommitCommand";
 import {
   execGitWithArgs,
   fileExistsAtRef,
@@ -532,6 +534,34 @@ export async function handleBranchCompareRefresh(provider: BranchCompareProvider
  */
 export async function handleBranchCompareFocusSourceControl(): Promise<void> {
   await vscode.commands.executeCommand("workbench.view.scm");
+}
+
+/**
+ * "Open commit" for a commit-hash group header — shows that commit's full diff in a multi-diff editor.
+ */
+export async function handleBranchCompareOpenCommit(item: BranchCompareGroupItem | undefined): Promise<void> {
+  if (!item) { return; }
+  await openCommitByHash(item.groupKey, item.repoFullPath);
+}
+
+/**
+ * Multi-diff of the Pending group's working-tree changes — the uncommitted
+ * delta (HEAD ↔ working tree). Mirrors SCM's "Open Changes", but in one multi-diff editor.
+ */
+export async function handleBranchCompareOpenPendingChanges(item: BranchCompareGroupItem | undefined): Promise<void> {
+  if (!item) { return; }
+  const repo = item.repoFullPath;
+  // ChangedFile.status is already normalized (A/M/D/R/T/U).
+  await openPendingChangesMultiDiff(
+    item.files.map(file => ({
+      absolutePath: file.absolutePath,
+      repoFullPath: file.repoFullPath,
+      pathInRepo: file.pathInRepo,
+      renameSource: file.renameSource,
+      status: file.status,
+    })),
+    { title: `Pending changes — ${path.basename(repo)}`, sourceKey: repo },
+  );
 }
 
 /**

@@ -6,6 +6,8 @@ import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log } from "../extension/logger";
 import { ContextManager } from "../extension/contextManager";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { ConfigService } from "../config/configService";
+import { SortOrder } from "../types";
 import {
   buildChangedFiles,
   buildFolderTree,
@@ -620,22 +622,30 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     }
     folders.sort((a, b) => a.label!.toString().localeCompare(b.label!.toString()));
 
-    const files = node.files
-      .slice()
-      .sort((a, b) => a.pathInRepo.localeCompare(b.pathInRepo))
+    const files = sortFilesForGrouping(node.files, this.sortOrder)
       .map(f => new BranchCompareFileItem(f, cmp.source, baseRef, cmp.id, cmp.diffMode, this.openChangesMode));
 
     return [...folders, ...files];
   }
 
   private renderFlatChildren(cmp: ResolvedComparison): BranchCompareTreeItem[] {
-    return sortFilesForGrouping(cmp.files ?? []).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode));
+    return sortFilesForGrouping(cmp.files ?? [], this.sortOrder).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode));
   }
 
   private renderGroupChildren(group: BranchCompareGroupItem): BranchCompareTreeItem[] {
     const cmp = this.comparisons.get(group.comparisonId);
     if (!cmp) { return []; }
-    return sortFilesForGrouping(group.files).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode));
+    return sortFilesForGrouping(group.files, this.sortOrder).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode));
+  }
+
+  /** Active sort order — same shared store as Fresh Files, read on demand so we keep no local copy to sync. */
+  private get sortOrder(): SortOrder {
+    return WorkspaceStateManager.getSortOrder(ConfigService.getDefaultSortOrder());
+  }
+
+  /** Re-render after a sort-order change. Display-only — no data refetch. */
+  rerenderForSortChange(): void {
+    this.fireChange();
   }
 
   private fireChange(): void {

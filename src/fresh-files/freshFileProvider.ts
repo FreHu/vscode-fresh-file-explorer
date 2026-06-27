@@ -22,7 +22,7 @@ import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindow
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatGroupDescription } from "../utils/formatUtils";
 import { log, showWarning } from "../extension/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, SubmoduleEntryItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, SubmoduleEntryItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, isPendingGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
@@ -883,7 +883,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       const authorName = element.label as string;
       return GroupingViewBuilder.buildAuthorFiles(
         authorName,
-        this.freshFiles,
+        this.freshFilesForRepoScope(element.groupRepoScope),
         (metadata) => this.filterManager.passesFilters(metadata),
         this.sortOrder,
         this.openChangesMode,
@@ -895,7 +895,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       const commitHash = element.label as string;
       return GroupingViewBuilder.buildCommitHashFiles(
         commitHash,
-        this.freshFiles,
+        this.freshFilesForRepoScope(element.groupRepoScope),
+        (metadata) => this.filterManager.passesFilters(metadata),
+        this.sortOrder,
+        this.openChangesMode,
+      );
+    }
+
+    if (isPendingGroup(element)) {
+      return GroupingViewBuilder.buildPendingFiles(
+        this.freshFilesForRepoScope(element.groupRepoScope),
         (metadata) => this.filterManager.passesFilters(metadata),
         this.sortOrder,
         this.openChangesMode,
@@ -906,7 +915,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       const moonPhaseName = decodeURIComponent(element.resourceUri.path.replace("/", ""));
       return GroupingViewBuilder.buildMoonPhaseFiles(
         moonPhaseName as MoonPhase,
-        this.freshFiles,
+        this.freshFilesForRepoScope(element.groupRepoScope),
         (metadata) => this.filterManager.passesFilters(metadata),
         this.sortOrder,
         this.openChangesMode,
@@ -917,7 +926,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       const retrogradeKey = decodeURIComponent(element.resourceUri.path.replace("/", ""));
       return GroupingViewBuilder.buildRetrogradeFiles(
         retrogradeKey,
-        this.freshFiles,
+        this.freshFilesForRepoScope(element.groupRepoScope),
         (metadata) => this.filterManager.passesFilters(metadata),
         this.sortOrder,
         this.openChangesMode,
@@ -931,9 +940,14 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       if (this.reposLoading.has(normalizedPath)) {
         return [new MessageTreeItem("Loading…", "loading~spin")];
       }
-      const children: FreshFilesTreeItem[] = (this.groupingMode === "Flat List" && element.id?.startsWith("repo:"))
-        ? this.buildFlatList(element.resourceUri.fsPath)
-        : this.buildTree(element.resourceUri.fsPath);
+      const isRepoNode = element.id?.startsWith("repo:") ?? false;
+      const isGroupingMode = this.groupingMode !== "File Structure" && this.groupingMode !== "Flat List";
+      const children: FreshFilesTreeItem[] =
+        isRepoNode && isGroupingMode
+          ? this.buildGroupedChildrenForRepo(element.resourceUri.fsPath)
+          : (this.groupingMode === "Flat List" && isRepoNode)
+            ? this.buildFlatList(element.resourceUri.fsPath)
+            : this.buildTree(element.resourceUri.fsPath);
       // If pending is shown but historical is still running, prepend a history spinner
       if (this.reposLoadingHistorical.has(normalizedPath)) {
         children.unshift(new MessageTreeItem("Loading history…", "loading~spin"));
@@ -945,18 +959,37 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return [];
   }
 
-  private buildRepoView(results: FreshFilesTreeItem[], contextValue: string) {
-    if (this.groupingMode !== "File Structure" && this.groupingMode !== "Flat List") {
-      return GroupingViewBuilder.buildForGroupingMode(
-        this.groupingMode,
-        this._displayFreshFiles,
-        (metadata) => this.filterManager.passesFilters(metadata),
-        this.sortOrder,
-        this.openChangesMode,
-        results,
-      );
+  /**
+   * The display file map (files.exclude applied by owner) narrowed to one repo,
+   * or the whole map when no scope is given. Used to build a repo's grouped
+   * children and to resolve a group header's children/actions to that repo.
+   */
+  private freshFilesForRepoScope(repoScope?: string): Map<AbsolutePath, FileMetadata> {
+    const source = this._displayFreshFiles;
+    if (!repoScope) { return source; }
+    const prefix = repoScope.endsWith("/") ? repoScope : repoScope + "/";
+    const scoped = new Map<AbsolutePath, FileMetadata>();
+    for (const [p, m] of source) {
+      if (p === repoScope || (p as string).startsWith(prefix)) { scoped.set(p, m); }
     }
+    return scoped;
+  }
 
+  /** Build a repo node's children in a grouping mode: author/commit/pending groups scoped to that repo. */
+  private buildGroupedChildrenForRepo(repoFsPath: string): FreshFilesTreeItem[] {
+    const repoScope = normalizePath(repoFsPath);
+    return GroupingViewBuilder.buildForGroupingMode(
+      this.groupingMode as Exclude<GroupingMode, "File Structure" | "Flat List">,
+      this.freshFilesForRepoScope(repoScope),
+      (metadata) => this.filterManager.passesFilters(metadata),
+      this.sortOrder,
+      this.openChangesMode,
+      [],
+      repoScope,
+    );
+  }
+
+  private buildRepoView(results: FreshFilesTreeItem[], contextValue: string) {
     // Read once: when off, the per-file exclude check below is skipped entirely.
     const excludeOn = this.filesExcludeFilter.enabled;
 

@@ -9,6 +9,12 @@ import { TreeItemContextValues, createNoteId } from "./treeItemConstants";
  * Tree item representing a file or directory in the Fresh File Explorer
  */
 export class FreshFileItem extends vscode.TreeItem {
+  /**
+   * For group-header items in a non-File-Structure grouping mode: the normalized
+   * path of the repo this group is nested under.
+   */
+  groupRepoScope?: string;
+
 constructor(
     public override readonly resourceUri: vscode.Uri,
     public readonly isDirectory: boolean,
@@ -319,6 +325,9 @@ export function isAuthorGroup(el: FreshFilesTreeItem): el is FreshFileItem {
 }
 export function isCommitHashGroup(el: FreshFilesTreeItem): el is FreshFileItem {
   return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.COMMIT_HASH_GROUP;
+}
+export function isPendingGroup(el: FreshFilesTreeItem): el is FreshFileItem {
+  return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.PENDING_GROUP;
 }
 export function isMoonPhaseGroup(el: FreshFilesTreeItem): el is FreshFileItem {
   return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.MOON_PHASE_GROUP;

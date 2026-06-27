@@ -40,6 +40,13 @@ function mostRecentDateInGroup<T extends { metadata: FileMetadata }>(group: T[])
  */
 export class GroupingViewBuilder {
   /**
+   * Whether group headers should render expanded by default.
+   */
+  private static groupsExpandByDefault(): boolean {
+    return ConfigService.getAutoExpandDepth() > 1;
+  }
+
+  /**
    * Build view grouped by author
    */
   static buildAuthorGroupedView(
@@ -91,7 +98,7 @@ export class GroupingViewBuilder {
         authorUri,
         openChangesMode,
         fileCount,
-        ConfigService.getAutoExpandDepth() > 0,
+        GroupingViewBuilder.groupsExpandByDefault(),
       );
 
       authorItem.label = authorName;
@@ -213,13 +220,15 @@ export class GroupingViewBuilder {
       const fileCount = group.length;
       const firstFile = group[0];
 
+      // Synthetic URI so file decorations / icons don't attach
+      // to the header. The owning repo comes from the group's groupRepoScope.
       const commitUri = vscode.Uri.parse(`freshfiles://commit/${commitHash}`);
 
       const commitItem = FreshFileItem.forDirectory(
         commitUri,
         openChangesMode,
         fileCount,
-        ConfigService.getAutoExpandDepth() > 0,
+        GroupingViewBuilder.groupsExpandByDefault(),
       );
 
       commitItem.label = commitHash;
@@ -344,7 +353,7 @@ export class GroupingViewBuilder {
         phaseUri,
         openChangesMode,
         fileCount,
-        ConfigService.getAutoExpandDepth() > 0,
+        GroupingViewBuilder.groupsExpandByDefault(),
       );
 
       phaseItem.label = `${moonPhaseInfo.emoji} ${phaseName}`;
@@ -458,7 +467,7 @@ export class GroupingViewBuilder {
         retrogradeUri,
         openChangesMode,
         fileCount,
-        ConfigService.getAutoExpandDepth() > 0,
+        GroupingViewBuilder.groupsExpandByDefault(),
       );
 
       retrogradeItem.label = retrogradeInfo.displayName;
@@ -553,12 +562,73 @@ export class GroupingViewBuilder {
     sortOrder: SortOrder,
     openChangesMode: boolean,
     results: FreshFilesTreeItem[],
+    /** Normalized repo path these groups are nested under */
+    repoScope?: string,
   ): FreshFilesTreeItem[] {
+    // Every non-File-Structure mode buckets uncommitted files into one shared
+    // "(Pending)" group at the top — they have no author/commit/phase to group by.
+    GroupingViewBuilder.appendPendingGroup(freshFiles, filterPredicate, openChangesMode, results);
     switch (mode) {
-      case "Author":      return GroupingViewBuilder.buildAuthorGroupedView(freshFiles, filterPredicate, sortOrder, openChangesMode, results);
-      case "Commit Hash":  return GroupingViewBuilder.buildCommitHashGroupedView(freshFiles, filterPredicate, openChangesMode, results);
-      case "Moon Phase":   return GroupingViewBuilder.buildMoonPhaseGroupedView(freshFiles, filterPredicate, openChangesMode, results);
-      case "Retrograde":  return GroupingViewBuilder.buildRetrogradeGroupedView(freshFiles, filterPredicate, openChangesMode, results);
+      case "Author":      GroupingViewBuilder.buildAuthorGroupedView(freshFiles, filterPredicate, sortOrder, openChangesMode, results); break;
+      case "Commit Hash":  GroupingViewBuilder.buildCommitHashGroupedView(freshFiles, filterPredicate, openChangesMode, results); break;
+      case "Moon Phase":   GroupingViewBuilder.buildMoonPhaseGroupedView(freshFiles, filterPredicate, openChangesMode, results); break;
+      case "Retrograde":  GroupingViewBuilder.buildRetrogradeGroupedView(freshFiles, filterPredicate, openChangesMode, results); break;
     }
+
+    // Scope every group header to its repo: a stable repo-unique id 
+    // and the repoScope the provider reads to fetch the
+    // right repo's children / route the right "open commit"/"open pending" action.
+    if (repoScope) {
+      for (const item of results) {
+        if (item instanceof FreshFileItem) {
+          item.groupRepoScope = repoScope;
+          item.id = `${repoScope}::${item.id}`;
+        }
+      }
+    }
+    return results;
+  }
+
+  /**
+   * Prepend the shared "(Pending)" group header when there are uncommitted files.
+   */
+  private static appendPendingGroup(
+    freshFiles: Map<AbsolutePath, FileMetadata>,
+    filterPredicate: (metadata: FileMetadata) => boolean,
+    openChangesMode: boolean,
+    results: FreshFilesTreeItem[],
+  ): void {
+    let count = 0;
+    for (const [, metadata] of freshFiles) {
+      if (metadata.isPending && filterPredicate(metadata)) { count++; }
+    }
+    if (count === 0) { return; }
+
+    const pendingUri = vscode.Uri.from({ scheme: "freshfiles", authority: "pending", path: "/" });
+    const item = FreshFileItem.forDirectory(pendingUri, openChangesMode, count, GroupingViewBuilder.groupsExpandByDefault());
+    item.label = "(Pending)"; // matches Branch Compare's pending bucket label
+    item.description = `${count} file${count === 1 ? "" : "s"}`;
+    item.tooltip = `Uncommitted changes\n${count} file(s)`;
+    item.iconPath = new vscode.ThemeIcon("edit");
+    item.contextValue = TreeItemContextValues.PENDING_GROUP;
+    results.push(item);
+  }
+
+  /** Build the file rows under the "(Pending)" group — every uncommitted file. */
+  static buildPendingFiles(
+    freshFiles: Map<AbsolutePath, FileMetadata>,
+    filterPredicate: (metadata: FileMetadata) => boolean,
+    sortOrder: SortOrder,
+    openChangesMode: boolean,
+  ): FreshFileItem[] {
+    return GroupingViewBuilder.buildGroupFiles(
+      freshFiles,
+      filterPredicate,
+      (metadata) => metadata.isPending === true,
+      sortOrder,
+      openChangesMode,
+      // Pending rows carry no commit metadata; show status, hide the rest.
+      { showCommitHash: false, showAuthor: false, showCommitMessage: false },
+    );
   }
 }
