@@ -1,5 +1,34 @@
 # Change Log
 
+## [1.13.0]
+
+### Fresh Files
+
+- Grouped views (Author/Commit/etc) now correctly nest **under each repository** instead of merging groups across all repos
+- Uncommitted work now shows in a **Pending** group in every grouped view (previously dropped outside the file-structure view), pinned to the top.
+- **Open Commit** is now available directly on commit-group headers, not just on individual files.
+- **Open Changes** on the Pending group opens all uncommitted changes (HEAD ↔ working tree) as a single multi-diff.
+- Auto-expand depth now counts the repository level in grouped views (depth 1 expands repos, depth 2 expands the groups inside them).
+- **Open Settings** action in the `…` overflow menu — jumps straight to this extension's settings.
+
+### Branch Compare
+
+- **Open Commit** action on commit-group headers (Commit Hash grouping).
+- **Open Changes** action on the Pending group — a multi-diff of uncommitted changes (HEAD ↔ working tree), alongside the existing "focus source control" action.
+- The Pending group is now pinned to the top instead of the bottom (consistent with Fresh Files)
+- File rows now follow the **Sort Order** setting (consistent with Fresh Files).
+
+### General
+- Detect repo added/removed automatically - no longer requires a manual refresh
+- AI co-authorship is surfaced with a clanker icon 🤖 on the commit label. The detection is e-mail based, and common ones are built in. Custom clankers can be specified in settings: `freshFileExplorer.aiCoAuthorEmails`
+- Miscellaneous improvements to tree labels
+
+### Fixes
+
+- Performance: opening a workspace with several repositories and/or a wide time window is now fast again
+- Nested git worktrees (a worktree created inside another repo's working tree) no longer appear as phantom files or changes in Fresh Files or Branch Compare. The tested and recommended worktree setup with this extension is sibling-level folder per worktree.
+- A broken worktree setup (resulting from folders moved on disk) could cause a massive hang in the repo discovery phase. This is now detected and you will get a warning notification with instructions on how to fix it.
+
 ## [1.12.0]
 
 ### Respect `files.exclude`
