@@ -17,6 +17,7 @@ import {
   handleSetTimeWindow,
   handleSetGroupingMode,
   handleSetSortOrder,
+  handleOpenSettings,
   handleShowOutput,
   handleSetOpenMode,
   handleToggleHeatmap,
@@ -333,6 +334,7 @@ function registerCommands(
   );
 
   register(Commands.SHOW_OUTPUT, handleShowOutput);
+  register(Commands.OPEN_SETTINGS, handleOpenSettings);
 
   register(Commands.EXPAND_ALL, () => handleExpandAll(freshFileProvider, treeView));
 

@@ -112,6 +112,11 @@
         "icon": "$(sort-precedence)"
       },
       {
+        "command": "freshFileExplorer.openSettings",
+        "title": "Open Settings",
+        "icon": "$(gear)"
+      },
+      {
         "command": "freshFileExplorer.showOutput",
         "title": "Fresh Files: Show Output Log"
       },
@@ -881,6 +886,11 @@
           "command": "freshFileExplorer.openStonksPanel",
           "when": "view == freshFileExplorer",
           "group": "1_actions@4"
+        },
+        {
+          "command": "freshFileExplorer.openSettings",
+          "when": "view == freshFileExplorer",
+          "group": "9_settings@1"
         },
         {
           "command": "freshFileExplorer.clearDiffSearch",

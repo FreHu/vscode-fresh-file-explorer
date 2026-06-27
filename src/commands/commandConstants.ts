@@ -8,6 +8,7 @@ export const Commands = {
   VIEW_OPTIONS: "freshFileExplorer.viewOptions",
   SET_GROUPING_MODE: "freshFileExplorer.setGroupingMode",
   SET_SORT_ORDER: "freshFileExplorer.setSortOrder",
+  OPEN_SETTINGS: "freshFileExplorer.openSettings",
   SHOW_OUTPUT: "freshFileExplorer.showOutput",
   EXPAND_ALL: "freshFileExplorer.expandAll",
   EXPAND_SUBTREE: "freshFileExplorer.expandSubtree",

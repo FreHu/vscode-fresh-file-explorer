@@ -118,6 +118,11 @@ export function handleShowOutput(): void {
   showOutputChannel();
 }
 
+/** Open VS Code's Settings UI filtered to this extension's section. */
+export function handleOpenSettings(): void {
+  void vscode.commands.executeCommand("workbench.action.openSettings", "@ext:frehu.fresh-file-explorer");
+}
+
 export async function handleExpandAll(
   freshFileProvider: FreshFileProvider,
   treeView: vscode.TreeView<FreshFilesTreeItem>,
