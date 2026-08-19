@@ -31,6 +31,8 @@ export interface SavedComparison {
   groupingMode: GroupingMode;
   /** Whether the diff is computed against the merge-base (`merge`) or the target ref directly (`full`). */
   diffMode: DiffMode;
+  /** Hide files marked reviewed */
+  hideReviewed?: boolean;
   /**
    * True for comparisons the auto-follower created (one per diverged
    * repo/worktree). Otherwise ordinary records: persisted, shown in the settings
@@ -207,6 +209,7 @@ export class SavedComparisonsService implements vscode.Disposable {
       isHeatmapBaseline: input.isHeatmapBaseline,
       groupingMode: DEFAULT_GROUPING_MODE,
       diffMode: DEFAULT_DIFF_MODE,
+      hideReviewed: false,
     };
     if (newCmp.isHeatmapBaseline) {
       this.clearHeatmapBaselineForRepo(repoKey);
@@ -241,6 +244,7 @@ export class SavedComparisonsService implements vscode.Disposable {
     }
     if (patch.groupingMode !== undefined) { next.groupingMode = patch.groupingMode; }
     if (patch.diffMode !== undefined) { next.diffMode = patch.diffMode; }
+    if (patch.hideReviewed !== undefined) { next.hideReviewed = patch.hideReviewed; }
 
     // Editing an auto-follow row's refs or name adopts it as a manual comparison.
     // Reconcile only touches `auto` rows, so clearing the flag makes the edit stick.
@@ -271,11 +275,15 @@ export class SavedComparisonsService implements vscode.Disposable {
       next.isHeatmapBaseline !== existing.isHeatmapBaseline ||
       next.repoFullPath !== existing.repoFullPath ||
       next.diffMode !== existing.diffMode;
-    const groupingChanged = next.groupingMode !== existing.groupingMode;
+    // Grouping and hideReviewed are both display-only — they change what's
+    // rendered from cached files, not the diff data itself.
+    const displayChanged =
+      next.groupingMode !== existing.groupingMode ||
+      next.hideReviewed !== existing.hideReviewed;
 
     // Bail if the patch was a no-op — persisting + firing onChange here
     // cascades into the provider's diff re-fetch, which is wasteful.
-    if (!dataChanged && !groupingChanged) {
+    if (!dataChanged && !displayChanged) {
       return;
     }
 
@@ -284,9 +292,9 @@ export class SavedComparisonsService implements vscode.Disposable {
       this.clearHeatmapBaselineForRepo(next.repoFullPath, id);
     }
     this.persist();
-    // Only a grouping change → display-only event so the provider skips the
-    // diff re-fetch. Any data change takes the full path even if grouping
-    // also changed (the re-fetch picks up the new mode anyway).
+    // Only a display change → display-only event so the provider skips the
+    // diff re-fetch. Any data change takes the full path even if a display
+    // field also changed (the re-fetch re-renders with it anyway).
     this._onDidChange.fire(
       dataChanged ? { ids: [id] } : { ids: [id], displayOnly: true },
     );
@@ -448,6 +456,7 @@ export class SavedComparisonsService implements vscode.Disposable {
       // Records predating these per-comparison fields have none — default them.
       groupingMode: c.groupingMode ?? DEFAULT_GROUPING_MODE,
       diffMode: c.diffMode ?? DEFAULT_DIFF_MODE,
+      hideReviewed: c.hideReviewed ?? false,
     }));
   }
 

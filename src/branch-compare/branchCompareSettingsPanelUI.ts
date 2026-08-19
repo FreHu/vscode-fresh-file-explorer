@@ -89,6 +89,7 @@ export function getBranchCompareSettingsHtml(
     .col-label { min-width: 160px; }
     .col-diff { width: 110px; }
     .col-grouping { width: 150px; }
+    .col-hide-reviewed { width: 90px; text-align: center; }
     .col-heatmap { width: 80px; text-align: center; }
     .col-actions { width: 160px; text-align: right; white-space: nowrap; }
     .icon-btn[disabled] {
@@ -132,16 +133,15 @@ export function getBranchCompareSettingsHtml(
     .ref-status.invalid { color: var(--vscode-errorForeground, #f85149); pointer-events: auto; cursor: help; }
     .ref-status.checking { color: var(--vscode-descriptionForeground); }
     .suggest-list {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
+      /* Position (left/top/width) is set inline in JS via getBoundingClientRect()
+         — it's portaled to <body> while open, see branchCompareSettings.ts. */
+      position: fixed;
       max-height: 240px;
       overflow-y: auto;
       background: var(--vscode-quickInput-background, var(--vscode-editor-background));
       border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-      z-index: 100;
+      z-index: 1000;
       display: none;
     }
     .suggest-list.open { display: block; }
@@ -367,6 +367,7 @@ export function getBranchCompareSettingsHtml(
         <th class="col-diff" title="Merge: diff vs the merge-base (PR-style). Full: exact diff against the target ref.">Diff</th>
         <th class="col-label">Name</th>
         <th class="col-grouping" title="How this comparison's files are grouped in the tree">Grouping</th>
+        <th class="col-hide-reviewed" title="Hide files you've marked reviewed in the tree for this comparison">Hide Reviewed</th>
         <th class="col-heatmap" title="Drives the blame heatmap (HEAD-source comparisons only, max one per repo)">Heatmap</th>
         <th class="col-actions"></th>
       </tr>

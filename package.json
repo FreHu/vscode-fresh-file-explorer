@@ -600,6 +600,12 @@
         "category": "Branch Compare"
       },
       {
+        "command": "freshFileExplorer.branchCompare.toggleHideReviewed",
+        "title": "Toggle Hide Reviewed Files",
+        "icon": "$(filter)",
+        "category": "Branch Compare"
+      },
+      {
         "command": "freshFileExplorer.branchCompare.dismissAutoFollow",
         "title": "Stop Following",
         "icon": "$(eye-closed)",
@@ -1308,6 +1314,11 @@
           "group": "inline@2"
         },
         {
+          "command": "freshFileExplorer.branchCompare.toggleHideReviewed",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
+          "group": "inline@3"
+        },
+        {
           "command": "freshFileExplorer.branchCompare.openDirDifftool",
           "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
           "group": "2_files@3"
@@ -1336,6 +1347,11 @@
           "command": "freshFileExplorer.branchCompare.toggleActive",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
           "group": "1_baseline@4"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.toggleHideReviewed",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
+          "group": "1_baseline@5"
         },
         {
           "command": "freshFileExplorer.branchCompare.openAll",

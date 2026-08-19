@@ -57,6 +57,10 @@ export class RepoSectionItem extends vscode.TreeItem {
     diffMode: DiffMode = "merge",
     /** True for auto-follow sections — distinct icon + contextValue (carries "Stop following"). */
     auto = false,
+    /** Whether reviewed files are hidden for this comparison — surfaced as a tooltip hint. */
+    hideReviewed = false,
+    /** How many of `fileCount` are marked reviewed. Only surfaced when `hideReviewed` is on — otherwise the plain count is unambiguous. */
+    reviewedCount = 0,
   ) {
     // Always expandable — even an empty section renders a "No changes / Loading…"
     // message child, which is meaningful to show. More importantly, VS Code's
@@ -78,12 +82,23 @@ export class RepoSectionItem extends vscode.TreeItem {
     // `full` is the non-default mode, so flag it in the description; that also
     // keeps two same-ref sections (one merge, one full) visually distinct.
     const modeSuffix = diffMode === "full" ? " · full" : "";
-    this.description = `${fileCount > 0 ? ` · ${fileCount} changes` : " · no changes"}${modeSuffix}`;
+    // Hiding reviewed files makes the tree show fewer rows than `fileCount` - surface the reviewed count too
+    const showReviewedCount = hideReviewed && reviewedCount > 0;
+    const changesText = fileCount === 0
+      ? " · no changes"
+      : showReviewedCount
+        ? ` · ${fileCount} changes, ${reviewedCount} reviewed`
+        : ` · ${fileCount} changes`;
+    this.description = `${changesText}${modeSuffix}`;
     const tooltipLines = [repoName];
     if (currentBranch) {
       tooltipLines.push(`Current branch: ${currentBranch}`);
     }
-    tooltipLines.push(`${fileCount} changed file(s)`);
+    tooltipLines.push(
+      showReviewedCount
+        ? `${fileCount} changed file(s), ${reviewedCount} reviewed`
+        : `${fileCount} changed file(s)`,
+    );
     if (diffMode === "full") {
       tooltipLines.push("Full diff (against the target ref, not the merge-base)");
     }
@@ -95,6 +110,9 @@ export class RepoSectionItem extends vscode.TreeItem {
     }
     if (auto) {
       tooltipLines.push("Auto-following this branch — diff updates live");
+    }
+    if (hideReviewed) {
+      tooltipLines.push("Hiding reviewed files");
     }
     this.tooltip = tooltipLines.join("\n");
     // Auto-follow sections get the "eye" (watching) icon and a distinct
@@ -118,6 +136,8 @@ export class BranchCompareFolderItem extends vscode.TreeItem {
     expanded: boolean,
     /** The comparison this folder belongs to — needed to route commands to the right baseline when multiple comparisons exist in the same repo. */
     public readonly comparisonId: string,
+    /** True when every file under this folder is marked reviewed */
+    reviewed = false,
   ) {
     const folderUri = vscode.Uri.file(path.join(repoFullPath, node.pathInRepo));
     super(
@@ -136,6 +156,9 @@ export class BranchCompareFolderItem extends vscode.TreeItem {
     }
     this.contextValue = BranchCompareContextValues.FOLDER;
     this.resourceUri = folderUri;
+    this.checkboxState = reviewed
+      ? vscode.TreeItemCheckboxState.Checked
+      : vscode.TreeItemCheckboxState.Unchecked;
   }
 }
 
@@ -155,11 +178,16 @@ export class BranchCompareFileItem extends vscode.TreeItem {
     public readonly diffMode: DiffMode = "merge",
     /** Left-click mode: `true` opens the diff, `false` opens the working-tree file. */
     openChangesMode: boolean = true,
+    /** Whether this file is marked reviewed for this comparison — drives the checkbox. */
+    reviewed = false,
   ) {
     const uri = vscode.Uri.file(file.absolutePath);
     super(uri, vscode.TreeItemCollapsibleState.None);
     this.id = `branchCompare:file:${comparisonId}:${file.absolutePath}`;
     this.resourceUri = uri;
+    this.checkboxState = reviewed
+      ? vscode.TreeItemCheckboxState.Checked
+      : vscode.TreeItemCheckboxState.Unchecked;
 
     // Pending entries are skipped:
     // VS Code's native git decoration already badges them

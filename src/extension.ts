@@ -68,6 +68,8 @@ import { SavedComparisonsService } from "./branch-compare/savedComparisonsServic
 import { BranchCompareProvider } from "./branch-compare/branchCompareProvider";
 import { BranchCompareGroupItem } from "./branch-compare/branchCompareGroupingBuilder";
 import { BranchCompareSettingsPanel } from "./branch-compare/branchCompareSettingsPanel";
+import { BranchCompareFileItem, BranchCompareFolderItem } from "./branch-compare/branchCompareTreeItems";
+import { collectFilesIn } from "./branch-compare/branchCompareData";
 import {
   handleBranchCompareOpen,
   handleBranchCompareOpenFile,
@@ -86,6 +88,7 @@ import {
   handleBranchCompareRevealInFreshFiles,
   handleBranchCompareToggleActive,
   handleBranchCompareSwapSides,
+  handleBranchCompareToggleHideReviewed,
   handleBranchCompareDismissAutoFollow,
   handleBranchCompareOpenDifftool,
   handleBranchCompareOpenDirDifftool,
@@ -160,6 +163,22 @@ export async function activate(context: vscode.ExtensionContext) {
     showCollapseAll: true,
   });
   context.subscriptions.push(branchCompareTreeView);
+
+  // Native checkbox drives the "reviewed" state. Checking a folder marks every
+  // file currently under it — the folder checkbox is a pure rollup, so this is
+  // the only way it can be toggled meaningfully.
+  context.subscriptions.push(
+    branchCompareTreeView.onDidChangeCheckboxState(e => {
+      for (const [element, state] of e.items) {
+        const reviewed = state === vscode.TreeItemCheckboxState.Checked;
+        if (element instanceof BranchCompareFileItem) {
+          branchCompareProvider.setFileReviewed(element.comparisonId, element.file, reviewed);
+        } else if (element instanceof BranchCompareFolderItem) {
+          branchCompareProvider.setFilesReviewed(element.comparisonId, collectFilesIn(element.node), reviewed);
+        }
+      }
+    }),
+  );
 
   // Initial load — fire after a tick so VS Code finishes constructing the view.
   void branchCompareProvider.refreshAll();
@@ -615,6 +634,9 @@ function registerCommands(
   );
   register(Commands.BRANCH_COMPARE_SWAP_SIDES, (arg: any) =>
     handleBranchCompareSwapSides(arg, savedComparisons),
+  );
+  register(Commands.BRANCH_COMPARE_TOGGLE_HIDE_REVIEWED, (arg: any) =>
+    handleBranchCompareToggleHideReviewed(arg, savedComparisons),
   );
   register(Commands.BRANCH_COMPARE_FOCUS_SOURCE_CONTROL, () => handleBranchCompareFocusSourceControl());
   register(Commands.BRANCH_COMPARE_OPEN_COMMIT, (item: BranchCompareGroupItem) => handleBranchCompareOpenCommit(item));

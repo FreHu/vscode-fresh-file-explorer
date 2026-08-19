@@ -413,6 +413,19 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   }));
   tr.appendChild(groupingTd);
 
+  // Hide reviewed files (per-comparison — mirrors the tree's inline toggle)
+  const hideReviewedTd = document.createElement("td");
+  hideReviewedTd.className = "col-hide-reviewed";
+  const hideReviewedCb = document.createElement("input");
+  hideReviewedCb.type = "checkbox";
+  hideReviewedCb.checked = c.hideReviewed ?? false;
+  hideReviewedCb.title = "Hide files marked reviewed in the tree for this comparison";
+  hideReviewedCb.addEventListener("change", () => {
+    send({ command: "update", id: c.id, patch: { hideReviewed: hideReviewedCb.checked } });
+  });
+  hideReviewedTd.appendChild(hideReviewedCb);
+  tr.appendChild(hideReviewedTd);
+
   // Heatmap toggle (gold star). Only meaningful for HEAD-source comparisons.
   const heatmapTd = document.createElement("td");
   heatmapTd.className = "col-heatmap";
@@ -568,6 +581,16 @@ function renderDraftRow(d: DraftRow, idx: number): HTMLTableRowElement {
   groupingTd.appendChild(groupingSel);
   tr.appendChild(groupingTd);
 
+  // Hide reviewed (cannot be set on a draft — needs an id)
+  const hideReviewedTd = document.createElement("td");
+  hideReviewedTd.className = "col-hide-reviewed";
+  const hideReviewedCb = document.createElement("input");
+  hideReviewedCb.type = "checkbox";
+  hideReviewedCb.disabled = true;
+  hideReviewedCb.title = "Set after saving the comparison";
+  hideReviewedTd.appendChild(hideReviewedCb);
+  tr.appendChild(hideReviewedTd);
+
   // Heatmap (cannot be set on a draft — needs an id)
   const heatmapTd = document.createElement("td");
   heatmapTd.className = "col-heatmap";
@@ -652,15 +675,34 @@ function refCell(
     send({ command: "requestRefs", repoFullPath });
   }
 
+  // Portal the dropdown to <body> while open so it isn't trapped inside the
+  // row's own stacking context — an inactive row dims itself via `opacity`
+  // on the <td>, which (like any opacity < 1) creates a new stacking context
+  // for that cell, so a z-index'd descendant can never paint above a later
+  // sibling row no matter how high the z-index goes. Positioning it via
+  // getBoundingClientRect() against <body> sidesteps the whole class of bug.
+  function positionList(): void {
+    const rect = input.getBoundingClientRect();
+    list.style.left = `${rect.left}px`;
+    list.style.top = `${rect.bottom}px`;
+    list.style.width = `${rect.width}px`;
+  }
   function open(): void {
     ensureRefs();
+    document.body.appendChild(list);
+    positionList();
     list.classList.add("open");
     renderSuggestions(list, field, input.value, true);
     focusedIdx = -1;
+    window.addEventListener("scroll", positionList, true);
+    window.addEventListener("resize", positionList);
   }
   function close(): void {
     list.classList.remove("open");
     focusedIdx = -1;
+    window.removeEventListener("scroll", positionList, true);
+    window.removeEventListener("resize", positionList);
+    wrapper.appendChild(list);
   }
 
   input.addEventListener("focus", open);

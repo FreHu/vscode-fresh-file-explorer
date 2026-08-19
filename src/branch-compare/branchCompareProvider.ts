@@ -11,7 +11,7 @@ import { SortOrder } from "../types";
 import {
   buildChangedFiles,
   buildFolderTree,
-  countFilesIn,
+  collectFilesIn,
   ChangedFile,
   fetchCommittedDiff,
   fetchCommitInfoInRange,
@@ -86,6 +86,8 @@ interface ResolvedComparison {
   hasCommitInfo: boolean;
   /** True for auto-follow comparisons (in-memory, owned by AutoFollowController). */
   auto: boolean;
+  /** Hide files marked reviewed for this comparison (per-comparison, from the saved record). */
+  hideReviewed: boolean;
 }
 
 /**
@@ -138,6 +140,17 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   private filesExcludeFilter = new FilesExcludeFilter(
     () => ConfigService.getRespectFilesExclude(),
     (folderPath) => ConfigService.getFilesExcludeExpression(vscode.Uri.file(folderPath)),
+  );
+
+  /**
+   * "Reviewed" checkbox state — repo-relative path → mtime (ms) at review
+   * time, keyed by comparison id. Two comparisons on the same repo/path track
+   * separately: reviewing a file in `vs main` says nothing about `vs
+   * release-q4`. The mtime drives HEAD-source auto-reset (see
+   * {@link reconcileReviewed}) and is otherwise unused.
+   */
+  private reviewedFiles: Map<string, Map<string, number>> = new Map(
+    Object.entries(WorkspaceStateManager.getReviewedFiles()).map(([id, paths]) => [id, new Map(Object.entries(paths))]),
   );
 
   constructor(
@@ -361,6 +374,9 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.error = undefined;
       cmp.mergeCone = mergeCone;
       cmp.hasCommitInfo = wantsCommitInfo;
+      // Drop review marks for files no longer in the diff, and (HEAD-source
+      // only) for files edited again since being marked reviewed.
+      await this.reconcileReviewed(cmp);
     } catch (err) {
       if (this.loadingTokens.get(id) !== myToken) return;
       cmp.error = String(err);
@@ -450,6 +466,136 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     this.fireChange();
   }
 
+  // ── Reviewed state ──────────────────────────────────────────────────────
+
+  isReviewed(comparisonId: string, pathInRepo: string): boolean {
+    return this.reviewedFiles.get(comparisonId)?.has(pathInRepo) ?? false;
+  }
+
+  /** True when every file in `files` is reviewed. Empty input is never "reviewed". */
+  private allReviewed(comparisonId: string, files: ChangedFile[]): boolean {
+    return files.length > 0 && files.every(f => this.isReviewed(comparisonId, f.pathInRepo));
+  }
+
+  /** How many of `files` are marked reviewed. */
+  private reviewedCountIn(comparisonId: string, files: ChangedFile[] | undefined): number {
+    if (!files) { return 0; }
+    return files.filter(f => this.isReviewed(comparisonId, f.pathInRepo)).length;
+  }
+
+  /** Set a single file's reviewed state. Re-renders (display-only, no git). */
+  setFileReviewed(comparisonId: string, file: ChangedFile, reviewed: boolean): void {
+    this.setFilesReviewedInternal(comparisonId, [file], reviewed);
+    this.fireChange();
+  }
+
+  /**
+   * Set every file under a folder to the same reviewed state. Used when the
+   * folder checkbox is toggled — the folder checkbox is just an aggregation (never
+   * independently stored), so clicking it always means "mark everything
+   * currently under here" rather than restoring some prior folder-only state.
+   */
+  setFilesReviewed(comparisonId: string, files: ChangedFile[], reviewed: boolean): void {
+    this.setFilesReviewedInternal(comparisonId, files, reviewed);
+    this.fireChange();
+  }
+
+  private setFilesReviewedInternal(comparisonId: string, files: ChangedFile[], reviewed: boolean): void {
+    let map = this.reviewedFiles.get(comparisonId);
+    if (reviewed) {
+      if (!map) {
+        map = new Map();
+        this.reviewedFiles.set(comparisonId, map);
+      }
+      for (const f of files) { map.set(f.pathInRepo, 0); }
+      this.persistReviewed();
+      // Mtime capture is async (workspace.fs.stat) and only matters for
+      // HEAD-source comparisons — fire-and-forget so the checkbox click
+      // itself never waits on disk I/O.
+      void this.captureReviewedMtimes(comparisonId, files);
+    } else if (map) {
+      for (const f of files) { map.delete(f.pathInRepo); }
+      if (map.size === 0) { this.reviewedFiles.delete(comparisonId); }
+      this.persistReviewed();
+    }
+  }
+
+  /** Record each file's current mtime as the "reviewed at" baseline, HEAD-source comparisons only. */
+  private async captureReviewedMtimes(comparisonId: string, files: ChangedFile[]): Promise<void> {
+    const cmp = this.comparisons.get(comparisonId);
+    if (!cmp || cmp.source !== HEAD_SOURCE) { return; }
+    const map = this.reviewedFiles.get(comparisonId);
+    if (!map) { return; }
+    await Promise.all(files.map(async f => {
+      if (!map.has(f.pathInRepo)) { return; } // unreviewed again before this resolved
+      try {
+        const stat = await vscode.workspace.fs.stat(vscode.Uri.file(f.absolutePath));
+        map.set(f.pathInRepo, stat.mtime);
+      } catch {
+        // File unreadable (e.g. deleted right after being marked) — leave the
+        // placeholder; reconcileReviewed's own stat call will drop it next refresh.
+      }
+    }));
+    this.persistReviewed();
+  }
+
+  /**
+   * Drop review marks that no longer make sense after a refresh: paths no
+   * longer in the diff at all, and — for HEAD-source comparisons only, since
+   * only those overlay the working tree — files edited again since being
+   * marked reviewed. Fixed ref-to-ref comparisons have nothing local to
+   * invalidate against, so their marks are left untouched here.
+   */
+  private async reconcileReviewed(cmp: ResolvedComparison): Promise<void> {
+    const map = this.reviewedFiles.get(cmp.id);
+    if (!map || map.size === 0) { return; }
+
+    const filesByPath = new Map((cmp.files ?? []).map(f => [f.pathInRepo, f]));
+    let changed = false;
+    for (const path of [...map.keys()]) {
+      if (!filesByPath.has(path)) {
+        map.delete(path);
+        changed = true;
+      }
+    }
+
+    if (cmp.source === HEAD_SOURCE && map.size > 0) {
+      await Promise.all([...map.entries()].map(async ([path, recordedMtime]) => {
+        const file = filesByPath.get(path);
+        if (!file) { return; }
+        try {
+          const stat = await vscode.workspace.fs.stat(vscode.Uri.file(file.absolutePath));
+          if (stat.mtime !== recordedMtime) {
+            map.delete(path);
+            changed = true;
+          }
+        } catch {
+          // File no longer readable (e.g. deleted after being reviewed) — drop the mark.
+          map.delete(path);
+          changed = true;
+        }
+      }));
+    }
+
+    if (map.size === 0) { this.reviewedFiles.delete(cmp.id); }
+    if (changed) { this.persistReviewed(); }
+  }
+
+  /** Drop all reviewed state for a comparison — the diff it referred to no longer exists. */
+  private clearReviewed(comparisonId: string): void {
+    if (this.reviewedFiles.delete(comparisonId)) {
+      this.persistReviewed();
+    }
+  }
+
+  private persistReviewed(): void {
+    const record: Record<string, Record<string, number>> = {};
+    for (const [id, paths] of this.reviewedFiles) {
+      record[id] = Object.fromEntries(paths);
+    }
+    WorkspaceStateManager.setReviewedFiles(record);
+  }
+
   // ── Grouping ────────────────────────────────────────────────────────────
 
   private groupingNeedsCommitInfo(mode: GroupingMode): boolean {
@@ -513,11 +659,15 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           existing.error = undefined;
           existing.invalidRef = false;
           existing.mergeCone = undefined;
+          // A different ref pair is a different diff — stale review checkmarks
+          // would be actively misleading, not just outdated.
+          this.clearReviewed(sc.id);
         }
         existing.label = sc.label;
         existing.repoName = repoInfo.repoName;
         existing.groupingMode = sc.groupingMode;
         existing.auto = sc.auto ?? false;
+        existing.hideReviewed = sc.hideReviewed ?? false;
         // diffMode change invalidates the diff — drop cached files so it reloads.
         if (existing.diffMode !== sc.diffMode) {
           existing.diffMode = sc.diffMode;
@@ -527,6 +677,8 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           existing.error = undefined;
           existing.invalidRef = false;
           existing.mergeCone = undefined;
+          // merge vs full is a different file set — same reasoning as a ref change.
+          this.clearReviewed(sc.id);
         }
         next.set(sc.id, existing);
       } else {
@@ -547,6 +699,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           diffMode: sc.diffMode,
           hasCommitInfo: false,
           auto: sc.auto ?? false,
+          hideReviewed: sc.hideReviewed ?? false,
         });
       }
     }
@@ -556,6 +709,23 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     for (const id of previous.keys()) {
       if (!seenIds.has(id)) {
         this.loadingTokens.delete(id);
+      }
+    }
+
+    // Drop reviewed-state for comparisons that no longer exist at all (deleted).
+    // Checked against every saved comparison, not just the active ones — a
+    // comparison the user merely toggled inactive must keep its review progress.
+    if (this.reviewedFiles.size > 0) {
+      const allIds = new Set(this.savedComparisons.getAll().map(c => c.id));
+      let prunedReviewed = false;
+      for (const id of this.reviewedFiles.keys()) {
+        if (!allIds.has(id)) {
+          this.reviewedFiles.delete(id);
+          prunedReviewed = true;
+        }
+      }
+      if (prunedReviewed) {
+        this.persistReviewed();
       }
     }
 
@@ -615,6 +785,8 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           cmp.mergeCone,
           cmp.diffMode,
           cmp.auto,
+          cmp.hideReviewed,
+          this.reviewedCountIn(cmp.id, cmp.files),
         ),
       );
     }
@@ -654,6 +826,10 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       )];
     }
 
+    if (cmp.hideReviewed && this.visibleFiles(cmp, cmp.files).length === 0) {
+      return [new BranchCompareMessageItem(`All ${cmp.files.length} changed file(s) reviewed`, "check")];
+    }
+
     switch (cmp.groupingMode) {
       case "Flat List":
         return this.renderFlatChildren(cmp);
@@ -661,7 +837,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       case "Commit Hash":
       case "Moon Phase":
       case "Retrograde":
-        return buildGroupedItems(cmp.id, cmp.repoFullPath, cmp.files, cmp.groupingMode);
+        return buildGroupedItems(cmp.id, cmp.repoFullPath, this.visibleFiles(cmp, cmp.files), cmp.groupingMode);
       case "File Structure":
       default:
         if (!cmp.tree) {
@@ -671,30 +847,47 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     }
   }
 
+  /** Files still worth showing under `cmp` — everything, unless hideReviewed drops the reviewed ones. */
+  private visibleFiles(cmp: ResolvedComparison, files: ChangedFile[]): ChangedFile[] {
+    if (!cmp.hideReviewed) { return files; }
+    return files.filter(f => !this.isReviewed(cmp.id, f.pathInRepo));
+  }
+
   private renderFolderChildren(cmp: ResolvedComparison, node: FolderNode): BranchCompareTreeItem[] {
     const baseRef = cmp.target;
 
     const folders: BranchCompareFolderItem[] = [];
     for (const child of node.children.values()) {
-      const count = countFilesIn(child);
-      folders.push(new BranchCompareFolderItem(cmp.repoFullPath, child, count, true, cmp.id));
+      const allFilesInChild = collectFilesIn(child);
+      const visibleInChild = this.visibleFiles(cmp, allFilesInChild);
+      if (cmp.hideReviewed && visibleInChild.length === 0) { continue; }
+      const reviewed = this.allReviewed(cmp.id, allFilesInChild);
+      folders.push(new BranchCompareFolderItem(cmp.repoFullPath, child, visibleInChild.length, true, cmp.id, reviewed));
     }
     folders.sort((a, b) => a.label!.toString().localeCompare(b.label!.toString()));
 
-    const files = sortFilesForGrouping(node.files, this.sortOrder)
-      .map(f => new BranchCompareFileItem(f, cmp.source, baseRef, cmp.id, cmp.diffMode, this.openChangesMode));
+    const files = sortFilesForGrouping(this.visibleFiles(cmp, node.files), this.sortOrder)
+      .map(f => new BranchCompareFileItem(
+        f, cmp.source, baseRef, cmp.id, cmp.diffMode, this.openChangesMode, this.isReviewed(cmp.id, f.pathInRepo),
+      ));
 
     return [...folders, ...files];
   }
 
   private renderFlatChildren(cmp: ResolvedComparison): BranchCompareTreeItem[] {
-    return sortFilesForGrouping(cmp.files ?? [], this.sortOrder).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode));
+    return sortFilesForGrouping(this.visibleFiles(cmp, cmp.files ?? []), this.sortOrder)
+      .map(f => new BranchCompareFileItem(
+        f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode, this.isReviewed(cmp.id, f.pathInRepo),
+      ));
   }
 
   private renderGroupChildren(group: BranchCompareGroupItem): BranchCompareTreeItem[] {
     const cmp = this.comparisons.get(group.comparisonId);
     if (!cmp) { return []; }
-    return sortFilesForGrouping(group.files, this.sortOrder).map(f => new BranchCompareFileItem(f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode));
+    return sortFilesForGrouping(this.visibleFiles(cmp, group.files), this.sortOrder)
+      .map(f => new BranchCompareFileItem(
+        f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode, this.isReviewed(cmp.id, f.pathInRepo),
+      ));
   }
 
   /** Active sort order — same shared store as Fresh Files, read on demand so we keep no local copy to sync. */

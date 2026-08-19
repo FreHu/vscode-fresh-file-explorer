@@ -276,6 +276,7 @@ export class BranchCompareSettingsPanel {
       isHeatmapBaseline: c.isHeatmapBaseline,
       groupingMode: c.groupingMode,
       diffMode: c.diffMode,
+      hideReviewed: c.hideReviewed,
       auto: c.auto,
     }));
     this._post({ command: "state", repos, comparisons, autoFollow: ConfigService.getAutoFollow() });

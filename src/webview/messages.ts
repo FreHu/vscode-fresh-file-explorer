@@ -17,6 +17,8 @@ export interface SavedComparisonDTO {
   isHeatmapBaseline?: boolean;
   groupingMode: GroupingMode;
   diffMode: DiffMode;
+  /** Hide files marked reviewed (per-comparison — see the "reviewed" checkbox on file/folder rows). */
+  hideReviewed?: boolean;
   /** Auto-follow row (managed by AutoFollowController). Editing adopts it; deleting dismisses it. */
   auto?: boolean;
 }

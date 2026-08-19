@@ -13,6 +13,10 @@
 - **Open in External Diff Tool** — opens a file's diff in your configured `git difftool` (`diff.tool`/`diff.guitool`) instead of the built-in editor. Available on any file row.
 - **Open All in External Diff Tool** — same, but for a whole repo section, folder, or commit/pending group at once via `git difftool --dir-diff`, opening a single directory-comparison window. Off by default (`freshFileExplorer.branchCompare.enableDirDiffTool`): only tools that support directory comparison (WinMerge, Meld, Beyond Compare) handle this correctly — single-file tools will silently do the wrong thing.
 - On startup, the extension will detect the relatively obscure situation of a corrupted git index and offer a guide on how to fix it.
+- **Reviewed checkbox** on file and folder rows — mark files reviewed as you go through a diff. Folder checkboxes marks/unmarks everything under it at once.
+  - Persisted across reloads, per comparison — reviewing a file in `vs main` doesn't affect `vs release-q4` for the same file.
+  - Marks are dropped automatically when a file leaves the diff, when the comparison's refs or diff mode change, and — for HEAD-source comparisons — when the file is edited again after being marked reviewed.
+  - **Hide Reviewed** (per-comparison, inline icon on the section or via the settings panel) filters reviewed files out of the tree entirely. A fully-reviewed section shows an explicit "all reviewed" message instead of rendering empty.
 
 ### Pinned Items
 

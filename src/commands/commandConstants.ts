@@ -160,6 +160,7 @@ export const Commands = {
   BRANCH_COMPARE_OPEN_SETTINGS: "freshFileExplorer.branchCompare.openSettings",
   BRANCH_COMPARE_TOGGLE_ACTIVE: "freshFileExplorer.branchCompare.toggleActive",
   BRANCH_COMPARE_SWAP_SIDES: "freshFileExplorer.branchCompare.swapSides",
+  BRANCH_COMPARE_TOGGLE_HIDE_REVIEWED: "freshFileExplorer.branchCompare.toggleHideReviewed",
   BRANCH_COMPARE_FOCUS_SOURCE_CONTROL: "freshFileExplorer.branchCompare.focusSourceControl",
   BRANCH_COMPARE_OPEN_COMMIT: "freshFileExplorer.branchCompare.openCommit",
   BRANCH_COMPARE_OPEN_PENDING_CHANGES: "freshFileExplorer.branchCompare.openPendingChanges",

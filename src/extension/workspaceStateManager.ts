@@ -243,4 +243,24 @@ export class WorkspaceStateManager {
   static setSavedComparisons(list: PersistedSavedComparison[]): void {
     WorkspaceStateManager.ctx().workspaceState.update("branchCompareSavedComparisons", list);
   }
+
+  // ── Branch compare reviewed files (per-comparison "reviewed" checkbox) ────
+
+  /**
+   * Reviewed files keyed by comparison id, then repo-relative path, to the
+   * file's mtime (ms) at the moment it was marked reviewed. The mtime lets a
+   * HEAD-source comparison detect "edited again after being reviewed" and
+   * drop the mark; it's meaningless for a fixed ref-to-ref comparison, but
+   * harmless to carry along.
+   */
+  static getReviewedFiles(): Record<string, Record<string, number>> {
+    return WorkspaceStateManager.ctx().workspaceState.get<Record<string, Record<string, number>>>(
+      "branchCompareReviewedFiles",
+      {},
+    );
+  }
+
+  static setReviewedFiles(byComparisonId: Record<string, Record<string, number>>): void {
+    WorkspaceStateManager.ctx().workspaceState.update("branchCompareReviewedFiles", byComparisonId);
+  }
 }

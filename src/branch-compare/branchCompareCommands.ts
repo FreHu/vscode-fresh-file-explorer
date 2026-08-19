@@ -291,6 +291,18 @@ export async function handleBranchCompareSwapSides(
   savedComparisons.update(cmp.id, { source: cmp.target, target: cmp.source });
 }
 
+/** Toggle whether reviewed files are hidden for this comparison. Display-only, per-comparison. */
+export async function handleBranchCompareToggleHideReviewed(
+  arg: RepoSectionItem | undefined,
+  savedComparisons: SavedComparisonsService,
+): Promise<void> {
+  if (!(arg instanceof RepoSectionItem)) { return; }
+  if (!arg.comparisonId) { return; }
+  const cmp = savedComparisons.getById(arg.comparisonId);
+  if (!cmp) { return; }
+  savedComparisons.update(cmp.id, { hideReviewed: !cmp.hideReviewed });
+}
+
 /** Re-fetch the diff for a single section (cheaper than full-tree refresh). */
 export async function handleBranchCompareRefreshRepo(
   arg: RepoSectionItem | undefined,
