@@ -80,7 +80,7 @@ interface ResolvedComparison {
   /**
    * Whether the last successful load fetched commit info. Drives the lazy
    * re-fetch when grouping switches into a mode that needs commit metadata
-   * (Author / Commit Hash / Moon Phase / Retrograde) but the cached files
+   * (Author / Commit Hash / Moon Phase) but the cached files
    * were loaded without it.
    */
   hasCommitInfo: boolean;
@@ -599,7 +599,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   // ── Grouping ────────────────────────────────────────────────────────────
 
   private groupingNeedsCommitInfo(mode: GroupingMode): boolean {
-    return mode === "Author" || mode === "Commit Hash" || mode === "Moon Phase" || mode === "Retrograde";
+    return mode === "Author" || mode === "Commit Hash" || mode === "Moon Phase";
   }
 
   // ── Open mode ─────────────────────────────────────────────────────────────
@@ -836,7 +836,6 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       case "Author":
       case "Commit Hash":
       case "Moon Phase":
-      case "Retrograde":
         return buildGroupedItems(cmp.id, cmp.repoFullPath, this.visibleFiles(cmp, cmp.files), cmp.groupingMode);
       case "File Structure":
       default:

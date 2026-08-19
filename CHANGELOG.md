@@ -22,6 +22,10 @@
 
 - **Checkboxes replace the notes-only "Toggle Complete" button.** Slight wheel deinvented here.
 
+### Other
+
+- Retired the joke "Planetary Retrograde" grouping mode, because having it and moon phase felt like two of the same joke. Moon phase will never go away.
+
 ## [1.13.0]
 
 ### Fresh Files

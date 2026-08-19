@@ -7,7 +7,6 @@ import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeI
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitTooltip, AI_COAUTHOR_BADGE } from "../utils/formatUtils";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
-import { getRetrogradeInfo, getRetrogradeKey, type Planet } from "../fresh-files/planetaryRetrograde";
 import { type GroupingMode } from "../fresh-files/groupingMode";
 
 /**
@@ -36,7 +35,7 @@ function mostRecentDateInGroup<T extends { metadata: FileMetadata }>(group: T[])
 
 /**
  * Builds tree views for different grouping modes.
- * Handles author, commit hash, moon phase, and retrograde grouping.
+ * Handles author, commit hash, and moon phase grouping.
  */
 export class GroupingViewBuilder {
   /**
@@ -404,120 +403,6 @@ export class GroupingViewBuilder {
   }
 
   /**
-   * Build view grouped by planetary retrograde
-   */
-  static buildRetrogradeGroupedView(
-    freshFiles: Map<AbsolutePath, FileMetadata>,
-    filterPredicate: (metadata: FileMetadata) => boolean,
-    openChangesMode: boolean,
-    results: FreshFilesTreeItem[],
-  ): FreshFilesTreeItem[] {
-    const retrogradeGroups = new Map<string, { files: AbsolutePath[]; metadata: FileMetadata; planets: Planet[] }[]>();
-
-    for (const [filePath, metadata] of freshFiles) {
-      if (!filterPredicate(metadata)) {
-        continue;
-      }
-
-      // Get retrograde info for this file's date
-      const retrogradeInfo = getRetrogradeInfo(metadata.date);
-      const key = getRetrogradeKey(retrogradeInfo.planets);
-
-      if (!retrogradeGroups.has(key)) {
-        retrogradeGroups.set(key, []);
-      }
-
-      retrogradeGroups.get(key)!.push({ files: [filePath], metadata, planets: retrogradeInfo.planets });
-    }
-
-    // Sort groups: "none" first, then by number of planets (more = more chaotic), then alphabetically
-    const sortedGroups = Array.from(retrogradeGroups.entries()).sort((a, b) => {
-      const keyA = a[0];
-      const keyB = b[0];
-
-      // "none" should be first
-      if (keyA === "none") {
-        return -1;
-      }
-      if (keyB === "none") {
-        return 1;
-      }
-
-      // Sort by number of planets (descending - most chaotic first)
-      const planetsA = a[1][0].planets.length;
-      const planetsB = b[1][0].planets.length;
-      if (planetsA !== planetsB) {
-        return planetsB - planetsA;
-      }
-
-      // Then alphabetically
-      return keyA.localeCompare(keyB);
-    });
-
-    // Create tree items for each retrograde combination
-    for (const [key, group] of sortedGroups) {
-      const fileCount = group.length;
-      const retrogradeInfo = getRetrogradeInfo(group[0].metadata.date);
-
-      const retrogradeUri = vscode.Uri.parse(`freshfiles://retrograde/${encodeURIComponent(key)}`);
-      
-      const mostRecentDate = mostRecentDateInGroup(group);
-
-      const retrogradeItem = FreshFileItem.forDirectory(
-        retrogradeUri,
-        openChangesMode,
-        fileCount,
-        GroupingViewBuilder.groupsExpandByDefault(),
-      );
-
-      retrogradeItem.label = retrogradeInfo.displayName;
-
-      // Calculate total line changes for this retrograde group
-      const totals = calculateTotalLineChanges(group);
-      retrogradeItem.description = formatGroupDescription(fileCount, totals?.added, totals?.deleted);
-
-      const tooltipLines = [
-        `Retrograde: ${retrogradeInfo.displayName}`,
-        `Files: ${fileCount}`,
-        `Most recent: ${formatRelativeDate(mostRecentDate)}`,
-      ];
-      
-      const lineChangesLine = formatTooltipLineChanges(totals?.added, totals?.deleted);
-      if (lineChangesLine) {
-        tooltipLines.push(lineChangesLine);
-      }
-      
-      retrogradeItem.tooltip = tooltipLines.join("\n");
-
-      retrogradeItem.iconPath = new vscode.ThemeIcon(key === "none" ? "check" : "globe");
-      retrogradeItem.contextValue = TreeItemContextValues.RETROGRADE_GROUP;
-
-      results.push(retrogradeItem);
-    }
-
-    return results;
-  }
-
-  /**
-   * Build files for a specific retrograde combination
-   */
-  static buildRetrogradeFiles(
-    retrogradeKey: string,
-    freshFiles: Map<AbsolutePath, FileMetadata>,
-    filterPredicate: (metadata: FileMetadata) => boolean,
-    sortOrder: SortOrder,
-    openChangesMode: boolean,
-  ): FreshFileItem[] {
-    return GroupingViewBuilder.buildGroupFiles(
-      freshFiles,
-      filterPredicate,
-      (metadata) => getRetrogradeKey(getRetrogradeInfo(metadata.date).planets) === retrogradeKey,
-      sortOrder,
-      openChangesMode,
-    );
-  }
-
-  /**
    * Sort files according to the specified sort order
    * Used by all grouping modes
    */
@@ -572,7 +457,6 @@ export class GroupingViewBuilder {
       case "Author":      GroupingViewBuilder.buildAuthorGroupedView(freshFiles, filterPredicate, sortOrder, openChangesMode, results); break;
       case "Commit Hash":  GroupingViewBuilder.buildCommitHashGroupedView(freshFiles, filterPredicate, openChangesMode, results); break;
       case "Moon Phase":   GroupingViewBuilder.buildMoonPhaseGroupedView(freshFiles, filterPredicate, openChangesMode, results); break;
-      case "Retrograde":  GroupingViewBuilder.buildRetrogradeGroupedView(freshFiles, filterPredicate, openChangesMode, results); break;
     }
 
     // Scope every group header to its repo: a stable repo-unique id 

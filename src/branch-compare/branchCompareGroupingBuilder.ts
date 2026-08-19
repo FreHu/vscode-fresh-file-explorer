@@ -4,7 +4,6 @@ import { ChangedFile } from "./branchCompareData";
 import { SortOrder } from "../types";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase } from "../fresh-files/moonPhase";
-import { getRetrogradeInfo, getRetrogradeKey } from "../fresh-files/planetaryRetrograde";
 import { formatRelativeDate, formatCommitTooltip, AI_COAUTHOR_BADGE } from "../utils/formatUtils";
 import { BranchCompareContextValues, PENDING_GROUP_KEY } from "./branchCompareConstants";
 
@@ -62,13 +61,6 @@ function groupKeyFor(file: ChangedFile, mode: GroupingMode): { key: string; labe
       const phase = getMoonPhase(file.commit.date);
       const label = `${phase.emoji} ${phase.name}`;
       return { key: phase.name, label, icon: "circle-filled" };
-    }
-    case "Retrograde": {
-      const info = getRetrogradeInfo(file.commit.date);
-      if (info.planets.length === 0) {
-        return { key: "(none)", label: "No retrograde", icon: "globe" };
-      }
-      return { key: getRetrogradeKey(info.planets), label: info.displayName, icon: "globe" };
     }
     default:
       // Should not be called for File Structure / Flat List

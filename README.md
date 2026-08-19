@@ -128,15 +128,11 @@ Organize your files in different ways beyond the standard folder structure:
 
 - **Commit Hash** - One group per commit
 
-As well as two additional groupings for advanced git blame use cases.
+As well as one additional grouping for advanced git blame use cases.
 
 - **Moon Phase** (`git blame moon`)
 
 Uneven distribution of commits during the full moon can indicate werevolves among your contributors.
-
-- **Planetary Retrograde** (`git blame universe`)
-
-Includes Pluto.
 
 > Note: This is astronomy (hard science), not astrology (garbage). If you want to know if you will have merge conflicts with the changes made by a sagitarius, you need to look elsewhere.
 

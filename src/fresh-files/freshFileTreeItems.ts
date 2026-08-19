@@ -335,6 +335,3 @@ export function isPendingGroup(el: FreshFilesTreeItem): el is FreshFileItem {
 export function isMoonPhaseGroup(el: FreshFilesTreeItem): el is FreshFileItem {
   return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.MOON_PHASE_GROUP;
 }
-export function isRetrogradeGroup(el: FreshFilesTreeItem): el is FreshFileItem {
-  return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.RETROGRADE_GROUP;
-}

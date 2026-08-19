@@ -297,7 +297,7 @@ export async function fetchWorkingTreeNumstat(
 /**
  * For every file changed between `mergeBaseSha` and HEAD, return its most
  * recent commit (author / date / hash / message). Used by grouping modes
- * Author / Commit Hash / Moon Phase / Retrograde — none of which work
+ * Author / Commit Hash / Moon Phase — none of which work
  * without per-file commit metadata.
  *
  * Streams `git log --name-status` so memory stays bounded for large branches.

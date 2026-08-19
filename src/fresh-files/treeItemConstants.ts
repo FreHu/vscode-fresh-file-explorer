@@ -17,7 +17,6 @@ export const TreeItemContextValues = {
   /** The "(Pending)" bucket shown in every non-File-Structure grouping mode — collects uncommitted files */
   PENDING_GROUP: "pendingGroup",
   MOON_PHASE_GROUP: "moonPhaseGroup",
-  RETROGRADE_GROUP: "retrogradeGroup",
   UNINITIALIZED_SUBMODULE_GROUP: "uninitializedSubmoduleGroup",
   UNINITIALIZED_SUBMODULE: "uninitializedSubmodule",
   MESSAGE: "message",

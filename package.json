@@ -1806,16 +1806,14 @@
             "Flat List",
             "Author",
             "Commit Hash",
-            "Moon Phase",
-            "Retrograde"
+            "Moon Phase"
           ],
           "enumDescriptions": [
             "Group by file/directory structure",
             "All files in a flat sorted list, no subdirectory nodes",
             "Group by commit author",
             "Group by commit",
-            "Group by lunar phase at commit time",
-            "Group by which planets were retrograde"
+            "Group by lunar phase at commit time"
           ],
           "description": "Default grouping mode for new workspaces. Changing this resets any per-workspace override."
         },

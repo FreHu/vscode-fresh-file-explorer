@@ -8,6 +8,7 @@ import { FileIndex } from "./fileIndex";
 import { RefreshEpochGuard, RefreshCancelledError } from "./refreshEpochGuard";
 import { RepoScopeStore } from "./repoScopeStore";
 import { aggregateAuthors, aggregateCommits } from "./freshFilesAggregator";
+import { fileInTargetRepo, fileMapExcludingRepos, buildTargetWorkspaceFolders, computeHistoricalLoadPlan, scopeFilesByRepo } from "./freshFileMapUtils";
 export type { CacheRepoStats };
 import {
   WorkspaceFolderInfo,
@@ -21,11 +22,10 @@ import {
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { log, showWarning } from "../extension/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, isPendingGroup, isMoonPhaseGroup, isRetrogradeGroup } from "./freshFileTreeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, isPendingGroup, isMoonPhaseGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
-import { clearRetrogradeCache } from "./planetaryRetrograde";
 import { FilterManager } from "./freshFileFilterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
 import { DataCollector, RepoInfo } from "./dataCollector";
@@ -310,7 +310,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.dataLoaded = false;
     this._targetRepoPaths = targetRepoPaths;
     this.refreshGuard.bump();
-    clearRetrogradeCache();
     this.reposLoading.clear();
     this.reposLoadingHistorical.clear();
     if (targetRepoPaths) {
@@ -356,7 +355,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.refreshGuard.bump();
     this._setFreshFiles(new Map());
     this.historicalCache.clear();
-    clearRetrogradeCache();
     this._onDidChangeTreeData.fire();
     this.kickOffLoad();
   }
@@ -865,17 +863,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       );
     }
 
-    if (isRetrogradeGroup(element)) {
-      const retrogradeKey = decodeURIComponent(element.resourceUri.path.replace("/", ""));
-      return GroupingViewBuilder.buildRetrogradeFiles(
-        retrogradeKey,
-        this.freshFilesForRepoScope(element.groupRepoScope),
-        (metadata) => this.filterManager.passesFilters(metadata),
-        this.sortOrder,
-        this.openChangesMode,
-      );
-    }
-
     // Get children of a directory
     if (element instanceof FreshFileItem) {
       const normalizedPath = normalizePath(element.resourceUri.fsPath) as NormalizedRepoPath;
@@ -902,20 +889,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return [];
   }
 
-  /**
-   * The display file map (files.exclude applied by owner) narrowed to one repo,
-   * or the whole map when no scope is given. Used to build a repo's grouped
-   * children and to resolve a group header's children/actions to that repo.
-   */
+  /** See {@link scopeFilesByRepo} — narrows `_displayFreshFiles` to one repo. */
   private freshFilesForRepoScope(repoScope?: string): Map<AbsolutePath, FileMetadata> {
-    const source = this._displayFreshFiles;
-    if (!repoScope) { return source; }
-    const prefix = repoScope.endsWith("/") ? repoScope : repoScope + "/";
-    const scoped = new Map<AbsolutePath, FileMetadata>();
-    for (const [p, m] of source) {
-      if (p === repoScope || (p as string).startsWith(prefix)) { scoped.set(p, m); }
-    }
-    return scoped;
+    return scopeFilesByRepo(this._displayFreshFiles, repoScope);
   }
 
   /** Build a repo node's children in a grouping mode: author/commit/pending groups scoped to that repo. */
@@ -1227,17 +1203,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     const pendingOnly = isPendingChangesMode(this.currentTimeWindow);
     const histDays = this.currentTimeWindow.type === "historical" ? this.currentTimeWindow.days : 0;
 
-    // Compute the maximum historical window — load this much from git in one pass and cache it.
-    const historicalWindows = this.historicalTimeWindows;
-    const maxDays = historicalWindows.length > 0 ? historicalWindows[historicalWindows.length - 1].days : histDays;
-
-    // Build the threshold list: day values at which to fire incremental tree updates.
-    const incrementalLoading = ConfigService.getincrementalTreeLoading();
-    const thresholds = !pendingOnly
-      ? (incrementalLoading
-        ? historicalWindows.map(tw => tw.days).filter(d => d <= histDays)
-        : [histDays])
-      : [];
+    const { maxDays, thresholds } = computeHistoricalLoadPlan(
+      this.historicalTimeWindows,
+      histDays,
+      pendingOnly,
+      ConfigService.getincrementalTreeLoading(),
+    );
 
     for (const { folder, repoRelPath, normalizedRepoPath } of this.resolvedRepos) {
       assertNotCancelled();
@@ -1466,47 +1437,4 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     return this._dirStats().get(asAbsolutePath(dirPath))?.mostRecent;
   }
 
-}
-
-/** Checks whether `normalizedFilePath` belongs to any of the given normalized repo paths. */
-function fileInTargetRepo(normalizedFilePath: string, targetRepoPaths: string[]): boolean {
-  return targetRepoPaths.some(rp => normalizedFilePath.startsWith(rp + "/") || normalizedFilePath === rp);
-}
-
-/**
- * Returns a copy of `map` with all entries whose path belongs to any of
- * `targetRepoPaths` removed. Used to strip a repo's stale data before reload.
- */
-function fileMapExcludingRepos<V>(
-  map: Map<AbsolutePath, V>,
-  targetRepoPaths: string[],
-): Map<AbsolutePath, V> {
-  const result = new Map<AbsolutePath, V>();
-  for (const [absPath, value] of map) {
-    if (!fileInTargetRepo(absPath, targetRepoPaths)) {
-      result.set(absPath, value);
-    }
-  }
-  return result;
-}
-
-/**
- * Returns a filtered copy of `workspaceFolders` that contains only the repos
- * present in `targetRepoPaths`. Folders with no matching repos are excluded.
- */
-function buildTargetWorkspaceFolders(
-  workspaceFolders: WorkspaceFolderInfo[],
-  targetRepoPaths: string[],
-): WorkspaceFolderInfo[] {
-  const result: WorkspaceFolderInfo[] = [];
-  for (const folder of workspaceFolders) {
-    const filteredRepos = folder.gitRepos.filter(repoRelPath => {
-      const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-      return targetRepoPaths.includes(normalizePath(repoFullPath));
-    });
-    if (filteredRepos.length > 0) {
-      result.push({ ...folder, gitRepos: filteredRepos });
-    }
-  }
-  return result;
 }

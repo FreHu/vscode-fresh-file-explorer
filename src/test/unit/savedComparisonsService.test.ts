@@ -363,11 +363,11 @@ suite("SavedComparisonsService", () => {
 
     test("groupingMode round-trips through persistence", () => {
       const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
-      service.update(id, { groupingMode: "Retrograde" });
+      service.update(id, { groupingMode: "Moon Phase" });
       // Re-load from the same backing store.
       service.dispose();
       service = new SavedComparisonsService();
-      assert.strictEqual(service.getById(id)?.groupingMode, "Retrograde");
+      assert.strictEqual(service.getById(id)?.groupingMode, "Moon Phase");
     });
   });
 

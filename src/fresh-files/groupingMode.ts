@@ -1,7 +1,7 @@
 /**
  * Grouping modes for organizing files in the tree view
  */
-export type GroupingMode = "File Structure" | "Flat List" | "Author" | "Commit Hash" | "Moon Phase" | "Retrograde";
+export type GroupingMode = "File Structure" | "Flat List" | "Author" | "Commit Hash" | "Moon Phase";
 
 export interface GroupingModeOption {
   mode: GroupingMode;
@@ -41,18 +41,12 @@ export const GROUPING_MODE_OPTIONS: GroupingModeOption[] = [
     description: "Group by lunar phase at commit time",
     icon: "$(circle-filled)",
   },
-  {
-    mode: "Retrograde",
-    label: "Planetary Retrograde",
-    description: "Group by which planets were retrograde",
-    icon: "$(globe)",
-  },
 ];
 
 export const DEFAULT_GROUPING_MODE: GroupingMode = "File Structure";
 
 const VALID_GROUPING_MODES = new Set<string>(
-  ["File Structure", "Flat List", "Author", "Commit Hash", "Moon Phase", "Retrograde"]);
+  ["File Structure", "Flat List", "Author", "Commit Hash", "Moon Phase"]);
 
 /** Map from old camelCase values (pre-rename) to the current display-name values. */
 const LEGACY_GROUPING_MODE_MAP: Record<string, GroupingMode> = {
@@ -61,12 +55,12 @@ const LEGACY_GROUPING_MODE_MAP: Record<string, GroupingMode> = {
   author: "Author",
   commitHash: "Commit Hash",
   moonPhase: "Moon Phase",
-  retrograde: "Retrograde",
 };
 
 /**
  * Coerce a raw persisted value to a valid GroupingMode.
- * Handles the old camelCase enum values and any unrecognized strings.
+ * Handles the old camelCase enum values, the retired "Retrograde" mode
+ * (falls back to the default), and any unrecognized strings.
  */
 export function coerceGroupingMode(raw: unknown, fallback: GroupingMode = DEFAULT_GROUPING_MODE): GroupingMode {
   if (typeof raw === "string") {
