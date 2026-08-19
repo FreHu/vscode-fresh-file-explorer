@@ -262,6 +262,20 @@ export async function handleBranchCompareToggleActive(
 }
 
 /**
+ * Stop auto-following the branch this section represents. Deleting the auto row
+ * is the dismissal: the service records the (repo, branch) pair so the follower
+ * doesn't immediately recreate it (until the branch changes, or restart).
+ */
+export async function handleBranchCompareDismissAutoFollow(
+  arg: RepoSectionItem | undefined,
+  savedComparisons: SavedComparisonsService,
+): Promise<void> {
+  if (!(arg instanceof RepoSectionItem)) { return; }
+  if (!arg.comparisonId) { return; }
+  savedComparisons.delete(arg.comparisonId);
+}
+
+/**
  * Swap `source` ↔ `target` on the comparison the section represents. The
  * `update()` call drops `isHeatmapBaseline` automatically if HEAD ends up on
  * the target side — heatmap requires source === HEAD.

@@ -55,6 +55,8 @@ export class RepoSectionItem extends vscode.TreeItem {
     mergeCone?: { total: number; firstParent: number },
     /** Diff mode of this comparison. `full` is surfaced so same-ref sections that differ only by mode stay distinguishable. */
     diffMode: DiffMode = "merge",
+    /** True for auto-follow sections — distinct icon + contextValue (carries "Stop following"). */
+    auto = false,
   ) {
     // Always expandable — even an empty section renders a "No changes / Loading…"
     // message child, which is meaningful to show. More importantly, VS Code's
@@ -91,9 +93,16 @@ export class RepoSectionItem extends vscode.TreeItem {
         `${mergeCone.firstParent} commit(s) on this line, ${broughtIn} brought in via merges`,
       );
     }
+    if (auto) {
+      tooltipLines.push("Auto-following this branch — diff updates live");
+    }
     this.tooltip = tooltipLines.join("\n");
-    this.iconPath = new vscode.ThemeIcon("repo");
-    this.contextValue = BranchCompareContextValues.REPO_SECTION;
+    // Auto-follow sections get the "eye" (watching) icon and a distinct
+    // contextValue so the "Stop following" action can target only them.
+    this.iconPath = new vscode.ThemeIcon(auto ? "eye" : "repo");
+    this.contextValue = auto
+      ? BranchCompareContextValues.AUTO_REPO_SECTION
+      : BranchCompareContextValues.REPO_SECTION;
   }
 }
 

@@ -85,7 +85,9 @@ import {
   handleBranchCompareRevealInFreshFiles,
   handleBranchCompareToggleActive,
   handleBranchCompareSwapSides,
+  handleBranchCompareDismissAutoFollow,
 } from "./branch-compare/branchCompareCommands";
+import { AutoFollowController } from "./branch-compare/autoFollowController";
 
 export async function activate(context: vscode.ExtensionContext) {
   initializeLogger(context);
@@ -144,6 +146,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Initial load — fire after a tick so VS Code finishes constructing the view.
   void branchCompareProvider.refreshAll();
+
+  // Auto-follow: maintain a live branch-compare section per diverged repo/worktree. In-memory only.
+  const autoFollowController = new AutoFollowController(savedComparisons, freshFileProvider);
+  context.subscriptions.push(autoFollowController);
 
   // Steady status-bar indicator for Fresh Files loading progress.
   context.subscriptions.push(new FreshFilesStatusBar(freshFileProvider));
@@ -227,6 +233,10 @@ export async function activate(context: vscode.ExtensionContext) {
         // If heatmap setting changed, refresh decorations
         if (e.affectsConfiguration("freshFileExplorer.heatmap.enabled")) {
           heatmapProvider.fireDidChange();
+        }
+
+        if (e.affectsConfiguration("freshFileExplorer.branchCompare.autoFollow")) {
+          autoFollowController.onConfigChanged();
         }
 
         if (e.affectsConfiguration("freshFileExplorer.codeTelescopeIntegration")) {
@@ -590,6 +600,9 @@ function registerCommands(
   register(Commands.BRANCH_COMPARE_OPEN_PENDING_CHANGES, (item: BranchCompareGroupItem) => handleBranchCompareOpenPendingChanges(item));
   register(Commands.BRANCH_COMPARE_OPEN_MODE_CHANGES, () => branchCompareProvider.setOpenMode(true));
   register(Commands.BRANCH_COMPARE_OPEN_MODE_FILE, () => branchCompareProvider.setOpenMode(false));
+  register(Commands.BRANCH_COMPARE_DISMISS_AUTO_FOLLOW, (arg: any) =>
+    handleBranchCompareDismissAutoFollow(arg, savedComparisons),
+  );
 }
 
 function createFreshFileTreeView(freshFileProvider: FreshFileProvider, context: vscode.ExtensionContext) {

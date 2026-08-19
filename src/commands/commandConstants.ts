@@ -164,4 +164,5 @@ export const Commands = {
   BRANCH_COMPARE_FOCUS_SOURCE_CONTROL: "freshFileExplorer.branchCompare.focusSourceControl",
   BRANCH_COMPARE_OPEN_COMMIT: "freshFileExplorer.branchCompare.openCommit",
   BRANCH_COMPARE_OPEN_PENDING_CHANGES: "freshFileExplorer.branchCompare.openPendingChanges",
+  BRANCH_COMPARE_DISMISS_AUTO_FOLLOW: "freshFileExplorer.branchCompare.dismissAutoFollow",
 } as const;

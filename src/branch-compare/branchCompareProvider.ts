@@ -77,6 +77,8 @@ interface ResolvedComparison {
    * were loaded without it.
    */
   hasCommitInfo: boolean;
+  /** True for auto-follow comparisons (in-memory, owned by AutoFollowController). */
+  auto: boolean;
 }
 
 /**
@@ -465,6 +467,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
         existing.label = sc.label;
         existing.repoName = repoInfo.repoName;
         existing.groupingMode = sc.groupingMode;
+        existing.auto = sc.auto ?? false;
         // diffMode change invalidates the diff — drop cached files so it reloads.
         if (existing.diffMode !== sc.diffMode) {
           existing.diffMode = sc.diffMode;
@@ -491,6 +494,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           groupingMode: sc.groupingMode,
           diffMode: sc.diffMode,
           hasCommitInfo: false,
+          auto: sc.auto ?? false,
         });
       }
     }
@@ -541,7 +545,9 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       seenTriples.add(tripleKey);
       const fileCount = cmp.files?.length ?? 0;
       const repoKey = normalizePath(cmp.repoFullPath) as NormalizedRepoPath;
-      const currentBranch = this.freshFileProvider.getRepoBranch(repoKey);
+      // Auto sections store their branch in `label` (resolved from git), so use that — `getRepoBranch` may be empty for a worktree the git extension
+      // didn't open, and the dismiss action needs the branch name.
+      const currentBranch = cmp.auto ? cmp.label : this.freshFileProvider.getRepoBranch(repoKey);
       const sectionLabel = cmp.label
         ? cmp.label
         : `${cmp.repoName} · ${displayRef(cmp.source)}..${displayRef(cmp.target)}`;
@@ -556,6 +562,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           cmp.id,
           cmp.mergeCone,
           cmp.diffMode,
+          cmp.auto,
         ),
       );
     }

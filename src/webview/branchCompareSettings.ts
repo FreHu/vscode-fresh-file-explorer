@@ -105,6 +105,12 @@ hmHelpBtn.addEventListener("click", () => {
   send({ command: "openHeatmapHelp" });
 });
 
+// ── Auto-follow toggle ─────────────────────────────────────────────────────
+const autoFollow = document.getElementById("autoFollow") as HTMLInputElement;
+autoFollow.addEventListener("change", () => {
+  send({ command: "setAutoFollow", enabled: autoFollow.checked });
+});
+
 hmEnabled.addEventListener("change", () => {
   send({ command: "updateHeatmap", patch: { enabled: hmEnabled.checked } });
 });
@@ -145,6 +151,7 @@ window.addEventListener("message", (event: MessageEvent<BranchCompareSettingsToW
     case "state":
       repos = msg.repos;
       comparisons = msg.comparisons;
+      autoFollow.checked = msg.autoFollow;
       render();
       break;
     case "refs":
@@ -357,7 +364,14 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   // comparison if you need a different repo)
   const repoTd = document.createElement("td");
   repoTd.className = "col-repo";
-  repoTd.textContent = repoNameFor(c.repoFullPath);
+  if (c.auto) {
+    const eye = codicon("eye");
+    eye.title = "Auto-followed — edit any field to keep it, delete to stop following";
+    eye.style.marginRight = "5px";
+    eye.style.opacity = "0.8";
+    repoTd.appendChild(eye);
+  }
+  repoTd.appendChild(document.createTextNode(repoNameFor(c.repoFullPath)));
   tr.appendChild(repoTd);
 
   // Source ref input (with autocomplete)
@@ -451,7 +465,7 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "icon-btn danger";
   deleteBtn.appendChild(codicon("trash"));
-  deleteBtn.title = "Delete comparison";
+  deleteBtn.title = c.auto ? "Stop following (dismiss)" : "Delete comparison";
   deleteBtn.addEventListener("click", () => {
     send({ command: "delete", id: c.id });
   });

@@ -70,4 +70,7 @@ export const ConfigKeys = {
 
   // Additional Co-authored-by emails to treat as AI agents (in-house/custom agents)
   AI_COAUTHOR_EMAILS: "freshFileExplorer.aiCoAuthorEmails",
+
+  // Auto-create a live branch-compare section for each diverged repo/worktree
+  AUTO_FOLLOW: "freshFileExplorer.branchCompare.autoFollow",
 } as const;

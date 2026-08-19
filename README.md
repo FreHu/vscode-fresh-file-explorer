@@ -244,6 +244,18 @@ A new tree view that surfaces saved branch-to-branch comparisons. Each row is on
 
 Define `vs main`, `vs release-q4`, and `vs colleague-branch` simultaneously — each gets its own section in the tree. Reorder with the up/down arrows or the drag handle in the settings panel; tree order mirrors the panel.
 
+### Auto-follow diverged branches
+
+Tick **Auto-follow diverged branches & worktrees** in the settings panel and comparisns just appear: every repo or worktree whose current branch has diverged from its default branch gets its own live section.
+
+Doesn't matter who is doing the work: you, or an LLM agent juggling 20 worktrees behind your back. You just check a toggle.
+
+Auto-follows are ordinary comparisons — they show up in the settings panel like any other, marked with the 👁 icon. They're reconciled from live git, so switching a repo back to `main` or removing a worktree makes its section disappear on its own.
+
+- **Delete** one (panel trash, or **Stop Following** on the tree section) to stop following it for the rest of the session — it stays gone until that branch changes (or you restart).
+- **Edit** one (retarget or rename it) to adopt it as your own permanent comparison; auto-follow stops managing it from then on.
+- A branch sitting *on* its default branch produces nothing (an empty diff isn't worth a section). A manual comparison for the same branch takes precedence in the tree.
+
 ### Heatmap settings also live here
 
 Star one HEAD-source comparison per repo to mark it as the blame heatmap's baseline. The heatmap then colors lines that changed between that comparison's target and HEAD.

@@ -31,6 +31,15 @@ export interface SavedComparison {
   groupingMode: GroupingMode;
   /** Whether the diff is computed against the merge-base (`merge`) or the target ref directly (`full`). */
   diffMode: DiffMode;
+  /**
+   * True for comparisons the auto-follower created (one per diverged
+   * repo/worktree). Otherwise ordinary records: persisted, shown in the settings
+   * panel (marked with an eye). The follower reconciles them against live git,
+   * so a stale row from a previous session is dropped on the next tick. Deleting
+   * one dismisses it for the session; editing its refs or label adopts it
+   * (clears the flag). See {@link AutoFollowController}.
+   */
+  auto?: boolean;
 }
 
 export interface SavedComparisonsChangeEvent {
@@ -64,6 +73,14 @@ function makeId(): string {
  */
 export class SavedComparisonsService implements vscode.Disposable {
   private comparisons: SavedComparison[];
+  /**
+   * `repoFullPath branch` pairs the user dismissed (deleted an auto-follow row).
+   * In-memory + session-only: suppresses re-creation by {@link AutoFollowController}
+   * until the branch changes. Reconcile-driven removals (branch returned to base,
+   * worktree gone) do NOT populate this — only user deletes do, so flipping away
+   * and back doesn't permanently kill a follow.
+   */
+  private readonly dismissedAutoFollows = new Set<string>();
   private readonly _onDidChange = new vscode.EventEmitter<SavedComparisonsChangeEvent>();
   readonly onDidChange = this._onDidChange.event;
 
@@ -78,7 +95,11 @@ export class SavedComparisonsService implements vscode.Disposable {
     return this.comparisons.map(c => ({ ...c }));
   }
 
-  /** Active-only snapshot. The branch-compare tree renders one section per entry. */
+  /**
+   * Active-only snapshot — the branch-compare tree renders one section per
+   * entry. Auto-follow comparisons are ordinary persisted records (flagged
+   * `auto`) and always active, so they fall out of this filter naturally.
+   */
   getActive(): SavedComparison[] {
     return this.comparisons.filter(c => c.active).map(c => ({ ...c }));
   }
@@ -103,6 +124,61 @@ export class SavedComparisonsService implements vscode.Disposable {
   /** True when at least one comparison is active. Drives view visibility. */
   hasAnyActive(): boolean {
     return this.comparisons.some(c => c.active);
+  }
+
+  // ── Auto-follow ───────────────────────────────────────────────────────────
+
+  /** `(repo, branch)` pairs the user dismissed this session. Consumed by the follower. */
+  getDismissedAutoFollows(): ReadonlySet<string> {
+    return this.dismissedAutoFollows;
+  }
+
+  /** Stable dismiss key. Mirrors `followKey` in autoFollow.ts. */
+  private autoFollowKey(repoFullPath: string, branch: string): string {
+    return `${repoFullPath} ${branch}`;
+  }
+
+  /**
+   * Reconcile the auto-follow set: add a persisted `auto` comparison for each
+   * spec, remove the given ids. One persist + one event for the whole batch.
+   * Removals here are reconcile-driven (branch returned to base, worktree gone)
+   * and deliberately do NOT dismiss — only a user delete does (see {@link delete}).
+   */
+  applyAutoReconcile(
+    toAdd: Array<{ repoFullPath: string; target: string; label: string }>,
+    removeIds: string[],
+  ): void {
+    if (toAdd.length === 0 && removeIds.length === 0) { return; }
+    const removeSet = new Set(removeIds);
+    this.comparisons = this.comparisons.filter(c => !removeSet.has(c.id));
+    const addedIds: string[] = [];
+    for (const spec of toAdd) {
+      const id = makeId();
+      addedIds.push(id);
+      this.comparisons.push({
+        id,
+        repoFullPath: asNormalizedRepoPath(spec.repoFullPath),
+        source: HEAD_SOURCE,
+        target: spec.target,
+        label: spec.label.trim() || undefined,
+        active: true,
+        groupingMode: DEFAULT_GROUPING_MODE,
+        diffMode: DEFAULT_DIFF_MODE,
+        auto: true,
+      });
+    }
+    this.persist();
+    this._onDidChange.fire({ ids: [...removeIds, ...addedIds] });
+  }
+
+  /** Drop every auto-follow comparison (e.g. the feature was turned off). */
+  removeAllAutoFollows(): void {
+    const ids = this.comparisons.filter(c => c.auto).map(c => c.id);
+    if (ids.length === 0) { return; }
+    const idSet = new Set(ids);
+    this.comparisons = this.comparisons.filter(c => !idSet.has(c.id));
+    this.persist();
+    this._onDidChange.fire({ ids });
   }
 
   // ── Writes ──────────────────────────────────────────────────────────────
@@ -166,6 +242,18 @@ export class SavedComparisonsService implements vscode.Disposable {
     if (patch.groupingMode !== undefined) { next.groupingMode = patch.groupingMode; }
     if (patch.diffMode !== undefined) { next.diffMode = patch.diffMode; }
 
+    // Editing an auto-follow row's refs or name adopts it as a manual comparison.
+    // Reconcile only touches `auto` rows, so clearing the flag makes the edit stick.
+    // Also dismiss the (repo, branch) so reconcile doesn't spawn a fresh auto row
+    // alongside the one the user just adopted.
+    if (existing.auto &&
+        (next.source !== existing.source || next.target !== existing.target || next.label !== existing.label)) {
+      next.auto = false;
+      if (existing.label) {
+        this.dismissedAutoFollows.add(this.autoFollowKey(existing.repoFullPath, existing.label));
+      }
+    }
+
     // Heatmap baseline can only attach to a HEAD-source comparison.
     if (next.isHeatmapBaseline && next.source !== HEAD_SOURCE) {
       next.isHeatmapBaseline = false;
@@ -219,9 +307,15 @@ export class SavedComparisonsService implements vscode.Disposable {
   }
 
   delete(id: string): void {
-    const before = this.comparisons.length;
+    const target = this.comparisons.find(c => c.id === id);
+    if (!target) { return; }
+    // Deleting an auto-follow row is a dismissal: remember (repo, branch) so the
+    // follower doesn't immediately recreate it. The dismissal clears when the
+    // branch changes (the key changes). `label` holds the followed branch name.
+    if (target.auto && target.label) {
+      this.dismissedAutoFollows.add(this.autoFollowKey(target.repoFullPath, target.label));
+    }
     this.comparisons = this.comparisons.filter(c => c.id !== id);
-    if (this.comparisons.length === before) { return; }
     this.persist();
     this._onDidChange.fire({ ids: [id] });
   }

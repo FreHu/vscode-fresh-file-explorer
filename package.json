@@ -16,7 +16,7 @@
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer/issues"
   },
   "qna": false,
-  "version": "1.13.0",
+  "version": "1.14.0",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
@@ -590,6 +590,12 @@
         "command": "freshFileExplorer.branchCompare.swapSides",
         "title": "Swap Sides",
         "icon": "$(arrow-swap)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.dismissAutoFollow",
+        "title": "Stop Following",
+        "icon": "$(eye-closed)",
         "category": "Branch Compare"
       },
       {
@@ -1286,18 +1292,28 @@
         },
         {
           "command": "freshFileExplorer.branchCompare.openAll",
-          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
           "group": "2_files@1"
         },
         {
           "command": "freshFileExplorer.branchCompare.openAll",
-          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
           "group": "inline@2"
         },
         {
           "command": "freshFileExplorer.branchCompare.refreshRepo",
-          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.repoSection",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
           "group": "2_files@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.dismissAutoFollow",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.autoRepoSection",
+          "group": "inline@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.dismissAutoFollow",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.autoRepoSection",
+          "group": "1_baseline@1"
         },
         {
           "command": "freshFileExplorer.branchCompare.swapSides",
@@ -1876,6 +1892,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show warnings when base branch has commits not in current branch (indicating you need to merge)"
+        },
+        "freshFileExplorer.branchCompare.autoFollow": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically add a live Branch Compare section for each repo or worktree whose current branch has diverged from its default branch (main/master). In-progress work — your own feature branch, a parallel worktree, anything checked out off main — shows up and updates live with no manual setup. Auto sections appear in the Branch Compare settings panel like any other comparison; use 'Stop Following' to dismiss one for the session, or edit one to keep it permanently."
         },
         "freshFileExplorer.codeTelescopeIntegration": {
           "type": "boolean",

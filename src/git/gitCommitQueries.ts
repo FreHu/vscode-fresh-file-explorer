@@ -148,6 +148,59 @@ export async function getMergeBase(repoFullPath: string, ref1: string, ref2: str
 }
 
 /**
+ * The repo's current HEAD branch (short name), or `undefined` when detached.
+ * Resolved straight from git so it works for any repo FFE discovered, not only
+ * those the VS Code git extension happens to have opened.
+ */
+export async function getCurrentBranch(repoFullPath: string): Promise<string | undefined> {
+  try {
+    const out = await execGitWithArgs(
+      ["rev-parse", "--abbrev-ref", "HEAD"],
+      repoFullPath,
+      { timeout: ConfigService.getGitTimeoutMs() },
+    );
+    const name = out.trim();
+    return name && name !== "HEAD" ? name : undefined; // "HEAD" means detached
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Resolve the repo's default/base branch — what a feature branch or worktree
+ * most likely forked from. Tries, in order:
+ *  1. the `origin/HEAD` symref (the remote's default, e.g. `origin/main`) — returned verbatim
+ *  2. a local `main`, then `master`
+ *
+ * Returns `undefined` when none resolve, in which case the caller skips
+ * auto-follow for that repo. Cheap (one or two ref lookups) and the result is
+ * stable per repo, so callers cache it.
+ */
+export async function getDefaultBranch(repoFullPath: string): Promise<string | undefined> {
+  try {
+    const out = await execGitWithArgs(
+      ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+      repoFullPath,
+      { timeout: ConfigService.getGitTimeoutMs() },
+    );
+    const ref = out.trim();
+    if (ref) { return ref; } // e.g. "origin/main"
+  } catch { /* no remote, or origin/HEAD unset on this worktree — fall through */ }
+
+  for (const candidate of ["main", "master"]) {
+    try {
+      await execGitWithArgs(
+        ["rev-parse", "--verify", "--quiet", `refs/heads/${candidate}`],
+        repoFullPath,
+        { timeout: ConfigService.getGitTimeoutMs() },
+      );
+      return candidate;
+    } catch { /* not present — try the next candidate */ }
+  }
+  return undefined;
+}
+
+/**
  * Get the set of commit SHAs reachable from `toInclusive` but not from `fromExclusive`.
  * Equivalent to `git log --format=%H fromExclusive..toInclusive`.
  */

@@ -345,6 +345,12 @@ export function getBranchCompareSettingsHtml(
   </div>
   <p class="subtitle">Define which comparisons appear in the Branch Compare tree. Each row is one (source &rarr; target) pair.</p>
 
+  <div class="field-row">
+    <input type="checkbox" id="autoFollow">
+    <label for="autoFollow">Auto-follow diverged branches &amp; worktrees</label>
+  </div>
+  <div class="field-help">Adds a live comparison for any repo or worktree whose branch has diverged from its default. Rows are marked <i class="codicon codicon-eye"></i>; delete one to stop following it, edit to keep it as your own.</div>
+
   <div class="table-toolbar">
     <label for="batchGrouping">Set grouping for all comparisons:</label>
     <select id="batchGrouping" title="Apply a grouping mode to every comparison at once"></select>

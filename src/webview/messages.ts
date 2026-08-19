@@ -17,6 +17,8 @@ export interface SavedComparisonDTO {
   isHeatmapBaseline?: boolean;
   groupingMode: GroupingMode;
   diffMode: DiffMode;
+  /** Auto-follow row (managed by AutoFollowController). Editing adopts it; deleting dismisses it. */
+  auto?: boolean;
 }
 
 export interface RepoDTO {
@@ -56,7 +58,7 @@ export interface HeatmapSettingsDTO {
 }
 
 export type BranchCompareSettingsToWebview =
-  | { command: "state"; repos: RepoDTO[]; comparisons: SavedComparisonDTO[] }
+  | { command: "state"; repos: RepoDTO[]; comparisons: SavedComparisonDTO[]; autoFollow: boolean }
   | { command: "refs"; repoFullPath: string; branches: RefDTO[] }
   | {
       command: "refValidation";
@@ -89,6 +91,7 @@ export type BranchCompareSettingsFromWebview =
   | { command: "validateRef"; repoFullPath: string; ref: string }
   | { command: "refreshRefs" }
   | { command: "updateHeatmap"; patch: Partial<HeatmapSettingsDTO> }
+  | { command: "setAutoFollow"; enabled: boolean }
   | { command: "openHeatmapHelp" };
 
 // ── Git Log -L panel ─────────────────────────────────────────────────────────

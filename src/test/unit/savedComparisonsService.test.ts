@@ -420,4 +420,73 @@ suite("SavedComparisonsService", () => {
       assert.strictEqual(service.getById(id)?.diffMode, "full");
     });
   });
+
+  suite("auto-follow", () => {
+    const followKeyOf = (repo: string, branch: string) => `${asNormalizedRepoPath(repo)} ${branch}`;
+
+    test("applyAutoReconcile adds an active, auto, HEAD-source comparison", () => {
+      service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
+      const all = service.getAll();
+      assert.strictEqual(all.length, 1);
+      assert.strictEqual(all[0].auto, true);
+      assert.strictEqual(all[0].active, true);
+      assert.strictEqual(all[0].source, HEAD_SOURCE);
+      assert.strictEqual(all[0].target, "main");
+      assert.strictEqual(all[0].label, "feature/x");
+      assert.deepStrictEqual(service.getActive().map(c => c.id), [all[0].id]);
+    });
+
+    test("auto rows persist and reload", () => {
+      service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
+      service.dispose();
+      service = new SavedComparisonsService();
+      const all = service.getAll();
+      assert.strictEqual(all.length, 1);
+      assert.strictEqual(all[0].auto, true);
+    });
+
+    test("applyAutoReconcile removal does NOT dismiss (re-add works)", () => {
+      service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
+      const id = service.getAll()[0].id;
+      service.applyAutoReconcile([], [id]);
+      assert.strictEqual(service.getAll().length, 0);
+      assert.strictEqual(service.getDismissedAutoFollows().size, 0);
+      // Re-adding the same follow is allowed (e.g. flipped away from base and back).
+      service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
+      assert.strictEqual(service.getAll().length, 1);
+    });
+
+    test("deleting an auto row dismisses its (repo, branch)", () => {
+      service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
+      const id = service.getAll()[0].id;
+      service.delete(id);
+      assert.ok(service.getDismissedAutoFollows().has(followKeyOf(REPO_A, "feature/x")));
+    });
+
+    test("editing an auto row's target adopts it (auto cleared) and dismisses", () => {
+      service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
+      const id = service.getAll()[0].id;
+      service.update(id, { target: "develop" });
+      const after = service.getById(id);
+      assert.notStrictEqual(after?.auto, true); // adopted → no longer auto-managed
+      assert.strictEqual(after?.target, "develop");
+      assert.ok(service.getDismissedAutoFollows().has(followKeyOf(REPO_A, "feature/x")));
+    });
+
+    test("editing grouping mode on an auto row does NOT adopt it", () => {
+      service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
+      const id = service.getAll()[0].id;
+      service.update(id, { groupingMode: "Flat List" });
+      assert.strictEqual(service.getById(id)?.auto, true);
+      assert.strictEqual(service.getDismissedAutoFollows().size, 0);
+    });
+
+    test("removeAllAutoFollows drops auto rows, keeps manual", () => {
+      const manualId = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      service.applyAutoReconcile([{ repoFullPath: REPO_B, target: "main", label: "feature/y" }], []);
+      assert.strictEqual(service.getAll().length, 2);
+      service.removeAllAutoFollows();
+      assert.deepStrictEqual(service.getAll().map(c => c.id), [manualId]);
+    });
+  });
 });

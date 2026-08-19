@@ -6,6 +6,7 @@
  */
 export const BranchCompareContextValues = {
   REPO_SECTION: "freshFileExplorer.branchCompare.repoSection",
+  AUTO_REPO_SECTION: "freshFileExplorer.branchCompare.autoRepoSection",
   FOLDER: "freshFileExplorer.branchCompare.folder",
   FILE: "freshFileExplorer.branchCompare.file",
   FILE_DELETED: "freshFileExplorer.branchCompare.deletedFile",

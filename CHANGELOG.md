@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.14.0]
+
+### Branch Compare
+
+- **Auto-follow diverged branches & worktrees** (`freshFileExplorer.branchCompare.autoFollow`, off by default). Every repo or worktree whose current branch has diverged from its default branch (`main`/`master`, or the `origin/HEAD` default) gets its own live section, labeled by branch name, showing what it adds since branching off — no manual setup.
+  - Toggle it from the Branch Compare settings panel or settings.json.
+  - Auto sections are ordinary comparisons, marked with an eye icon in the tree and the panel.
+  - Sections are reconciled from live git: switch a repo back to its default branch, or remove a worktree, and its section disappears.
+  - **Stop Following** (tree section action, or the panel's trash button) dismisses one for the rest of the session. **Editing** one — retargeting or renaming it — adopts it as a permanent comparison that auto-follow no longer manages.
+
 ## [1.13.0]
 
 ### Fresh Files

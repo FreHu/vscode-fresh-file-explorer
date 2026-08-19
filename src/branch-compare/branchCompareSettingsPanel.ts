@@ -118,6 +118,10 @@ export class BranchCompareSettingsPanel {
         ) {
           this._pushHeatmapState();
         }
+        // Keep the auto-follow checkbox in sync when toggled from settings.json.
+        if (e.affectsConfiguration("freshFileExplorer.branchCompare.autoFollow")) {
+          this._pushState();
+        }
       }),
     );
   }
@@ -195,6 +199,9 @@ export class BranchCompareSettingsPanel {
           this._pushHeatmapState();
         }
         break;
+      case "setAutoFollow":
+        await ConfigService.setAutoFollow(msg.enabled);
+        break;
       case "openHeatmapHelp": {
         const docUri = vscode.Uri.joinPath(this.extensionUri, "docs", "heatmap.md");
         void vscode.commands.executeCommand("markdown.showPreview", docUri);
@@ -269,8 +276,9 @@ export class BranchCompareSettingsPanel {
       isHeatmapBaseline: c.isHeatmapBaseline,
       groupingMode: c.groupingMode,
       diffMode: c.diffMode,
+      auto: c.auto,
     }));
-    this._post({ command: "state", repos, comparisons });
+    this._post({ command: "state", repos, comparisons, autoFollow: ConfigService.getAutoFollow() });
   }
 
   private _pushHeatmapState(): void {

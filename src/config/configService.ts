@@ -126,6 +126,14 @@ export class ConfigService {
   }
 
   /**
+   * Whether to auto-create a live branch-compare section for each repo/worktree
+   * whose HEAD has diverged from its default branch.
+   */
+  static getAutoFollow(): boolean {
+    return ConfigService.cfg().get<boolean>(ConfigKeys.AUTO_FOLLOW, false);
+  }
+
+  /**
    * Get the maximum length for search include patterns
    */
   static getSearchPatternMaxLength(): number {
@@ -176,6 +184,14 @@ export class ConfigService {
   static setHeatmapEnabled(value: boolean): Thenable<void> {
     return vscode.workspace.getConfiguration().update(
       ConfigKeys.HEATMAP_ENABLED,
+      value,
+      vscode.ConfigurationTarget.Global,
+    );
+  }
+
+  static setAutoFollow(value: boolean): Thenable<void> {
+    return vscode.workspace.getConfiguration().update(
+      ConfigKeys.AUTO_FOLLOW,
       value,
       vscode.ConfigurationTarget.Global,
     );
