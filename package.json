@@ -558,6 +558,18 @@
         "category": "Branch Compare"
       },
       {
+        "command": "freshFileExplorer.branchCompare.openDifftool",
+        "title": "Open in External Diff Tool",
+        "icon": "$(diff)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.openDirDifftool",
+        "title": "Open All in External Diff Tool",
+        "icon": "$(diff)",
+        "category": "Branch Compare"
+      },
+      {
         "command": "freshFileExplorer.branchCompare.restoreFromBaseline",
         "title": "Restore from Baseline",
         "icon": "$(discard)",
@@ -1221,6 +1233,11 @@
           "group": "1_open@4"
         },
         {
+          "command": "freshFileExplorer.branchCompare.openDifftool",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "group": "1_open@5"
+        },
+        {
           "command": "freshFileExplorer.gitLogFile",
           "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
           "group": "2_history@1"
@@ -1301,6 +1318,11 @@
           "group": "inline@2"
         },
         {
+          "command": "freshFileExplorer.branchCompare.openDirDifftool",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
+          "group": "2_files@3"
+        },
+        {
           "command": "freshFileExplorer.branchCompare.refreshRepo",
           "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
           "group": "2_files@2"
@@ -1336,6 +1358,11 @@
           "group": "inline@1"
         },
         {
+          "command": "freshFileExplorer.branchCompare.openDirDifftool",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.folder",
+          "group": "1_open@2"
+        },
+        {
           "command": "freshFileExplorer.branchCompare.focusSourceControl",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupPending",
           "group": "1_open@1"
@@ -1356,6 +1383,11 @@
           "group": "inline@2"
         },
         {
+          "command": "freshFileExplorer.branchCompare.openDirDifftool",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupPending",
+          "group": "1_open@3"
+        },
+        {
           "command": "freshFileExplorer.branchCompare.openCommit",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupCommit",
           "group": "1_open@1"
@@ -1364,6 +1396,11 @@
           "command": "freshFileExplorer.branchCompare.openCommit",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupCommit",
           "group": "inline@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openDirDifftool",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupCommit",
+          "group": "1_open@2"
         }
       ],
       "commandPalette": [
@@ -1897,6 +1934,11 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically add a live Branch Compare section for each repo or worktree whose current branch has diverged from its default branch (main/master). In-progress work — your own feature branch, a parallel worktree, anything checked out off main — shows up and updates live with no manual setup. Auto sections appear in the Branch Compare settings panel like any other comparison; use 'Stop Following' to dismiss one for the session, or edit one to keep it permanently."
+        },
+        "freshFileExplorer.branchCompare.enableDirDiffTool": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable 'Open in External Diff Tool' for a whole repo section or folder in Branch Compare (git difftool --dir-diff). Off by default: this only works with diff tools that support directory comparison (e.g. WinMerge, Meld, Beyond Compare) — single-file tools configured as diff.tool will error or misbehave. The single-file 'Open in External Diff Tool' action is always available regardless of this setting."
         },
         "freshFileExplorer.codeTelescopeIntegration": {
           "type": "boolean",

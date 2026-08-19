@@ -232,6 +232,8 @@ A new tree view that surfaces saved branch-to-branch comparisons. Each row is on
 - Click any file in the tree → opens a diff between the comparison's baseline (the merge-base) and the source ref.
 - Right-click a deleted file → **Restore from Baseline** writes the baseline content back into the working tree as an unstaged change.
 - Right-click a section or folder → **Open All Changes** queues every diff in the background.
+- Right-click a file → **Open in External Diff Tool** opens it in your configured `git difftool` instead of the built-in diff editor.
+- Right-click a section or folder → **Open All in External Diff Tool** does the same for every changed file at once, via `git difftool --dir-diff` — off by default (`freshFileExplorer.branchCompare.enableDirDiffTool`), see gotchas below.
 
 ### What goes in source/target
 
@@ -268,6 +270,7 @@ The same panel hosts the blame heatmap on/off toggle, the auto-apply-on-open swi
 - **Merge commits** — when a `HEAD~N..HEAD` comparison sweeps in unexpected commits via merges, the tooltip surfaces both counts so the number of files in the tree makes sense.
 - **Invalid refs** are hidden from the tree. The red X next to the input in the settings panel is the source of truth.
 - **Duplicates** (same repo + source + target) are deduped in the tree and flagged with a warning in the settings panel.
+- **External diff tool** — the single-file action works with any `diff.tool`. The multi-file (`--dir-diff`) action only works correctly with tools that support directory comparison (WinMerge, Meld, Beyond Compare); single-file tools like `code --diff` won't error, they'll just open an empty two-folder workspace with nothing diffed. That's the tool's limitation, not a bug — pick a directory-capable tool before enabling `enableDirDiffTool`.
 
 ---
 

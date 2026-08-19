@@ -87,6 +87,8 @@ import {
   handleBranchCompareToggleActive,
   handleBranchCompareSwapSides,
   handleBranchCompareDismissAutoFollow,
+  handleBranchCompareOpenDifftool,
+  handleBranchCompareOpenDirDifftool,
 } from "./branch-compare/branchCompareCommands";
 import { AutoFollowController } from "./branch-compare/autoFollowController";
 
@@ -609,6 +611,10 @@ function registerCommands(
   register(Commands.BRANCH_COMPARE_OPEN_MODE_FILE, () => branchCompareProvider.setOpenMode(false));
   register(Commands.BRANCH_COMPARE_DISMISS_AUTO_FOLLOW, (arg: any) =>
     handleBranchCompareDismissAutoFollow(arg, savedComparisons),
+  );
+  register(Commands.BRANCH_COMPARE_OPEN_DIFFTOOL, (item: any) => handleBranchCompareOpenDifftool(item));
+  register(Commands.BRANCH_COMPARE_OPEN_DIR_DIFFTOOL, (arg: any) =>
+    handleBranchCompareOpenDirDifftool(arg, branchCompareProvider),
   );
 }
 

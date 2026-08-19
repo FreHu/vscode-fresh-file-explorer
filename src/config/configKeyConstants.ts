@@ -73,4 +73,9 @@ export const ConfigKeys = {
 
   // Auto-create a live branch-compare section for each diverged repo/worktree
   AUTO_FOLLOW: "freshFileExplorer.branchCompare.autoFollow",
+
+  // Enable the multi-file "Open in External Diff Tool" action (git difftool --dir-diff).
+  // Off by default — dir-diff only works with tools that support directory comparison
+  // (WinMerge, Meld, Beyond Compare); single-file tools like `code --diff` fail on it.
+  BRANCH_COMPARE_ENABLE_DIR_DIFFTOOL: "freshFileExplorer.branchCompare.enableDirDiffTool",
 } as const;

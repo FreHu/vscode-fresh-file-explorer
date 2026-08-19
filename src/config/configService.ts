@@ -197,6 +197,14 @@ export class ConfigService {
     );
   }
 
+  static setBranchCompareEnableDirDiffTool(value: boolean): Thenable<void> {
+    return vscode.workspace.getConfiguration().update(
+      ConfigKeys.BRANCH_COMPARE_ENABLE_DIR_DIFFTOOL,
+      value,
+      vscode.ConfigurationTarget.Global,
+    );
+  }
+
   static getBlameHeatmapBackgroundOpacity(): number {
     return ConfigService.cfg().get<number>(ConfigKeys.BLAME_HEATMAP_BG_OPACITY, 0.15);
   }
@@ -294,6 +302,11 @@ export class ConfigService {
       ConfigKeys.BRANCH_COMPARE_WORKING_TREE_SIDE,
       "right",
     );
+  }
+
+  /** Whether the multi-file "Open in External Diff Tool" (`git difftool --dir-diff`) action is enabled. */
+  static getBranchCompareEnableDirDiffTool(): boolean {
+    return ConfigService.cfg().get<boolean>(ConfigKeys.BRANCH_COMPARE_ENABLE_DIR_DIFFTOOL, false);
   }
 
   /**

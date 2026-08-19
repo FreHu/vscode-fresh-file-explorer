@@ -54,6 +54,7 @@ const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
   BULK_ACTION_CONFIRM_THRESHOLD:    "none",
   NOTIFY_ON:                       "none",
   AUTO_FOLLOW:                     "none", // handled by AutoFollowController.onConfigChanged, not the FF tree
+  BRANCH_COMPARE_ENABLE_DIR_DIFFTOOL: "none", // read on demand by the difftool command, not the tree
 
   // Display-only — recompute the exclude-filtered view; the provider rebuilds the
   // matcher cache + display map before the treeOnly refresh fires.

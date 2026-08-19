@@ -581,42 +581,76 @@ export async function handleBranchCompareOpenPendingChanges(item: BranchCompareG
  * A multi-diff editor (not N tabs) means zero flicker and one editor to close.
  * Diffs lazy-load as you scroll, so large scopes stay cheap.
  */
+interface OpenAllScope {
+  files: ChangedFile[];
+  sourceRef: string;
+  baseRef: string;
+  diffMode: DiffMode;
+  repoFullPath: AbsolutePath;
+  scopeLabel: string;
+  scopeKey: string;
+}
+
+/**
+ * Resolve the file set + ref context for a "whole scope" action (Open All,
+ * external difftool dir-diff) from a repo-section, folder, or group node.
+ * Shared so every bulk action agrees on what files/refs a given right-click
+ * target means.
+ */
+function resolveOpenAllScope(
+  arg: RepoSectionItem | BranchCompareFolderItem | BranchCompareGroupItem | undefined,
+  provider: BranchCompareProvider,
+): OpenAllScope | undefined {
+  if (arg instanceof BranchCompareGroupItem) {
+    const cmp = provider.getComparison(arg.comparisonId);
+    if (!cmp) { return undefined; }
+    return {
+      files: arg.files,
+      sourceRef: cmp.source,
+      baseRef: cmp.target,
+      diffMode: cmp.diffMode,
+      repoFullPath: cmp.repoFullPath,
+      scopeLabel: typeof arg.label === "string" ? arg.label : arg.groupKey,
+      scopeKey: `${arg.comparisonId}:group:${arg.groupKey}`,
+    };
+  }
+  if (arg instanceof RepoSectionItem) {
+    if (!arg.comparisonId) { return undefined; }
+    const cmp = provider.getComparison(arg.comparisonId);
+    if (!cmp || !cmp.files) { return undefined; }
+    return {
+      files: cmp.files,
+      sourceRef: cmp.source,
+      baseRef: cmp.target,
+      diffMode: cmp.diffMode,
+      repoFullPath: cmp.repoFullPath,
+      scopeLabel: arg.repoName,
+      scopeKey: arg.comparisonId,
+    };
+  }
+  if (arg instanceof BranchCompareFolderItem) {
+    const cmp = provider.getComparison(arg.comparisonId);
+    if (!cmp || !cmp.tree) { return undefined; }
+    return {
+      files: collectFilesIn(arg.node),
+      sourceRef: cmp.source,
+      baseRef: cmp.target,
+      diffMode: cmp.diffMode,
+      repoFullPath: cmp.repoFullPath,
+      scopeLabel: arg.node.pathInRepo || arg.node.name || cmp.repoName,
+      scopeKey: `${arg.comparisonId}:${arg.node.pathInRepo}`,
+    };
+  }
+  return undefined;
+}
+
 export async function handleBranchCompareOpenAll(
   arg: RepoSectionItem | BranchCompareFolderItem | undefined,
   provider: BranchCompareProvider,
 ): Promise<void> {
-  let files: ChangedFile[] = [];
-  let sourceRef = "";
-  let baseRef = "";
-  let diffMode: DiffMode = "merge";
-  let repoFullPath = "" as AbsolutePath;
-  let scopeLabel = "";
-  let scopeKey = "";
-
-  if (arg instanceof RepoSectionItem) {
-    if (!arg.comparisonId) { return; }
-    const cmp = provider.getComparison(arg.comparisonId);
-    if (!cmp || !cmp.files) { return; }
-    files = cmp.files;
-    sourceRef = cmp.source;
-    baseRef = cmp.target;
-    diffMode = cmp.diffMode;
-    repoFullPath = cmp.repoFullPath;
-    scopeLabel = arg.repoName;
-    scopeKey = arg.comparisonId;
-  } else if (arg instanceof BranchCompareFolderItem) {
-    const cmp = provider.getComparison(arg.comparisonId);
-    if (!cmp || !cmp.tree) { return; }
-    files = collectFilesIn(arg.node);
-    sourceRef = cmp.source;
-    baseRef = cmp.target;
-    diffMode = cmp.diffMode;
-    repoFullPath = cmp.repoFullPath;
-    scopeLabel = arg.node.pathInRepo || arg.node.name || cmp.repoName;
-    scopeKey = `${arg.comparisonId}:${arg.node.pathInRepo}`;
-  } else {
-    return;
-  }
+  const scope = resolveOpenAllScope(arg, provider);
+  if (!scope) { return; }
+  const { files, sourceRef, baseRef, diffMode, repoFullPath, scopeLabel, scopeKey } = scope;
 
   if (files.length === 0) {
     showInfo(`No changes in ${scopeLabel}.`);
@@ -663,6 +697,111 @@ export async function handleBranchCompareOpenAll(
     title,
     resources,
   });
+}
+
+/** Surface `git difftool` failures, calling out the common "not configured" case. */
+function showDifftoolError(err: unknown): void {
+  const message = String(err);
+  if (/diff\.tool|difftool.*not configured|unknown.*difftool/i.test(message)) {
+    showError(
+      "Git difftool is not configured. Set diff.tool in your git config (e.g. `git config --global diff.tool winmerge`).",
+      `branchCompare: difftool not configured — ${message}`,
+    );
+  } else {
+    showError(`Failed to open difftool: ${message}`, `branchCompare: difftool failed — ${message}`);
+  }
+}
+
+/**
+ * Open a single changed file in the user's configured `git difftool`
+ * (`diff.tool` / `diff.guitool`). Unlike the built-in diff editor, this always
+ * shells out to git — no config flag needed since it's a single external
+ * window, same blast radius as any other "open" action.
+ */
+export async function handleBranchCompareOpenDifftool(item: BranchCompareFileItem | undefined): Promise<void> {
+  if (!item) { return; }
+  const file = item.file;
+
+  if (file.status === "U") {
+    showInfo("Untracked file — nothing to diff against a baseline.");
+    return;
+  }
+
+  const baseSha = await resolveDiffBase(file.repoFullPath, item.sourceRef, item.targetRef, item.diffMode, "Branch compare difftool");
+  if (baseSha === undefined) { return; }
+
+  const sourceIsWorkingTree = item.sourceRef === HEAD_SOURCE;
+  const args = ["difftool", "--no-prompt", baseSha];
+  if (!sourceIsWorkingTree) { args.push(item.sourceRef); }
+  args.push("--", file.pathInRepo);
+
+  log(`branchCompare: launching difftool for ${file.pathInRepo} (${baseSha}${sourceIsWorkingTree ? "" : `..${item.sourceRef}`})`);
+  try {
+    await execGitWithArgs(args, file.repoFullPath);
+  } catch (err) {
+    showDifftoolError(err);
+  }
+}
+
+/**
+ * Open every changed file in a scope (repo section / folder / commit or
+ * pending group) as a single directory diff in the user's external tool
+ * (`git difftool --dir-diff`). Gated behind a setting: unlike the single-file
+ * path, this only works with tools that support directory comparison
+ * (WinMerge, Meld, Beyond Compare) — single-file tools error or misbehave
+ * when handed two directories.
+ */
+export async function handleBranchCompareOpenDirDifftool(
+  arg: RepoSectionItem | BranchCompareFolderItem | BranchCompareGroupItem | undefined,
+  provider: BranchCompareProvider,
+): Promise<void> {
+  if (!ConfigService.getBranchCompareEnableDirDiffTool()) {
+    const enable = "Enable Setting";
+    // Only flips the setting — doesn't retry the action, since the user may
+    // want to switch diff tools first (see the setting's directory-diff caveat).
+    const choice = await vscode.window.showInformationMessage(
+      "Multi-file external diff tool is disabled — requires a directory-capable diff tool (e.g. WinMerge, Meld, Beyond Compare).",
+      enable,
+    );
+    if (choice === enable) {
+      await ConfigService.setBranchCompareEnableDirDiffTool(true);
+    }
+    return;
+  }
+
+  const scope = resolveOpenAllScope(arg, provider);
+  if (!scope) { return; }
+  const { files, sourceRef, baseRef, diffMode, repoFullPath, scopeLabel } = scope;
+
+  if (files.length === 0) {
+    showInfo(`No changes in ${scopeLabel}.`);
+    return;
+  }
+
+  if (!await confirmBulkAction({ count: files.length, actionLabel: "Open in External Diff Tool" })) { return; }
+
+  const baseSha = await resolveDiffBase(repoFullPath, sourceRef, baseRef, diffMode, "Branch compare dir-difftool");
+  if (baseSha === undefined) { return; }
+
+  const sourceIsWorkingTree = sourceRef === HEAD_SOURCE;
+  // Untracked files have no baseline-side counterpart — dir-diff only makes
+  // sense for paths git itself can resolve on both sides.
+  const relPaths = files.filter(f => f.status !== "U").map(f => f.pathInRepo);
+  if (relPaths.length === 0) {
+    showInfo(`No diffable files in ${scopeLabel} (only untracked files).`);
+    return;
+  }
+
+  const args = ["difftool", "--dir-diff", "--no-prompt", baseSha];
+  if (!sourceIsWorkingTree) { args.push(sourceRef); }
+  args.push("--", ...relPaths);
+
+  log(`branchCompare: launching dir-diff for ${relPaths.length} file(s) in ${scopeLabel}`);
+  try {
+    await execGitWithArgs(args, repoFullPath);
+  } catch (err) {
+    showDifftoolError(err);
+  }
 }
 
 /**
