@@ -37,6 +37,7 @@ import { normalizePath } from "../utils";
 import { listWorkspaceRepos } from "../utils/pathUtils";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { DiffMode } from "./branchCompareConstants";
+import { FilesExcludeFilter } from "../fresh-files/filesExcludeFilter";
 
 /**
  * In-memory state for one rendered comparison. Mirrors the persisted shape
@@ -51,6 +52,12 @@ interface ResolvedComparison {
   label?: string;
   /** Resolved file set. `undefined` while loading; empty array means "no changes". */
   files: ChangedFile[] | undefined;
+  /**
+   * Same set before `files.exclude` is applied. Kept so toggling the setting
+   * (or editing `files.exclude` itself) can re-derive `files`/`tree` without
+   * a git re-fetch.
+   */
+  rawFiles: ChangedFile[] | undefined;
   tree: FolderNode | undefined;
   error: string | undefined;
   /**
@@ -126,6 +133,12 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
    * from Fresh Files' own open-changes mode.
    */
   private openChangesMode: boolean = WorkspaceStateManager.getBranchCompareOpenChangesMode();
+
+  /** Applies each owning workspace folder's `files.exclude` to comparison file sets. */
+  private filesExcludeFilter = new FilesExcludeFilter(
+    () => ConfigService.getRespectFilesExclude(),
+    (folderPath) => ConfigService.getFilesExcludeExpression(vscode.Uri.file(folderPath)),
+  );
 
   constructor(
     private readonly baselineService: BaselineService,
@@ -293,6 +306,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
 
     if (markStale) {
       cmp.files = undefined;
+      cmp.rawFiles = undefined;
       cmp.tree = undefined;
       cmp.error = undefined;
       cmp.invalidRef = false;
@@ -341,7 +355,8 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       ]);
       if (this.loadingTokens.get(id) !== myToken) return;
 
-      cmp.files = buildChangedFiles(cmp.repoFullPath, committed, workingTree, commitInfo, workingTreeNumstat);
+      cmp.rawFiles = buildChangedFiles(cmp.repoFullPath, committed, workingTree, commitInfo, workingTreeNumstat);
+      cmp.files = this.filterExcludedFiles(cmp.repoFullPath, cmp.rawFiles);
       cmp.tree = buildFolderTree(cmp.files);
       cmp.error = undefined;
       cmp.mergeCone = mergeCone;
@@ -351,6 +366,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.error = String(err);
       cmp.invalidRef = isInvalidRefError(err);
       cmp.files = [];
+      cmp.rawFiles = [];
       cmp.tree = undefined;
       cmp.mergeCone = undefined;
       cmp.hasCommitInfo = false;
@@ -399,6 +415,39 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   /** True when at least one active comparison exists. Drives the view's `when`. */
   hasAnyActive(): boolean {
     return this.savedComparisons.hasAnyActive();
+  }
+
+  // ── files.exclude ────────────────────────────────────────────────────────
+
+  /**
+   * Drop files hidden by their owning workspace folder's `files.exclude`.
+   * Each comparison is rooted at one repo, so — unlike the Fresh Files tree,
+   * which renders the same file under multiple overlapping-root nodes — a
+   * file here has exactly one owning folder, making this the owner-based
+   * check rather than a per-node one.
+   */
+  private filterExcludedFiles(repoFullPath: AbsolutePath, files: ChangedFile[]): ChangedFile[] {
+    if (!this.filesExcludeFilter.enabled) { return files; }
+    const folders = this.freshFileProvider.workspaceFolders;
+    return files.filter(f => !this.filesExcludeFilter.isExcludedByOwner(
+      normalizePath(`${repoFullPath}/${f.pathInRepo}`),
+      folders,
+    ));
+  }
+
+  /**
+   * React to a `files.exclude` or respect-toggle change: drop compiled
+   * matchers and re-derive each comparison's filtered files/tree from the
+   * cached raw diff — no git I/O.
+   */
+  applyFilesExcludeChange(): void {
+    this.filesExcludeFilter.invalidate();
+    for (const cmp of this.comparisons.values()) {
+      if (cmp.rawFiles === undefined) { continue; }
+      cmp.files = this.filterExcludedFiles(cmp.repoFullPath, cmp.rawFiles);
+      cmp.tree = buildFolderTree(cmp.files);
+    }
+    this.fireChange();
   }
 
   // ── Grouping ────────────────────────────────────────────────────────────
@@ -459,6 +508,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           existing.source = sc.source;
           existing.target = sc.target;
           existing.files = undefined;
+          existing.rawFiles = undefined;
           existing.tree = undefined;
           existing.error = undefined;
           existing.invalidRef = false;
@@ -472,6 +522,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
         if (existing.diffMode !== sc.diffMode) {
           existing.diffMode = sc.diffMode;
           existing.files = undefined;
+          existing.rawFiles = undefined;
           existing.tree = undefined;
           existing.error = undefined;
           existing.invalidRef = false;
@@ -487,6 +538,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           target: sc.target,
           label: sc.label,
           files: undefined,
+          rawFiles: undefined,
           tree: undefined,
           error: undefined,
           invalidRef: false,

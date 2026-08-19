@@ -9,7 +9,7 @@
   - Auto sections are ordinary comparisons, marked with an eye icon in the tree and the panel.
   - Sections are reconciled from live git: switch a repo back to its default branch, or remove a worktree, and its section disappears.
   - **Stop Following** (tree section action, or the panel's trash button) dismisses one for the rest of the session. **Editing** one — retargeting or renaming it — adopts it as a permanent comparison that auto-follow no longer manages.
-
+- Now respects files.exclude
 - On startup, the extension will detect the relatively obscure situation of a corrupted git index and offer a guide on how to fix it.
 
 ## [1.13.0]

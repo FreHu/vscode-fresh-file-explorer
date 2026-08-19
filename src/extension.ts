@@ -45,6 +45,7 @@ import { findRepoForAbsolutePath } from "./utils/pathUtils";
 import { normalizePath } from "./utils";
 import { NormalizedRepoPath } from "./pathTypes";
 import { Commands } from "./commands/commandConstants";
+import { ConfigKeys } from "./config/configKeyConstants";
 import { createFreshFilesDragAndDropController, createPinnedDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
 import { BlameHeatmapController } from "./heatmap/blameHeatmapController";
@@ -220,6 +221,7 @@ export async function activate(context: vscode.ExtensionContext) {
       // No-op when the feature is off, so it stays inert for users who don't use it.
       if (e.affectsConfiguration("files.exclude") && ConfigService.getRespectFilesExclude()) {
         freshFileProvider.applyFilesExcludeChange();
+        branchCompareProvider.applyFilesExcludeChange();
       }
 
       if (e.affectsConfiguration("freshFileExplorer")) {
@@ -228,6 +230,11 @@ export async function activate(context: vscode.ExtensionContext) {
         // Branch Compare shares the sort order — re-render it when the default changes.
         if (e.affectsConfiguration("freshFileExplorer.defaultSortOrder")) {
           branchCompareProvider.rerenderForSortChange();
+        }
+
+        // Branch Compare shares files.exclude support — recompute its filtered view too.
+        if (e.affectsConfiguration(ConfigKeys.RESPECT_FILES_EXCLUDE)) {
+          branchCompareProvider.applyFilesExcludeChange();
         }
 
         // If heatmap setting changed, refresh decorations
