@@ -1181,6 +1181,42 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
   }
 
+  /** Repos already toasted for a corrupt index, so repeated refreshes against the same broken index don't re-toast. */
+  private readonly notifiedCorruptIndex = new Set<NormalizedRepoPath>();
+
+  /**
+   * Warn once per repo when git reports a corrupt index while reading pending changes. Left
+   * unsurfaced, this reads as "no pending changes" instead of "couldn't check" — the tree looks
+   * clean while the working tree may not be.
+   */
+  private async notifyCorruptIndex(
+    normalizedRepoPath: NormalizedRepoPath,
+    folderName: string,
+    repoRelPath: string,
+    error: string,
+  ): Promise<void> {
+    if (!/index file corrupt|bad signature/i.test(error)) {
+      return;
+    }
+    if (this.notifiedCorruptIndex.has(normalizedRepoPath)) {
+      return;
+    }
+    this.notifiedCorruptIndex.add(normalizedRepoPath);
+
+    const repoLabel = repoRelPath ? `${folderName}/${repoRelPath}` : folderName;
+    const message = `Fresh File Explorer couldn't read pending changes for "${repoLabel}": its git index is corrupt. Pending changes won't show up until it's fixed — committed history is unaffected.`;
+
+    const LEARN = "How to fix";
+    const choice = await vscode.window.showWarningMessage(message, LEARN);
+    if (choice === LEARN) {
+      const extensionUri = vscode.extensions.getExtension("frehu.fresh-file-explorer")?.extensionUri;
+      if (extensionUri) {
+        const docUri = vscode.Uri.joinPath(extensionUri, "docs", "git-index-corruption.md");
+        await vscode.commands.executeCommand("markdown.showPreview", docUri);
+      }
+    }
+  }
+
   private async loadPendingAndHistoricalFiles(assertNotCancelled: () => void): Promise<string | undefined> {
     // When refreshing only specific repos, seed the accumulator maps with the surviving
     // data from non-target repos so their entries are preserved in the final result.
@@ -1212,8 +1248,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       }
 
       // Phase 2a: Load pending changes
-      await this.loadPendingForRepo(folder, repoRelPath, normalizedRepoPath, newFiles, pendingOnly);
+      const pendingError = await this.loadPendingForRepo(folder, repoRelPath, normalizedRepoPath, newFiles, pendingOnly);
       assertNotCancelled();
+      if (pendingError) {
+        void this.notifyCorruptIndex(normalizedRepoPath, folder.name, repoRelPath, pendingError);
+      }
 
       if (pendingOnly) {
         continue; // skip historical
@@ -1254,16 +1293,17 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     normalizedRepoPath: NormalizedRepoPath,
     newFiles: Map<AbsolutePath, FileMetadata>,
     pendingOnly: boolean,
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     // --- Phase 2: Pending changes (fast) ---
     try {
-      await DataCollector.collectPendingForRepo(folder, repoRelPath, newFiles);
+      const error = await DataCollector.collectPendingForRepo(folder, repoRelPath, newFiles);
 
       // If historical mode, keep a secondary indicator so children show a history spinner.
       if (!pendingOnly) {
         this.reposLoadingHistorical.add(normalizedRepoPath);
       }
       this._setFreshFiles(new Map(newFiles));
+      return error;
     } finally {
       // Transition: pending loaded → remove spinner, expose pending files immediately.
       this.reposLoading.delete(normalizedRepoPath);

@@ -101,18 +101,23 @@ export class DataCollector {
 
   /**
    * Collect only the pending (uncommitted) changes for a single repository.
+   * Returns the raw git error when the read fails, so callers can surface a corrupt-index
+   * repo instead of silently showing "no pending changes" for one that actually has some.
    */
   static async collectPendingForRepo(
     folder: WorkspaceFolderInfo,
     repoRelativePath: string,
     targetMap: Map<AbsolutePath, FileMetadata>,
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
     try {
       const { files } = await collectPendingChanges(repoRelativePath, repoFullPath, folder.path);
       DataCollector.addFilesToMap(folder, files, targetMap);
+      return undefined;
     } catch (error) {
-      log(`Failed to get pending changes from ${folder.name}/${repoRelativePath || "root"}: ${String(error)}`, "warn");
+      const message = String(error);
+      log(`Failed to get pending changes from ${folder.name}/${repoRelativePath || "root"}: ${message}`, "warn");
+      return message;
     }
   }
 

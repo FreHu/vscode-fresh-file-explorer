@@ -61,6 +61,13 @@ export async function collectPendingChanges(
     const statusCode = line.substring(0, 2);
     let filePath = decodeGitPath(line.substring(3));
 
+    // A path of "." or "" names the repo root itself, never a real file. Seen from a corrupt
+    // index (git misreads a truncated entry table as the CWD being added/deleted) — skip rather
+    // than let it render as a bogus tree row for the repo folder.
+    if (filePath === "." || filePath === "./" || filePath === "") {
+      continue;
+    }
+
     // An untracked entry with a trailing slash is a *directory* git refused to descend into.
     // With `-uall`, ordinary untracked dirs are expanded to their individual files, so a surviving
     // trailing-slash entry is always a git boundary: a submodule, a nested repo, or a nested
