@@ -62,7 +62,7 @@ export interface PinnedItem {
   type: PinnedItemType;
   id: string; // noteId for notes, file path for files
   data: string; // note text for notes, empty for files
-  /** For notes only: whether the note is marked completed (todo done) */
+  /** Whether the item is checked off in the todo list (files and notes alike). */
   completed?: boolean;
 }
 

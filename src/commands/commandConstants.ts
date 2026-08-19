@@ -51,7 +51,6 @@ export const Commands = {
   UNPIN_FILE: "freshFileExplorer.unpinFile",
   ADD_NOTE: "freshFileExplorer.addNote",
   EDIT_NOTE: "freshFileExplorer.editNote",
-  TOGGLE_NOTE_COMPLETED: "freshFileExplorer.toggleNoteCompleted",
   DELETE_NOTE: "freshFileExplorer.deleteNote",
   CLEAR_ALL_PINNED: "freshFileExplorer.clearAllPinned",
   CLEAR_COMPLETED: "freshFileExplorer.clearCompleted",

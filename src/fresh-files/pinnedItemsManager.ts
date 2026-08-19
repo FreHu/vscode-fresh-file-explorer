@@ -223,15 +223,21 @@ export class PinnedItemsManager {
     }
   }
 
+  // ============================================================
+  // Completed (todo) state
+  // ============================================================
+
   /**
-   * Toggle a note's completed state (for todo-style notes)
+   * Toggle a pinned item's completed (checked-off) state. Works for both
+   * files and notes — `id` is the file's absolute path or the note's id,
+   * which never collide.
    */
-  toggleNoteCompleted(noteId: string): void {
-    const item = this.pinnedItems.find(item => item.type === "note" && item.id === noteId);
+  toggleItemCompleted(id: string): void {
+    const item = this.pinnedItems.find(item => item.id === id);
     if (item) {
       item.completed = !(item.completed ?? false);
       this.persistAndNotify();
-      log(`Note ${noteId} completed: ${item.completed}`);
+      log(`Pinned item ${id} completed: ${item.completed}`);
     }
   }
 
@@ -315,14 +321,12 @@ export class PinnedItemsManager {
   }
 
   /**
-   * Clear only completed notes
+   * Clear every checked-off item
    */
   clearCompleted(): void {
-    this.pinnedItems = this.pinnedItems.filter(
-      item => item.type !== "note" || !item.completed
-    );
+    this.pinnedItems = this.pinnedItems.filter(item => !item.completed);
     this.persistAndNotify();
-    log("Cleared completed notes");
+    log("Cleared completed pinned items");
   }
 
   // ============================================================

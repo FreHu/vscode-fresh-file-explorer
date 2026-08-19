@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 import { initializeLogger, log } from "./extension/logger";
-import { FreshFileItem, FreshFilesTreeItem } from "./fresh-files/freshFileTreeItems";
+import { FreshFileItem, FreshFilesTreeItem, NoteTreeItem } from "./fresh-files/freshFileTreeItems";
 import { handleClearFilters, handleFilterAiAuthored, handleFilterByAuthor, handleFilterByCommit } from "./commands/filterCommands";
 import {
   handleDeleteFile,
@@ -33,7 +33,7 @@ import { handleSearchInFreshFiles, handlesearchInFoundFiles, handleOpenAllFoundF
 import { handleQuickPickFile } from "./commands/quickPickCommand";
 import { showBlameHeatmapPicker } from "./commands/heatmapQuickPickCommand";
 import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
-import { handleAddNote, handleEditNote, handleDeleteNote, handleToggleNoteCompleted, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
+import { handleAddNote, handleEditNote, handleDeleteNote, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
 import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, handleCopySubtreeStructure } from "./commands/copyPathCommands";
 import { handleCopyFile, handleCutFile, handlePasteFile } from "./commands/copyPasteCommands";
@@ -43,7 +43,7 @@ import { registerCodeTelescopeFinder, openFreshFilesTelescope } from "./code-tel
 import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } from "./commands/pathspecCommand";
 import { findRepoForAbsolutePath } from "./utils/pathUtils";
 import { normalizePath } from "./utils";
-import { NormalizedRepoPath } from "./pathTypes";
+import { NormalizedRepoPath, asAbsolutePath } from "./pathTypes";
 import { Commands } from "./commands/commandConstants";
 import { ConfigKeys } from "./config/configKeyConstants";
 import { createFreshFilesDragAndDropController, createPinnedDragAndDropController } from "./commands/dragDropController";
@@ -119,6 +119,20 @@ export async function activate(context: vscode.ExtensionContext) {
     dragAndDropController: createPinnedDragAndDropController(pinnedItemsProvider),
   });
   context.subscriptions.push(pinnedItemsTreeView);
+
+  // Native checkbox drives the "completed" (todo-done) state for both pinned
+  // files and notes — id is the file's absolute path or the note's id.
+  context.subscriptions.push(
+    pinnedItemsTreeView.onDidChangeCheckboxState(e => {
+      for (const [element] of e.items) {
+        if (element instanceof NoteTreeItem) {
+          pinnedItemsProvider.pinnedItemsManager.toggleItemCompleted(element.noteId);
+        } else if (element instanceof FreshFileItem) {
+          pinnedItemsProvider.pinnedItemsManager.toggleItemCompleted(asAbsolutePath(element.resourceUri.fsPath));
+        }
+      }
+    }),
+  );
 
   // Create and register heatmap decoration provider
   const heatmapProvider = new HeatmapDecorationProvider(freshFileProvider);
@@ -419,8 +433,6 @@ function registerCommands(
   register(Commands.ADD_NOTE, () => handleAddNote(pinnedItemsProvider));
 
   register(Commands.EDIT_NOTE, (item: any) => handleEditNote(item, pinnedItemsProvider));
-
-  register(Commands.TOGGLE_NOTE_COMPLETED, (item: any) => handleToggleNoteCompleted(item, pinnedItemsProvider));
 
   register(Commands.DELETE_NOTE, (item: any) => handleDeleteNote(item, pinnedItemsProvider));
 

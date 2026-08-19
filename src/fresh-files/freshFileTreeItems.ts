@@ -245,7 +245,10 @@ export class NoteTreeItem extends vscode.TreeItem {
     super(noteText, vscode.TreeItemCollapsibleState.None);
     this.id = createNoteId(noteId);
     this.contextValue = TreeItemContextValues.PINNED_NOTE;
-    this.iconPath = new vscode.ThemeIcon(completed ? "pass" : "circle-outline");
+    this.iconPath = new vscode.ThemeIcon("note");
+    this.checkboxState = completed
+      ? vscode.TreeItemCheckboxState.Checked
+      : vscode.TreeItemCheckboxState.Unchecked;
     this.tooltip = noteText;
   }
 }

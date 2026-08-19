@@ -11,8 +11,12 @@
   - **Stop Following** (tree section action, or the panel's trash button) dismisses one for the rest of the session. **Editing** one — retargeting or renaming it — adopts it as a permanent comparison that auto-follow no longer manages.
 - Now respects files.exclude
 - **Open in External Diff Tool** — opens a file's diff in your configured `git difftool` (`diff.tool`/`diff.guitool`) instead of the built-in editor. Available on any file row.
-- **Open All in External Diff Tool** — same, but for a whole repo section or folder at once via `git difftool --dir-diff`, opening a single directory-comparison window. Off by default (`freshFileExplorer.branchCompare.enableDirDiffTool`): only tools that support directory comparison (WinMerge, Meld, Beyond Compare) handle this correctly — single-file tools will silently do the wrong thing.
+- **Open All in External Diff Tool** — same, but for a whole repo section, folder, or commit/pending group at once via `git difftool --dir-diff`, opening a single directory-comparison window. Off by default (`freshFileExplorer.branchCompare.enableDirDiffTool`): only tools that support directory comparison (WinMerge, Meld, Beyond Compare) handle this correctly — single-file tools will silently do the wrong thing.
 - On startup, the extension will detect the relatively obscure situation of a corrupted git index and offer a guide on how to fix it.
+
+### Pinned Items
+
+- **Checkboxes replace the notes-only "Toggle Complete" button.** Slight wheel deinvented here.
 
 ## [1.13.0]
 

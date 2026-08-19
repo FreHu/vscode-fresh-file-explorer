@@ -45,11 +45,6 @@ export async function handleEditNote(item: NoteTreeItem, pinnedItemsProvider: Pi
   }
 }
 
-export function handleToggleNoteCompleted(item: NoteTreeItem, pinnedItemsProvider: PinnedItemsProvider): void {
-  pinnedItemsProvider.pinnedItemsManager.toggleNoteCompleted(item.noteId);
-  log(`Note toggled completed: ${item.noteId}`);
-}
-
 export async function handleDeleteNote(item: NoteTreeItem, pinnedItemsProvider: PinnedItemsProvider): Promise<void> {
   pinnedItemsProvider.pinnedItemsManager.removeNote(item.noteId);
   log(`Note deleted: ${item.noteId}`);
@@ -70,7 +65,7 @@ export async function handleClearAllPinned(pinnedItemsProvider: PinnedItemsProvi
 
 export function handleClearCompleted(pinnedItemsProvider: PinnedItemsProvider): void {
   pinnedItemsProvider.pinnedItemsManager.clearCompleted();
-  log("Cleared completed notes");
+  log("Cleared completed pinned items");
 }
 
 const noteTooLongMessage = "Note is too long (max 150 characters). You could make a file and pin that instead.";

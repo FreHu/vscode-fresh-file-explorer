@@ -93,6 +93,10 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
         // Stable ID that differs from the regular view so VS Code can track both independently
         item.id = createPinnedFileId(uri.fsPath);
 
+        item.checkboxState = pinnedItem.completed
+          ? vscode.TreeItemCheckboxState.Checked
+          : vscode.TreeItemCheckboxState.Unchecked;
+
         // Always show the directory in description (the filename is already the label)
         const folder = findWorkspaceFolderForPath(filePath, workspaceFolders);
         if (folder) {

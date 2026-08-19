@@ -477,11 +477,6 @@
         "icon": "$(edit)"
       },
       {
-        "command": "freshFileExplorer.toggleNoteCompleted",
-        "title": "Toggle Complete",
-        "icon": "$(check)"
-      },
-      {
         "command": "freshFileExplorer.deleteNote",
         "title": "Delete Note",
         "icon": "$(trash)"
@@ -1183,14 +1178,9 @@
           "group": "5_copypath@4"
         },
         {
-          "command": "freshFileExplorer.toggleNoteCompleted",
-          "when": "view == pinnedItems && viewItem == pinnedNote",
-          "group": "inline@1"
-        },
-        {
           "command": "freshFileExplorer.editNote",
           "when": "view == pinnedItems && viewItem == pinnedNote",
-          "group": "inline@2"
+          "group": "inline@1"
         },
         {
           "command": "freshFileExplorer.deleteNote",
@@ -1506,10 +1496,6 @@
         },
         {
           "command": "freshFileExplorer.editNote",
-          "when": "false"
-        },
-        {
-          "command": "freshFileExplorer.toggleNoteCompleted",
           "when": "false"
         },
         {
