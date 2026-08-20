@@ -321,13 +321,22 @@ export class BlameHeatmapController implements vscode.Disposable {
     await this.applyToEditor(editor, mode);
   }
 
+  /**
+   * Drop both per-file maps together. `onDidChangeVisibleTextEditors` repaints
+   * from `decorationCache` without consulting `activeModes`, so a cache entry
+   * outliving its mode repaints a file the heatmap already bailed out of.
+   */
+  private forgetFile(fsPath: string): void {
+    this.activeModes.delete(fsPath);
+    this.decorationCache.delete(fsPath);
+  }
+
   /** Explicit off. No-op if no mode is active on this file. */
   turnOff(editor: vscode.TextEditor): void {
     const fsPath = editor.document.uri.fsPath;
     if (!this.activeModes.has(fsPath)) { return; }
     this.clearEditor(editor);
-    this.decorationCache.delete(fsPath);
-    this.activeModes.delete(fsPath);
+    this.forgetFile(fsPath);
     this.statusBarNewFiles.delete(fsPath);
     this.updateStatusBar(editor);
     this.updateDeletionLinesContext(editor);
@@ -452,7 +461,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     const uri = editor.document.uri;
     // Non-file URI (output channel, settings, etc.) — silent no-op.
     if (uri.scheme !== "file") {
-      this.activeModes.delete(uri.fsPath);
+      this.forgetFile(uri.fsPath);
       return;
     }
     // Diff editors carry their own change indicators; layering blame on top is
@@ -467,7 +476,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, uri.fsPath);
     if (!repoResult) {
       this.statusBarWarnings.set(uri.fsPath, "not in a git repo");
-      this.activeModes.delete(uri.fsPath);
+      this.forgetFile(uri.fsPath);
       this.updateStatusBar(editor);
       return;
     }
@@ -485,12 +494,12 @@ export class BlameHeatmapController implements vscode.Disposable {
       if (!baseRef) {
         baseRef = await this.pickBaseRef(repoResult.repoFullPath);
         if (!baseRef) {
-          this.activeModes.delete(uri.fsPath);
+          this.forgetFile(uri.fsPath);
           return;
         }
       }
       if (editor.document.isClosed) {
-        this.activeModes.delete(uri.fsPath);
+        this.forgetFile(uri.fsPath);
         return;
       }
     }
@@ -500,7 +509,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     if (editor.document.lineCount > maxLines) {
       const msg = `Line count over config limit ${maxLines}`;
       this.statusBarWarnings.set(uri.fsPath, msg);
-      this.activeModes.delete(uri.fsPath);
+      this.forgetFile(uri.fsPath);
       this.updateStatusBar(editor);
       return;
     }
@@ -529,7 +538,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       blameOutput = await runGitBlamePorcelain(repoResult.repoFullPath, repoResult.filePathInRepo);
     } catch (err) {
       showError(`Blame heatmap: git blame failed — ${err}`, true);
-      this.activeModes.delete(uri.fsPath);
+      this.forgetFile(uri.fsPath);
       return;
     }
 
@@ -538,7 +547,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     const blameLines = parseGitBlamePorcelain(blameOutput);
     if (blameLines.length === 0) {
       this.statusBarWarnings.set(uri.fsPath, "no blame data");
-      this.activeModes.delete(uri.fsPath);
+      this.forgetFile(uri.fsPath);
       this.updateStatusBar(editor);
       return;
     }
@@ -571,7 +580,7 @@ export class BlameHeatmapController implements vscode.Disposable {
           `Branch blame heatmap: could not find a common ancestor with ${baseRef}.`,
           `Branch blame heatmap: no common ancestor with ${baseRef} — ${err}`,
         );
-        this.activeModes.delete(uri.fsPath);
+        this.forgetFile(uri.fsPath);
         return;
       }
 
