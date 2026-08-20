@@ -2,24 +2,9 @@ import * as vscode from "vscode";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { findRepoPathsForFiles } from "../utils/pathUtils";
 
-/**
- * Resolve which tree items a command should act on, in priority order:
- *   1. an explicit multi-selection (`selectedItems`, when non-empty),
- *   2. the single right-clicked `item`,
- *   3. the tree view's current selection (the keybinding path, where VS Code
- *      passes neither `item` nor `selectedItems` — callers pass an already
- *      type-filtered `treeSelection`).
- */
-export function resolveCommandSelection<T extends vscode.TreeItem>(
-  item: T | undefined,
-  selectedItems: T[] | undefined,
-  treeSelection?: readonly T[],
-): T[] {
-  if (selectedItems && selectedItems.length > 0) { return selectedItems; }
-  if (item) { return [item]; }
-  if (treeSelection && treeSelection.length > 0) { return [...treeSelection]; }
-  return [];
-}
+// Lives in a vscode-free module so its precedence rules are unit-testable;
+// re-exported here so existing importers keep their import path.
+export { resolveCommandSelection } from "./commandSelection";
 
 /**
  * Refresh only the repos that the given files belong to (working-tree refresh).
