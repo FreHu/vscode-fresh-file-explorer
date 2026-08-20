@@ -1,4 +1,3 @@
-import * as cp from "child_process";
 import * as path from "path";
 
 import { log } from "../extension/logger";
@@ -7,6 +6,7 @@ import { ConfigService } from "../config/configService";
 import { parseCommitDate } from "./gitDateUtils";
 import { detectAiCoAuthors } from "../fresh-files/aiCoAuthor";
 import { decodeGitPath, fileExists } from "./gitOperations";
+import { spawnGitSettled } from "./gitSpawn";
 
 /** Accumulate per-commit file-change stats from `onFileEntry` calls. */
 function accumulateCommitStats(
@@ -114,38 +114,22 @@ function spawnGitLines(
   timeout: number | undefined,
   onLine: (line: string) => void,
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = cp.spawn("git", args, { cwd, timeout });
-    let buffer = "";
-
-    child.stdout.on("data", (data: Buffer) => {
+  let buffer = "";
+  return spawnGitSettled(args, cwd, timeout, {
+    onStdout: data => {
       buffer += data.toString();
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       for (const line of lines) {
         onLine(line);
       }
-    });
-
-    let stderr = "";
-    child.stderr.on("data", (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    child.on("error", (error) => {
-      reject(error.message);
-    });
-
-    child.on("close", (code) => {
+    },
+    onFinish: () => {
       if (buffer.trim()) {
         onLine(buffer);
       }
-      if (code !== 0) {
-        reject(stderr || `git exited with code ${code}`);
-      } else {
-        resolve();
-      }
-    });
+    },
+    onSuccess: () => undefined,
   });
 }
 

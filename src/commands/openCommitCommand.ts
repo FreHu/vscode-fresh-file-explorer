@@ -52,8 +52,9 @@ async function openCommitMultiDiff(repoRoot: string, commitHash: string, revealT
     });
     log(`Opening multi-diff editor for commit ${shortHash} with ${resources.length} files`);
     await vscode.commands.executeCommand("_workbench.openMultiDiffEditor", { multiDiffSourceUri, title, resources, reveal });
-  } catch (error: any) {
-    showError(`Failed to open commit: ${error.message}`, `Failed to open commit ${commitHash}: ${error.message}`);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    showError(`Failed to open commit: ${reason}`, `Failed to open commit ${commitHash}: ${reason}`);
   }
 }
 

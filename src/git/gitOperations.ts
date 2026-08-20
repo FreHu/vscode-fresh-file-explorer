@@ -1,8 +1,8 @@
-import * as cp from "child_process";
 import * as fs from "fs";
 import * as vscode from "vscode";
 
 import { ConfigService } from "../config/configService";
+import { spawnGitSettled } from "./gitSpawn";
 
 const gitPathDecoder = new TextDecoder("utf-8");
 const gitPathEncoder = new TextEncoder();
@@ -16,31 +16,12 @@ const gitPathEncoder = new TextEncoder();
  * @returns The command output as a string
  */
 export function execGitWithArgs(args: string[], cwd: string, options: { timeout?: number } = {}): Promise<string> {
-  const { timeout } = options;
-  return new Promise((resolve, reject) => {
-    const child = cp.spawn("git", args, { cwd, timeout });
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (data: Buffer) => {
+  let stdout = "";
+  return spawnGitSettled(args, cwd, options.timeout, {
+    onStdout: data => {
       stdout += data.toString();
-    });
-
-    child.stderr.on("data", data => {
-      stderr += data.toString();
-    });
-
-    child.on("error", error => {
-      reject(error.message);
-    });
-
-    child.on("close", code => {
-      if (code !== 0) {
-        reject(stderr || `git exited with code ${code}`);
-      } else {
-        resolve(stdout);
-      }
-    });
+    },
+    onSuccess: () => stdout,
   });
 }
 
@@ -57,31 +38,12 @@ export function execGitWithArgsBuffer(
   cwd: string,
   options: { timeout?: number } = {},
 ): Promise<Buffer> {
-  const { timeout } = options;
-  return new Promise((resolve, reject) => {
-    const child = cp.spawn("git", args, { cwd, timeout });
-    const chunks: Buffer[] = [];
-    let stderr = "";
-
-    child.stdout.on("data", (data: Buffer) => {
+  const chunks: Buffer[] = [];
+  return spawnGitSettled(args, cwd, options.timeout, {
+    onStdout: data => {
       chunks.push(Buffer.from(data));
-    });
-
-    child.stderr.on("data", data => {
-      stderr += data.toString();
-    });
-
-    child.on("error", error => {
-      reject(error.message);
-    });
-
-    child.on("close", code => {
-      if (code !== 0) {
-        reject(stderr || `git exited with code ${code}`);
-      } else {
-        resolve(Buffer.concat(chunks));
-      }
-    });
+    },
+    onSuccess: () => Buffer.concat(chunks),
   });
 }
 

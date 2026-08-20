@@ -144,7 +144,10 @@ export class GitLogLPanel {
     );
   }
 
-  private async _handleMessage(msg: GitLogLFromWebview) {
+  // `ready` is consumed by the onDidReceiveMessage handler above, so it can
+  // never arrive here — excluding it lets the `never` arm below actually
+  // enforce exhaustiveness over the commands this switch is responsible for.
+  private async _handleMessage(msg: Exclude<GitLogLFromWebview, { command: "ready" }>) {
     switch (msg.command) {
       case "compare":
         await this._openDiff(msg.hashA, msg.hashB);
@@ -155,6 +158,10 @@ export class GitLogLPanel {
       case "openCommit":
         await this._openCommit(msg.hash);
         break;
+      default: {
+        const unhandled: never = msg;
+        log(`GitLogLPanel: unhandled webview command: ${JSON.stringify(unhandled)}`, "warn");
+      }
     }
   }
 

@@ -1,9 +1,9 @@
-import * as cp from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { CommitHash, asCommitHash } from "../types";
 import { decodeGitPath, execGitWithArgs } from "../git/gitOperations";
+import { spawnGitSettled } from "../git/gitSpawn";
 import { parseCommitDate } from "../git/gitDateUtils";
 import { escapeRegex } from "../utils/formatUtils";
 import { isPathWithinRoot } from "../utils/pathUtils";
@@ -305,75 +305,51 @@ function streamGitDiffOutput(
   onBatch?: (matches: DiffMatch[]) => void,
   onCommitFound?: (commitNumber: number) => void
 ): Promise<DiffMatch[]> {
-  return new Promise((resolve, reject) => {
-    const child = cp.spawn("git", args, { cwd, timeout });
-    const matches: DiffMatch[] = [];
+  const matches: DiffMatch[] = [];
 
-    // Batching for incremental updates
-    let batchBuffer: DiffMatch[] = [];
-    const BATCH_SIZE = 250;
-    let lastBatchTime = Date.now();
-    const BATCH_INTERVAL = 1000;
+  // Batching for incremental updates
+  let batchBuffer: DiffMatch[] = [];
+  const BATCH_SIZE = 250;
+  let lastBatchTime = Date.now();
+  const BATCH_INTERVAL = 1000;
 
-    function flushBatch() {
-      if (batchBuffer.length > 0 && onBatch) {
-        onBatch(batchBuffer);
-        batchBuffer = [];
-        lastBatchTime = Date.now();
-      }
+  function flushBatch() {
+    if (batchBuffer.length > 0 && onBatch) {
+      onBatch(batchBuffer);
+      batchBuffer = [];
+      lastBatchTime = Date.now();
     }
+  }
 
-    function addMatch(match: DiffMatch) {
-      matches.push(match);
-      batchBuffer.push(match);
-      if (batchBuffer.length >= BATCH_SIZE || Date.now() - lastBatchTime >= BATCH_INTERVAL) {
-        flushBatch();
-      }
+  function addMatch(match: DiffMatch) {
+    matches.push(match);
+    batchBuffer.push(match);
+    if (batchBuffer.length >= BATCH_SIZE || Date.now() - lastBatchTime >= BATCH_INTERVAL) {
+      flushBatch();
     }
+  }
 
-    let buffer = "";
-    const processLine = createDiffLineProcessor(cwd, extractCommitInfo, addMatch, onCommitFound);
+  let buffer = "";
+  const processLine = createDiffLineProcessor(cwd, extractCommitInfo, addMatch, onCommitFound);
 
-    // Stream stdout data in chunks
-    child.stdout.on("data", (data: Buffer) => {
+  return spawnGitSettled(args, cwd, timeout, {
+    onStdout: data => {
       buffer += data.toString();
-      
-      // Process complete lines
       const lines = buffer.split("\n");
       // Keep the last incomplete line in buffer
       buffer = lines.pop() || "";
-      
-      // Process each complete line
       for (const line of lines) {
         processLine(line);
       }
-    });
-
-    let stderr = "";
-    child.stderr.on("data", (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    child.on("error", (error) => {
-      reject(error.message);
-    });
-
-    child.on("close", (code) => {
-      // Flush any remaining batched matches
+    },
+    onFinish: () => {
       flushBatch();
-      
-      // Process any remaining buffered content
       if (buffer.trim()) {
         processLine(buffer);
         flushBatch(); // Flush again in case processLine added matches
       }
-      
-      if (code !== 0) {
-        reject(stderr || `git exited with code ${code}`);
-      } else {
-        resolve(matches);
-      }
-    });
+    },
+    onSuccess: () => matches,
   });
 }
 

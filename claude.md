@@ -44,7 +44,9 @@ The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclud
 
 ## Git Command Execution
 
-Always use **`execGitWithArgs(args[], cwd)`** — uses `spawn()` with an argument array, no injection risk. For large outputs, stream instead of buffering: `streamGitLogNameStatus` in `gitOperations.ts`, or the diff-search parser's own `streamGitDiffOutput` (local to `diffSearchParser.ts`).
+Always use **`execGitWithArgs(args[], cwd)`** — uses `spawn()` with an argument array, no injection risk. For large outputs, stream instead of buffering: `streamGitLogNameStatus` in `src/git/gitLogStream.ts`, or the diff-search parser's own `streamGitDiffOutput` (local to `diffSearchParser.ts`).
+
+All of those sit on one primitive, **`spawnGitSettled`** in `src/git/gitSpawn.ts` — the only place that calls `cp.spawn("git", …)`, enforced by a `no-restricted-syntax` rule. Supply `onStdout` / `onSuccess` (and `onFinish` when a trailing partial line must be flushed even on a non-zero exit). Failures reject with **`GitError`**, carrying `stderr`, `exitCode`, `signal`, `timedOut`, `args`, `cwd`; a timeout kill is reported as an actionable timeout naming `freshFileExplorer.gitTimeout` rather than "exited with code null". `GitError.toString()` returns the bare message, so the many existing `String(err)` / `` `${err}` `` render sites are unaffected — but prefer `error instanceof Error ? error.message : String(error)` in new code, never `catch (e: any)` with `e.message`.
 
 ## Webview Message Protocol
 

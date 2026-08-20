@@ -72,4 +72,16 @@ export default [{
             message: "Read settings through ConfigService, not vscode.workspace.getConfiguration directly (see CLAUDE.md).",
         }],
     },
+}, {
+    // Four hand-rolled `git` spawns drifted apart and shared the same timeout
+    // and rejection-shape bugs. spawnGitSettled is the only one now; keep it
+    // that way. gitSpawn.ts is the implementation, so it is exempt.
+    files: ["**/*.ts"],
+    ignores: ["src/git/gitSpawn.ts", "src/test/**"],
+    rules: {
+        "no-restricted-syntax": ["error", {
+            selector: "CallExpression[callee.property.name='spawn'][arguments.0.value='git']",
+            message: "Spawn git through spawnGitSettled (src/git/gitSpawn.ts), not cp.spawn directly (see CLAUDE.md).",
+        }],
+    },
 }];
