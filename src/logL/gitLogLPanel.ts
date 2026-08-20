@@ -8,6 +8,7 @@ import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
 import { log, showError, showInfo } from "../extension/logger";
 import { normalizePath } from "../utils";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
+import { BoundedMap } from "../utils/collectionUtils";
 
 /**
  * Manages the Git Log -L webview panel (one per unique query).
@@ -285,7 +286,13 @@ export class GitLogLContentProvider implements vscode.TextDocumentContentProvide
   public static readonly scheme = "gitlogl";
   public static instance = new GitLogLContentProvider();
 
-  private _store = new Map<string, string>();
+  /**
+   * Bounded: entries are whole file revisions, and nothing ever removed them,
+   * so a long session browsing history grew this without limit. Evicting on
+   * document close instead would blank the content when VS Code re-queries a
+   * reopened diff, so keep the recent ones and drop the coldest.
+   */
+  private _store = new BoundedMap<string, string>(50);
 
   set(uri: string, content: string) {
     this._store.set(uri, content);
