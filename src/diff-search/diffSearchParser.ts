@@ -4,6 +4,7 @@ import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { CommitHash, asCommitHash } from "../types";
 import { decodeGitPath, execGitWithArgs } from "../git/gitOperations";
 import { spawnGitSettled } from "../git/gitSpawn";
+import { createLineMatcher } from "./lineMatcher";
 import { parseCommitDate } from "../git/gitDateUtils";
 import { escapeRegex } from "../utils/formatUtils";
 import { isPathWithinRoot } from "../utils/pathUtils";
@@ -110,7 +111,7 @@ export async function searchHistoricalDiffs(
 
     // For unlimited searches, don't use timeout (let it run as long as needed)
     // For time-limited searches, use configured timeout
-    const timeout = sinceDays === -1 ? undefined : ConfigService.getGitTimeout();
+    const timeout = sinceDays === -1 ? undefined : ConfigService.getGitTimeoutMs();
 
     // Prepare filter for batches
     const regexFlags = caseInsensitive ? "i" : "";
@@ -382,21 +383,12 @@ export function matchFileLines(
 ): DiffMatch[] {
   const regexFlags = caseInsensitive ? "i" : "";
   const searchRegex = isRegex ? new RegExp(pattern, regexFlags) : null;
-  const lowerPattern = caseInsensitive ? pattern.toLowerCase() : "";
+  const matchesLine = createLineMatcher(pattern, searchRegex, caseInsensitive);
   const matches: DiffMatch[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    let matched: boolean;
-    if (searchRegex) {
-      matched = searchRegex.test(line);
-    } else if (caseInsensitive) {
-      matched = line.toLowerCase().includes(lowerPattern);
-    } else {
-      matched = line.includes(pattern);
-    }
-
-    if (matched) {
+    if (matchesLine(line)) {
       matches.push({
         filePath,
         lineNumber: i + 1,
@@ -426,7 +418,7 @@ async function searchUntrackedFiles(
 
   let output: string;
   try {
-    output = await execGitWithArgs(args, repoPath, { timeout: ConfigService.getGitTimeout() });
+    output = await execGitWithArgs(args, repoPath, { timeout: ConfigService.getGitTimeoutMs() });
   } catch (err) {
     log(`Untracked files listing error: ${err}`, "warn");
     return [];
@@ -482,7 +474,7 @@ export async function searchPendingDiffs(
   const matches: DiffMatch[] = [];
   const regexFlags = caseInsensitive ? "i" : "";
   const searchRegex = isRegex ? new RegExp(pattern, regexFlags) : null;
-  const timeout = ConfigService.getGitTimeout();
+  const timeout = ConfigService.getGitTimeoutMs();
 
   try {
     const argOpts = { pattern, isRegex, caseInsensitive, includePattern, excludePattern };
@@ -554,14 +546,8 @@ export async function searchPendingDiffs(
  * Filter diff matches by pattern (needed because git diff doesn't support -G/-S)
  */
 export function filterMatchesByPattern(matches: DiffMatch[], pattern: string, regex: RegExp | null, caseInsensitive: boolean): DiffMatch[] {
-  if (regex) {
-    return matches.filter(m => regex.test(m.lineContent));
-  } else if (caseInsensitive) {
-    const lowerPattern = pattern.toLowerCase();
-    return matches.filter(m => m.lineContent.toLowerCase().includes(lowerPattern));
-  } else {
-    return matches.filter(m => m.lineContent.includes(pattern));
-  }
+  const matchesLine = createLineMatcher(pattern, regex, caseInsensitive);
+  return matches.filter(m => matchesLine(m.lineContent));
 }
 
 export interface HistoricalSearchArgsOptions {

@@ -96,13 +96,6 @@ export class ConfigService {
   }
 
   /**
-   * Get the git timeout (alias for consistency)
-   */
-  static getGitTimeout(): number {
-    return ConfigService.getGitTimeoutMs();
-  }
-
-  /**
    * Get the configured time window values. Entries are either bare numbers
    * (legacy — interpreted as days) or duration tokens like "6h"/"1w".
    * Parsing/sorting is handled by buildTimeWindows.
