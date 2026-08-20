@@ -40,6 +40,7 @@ export class StonksPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
+        enableFindWidget: true,
         localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );

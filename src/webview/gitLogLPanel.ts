@@ -3,6 +3,10 @@ import { renderAddedRemovedBars, renderYAxisFromRange, renderDateXAxis, type Cha
 import { PanController } from "./panController";
 import { html, raw } from "../utils/templateHelpers";
 import { positionTooltip } from "./webviewUtils";
+import {
+  searchCommits, splitByRanges, describeResult,
+  type LogLSearchQuery, type LogLSearchResult, type LogLSearchScope, type MatchRange, type HunkLineMatch,
+} from "./logLSearch";
 
 const vscode = acquireVsCodeApi();
 
@@ -27,6 +31,14 @@ const chartSection     = document.getElementById("chartSection")!;
 const chartTooltip     = document.getElementById("chartTooltip")!;
 const panScrollbar     = document.getElementById("panScrollbar")!;
 const panThumb         = document.getElementById("panThumb")!;
+const searchInput      = document.getElementById("searchInput") as HTMLInputElement;
+const regexBtn         = document.getElementById("regexBtn") as HTMLButtonElement;
+const caseBtn          = document.getElementById("caseBtn") as HTMLButtonElement;
+const scopeSel         = document.getElementById("scopeSel") as HTMLSelectElement;
+const prevMatchBtn     = document.getElementById("prevMatchBtn") as HTMLButtonElement;
+const nextMatchBtn     = document.getElementById("nextMatchBtn") as HTMLButtonElement;
+const onlyMatchesChk   = document.getElementById("onlyMatchesChk") as HTMLInputElement;
+const searchInfoEl     = document.getElementById("searchInfo")!;
 
 function postMessage(msg: GitLogLFromWebview): void {
   vscode.postMessage(msg);
@@ -49,14 +61,27 @@ prevBtn.addEventListener("click", () => navigate(-1));
 nextBtn.addEventListener("click", () => navigate(1));
 
 expandAllBtn.addEventListener("click", () => {
-  timelineEl.querySelectorAll(".commit-row").forEach(r => r.classList.add("expanded"));
+  timelineEl.querySelectorAll(".commit-row").forEach(r => {
+    r.classList.add("expanded");
+    updateChevron(r);
+  });
 });
 
 collapseAllBtn.addEventListener("click", () => {
-  timelineEl.querySelectorAll(".commit-row").forEach(r => r.classList.remove("expanded"));
+  timelineEl.querySelectorAll(".commit-row").forEach(r => {
+    r.classList.remove("expanded");
+    updateChevron(r);
+  });
 });
 
 document.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.ctrlKey && (e.key === "f" || e.key === "F")) {
+    e.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+    return;
+  }
+
   // Ignore shortcuts when focus is inside an input/textarea
   const tag = (e.target as Element).tagName;
   if (tag === "INPUT" || tag === "TEXTAREA") { return; }
@@ -111,6 +136,8 @@ function renderTimeline(): void {
   nextBtn.disabled = false;
 
   timelineEl.innerHTML = "";
+  rowEls = [];
+  highlightedRows = new Set();
   commits.forEach((commit, idx) => {
     const row = document.createElement("div");
     row.className = "commit-row";
@@ -143,7 +170,7 @@ function renderTimeline(): void {
 
     const hunkEl = document.createElement("div");
     hunkEl.className = "hunk";
-    hunkEl.innerHTML = html`<pre class="diff">${raw(renderHunk(commit.hunk))}</pre>`;
+    hunkEl.innerHTML = `<pre class="diff">${renderHunk(commit.hunk)}</pre>`;
 
     row.appendChild(header);
     row.appendChild(hunkEl);
@@ -166,9 +193,11 @@ function renderTimeline(): void {
     });
 
     timelineEl.appendChild(row);
+    rowEls.push(row);
   });
 
   updateSelectionInfo();
+  if (searchInput.value) { runSearch(); }
 }
 
 function onAbClick(hash: string): void {
@@ -248,17 +277,149 @@ function updateSelectionInfo(): void {
   }
 }
 
-function renderHunk(hunk: string | null): string {
+function renderHunk(hunk: string | null, hunkLines: readonly HunkLineMatch[] = []): string {
   if (!hunk) { return '<span style="opacity:0.4">(no diff — file added or rename only)</span>'; }
-  return hunk.split("\n").map(line => {
-    if (line.startsWith("@@")) { return html`<span class="diff-hunk-header">${line}</span>`; }
-    if (line.startsWith("+"))  { return html`<span class="diff-add">${line}</span>`; }
-    if (line.startsWith("-"))  { return html`<span class="diff-del">${line}</span>`; }
-    return html`<span class="diff-ctx">${line}</span>`;
+  const rangesByLine = new Map(hunkLines.map(l => [l.line, l.ranges]));
+  return hunk.split("\n").map((line, idx) => {
+    const ranges = rangesByLine.get(idx);
+    const body = ranges ? highlightSegments(line, ranges) : html`${line}`;
+    if (line.startsWith("@@")) { return `<span class="diff-hunk-header">${body}</span>`; }
+    if (line.startsWith("+"))  { return `<span class="diff-add">${body}</span>`; }
+    if (line.startsWith("-"))  { return `<span class="diff-del">${body}</span>`; }
+    return `<span class="diff-ctx">${body}</span>`;
   }).join("\n");
 }
 
 
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+// Matching runs on the commit data, not the DOM: collapsed hunks are
+// display:none, which VS Code's find widget cannot see.
+// Rows are kept parallel to `commits` so a keystroke re-renders only the rows
+// that match plus the ones that just stopped matching.
+let rowEls: HTMLElement[] = [];
+let searchResult: LogLSearchResult = { matches: [], totalMatches: 0, commitCount: 0, error: null };
+let highlightedRows = new Set<number>();
+let currentMatch = -1;   // index into searchResult.matches
+let searchDebounce = 0;
+
+function currentQuery(): LogLSearchQuery {
+  return {
+    text: searchInput.value,
+    isRegex: regexBtn.classList.contains("active"),
+    caseSensitive: caseBtn.classList.contains("active"),
+    scope: scopeSel.value as LogLSearchScope,
+  };
+}
+
+function runSearch(): void {
+  const query = currentQuery();
+  searchResult = searchCommits(commits, query);
+  searchInput.classList.toggle("invalid", searchResult.error !== null);
+  searchInfoEl.textContent = query.text ? describeResult(searchResult) : "";
+  applyHighlights();
+  const hasMatches = searchResult.matches.length > 0;
+  prevMatchBtn.disabled = !hasMatches;
+  nextMatchBtn.disabled = !hasMatches;
+  currentMatch = -1;
+  if (hasMatches) { revealMatch(0); }
+}
+
+function applyHighlights(): void {
+  const matchedRows = new Set(searchResult.matches.map(m => m.index));
+
+  // Rows that fell out of the result set go back to their plain rendering.
+  for (const idx of highlightedRows) {
+    if (!matchedRows.has(idx)) { renderRowContent(idx, null); }
+  }
+  for (const match of searchResult.matches) {
+    renderRowContent(match.index, match);
+  }
+  highlightedRows = matchedRows;
+
+  rowEls.forEach((row, idx) => row.classList.toggle("match", matchedRows.has(idx)));
+  document.body.classList.toggle("filter-matches", onlyMatchesChk.checked && searchInput.value !== "");
+}
+
+interface RowHighlight {
+  messageRanges: MatchRange[];
+  hunkLines: HunkLineMatch[];
+}
+
+/** Re-renders one row's message + hunk, with marks when `highlight` is given. */
+function renderRowContent(idx: number, highlight: RowHighlight | null): void {
+  const row = rowEls[idx];
+  const commit = commits[idx];
+  if (!row || !commit) { return; }
+  const msgEl = row.querySelector<HTMLElement>(".message");
+  const preEl = row.querySelector<HTMLElement>("pre.diff");
+  if (msgEl) {
+    const text = commit.message || "(no message)";
+    msgEl.innerHTML = highlight && highlight.messageRanges.length > 0
+      ? highlightSegments(text, highlight.messageRanges)
+      : html`${text}`;
+  }
+  if (preEl) {
+    preEl.innerHTML = renderHunk(commit.hunk, highlight ? highlight.hunkLines : []);
+  }
+}
+
+function highlightSegments(text: string, ranges: readonly MatchRange[]): string {
+  return splitByRanges(text, ranges)
+    .map(seg => seg.hit
+      ? html`<mark class="hl">${seg.text}</mark>`
+      : html`${seg.text}`)
+    .join("");
+}
+
+function revealMatch(matchIdx: number): void {
+  const match = searchResult.matches[matchIdx];
+  if (!match) { return; }
+  const previous = currentMatch >= 0 ? searchResult.matches[currentMatch] : null;
+  if (previous) {
+    rowEls[previous.index]?.querySelectorAll("mark.hl.current").forEach(m => m.classList.remove("current"));
+  }
+  currentMatch = matchIdx;
+  navigateTo(match.index, true);
+  rowEls[match.index]?.querySelector("mark.hl")?.classList.add("current");
+  searchInfoEl.textContent = describeResult(searchResult) + " — " + (matchIdx + 1) + "/" + searchResult.matches.length;
+}
+
+function stepMatch(dir: number): void {
+  const n = searchResult.matches.length;
+  if (n === 0) { return; }
+  revealMatch((currentMatch + dir + n) % n);
+}
+
+function scheduleSearch(): void {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(runSearch, 150) as unknown as number;
+}
+
+searchInput.addEventListener("input", scheduleSearch);
+scopeSel.addEventListener("change", runSearch);
+onlyMatchesChk.addEventListener("change", applyHighlights);
+
+[regexBtn, caseBtn].forEach(btn => btn.addEventListener("click", () => {
+  btn.classList.toggle("active");
+  runSearch();
+}));
+
+prevMatchBtn.addEventListener("click", () => stepMatch(-1));
+nextMatchBtn.addEventListener("click", () => stepMatch(1));
+
+searchInput.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    stepMatch(e.shiftKey ? -1 : 1);
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    searchInput.value = "";
+    runSearch();
+    searchInput.blur();
+  }
+});
 
 // ── Line changes chart ────────────────────────────────────────────────────────
 

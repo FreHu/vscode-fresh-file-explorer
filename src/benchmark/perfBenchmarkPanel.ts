@@ -71,6 +71,7 @@ export class PerfBenchmarkPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
+        enableFindWidget: true,
         localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );

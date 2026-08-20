@@ -74,6 +74,68 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): strin
       color: var(--vscode-button-secondaryForeground);
     }
     button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+    .search-bar {
+      margin-top: 8px;
+    }
+    .search-bar input[type="text"] {
+      flex: 1;
+      min-width: 160px;
+      max-width: 420px;
+      padding: 4px 8px;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+    }
+    .search-bar input[type="text"]:focus {
+      outline: 1px solid var(--vscode-focusBorder);
+      outline-offset: -1px;
+    }
+    .search-bar input.invalid { border-color: var(--vscode-inputValidation-errorBorder, #f85149); }
+    button.toggle {
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: 1px solid transparent;
+      padding: 3px 6px;
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-weight: 600;
+      opacity: 0.7;
+    }
+    button.toggle:hover { background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground)); }
+    button.toggle.active {
+      opacity: 1;
+      background: var(--vscode-inputOption-activeBackground, transparent);
+      border-color: var(--vscode-inputOption-activeBorder, var(--vscode-focusBorder));
+      color: var(--vscode-inputOption-activeForeground, var(--vscode-foreground));
+    }
+    .search-bar select {
+      background: var(--vscode-dropdown-background);
+      color: var(--vscode-dropdown-foreground);
+      border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
+      padding: 3px 4px;
+      font-size: 0.9em;
+    }
+    .search-bar label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.85em;
+      color: var(--vscode-descriptionForeground);
+      user-select: none;
+      cursor: pointer;
+    }
+    mark.hl {
+      background: var(--vscode-editor-findMatchHighlightBackground, rgba(234,92,0,0.33));
+      color: inherit;
+      border-radius: 2px;
+    }
+    mark.hl.current {
+      background: var(--vscode-editor-findMatchBackground, rgba(234,92,0,0.6));
+      outline: 1px solid var(--vscode-editor-findMatchBorder, transparent);
+    }
+    .commit-row.match > .commit-header { border-left: 2px solid var(--vscode-editor-findMatchHighlightBackground, #ea5c00); }
+    body.filter-matches .commit-row:not(.match) { display: none; }
     .hint {
       font-size: 0.85em;
       color: var(--vscode-descriptionForeground);
@@ -326,6 +388,20 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): strin
       <div class="toolbar-sep"></div>
       <button id="expandAllBtn" class="secondary" title="Expand all (Ctrl+*)">Expand All</button>
       <button id="collapseAllBtn" class="secondary" title="Collapse all (Ctrl+/)">Collapse All</button>
+    </div>
+    <div class="toolbar search-bar">
+      <input id="searchInput" type="text" placeholder="Search messages and diffs (Ctrl+F)" spellcheck="false">
+      <button id="regexBtn" class="toggle" title="Use regular expression">.*</button>
+      <button id="caseBtn" class="toggle" title="Match case">Aa</button>
+      <select id="scopeSel" title="Where to search">
+        <option value="all">Message + diff</option>
+        <option value="message">Message only</option>
+        <option value="diff">Diff only</option>
+      </select>
+      <button id="prevMatchBtn" class="secondary" disabled title="Previous match (Shift+Enter)">↑</button>
+      <button id="nextMatchBtn" class="secondary" disabled title="Next match (Enter)">↓</button>
+      <label><input type="checkbox" id="onlyMatchesChk"> Only matches</label>
+      <span id="searchInfo" class="hint"></span>
     </div>
   </div>
 

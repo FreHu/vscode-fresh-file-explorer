@@ -48,6 +48,7 @@ export class DiffSearchPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
+        enableFindWidget: true,
         localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );

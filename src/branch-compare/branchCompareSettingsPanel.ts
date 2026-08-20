@@ -56,6 +56,7 @@ export class BranchCompareSettingsPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
+        enableFindWidget: true,
         localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );
