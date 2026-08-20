@@ -24,6 +24,7 @@ import {
 import { deletionBadgeSvg } from "./heatmapSvg";
 import { buildDecorationTypes } from "./heatmapDecorationTypes";
 import { isEditorInDiff } from "./editorDiffDetection";
+import { HeatmapFileState } from "./heatmapFileState";
 import { formatRelativeDateLong } from "../utils/formatUtils";
 import { log, showInfo, showError } from "../extension/logger";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
@@ -44,6 +45,13 @@ interface DeletionDecoration {
   options: vscode.DecorationOptions;
   /** The deleted line content, retained so gutter-menu actions can copy/restore without re-fetching. */
   lines: string[];
+}
+
+/** One file's computed decorations, cached so a reopened tab repaints without recomputing. */
+interface CachedDecorations {
+  buckets: vscode.DecorationOptions[][];
+  addedBuckets: vscode.DecorationOptions[][];
+  deletions: DeletionDecoration[];
 }
 
 /** Wrap the deletion-badge SVG in a `data:image/svg+xml` gutter icon URI. */
@@ -73,20 +81,12 @@ export class BlameHeatmapController implements vscode.Disposable {
   private addedDecorationTypes: vscode.TextEditorDecorationType[];
 
   /**
-   * Cached decoration options per fsPath — kept until the user explicitly
-   * toggles off, so decorations can be re-applied when an editor reappears.
+   * Active mode + cached decorations per fsPath. Cached decorations survive an
+   * editor closing so reopening the tab repaints without recomputing; they are
+   * dropped only when the file is forgotten. See HeatmapFileState for why the
+   * two are paired.
    */
-  private readonly decorationCache = new Map<
-    string,
-    {
-      buckets: vscode.DecorationOptions[][];
-      addedBuckets: vscode.DecorationOptions[][];
-      deletions: DeletionDecoration[];
-    }
-  >();
-
-  /** Tracks which mode is currently active per fsPath. */
-  private readonly activeModes = new Map<string, BlameHeatmapMode>();
+  private readonly files = new HeatmapFileState<BlameHeatmapMode, CachedDecorations>();
 
   /** Last mode successfully applied — used for auto-apply on new tabs. Persisted across restarts. */
   private lastUsedMode: BlameHeatmapMode | undefined;
@@ -133,7 +133,7 @@ export class BlameHeatmapController implements vscode.Disposable {
             this.clearEditorDecorations(editor);
             continue;
           }
-          const cached = this.decorationCache.get(editor.document.uri.fsPath);
+          const cached = this.files.getCache(editor.document.uri.fsPath);
           if (cached) {
             this.applyCache(editor, cached);
           }
@@ -156,7 +156,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     this.subscriptions.push(
       vscode.workspace.onDidChangeTextDocument(e => {
         const fsPath = e.document.uri.fsPath;
-        if (!this.activeModes.has(fsPath)) return;
+        if (!this.files.hasMode(fsPath)) return;
         const existing = this.reapplyTimers.get(fsPath);
         if (existing) clearTimeout(existing);
         this.reapplyTimers.set(
@@ -167,10 +167,10 @@ export class BlameHeatmapController implements vscode.Disposable {
               ed => ed.document.uri.fsPath === fsPath,
             );
             if (!editor) return;
-            const mode = this.activeModes.get(fsPath);
+            const mode = this.files.getMode(fsPath);
             if (!mode) return;
             this.disposeDeletionsForFile(fsPath);
-            this.decorationCache.delete(fsPath);
+            this.files.invalidateCache(fsPath);
             // Fire-and-forget from a timer: a rejection here has no caller to
             // catch it, so log-and-swallow rather than leak an unhandled rejection.
             void this.applyToEditor(editor, mode).catch(e =>
@@ -260,7 +260,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     if (this.lastUsedMode === undefined) return;
 
     const fsPath = editor.document.uri.fsPath;
-    if (this.activeModes.has(fsPath)) return;
+    if (this.files.hasMode(fsPath)) return;
 
     if (this.lastUsedMode === "branch") {
       const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, fsPath);
@@ -294,7 +294,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     // and the deletions could mislead about which ref the markers came from.
     for (const editor of vscode.window.visibleTextEditors) {
       if (isEditorInDiff(editor)) { continue; }
-      const cached = this.decorationCache.get(editor.document.uri.fsPath);
+      const cached = this.files.getCache(editor.document.uri.fsPath);
       if (cached) {
         this.applyCache(editor, cached);
       }
@@ -313,30 +313,20 @@ export class BlameHeatmapController implements vscode.Disposable {
    */
   async applyMode(editor: vscode.TextEditor, mode: BlameHeatmapMode): Promise<void> {
     const fsPath = editor.document.uri.fsPath;
-    if (this.activeModes.has(fsPath)) {
+    if (this.files.hasMode(fsPath)) {
       this.clearEditor(editor);
-      this.decorationCache.delete(fsPath);
+      this.files.invalidateCache(fsPath);
     }
-    this.activeModes.set(fsPath, mode);
+    this.files.setMode(fsPath, mode);
     await this.applyToEditor(editor, mode);
-  }
-
-  /**
-   * Drop both per-file maps together. `onDidChangeVisibleTextEditors` repaints
-   * from `decorationCache` without consulting `activeModes`, so a cache entry
-   * outliving its mode repaints a file the heatmap already bailed out of.
-   */
-  private forgetFile(fsPath: string): void {
-    this.activeModes.delete(fsPath);
-    this.decorationCache.delete(fsPath);
   }
 
   /** Explicit off. No-op if no mode is active on this file. */
   turnOff(editor: vscode.TextEditor): void {
     const fsPath = editor.document.uri.fsPath;
-    if (!this.activeModes.has(fsPath)) { return; }
+    if (!this.files.hasMode(fsPath)) { return; }
     this.clearEditor(editor);
-    this.forgetFile(fsPath);
+    this.files.forget(fsPath);
     this.statusBarNewFiles.delete(fsPath);
     this.updateStatusBar(editor);
     this.updateDeletionLinesContext(editor);
@@ -365,7 +355,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     autoApply: boolean;
   } {
     return {
-      activeMode: this.activeModes.get(editor.document.uri.fsPath),
+      activeMode: this.files.getMode(editor.document.uri.fsPath),
       savedBaseRef: this.getSavedBaseRefFor(editor),
       autoApply: ConfigService.getBlameHeatmapAutoApply(),
     };
@@ -377,11 +367,11 @@ export class BlameHeatmapController implements vscode.Disposable {
    */
   async selectBranchMode(editor: vscode.TextEditor): Promise<void> {
     const fsPath = editor.document.uri.fsPath;
-    if (this.activeModes.has(fsPath)) {
+    if (this.files.hasMode(fsPath)) {
       this.clearEditor(editor);
-      this.decorationCache.delete(fsPath);
+      this.files.invalidateCache(fsPath);
     }
-    this.activeModes.set(fsPath, "branch");
+    this.files.setMode(fsPath, "branch");
     await this.applyToEditor(editor, "branch", { forcePickRef: true }); // always shows picker
   }
 
@@ -409,7 +399,7 @@ export class BlameHeatmapController implements vscode.Disposable {
    * in-place so subsequent cache operations don't double-dispose.
    */
   private disposeDeletionsForFile(fsPath: string): void {
-    const cache = this.decorationCache.get(fsPath);
+    const cache = this.files.getCache(fsPath);
     if (!cache) return;
     for (const d of cache.deletions) {
       d.type.dispose();
@@ -461,7 +451,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     const uri = editor.document.uri;
     // Non-file URI (output channel, settings, etc.) — silent no-op.
     if (uri.scheme !== "file") {
-      this.forgetFile(uri.fsPath);
+      this.files.forget(uri.fsPath);
       return;
     }
     // Diff editors carry their own change indicators; layering blame on top is
@@ -471,12 +461,12 @@ export class BlameHeatmapController implements vscode.Disposable {
 
     // Mark the mode immediately so updateStatusBar and the text-change listener
     // see the correct state even before the async git work completes.
-    this.activeModes.set(uri.fsPath, mode);
+    this.files.setMode(uri.fsPath, mode);
 
     const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, uri.fsPath);
     if (!repoResult) {
       this.statusBarWarnings.set(uri.fsPath, "not in a git repo");
-      this.forgetFile(uri.fsPath);
+      this.files.forget(uri.fsPath);
       this.updateStatusBar(editor);
       return;
     }
@@ -494,12 +484,12 @@ export class BlameHeatmapController implements vscode.Disposable {
       if (!baseRef) {
         baseRef = await this.pickBaseRef(repoResult.repoFullPath);
         if (!baseRef) {
-          this.forgetFile(uri.fsPath);
+          this.files.forget(uri.fsPath);
           return;
         }
       }
       if (editor.document.isClosed) {
-        this.forgetFile(uri.fsPath);
+        this.files.forget(uri.fsPath);
         return;
       }
     }
@@ -509,7 +499,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     if (editor.document.lineCount > maxLines) {
       const msg = `Line count over config limit ${maxLines}`;
       this.statusBarWarnings.set(uri.fsPath, msg);
-      this.forgetFile(uri.fsPath);
+      this.files.forget(uri.fsPath);
       this.updateStatusBar(editor);
       return;
     }
@@ -525,7 +515,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     // Turn off, switched modes, closed the tab) — bail before applying stale
     // decorations.  Closed-doc check stays bundled in here too.
     const isStale = (): boolean =>
-      editor.document.isClosed || this.activeModes.get(uri.fsPath) !== mode;
+      editor.document.isClosed || this.files.getMode(uri.fsPath) !== mode;
 
     // Bail out early for untracked files — git blame would fail with a fatal error.
     if (!(await isFileTracked(repoResult.repoFullPath, repoResult.filePathInRepo))) {
@@ -538,7 +528,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       blameOutput = await runGitBlamePorcelain(repoResult.repoFullPath, repoResult.filePathInRepo);
     } catch (err) {
       showError(`Blame heatmap: git blame failed — ${err}`, true);
-      this.forgetFile(uri.fsPath);
+      this.files.forget(uri.fsPath);
       return;
     }
 
@@ -547,7 +537,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     const blameLines = parseGitBlamePorcelain(blameOutput);
     if (blameLines.length === 0) {
       this.statusBarWarnings.set(uri.fsPath, "no blame data");
-      this.forgetFile(uri.fsPath);
+      this.files.forget(uri.fsPath);
       this.updateStatusBar(editor);
       return;
     }
@@ -580,7 +570,7 @@ export class BlameHeatmapController implements vscode.Disposable {
           `Branch blame heatmap: could not find a common ancestor with ${baseRef}.`,
           `Branch blame heatmap: no common ancestor with ${baseRef} — ${err}`,
         );
-        this.forgetFile(uri.fsPath);
+        this.files.forget(uri.fsPath);
         return;
       }
 
@@ -704,7 +694,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       { length: HEATMAP_BUCKET_COUNT },
       () => [],
     );
-    this.decorationCache.set(uri.fsPath, {
+    this.files.setCache(uri.fsPath, {
       buckets: isAllNewFile ? emptyBuckets : rangesByBucket,
       addedBuckets: isAllNewFile ? emptyBuckets : rangesByAddedBucket,
       deletions: isAllNewFile ? [] : rangesByDeletions,
@@ -750,7 +740,7 @@ export class BlameHeatmapController implements vscode.Disposable {
    */
   private updateMenuContext(editor: vscode.TextEditor | undefined): void {
     const fsPath = editor?.document.uri.fsPath;
-    const active = fsPath !== undefined && this.activeModes.has(fsPath);
+    const active = fsPath !== undefined && this.files.hasMode(fsPath);
     ContextManager.setBlameHeatmapHasBaseRef(this.getSavedBaseRefFor(editor) !== undefined);
     ContextManager.setBlameHeatmapActive(active);
   }
@@ -787,7 +777,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       return;
     }
 
-    const mode = this.activeModes.get(fsPath);
+    const mode = this.files.getMode(fsPath);
     if (!mode) {
       const savedRef = this.getSavedBaseRefFor(editor);
       this.statusBar.update({
@@ -860,14 +850,14 @@ export class BlameHeatmapController implements vscode.Disposable {
       // Re-apply to all visible editors in this repo that are in branch mode.
       for (const editor of vscode.window.visibleTextEditors) {
         const editorFsPath = editor.document.uri.fsPath;
-        if (this.activeModes.get(editorFsPath) !== "branch") continue;
+        if (this.files.getMode(editorFsPath) !== "branch") continue;
         const editorRepo = findRepoForAbsolutePath(
           this.freshFileProvider.workspaceFolders,
           editorFsPath,
         );
         if (!editorRepo || normalizePath(editorRepo.repoFullPath) !== key) continue;
         this.disposeDeletionsForFile(editorFsPath);
-        this.decorationCache.delete(editorFsPath);
+        this.files.invalidateCache(editorFsPath);
         await this.applyToEditor(editor, "branch", { baseRef: newBaseRef });
       }
     };
@@ -947,7 +937,7 @@ export class BlameHeatmapController implements vscode.Disposable {
    * the indicator disappears without waiting for the debounced re-apply.
    */
   private dismissDeletion(fsPath: string, anchorLineIndex: number): void {
-    const cache = this.decorationCache.get(fsPath);
+    const cache = this.files.getCache(fsPath);
     if (!cache) return;
     const idx = cache.deletions.findIndex(d => d.options.range.start.line === anchorLineIndex);
     if (idx !== -1) {
@@ -977,7 +967,7 @@ export class BlameHeatmapController implements vscode.Disposable {
   private clearEditorDecorations(editor: vscode.TextEditor): void {
     for (const dt of this.decorationTypes) { editor.setDecorations(dt, []); }
     for (const dt of this.addedDecorationTypes) { editor.setDecorations(dt, []); }
-    const cached = this.decorationCache.get(editor.document.uri.fsPath);
+    const cached = this.files.getCache(editor.document.uri.fsPath);
     if (cached) {
       for (const d of cached.deletions) { editor.setDecorations(d.type, []); }
     }
@@ -992,7 +982,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     // wrong ref. Hide the affordance instead of risking that.
     if (editor && !isEditorInDiff(editor)) {
       const fsPath = editor.document.uri.fsPath;
-      const cached = this.decorationCache.get(fsPath);
+      const cached = this.files.getCache(fsPath);
       if (cached) {
         // Decoration ranges are 0-based; the menu's `editorLineNumber` key is 1-based.
         lines = cached.deletions.map(d => d.options.range.start.line + 1);
@@ -1054,7 +1044,7 @@ export class BlameHeatmapController implements vscode.Disposable {
   }
 
   private findDeletionAt(fsPath: string, lineNumber1Based: number): DeletionDecoration | undefined {
-    const cached = this.decorationCache.get(fsPath);
+    const cached = this.files.getCache(fsPath);
     if (!cached) { return undefined; }
     const target0 = lineNumber1Based - 1;
     return cached.deletions.find(d => d.options.range.start.line === target0);
@@ -1068,7 +1058,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     for (const dt of this.decorationTypes) { dt.dispose(); }
     for (const dt of this.addedDecorationTypes) { dt.dispose(); }
     // Dispose all per-file deletion types.
-    for (const cache of this.decorationCache.values()) {
+    for (const cache of this.files.cachedValues()) {
       for (const d of cache.deletions) {
         d.type.dispose();
       }
