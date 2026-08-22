@@ -282,10 +282,13 @@ maxTicksInput.addEventListener("change", () => {
 
 // ── Message handling ──────────────────────────────────────────────────────────
 
-function handleSetRepos(repos: StonksRepoTicker[]): void {
+function handleSetRepos(repos: StonksRepoTicker[], selectedPath?: string): void {
   repoTickers = repos;
-  // Auto-select first repo if nothing selected yet
-  if (repos.length > 0 && !selectedRepoPath) {
+  // Adopt the host's selection — it survives webview recreation, ours doesn't.
+  if (selectedPath && repos.some(r => r.path === selectedPath)) {
+    selectedRepoPath = selectedPath;
+  } else if (repos.length > 0 && !selectedRepoPath) {
+    // Auto-select first repo if nothing selected yet
     selectedRepoPath = repos[0].path;
   }
   renderWatchlist();
@@ -393,7 +396,7 @@ function handleSetCompareData(series: StonksRepoSeries[]): void {
 window.addEventListener("message", (event: MessageEvent<StonksToWebview>) => {
   const msg = event.data;
   switch (msg.command) {
-    case "setRepos": handleSetRepos(msg.repos); break;
+    case "setRepos": handleSetRepos(msg.repos, msg.selectedPath); break;
     case "setTimeWindows": handleSetTimeWindows(msg.options, msg.selectedDays); break;
     case "setData": handleSetData(msg.data); break;
     case "setCompareData": handleSetCompareData(msg.series); break;

@@ -21,6 +21,10 @@ export class StonksPanel {
   private _selectedRepo: NormalizedRepoPath | undefined;
   private _selectedDays: number | undefined; // undefined = pending; decoupled from provider
   private _refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  // False until the webview's "ready" handshake has configured the panel
+  // (time window, persisted config). Data must not be pushed before that:
+  // an undefined _selectedDays would chart the entire history unfiltered.
+  private _webviewReady = false;
 
   public static createOrShow(
     extensionUri: vscode.Uri,
@@ -73,6 +77,7 @@ export class StonksPanel {
     this._provider.onDidChangeTreeData(() => {
       clearTimeout(this._refreshTimer);
       this._refreshTimer = setTimeout(() => {
+        if (!this._webviewReady) { return; } // "ready" pushes the initial state itself
         this._bootstrapRepos();
         if (this._selectedRepo) {
           this._loadRepoData(this._selectedRepo);
@@ -101,20 +106,24 @@ export class StonksPanel {
       }
       return ticker;
     });
-    this._postMessage({ command: "setRepos", repos: tickers });
+    this._postMessage({ command: "setRepos", repos: tickers, selectedPath: this._selectedRepo });
   }
 
-  /** Push the repo list and, if nothing is selected yet, select the first repo. */
+  /** Sync the selection to the current repo list, then push the tickers (which carry it). */
   private _bootstrapRepos(): void {
-    this._sendRepoTickers();
-    if (!this._selectedRepo) {
-      this._selectedRepo = this._provider.getRepoList()[0]?.path;
+    const repos = this._provider.getRepoList();
+    // Covers both first bootstrap (nothing selected) and a selected repo that
+    // vanished from the workspace (hard refresh after a folder change).
+    if (!this._selectedRepo || !repos.some(r => r.path === this._selectedRepo)) {
+      this._selectedRepo = repos[0]?.path;
     }
+    this._sendRepoTickers();
   }
 
   private async _handleMessage(message: StonksFromWebview) {
     switch (message.command) {
       case "ready": {
+        this._webviewReady = true;
         // Send persisted config first so webview can apply before rendering
         const savedConfig = WorkspaceStateManager.getStonksConfig();
         if (savedConfig) {

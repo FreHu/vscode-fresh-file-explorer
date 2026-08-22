@@ -229,7 +229,10 @@ export interface StonksRepoTicker {
 }
 
 export type StonksToWebview =
-  | { command: "setRepos"; repos: StonksRepoTicker[] }
+  // selectedPath: the host's current selection — the webview adopts it so a
+  // recreated webview (moved panel, restored context) doesn't highlight the
+  // first repo while the host keeps charting another one.
+  | { command: "setRepos"; repos: StonksRepoTicker[]; selectedPath?: string }
   | { command: "setData"; data: StonksDataPoint[] }
   | { command: "setCompareData"; series: StonksRepoSeries[] }
   | { command: "setLoading"; loading: boolean }
