@@ -1,6 +1,8 @@
 import * as assert from "assert";
 
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
+import { RepoDiscovery } from "../fresh-files/repoDiscovery";
+import { RefreshCancelledError } from "../fresh-files/refreshEpochGuard";
 import { DataCollector, RepoInfo } from "../fresh-files/dataCollector";
 import { asAbsolutePath, asNormalizedRepoPath } from "../pathTypes";
 import { WorkspaceFolderInfo } from "../types";
@@ -85,6 +87,36 @@ suite("repo discovery split", () => {
     await provider.ensureReposDiscovered();
 
     assert.strictEqual(discoverCalls, 1);
+  });
+
+  test("waiters resuming from a cancelled walk share one retry walk", async () => {
+    // Regression: with a plain `if` over the in-flight promise, waiters resuming
+    // from a cancelled shared walk each started their own concurrent walk and
+    // onReposReady fired once per walk (branch compare reloads per fire).
+    const folders: WorkspaceFolderInfo[] = [{ path: asAbsolutePath("/ws"), name: "ws", gitRepos: [] }];
+    const discovery = new RepoDiscovery({ getWorkspaceFolders: () => folders, onBrokenWorktrees: () => {} });
+    let readyFired = 0;
+    discovery.onReposReady(() => readyFired++);
+
+    let openGate: () => void = () => {};
+    discoveryGate = new Promise<void>(resolve => { openGate = resolve; });
+
+    let cancelled = false;
+    const cancellable = () => { if (cancelled) { throw new RefreshCancelledError(); } };
+    const live = () => {};
+
+    const first = discovery.discoverRepositories(cancellable).catch(() => {});
+    await new Promise(resolve => setTimeout(resolve, 0)); // let it enter the gated walk
+    const waiterA = discovery.discoverRepositories(live);
+    const waiterB = discovery.discoverRepositories(live);
+
+    cancelled = true; // the shared walk throws at its post-walk cancellation check
+    openGate();
+    await Promise.all([first, waiterA, waiterB]);
+
+    assert.strictEqual(discoverCalls, 2, "one cancelled walk + one shared retry");
+    assert.strictEqual(readyFired, 1, "onReposReady must fire exactly once");
+    assert.strictEqual(discovery.reposDiscovered, true);
   });
 
   test("concurrent callers share a single workspace walk", async () => {

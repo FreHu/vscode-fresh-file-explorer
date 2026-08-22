@@ -56,7 +56,11 @@ export class RepoDiscovery {
       return;
     }
 
-    if (this.discoveryPromise) {
+    // Loop, not if: when a shared walk is cancelled, several waiters resume
+    // together — the first one starts a new walk, and the rest must pile onto
+    // *that* promise rather than each starting their own concurrent walk
+    // (which would also fire onReposReady once per walk).
+    while (this.discoveryPromise) {
       // Swallow the shared promise's cancellation — it belongs to the originating
       // caller, not to us. We re-check and run our own discovery below.
       await this.discoveryPromise.catch(() => {});
