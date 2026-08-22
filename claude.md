@@ -33,14 +33,14 @@ an explicit Refresh (an enum, not a boolean, so a future fully-manual mode needs
 settings migration). This setting is meant for users who care about startup impact,
 or those who simply don't care about the namesake feature of the fresh file explorer.
 Implemented as one predicate (`isScanDormant`) checked at two chokepoints
-— `kickOffLoad()` and `refreshPending()` — rather than at every call site that
-triggers a refresh. Add new automatic refresh triggers *above* those chokepoints and
+— `kickOffLoad()` and `refreshPending()`, both in `LoadOrchestrator` — rather
+than at every call site that triggers a refresh. Add new automatic refresh triggers *above* those chokepoints and
 they're covered for free.
 
 Two rules keep it from breaking neighbouring features:
 
 - **Repo discovery still runs while dormant.** `ensureReposDiscovered()` runs Phase 1
-  of `updateFreshFiles()` on its own (deduplicated against a concurrent full load) and
+  of the load on its own (deduplicated against a concurrent full load in `RepoDiscovery`) and
   fires `onReposReady` without touching git log. Branch compare, auto-follow and the
   blame heatmap all resolve repos through it, so none of them go dark. It's called
   from activation, not just from the first tree render — the view may be hidden.
@@ -64,7 +64,7 @@ Two rules keep it from breaking neighbouring features:
 `dataLoaded` stays false while dormant, so `enterDormant()` clears
 `ContextKeys.LOADING` explicitly — `package.json` `when` clauses depend on it.
 
-**`refreshEpoch`** is incremented by `refresh()` and `hardRefresh()`. `updateFreshFiles()` checks it at each async boundary and throws `RefreshCancelledError` if a newer refresh started. Always preserve this check when adding async work to the load path.
+**`refreshEpoch`** is incremented by `refresh()` and `hardRefresh()`. The load (`LoadOrchestrator.runLoad()` and the per-repo loaders it delegates to) checks it at each async boundary and throws `RefreshCancelledError` if a newer refresh started. Always preserve this check when adding async work to the load path.
 
 ## `files.exclude` is Per-Node, Not Global
 
