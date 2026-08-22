@@ -17,6 +17,18 @@ import { normalizePath } from "../utils";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
+  // An explicit refresh is the opt-in that ends manual-scan dormancy.
+  const armingFromDormant = freshFileProvider.isScanDormant;
+  freshFileProvider.armScan();
+
+  if (armingFromDormant) {
+    // Activation already discovered the repos, so re-walking the workspace here
+    // would also re-fire onReposReady and make branch compare reload every
+    // comparison for nothing. refresh() falls back to a hard one if discovery
+    // never actually completed.
+    freshFileProvider.refresh();
+    return;
+  }
   freshFileProvider.hardRefresh();
 }
 
@@ -373,7 +385,14 @@ export async function handleToggleHeatmap(freshFileProvider: FreshFileProvider):
   await ConfigService.setHeatmapEnabled(newValue);
 
   log(`Heatmap ${newValue ? "enabled" : "disabled"}`);
-  
+
+  if (newValue && !freshFileProvider.isDataLoaded) {
+    // The colors come from the scan, so enabling this with no data loaded would do
+    // nothing visible at all. Unlike the decoration provider's own polling, this is
+    // a user action — load, and let the load's completion refresh the decorations.
+    void freshFileProvider.ensureDataLoaded();
+  }
+
   // Notify the heatmap provider to refresh decorations
   freshFileProvider.heatmapProvider?.fireDidChange();
 }

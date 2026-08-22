@@ -16,7 +16,7 @@
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer/issues"
   },
   "qna": false,
-  "version": "1.14.0",
+  "version": "1.15.0",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
@@ -1987,6 +1987,16 @@
           "type": "boolean",
           "default": false,
           "description": "Update the fresh file tree progressively, adding data for each configured time window as it becomes available. When disabled, updates fire when repositories are found, when pending changes are ready, and when your selected time window is ready."
+        },
+        "freshFileExplorer.freshFileLoading": {
+          "type": "string",
+          "enum": ["startup", "manual"],
+          "default": "startup",
+          "enumDescriptions": [
+            "Read git history automatically when the workspace opens.",
+            "Don't read git history until you run Refresh in the Fresh Files view. Repository discovery still runs, so Branch Compare and the per-line blame heatmap keep working. Once refreshed, the view stays live for the rest of the session. The recency heatmap's file colors stay off until then, since they need the history."
+          ],
+          "description": "When the fresh-files scan reads git history."
         },
         "freshFileExplorer.gitTimeout": {
           "type": "number",

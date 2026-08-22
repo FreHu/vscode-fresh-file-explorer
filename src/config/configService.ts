@@ -37,6 +37,8 @@ function resolvePalette(prefix: "age" | "added"): string[] {
   });
 }
 
+export type FreshFileLoadingMode = "startup" | "manual";
+
 /**
  * Centralized configuration service for Fresh File Explorer settings
  */
@@ -311,6 +313,16 @@ export class ConfigService {
       ConfigKeys.BULK_ACTION_CONFIRM_THRESHOLD,
       15,
     );
+  }
+
+  /**
+   * When the fresh-files scan reads git history. "manual" waits for an explicit
+   * Refresh; repo discovery still runs, so branch compare and the blame heatmap
+   * keep working. An enum rather than a boolean so a future mode doesn't need a
+   * settings migration.
+   */
+  static getFreshFileLoadingMode(): FreshFileLoadingMode {
+    return ConfigService.cfg().get<FreshFileLoadingMode>(ConfigKeys.FRESH_FILE_LOADING, "startup");
   }
 
   /** Show the Fresh Files loading-progress status-bar entry. */

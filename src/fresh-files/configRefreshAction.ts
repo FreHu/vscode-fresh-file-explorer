@@ -36,6 +36,10 @@ const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
   SHOW_BASE_BRANCH_SYNC:           "treeOnly",
   INCREMENTAL_TREE_LOADING:        "treeOnly",
 
+  // Switching to startup loading must load; switching to manual re-enters
+  // dormancy, where the provider gates the load itself.
+  FRESH_FILE_LOADING:              "hard",
+
   // Handled elsewhere or behavioural only — no tree refresh needed.
   HEATMAP_ENABLED:                 "none",
   BLAME_HEATMAP_AUTO_APPLY:        "none",

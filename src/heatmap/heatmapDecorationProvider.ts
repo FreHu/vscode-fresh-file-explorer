@@ -82,6 +82,12 @@ export class HeatmapDecorationProvider implements vscode.FileDecorationProvider 
     // If data hasn't loaded yet, kick off loading and return undefined for now;
     // fireDidChange() will be called once loading completes and decorations will be re-requested.
     if (!this.freshFileProvider.isDataLoaded) {
+      // VS Code polls this provider for every visible file, so it must not be the
+      // thing that ends manual-scan dormancy — that would arm the scan seconds into
+      // activation, with no user action, whenever the heatmap is on.
+      if (this.freshFileProvider.isScanDormant) {
+        return undefined;
+      }
       return void this.freshFileProvider.ensureDataLoaded();
     }
 

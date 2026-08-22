@@ -17,6 +17,7 @@ function updateFilterContext(filterManager: FilterManager): void {
 
 export async function handleFilterByAuthor(dataProvider: FreshFileProvider): Promise<boolean> {
   log("Filter by author command triggered");
+  await dataProvider.ensureDataLoaded();
   const authors = dataProvider.getAvailableAuthors();
 
   if (authors.length === 0) {
@@ -41,6 +42,7 @@ export async function handleFilterByAuthor(dataProvider: FreshFileProvider): Pro
 
 export async function handleFilterByCommit(dataProvider: FreshFileProvider): Promise<boolean> {
   log("Filter by commit command triggered");
+  await dataProvider.ensureDataLoaded();
   const commits = dataProvider.getAvailableCommits();
 
   if (commits.length === 0) {

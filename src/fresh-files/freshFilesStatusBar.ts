@@ -7,7 +7,8 @@ import { ConfigKeys } from "../config/configKeyConstants";
 /**
  * Steady status-bar entry that reports Fresh Files' loading progress.
  *
- * Always visible (no hide-when-idle flicker). Three observable states:
+ * Always visible (no hide-when-idle flicker). Four observable states:
+ *   - **Dormant**      "Fresh files: manual" — manual scan on, nothing loaded
  *   - **Discovering**  spinner + "Discovering repos…"
  *   - **Loading**      spinner + "Loading 2/5"
  *   - **Idle**         "Fresh files" (or "Fresh files: no repos" when the
@@ -47,6 +48,14 @@ export class FreshFilesStatusBar implements vscode.Disposable {
       return;
     }
     const { state, totalRepos, loadedRepos } = this.freshFileProvider.getLoadingProgress();
+    if (state === "dormant") {
+      this.statusBar.update({
+        kind: "inactive",
+        text: `$(circle-slash) Fresh files: manual`,
+        tooltip: "Fresh Files: manual scan is on — no git history has been read. Run Refresh in the Fresh Files view to load it.",
+      });
+      return;
+    }
     if (state === "discovering") {
       this.statusBar.update({
         kind: "active",

@@ -124,6 +124,9 @@ export async function openSearchView(includePattern: string): Promise<void> {
 export async function handleSearchInFreshFiles(
   provider: FreshFileProvider,
 ): Promise<void> {
+  // Explicit request for fresh-file data — load it rather than reporting "no files
+  // to search" because the scan is dormant (or hasn't finished yet).
+  await provider.ensureDataLoaded();
   const filePaths = provider.getVisibleFilePaths();
   const workspaceFolders = vscode.workspace.workspaceFolders;
   await openSearchWithFiles(filePaths, workspaceFolders);

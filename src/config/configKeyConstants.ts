@@ -24,6 +24,7 @@ export const ConfigKeys = {
 
   // History loading
   INCREMENTAL_TREE_LOADING: "freshFileExplorer.incrementalTreeLoading",
+  FRESH_FILE_LOADING: "freshFileExplorer.freshFileLoading",
 
   // Heatmap settings
   HEATMAP_ENABLED: "freshFileExplorer.heatmap.enabled",

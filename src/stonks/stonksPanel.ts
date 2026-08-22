@@ -66,13 +66,17 @@ export class StonksPanel {
       this._disposables,
     );
 
-    // Re-push data when the provider refreshes (time window change, git status, etc.)
+    // Re-push data when the provider refreshes (time window change, git status, etc.).
+    // Also covers the panel opening before any history exists — the repo list arrives
+    // with discovery and the stats with the load, so re-bootstrap rather than bail on
+    // a still-unset selection.
     this._provider.onDidChangeTreeData(() => {
-      if (!this._selectedRepo) { return; }
       clearTimeout(this._refreshTimer);
       this._refreshTimer = setTimeout(() => {
-        this._sendRepoTickers();
-        this._loadRepoData(this._selectedRepo!);
+        this._bootstrapRepos();
+        if (this._selectedRepo) {
+          this._loadRepoData(this._selectedRepo);
+        }
       }, 500);
     }, null, this._disposables);
   }
@@ -100,6 +104,14 @@ export class StonksPanel {
     this._postMessage({ command: "setRepos", repos: tickers });
   }
 
+  /** Push the repo list and, if nothing is selected yet, select the first repo. */
+  private _bootstrapRepos(): void {
+    this._sendRepoTickers();
+    if (!this._selectedRepo) {
+      this._selectedRepo = this._provider.getRepoList()[0]?.path;
+    }
+  }
+
   private async _handleMessage(message: StonksFromWebview) {
     switch (message.command) {
       case "ready": {
@@ -125,11 +137,14 @@ export class StonksPanel {
           ?? 30;
         this._postMessage({ command: "setTimeWindows", options, selectedDays: this._selectedDays });
 
-        const repos = this._provider.getRepoList();
-        this._sendRepoTickers();
-        if (repos.length > 0) {
-          this._selectedRepo = repos[0].path;
-          this._loadRepoData(repos[0].path);
+        // Commit stats only exist after a scan. Opening this panel is an explicit
+        // request for them, so load rather than render empty tickers; the
+        // onDidChangeTreeData handler pushes the data once it lands.
+        void this._provider.ensureDataLoaded();
+
+        this._bootstrapRepos();
+        if (this._selectedRepo) {
+          this._loadRepoData(this._selectedRepo);
         }
         break;
       }

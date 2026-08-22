@@ -36,6 +36,7 @@ import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { FilesExcludeFilter } from "./filesExcludeFilter";
 import { buildTree, buildFlatList, buildRepoRootItems, type TreeBuildContext, type RepoViewContext } from "./treeStructureBuilder";
 import { resolveConfigRefreshAction } from "./configRefreshAction";
+import { Commands } from "../commands/commandConstants";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -55,11 +56,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * Snapshot of where loading currently sits — drives the fresh-files status
    * bar entry. Listeners react via `onDidChangeTreeData`.
    * 
+   * - `dormant`     — manual scan on and not yet armed; no history has been read.
    * - `discovering` — repo discovery still in flight.
    * - `loading`     — repos discovered, files (pending and/or historical) loading.
    * - `idle`        — caught up. `totalRepos` may be 0 when the workspace has none.
    */
-  getLoadingProgress(): { state: "discovering" | "loading" | "idle"; totalRepos: number; loadedRepos: number } {
+  getLoadingProgress(): { state: "dormant" | "discovering" | "loading" | "idle"; totalRepos: number; loadedRepos: number } {
+    if (this.isScanDormant) {
+      // Repo count is only meaningful once discovery has run.
+      return { state: "dormant", totalRepos: this.reposDiscovered ? this.totalRepoCount : 0, loadedRepos: 0 };
+    }
     if (!this.reposDiscovered) {
       return { state: "discovering", totalRepos: 0, loadedRepos: 0 };
     }
@@ -99,6 +105,14 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   workspaceFolders: WorkspaceFolderInfo[] = [];
   private errorToShowInTreeView: string | undefined;
   private refreshPromise: Promise<void> | undefined;
+  // In-flight repo discovery, shared between discovery-only callers and full loads.
+  private discoveryPromise: Promise<void> | undefined;
+  /**
+   * Manual-scan mode: true once the scan has been armed for this session. Sticky
+   * on purpose — the point of manual scan is to skip the cost for users who never
+   * open the view, not to keep the tree stale for someone who just asked for it.
+   */
+  private scanArmed = false;
   private _dataLoaded: boolean = false;
   private get dataLoaded(): boolean { return this._dataLoaded; }
   private set dataLoaded(value: boolean) {
@@ -259,6 +273,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       this._setFreshFiles(this._freshFiles);
     }
 
+    // Changing the loading mode resets the session's armed state, so switching
+    // back to manual takes effect immediately instead of waiting for a window reload.
+    if (e.affectsConfiguration(ConfigKeys.FRESH_FILE_LOADING)) {
+      this.scanArmed = false;
+    }
+
     this.timeWindows = this.loadTimeWindows();
     // If the current window was removed from the configured list, fall back to another one.
     const currentStillValid = this.timeWindows.find(tw => {
@@ -346,6 +366,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   hardRefresh(): void {
     log(`Hard refresh (repo discovery + history) with time window: ${this.currentTimeWindow.label}`);
     this.dataLoaded = false;
+    this._targetRepoPaths = undefined; // a cancelled targeted refresh must not scope this full reload
     this.reposDiscovered = false;
     this._resolvedRepos = [];
     this._uninitializedSubmodules = [];
@@ -366,10 +387,22 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * actually be loaded.
    */
   private kickOffLoad(): void {
+    if (this.isScanDormant) {
+      // Discovery still runs — branch compare and the blame heatmap resolve repos
+      // through it, and neither should go dark just because history is dormant.
+      void this.ensureReposDiscovered();
+      // A targeted refresh that parked here never runs, so its scope must not
+      // leak into the first armed load (which would then skip every other repo).
+      this._targetRepoPaths = undefined;
+      this.enterDormant();
+      return;
+    }
     if (this.refreshPromise) { return; }
     this.refreshPromise = this.updateFreshFiles().finally(() => {
       this.refreshPromise = undefined;
-      if (!this.dataLoaded) {
+      // Re-check dormancy: entering manual scan mid-load cancels the load, and
+      // restarting it here would defeat the setting the moment it's turned on.
+      if (!this.dataLoaded && !this.isScanDormant) {
         log("Stale load detected after promise settled — starting new load");
         this.refreshPromise = this.updateFreshFiles().finally(() => {
           this.refreshPromise = undefined;
@@ -390,6 +423,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * Falls back to a full refresh if data hasn't been loaded yet.
    */
   async refreshPending(targetRepoPaths?: NormalizedRepoPath[]): Promise<void> {
+    if (this.isScanDormant) { return; }
     if (!this.dataLoaded) {
       this.refresh(); // soft if repos known, hard if first load
       return;
@@ -668,6 +702,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Note: Git repos are discovered during updateFreshFiles(), so we can't check
     // hasGitRepositories() before loading - it would always be false on first run
     if (!this.dataLoaded) {
+      // Callers here need real file data (blame heatmap). Arm rather than gate:
+      // returning false would silently blank a feature the user explicitly enabled.
+      this.armScan();
       if (!this.refreshPromise) {
         log("ensureDataLoaded: Loading files from Git repositories...");
         this.refreshPromise = this.updateFreshFiles().finally(() => {
@@ -775,6 +812,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       // reposDiscovered might be stale-false after a mid-load refresh().
       if (!this.reposDiscovered && !this.dataLoaded) {
         return [new MessageTreeItem("Discovering repositories…", "loading~spin")];
+      }
+
+      // Manual scan, not yet armed: no history has been read, so the repo nodes
+      // below would render as a list of empty repos. Offer the scan instead.
+      if (this.isScanDormant) {
+        return [new MessageTreeItem(
+          "Scan on startup is disabled — click to load",
+          "debug-start",
+          { command: Commands.REFRESH, title: "Load fresh files" },
+        )];
       }
 
       const totalRepos = this.workspaceFolders.reduce((sum, folder) => sum + folder.gitRepos.length, 0);
@@ -1046,6 +1093,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       // --- Phase 1: Discover repositories (skipped on soft refresh) ---
       await this.discoverRepositories(assertNotCancelled);
 
+      // Mark repos as loading and fire so the repo list appears immediately with
+      // per-repo spinners before any git log runs. A targeted refresh already
+      // seeded only its own repos — don't widen it to the whole workspace.
+      if (!this._targetRepoPaths) {
+        for (const { normalizedRepoPath } of this.resolvedRepos) {
+          this.reposLoading.add(normalizedRepoPath);
+        }
+      }
+      this._onDidChangeTreeData.fire();
+
       const totalRepos = this.totalRepoCount;
       if (totalRepos === 0) {
         this.dataLoaded = true;
@@ -1074,6 +1131,71 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
   }
 
+  /**
+   * True while manual scan is on and no explicit Refresh has armed the scan yet.
+   * Nothing reads git history in this state.
+   */
+  get isScanDormant(): boolean {
+    return !this.scanArmed && ConfigService.getFreshFileLoadingMode() === "manual";
+  }
+
+  /**
+   * Arm the scan for the rest of the session. Called by the Refresh command and by
+   * `ensureDataLoaded()` — the blame heatmap needs real data, and enabling it is an
+   * explicit opt-in to the scan.
+   */
+  armScan(): void {
+    if (this.scanArmed) { return; }
+    log("Manual scan armed — history loading enabled for this session");
+    this.scanArmed = true;
+  }
+
+  /**
+   * Settle into the dormant state. `dataLoaded` stays false (no data was read), so
+   * the loading context key has to be cleared explicitly or the `when`-clauses that
+   * hide file actions during a load would stay stuck.
+   *
+   * Deliberately fires no tree event: `getChildren` calls into here on every root
+   * render while dormant (`dataLoaded` is always false), so firing would re-enter
+   * getChildren and spin the view's progress bar forever. The one re-render that
+   * matters — discovery finishing — is fired by `ensureReposDiscovered()`.
+   */
+  private enterDormant(): void {
+    ContextManager.setLoading(false);
+  }
+
+  /**
+   * Discover repositories without loading any file history. Lets discovery-only
+   * consumers (branch compare, blame heatmap) resolve repos even when the
+   * fresh-files scan hasn't run. No-op once repos are discovered.
+   *
+   * Resolves quietly if a concurrent refresh cancels the discovery — that refresh
+   * runs its own discovery, so the caller's `onReposReady` still arrives.
+   */
+  async ensureReposDiscovered(): Promise<void> {
+    if (this.reposDiscovered) { return; }
+    if (this.workspaceFolders.length === 0) {
+      this.initializeWorkspaceFolders();
+      if (this.workspaceFolders.length === 0) { return; }
+    }
+
+    const token = this.refreshGuard.capture();
+    try {
+      await this.discoverRepositories(() => token.assertLive());
+    } catch (e) {
+      if (e instanceof RefreshCancelledError) {
+        log("ensureReposDiscovered: cancelled (refresh started)");
+        return;
+      }
+      throw e;
+    }
+    this._onDidChangeTreeData.fire(); // repo nodes can render now
+  }
+
+  /**
+   * Deduplicating front for `runDiscovery`, so a discovery-only caller and a
+   * full load starting at the same time share one workspace walk.
+   */
   private async discoverRepositories(assertNotCancelled: () => void): Promise<void> {
     // Skip if repos already discovered (soft refresh)
     if (this.reposDiscovered) {
@@ -1081,6 +1203,20 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       return;
     }
 
+    if (this.discoveryPromise) {
+      // Swallow the shared promise's cancellation — it belongs to the originating
+      // caller, not to us. We re-check and run our own discovery below.
+      await this.discoveryPromise.catch(() => {});
+      assertNotCancelled();
+      if (this.reposDiscovered) { return; }
+    }
+
+    this.discoveryPromise = this.runDiscovery(assertNotCancelled)
+      .finally(() => { this.discoveryPromise = undefined; });
+    return this.discoveryPromise;
+  }
+
+  private async runDiscovery(assertNotCancelled: () => void): Promise<void> {
     // --- Phase 1: Discover repositories ---
     const { repos: discoveredRepos, brokenWorktrees } = await DataCollector.discoverAllRepos(this.workspaceFolders);
     assertNotCancelled();
@@ -1111,15 +1247,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       : "";
     log(`Discovered ${this.totalRepoCount} Git repository(ies) across ${this.workspaceFolders.length} workspace folder(s)${uninitializedNote}`);
 
-    // Mark all repos as loading and fire so the repo list appears immediately
-    // with per-repo spinners before any git log commands have run.
-    for (const { normalizedRepoPath } of this.resolvedRepos) {
-      this.reposLoading.add(normalizedRepoPath);
-    }
-
     this.reposDiscovered = true;
     this._onReposReady.fire();
-    this._onDidChangeTreeData.fire(); // Show repo list with per-repo loading indicators
   }
 
   /** Worktree paths already surfaced to the user, so manual refreshes don't re-toast the same breakage. */
