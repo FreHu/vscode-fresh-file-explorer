@@ -29,8 +29,7 @@ import { formatRelativeDateLong } from "../utils/formatUtils";
 import { log, showInfo, showError } from "../extension/logger";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { normalizePath } from "../utils";
-import { Commands } from "../commands/commandConstants";
-import { FeatureStatusBar } from "../ui/featureStatusBar";
+import { BlameHeatmapStatusBar } from "./blameHeatmapStatusBar";
 import { gitUri } from "../git/gitOperations";
 import { openDiff } from "../utils";
 import { BaselineService } from "../baseline/baselineService";
@@ -93,13 +92,7 @@ export class BlameHeatmapController implements vscode.Disposable {
 
   private readonly subscriptions: vscode.Disposable[] = [];
   private readonly reapplyTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  private readonly statusBar: FeatureStatusBar;
-  /** fsPath → user-visible problem text (e.g. "file too large"). Cleared on editor change. */
-  private readonly statusBarWarnings = new Map<string, string>();
-  /** fsPath set for branch-mode files where every line is new (no pre-branch content). */
-  private readonly statusBarNewFiles = new Set<string>();
-  /** fsPath set for files whose heatmap is currently being computed (drives the spinner state). */
-  private readonly loadingFsPaths = new Set<string>();
+  private readonly statusBar: BlameHeatmapStatusBar;
   constructor(
     private readonly freshFileProvider: FreshFileProvider,
     private readonly baselineService: BaselineService,
@@ -108,10 +101,13 @@ export class BlameHeatmapController implements vscode.Disposable {
     this.decorationTypes = built.decorationTypes;
     this.addedDecorationTypes = built.addedDecorationTypes;
 
-    this.statusBar = new FeatureStatusBar({
-      alignment: vscode.StatusBarAlignment.Left,
-      priority: 10,
-      command: Commands.BLAME_HEATMAP_PICKER,
+    this.statusBar = new BlameHeatmapStatusBar({
+      getMode: (fsPath) => this.files.getMode(fsPath),
+      getSavedRef: (editor) => this.getSavedBaseRefFor(editor),
+      getBranchRef: (fsPath) => {
+        const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, fsPath);
+        return repoResult ? this.baselineService.getBaseRef(repoResult.repoFullPath) : undefined;
+      },
     });
 
     // Restore last-used mode so auto-apply works immediately after a restart.
@@ -327,7 +323,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     if (!this.files.hasMode(fsPath)) { return; }
     this.clearEditor(editor);
     this.files.forget(fsPath);
-    this.statusBarNewFiles.delete(fsPath);
+    this.statusBar.setNewFile(fsPath, false);
     this.updateStatusBar(editor);
     this.updateDeletionLinesContext(editor);
   }
@@ -465,7 +461,7 @@ export class BlameHeatmapController implements vscode.Disposable {
 
     const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, uri.fsPath);
     if (!repoResult) {
-      this.statusBarWarnings.set(uri.fsPath, "not in a git repo");
+      this.statusBar.setWarning(uri.fsPath, "not in a git repo");
       this.files.forget(uri.fsPath);
       this.updateStatusBar(editor);
       return;
@@ -498,7 +494,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     const maxLines = ConfigService.getBlameHeatmapMaxLines();
     if (editor.document.lineCount > maxLines) {
       const msg = `Line count over config limit ${maxLines}`;
-      this.statusBarWarnings.set(uri.fsPath, msg);
+      this.statusBar.setWarning(uri.fsPath, msg);
       this.files.forget(uri.fsPath);
       this.updateStatusBar(editor);
       return;
@@ -507,7 +503,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     // From here on we hit git, so flip the spinner and clear it in finally so
     // every early-return path (errors, closed editor, untracked file) restores
     // the status bar to its post-load state.
-    this.loadingFsPaths.add(uri.fsPath);
+    this.statusBar.setLoading(uri.fsPath, true);
     this.updateStatusBar(editor);
     try {
 
@@ -536,7 +532,7 @@ export class BlameHeatmapController implements vscode.Disposable {
 
     const blameLines = parseGitBlamePorcelain(blameOutput);
     if (blameLines.length === 0) {
-      this.statusBarWarnings.set(uri.fsPath, "no blame data");
+      this.statusBar.setWarning(uri.fsPath, "no blame data");
       this.files.forget(uri.fsPath);
       this.updateStatusBar(editor);
       return;
@@ -673,13 +669,13 @@ export class BlameHeatmapController implements vscode.Disposable {
       // let the status bar carry the message instead.
       // rangesByDeletions is empty here (checked by the isAllNewFile guard), so
       // no types were created and there is nothing to apply or dispose.
-      this.statusBarNewFiles.add(uri.fsPath);
+      this.statusBar.setNewFile(uri.fsPath, true);
       for (let i = 0; i < HEATMAP_BUCKET_COUNT; i++) {
         editor.setDecorations(this.decorationTypes[i], []);
         editor.setDecorations(this.addedDecorationTypes[i], []);
       }
     } else {
-      this.statusBarNewFiles.delete(uri.fsPath);
+      this.statusBar.setNewFile(uri.fsPath, false);
       for (let i = 0; i < HEATMAP_BUCKET_COUNT; i++) {
         editor.setDecorations(this.decorationTypes[i], rangesByBucket[i]);
         editor.setDecorations(this.addedDecorationTypes[i], rangesByAddedBucket[i]);
@@ -689,7 +685,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       }
     }
 
-    this.statusBarWarnings.delete(uri.fsPath);
+    this.statusBar.clearWarning(uri.fsPath);
     const emptyBuckets: vscode.DecorationOptions[][] = Array.from(
       { length: HEATMAP_BUCKET_COUNT },
       () => [],
@@ -712,7 +708,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     );
 
     } finally {
-      this.loadingFsPaths.delete(uri.fsPath);
+      this.statusBar.setLoading(uri.fsPath, false);
       this.updateStatusBar(editor);
       this.updateMenuContext(editor);
       this.updateDeletionLinesContext(editor);
@@ -746,73 +742,7 @@ export class BlameHeatmapController implements vscode.Disposable {
   }
 
   private updateStatusBar(editor: vscode.TextEditor | undefined): void {
-    if (!ConfigService.getStatusBarHeatmapEnabled()) {
-      this.statusBar.update({ kind: "hidden" });
-      return;
-    }
-    const uri = editor?.document.uri;
-    // Only show the indicator for real files. Output channels, settings, etc. → hide.
-    if (!uri || uri.scheme !== "file") {
-      this.statusBar.update({ kind: "hidden" });
-      return;
-    }
-    const fsPath = uri.fsPath;
-
-    const warning = this.statusBarWarnings.get(fsPath);
-    if (warning) {
-      this.statusBar.update({
-        kind: "warning",
-        text: `$(color-mode) Heatmap: $(warning) ${warning}`,
-        tooltip: warning,
-      });
-      return;
-    }
-
-    if (this.loadingFsPaths.has(fsPath)) {
-      this.statusBar.update({
-        kind: "active",
-        text: `$(sync~spin) Heatmap…`,
-        tooltip: "Computing blame heatmap.",
-      });
-      return;
-    }
-
-    const mode = this.files.getMode(fsPath);
-    if (!mode) {
-      const savedRef = this.getSavedBaseRefFor(editor);
-      this.statusBar.update({
-        kind: "inactive",
-        text: savedRef ? `$(color-mode) Heatmap: off (vs ${savedRef})` : `$(color-mode) Heatmap: off`,
-        tooltip: savedRef
-          ? `Click to enable the blame heatmap. Saved diff baseline: ${savedRef}.`
-          : "Click to enable the blame heatmap (Age or Branch).",
-      });
-      return;
-    }
-
-    if (mode === "absolute") {
-      this.statusBar.update({
-        kind: "active",
-        text: `$(color-mode) Heatmap: Age`,
-        tooltip: "Blame heatmap: coloring by commit age. Click to change.",
-      });
-    } else {
-      const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, fsPath);
-      const ref = (repoResult && this.baselineService.getBaseRef(repoResult.repoFullPath)) ?? "branch";
-      if (this.statusBarNewFiles.has(fsPath)) {
-        this.statusBar.update({
-          kind: "new-file",
-          text: `$(add) Heatmap: new file vs ${ref}`,
-          tooltip: `Blame heatmap: this file is entirely new since ${ref}. Click to change.`,
-        });
-      } else {
-        this.statusBar.update({
-          kind: "active",
-          text: `$(color-mode) Heatmap: vs ${ref}`,
-          tooltip: `Blame heatmap: showing changes since ${ref}. Click to change.`,
-        });
-      }
-    }
+    this.statusBar.update(editor);
   }
 
   /**
@@ -890,7 +820,7 @@ export class BlameHeatmapController implements vscode.Disposable {
 
     const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, uri.fsPath);
     if (!repoResult) {
-      this.statusBarWarnings.set(uri.fsPath, "not in a git repo");
+      this.statusBar.setWarning(uri.fsPath, "not in a git repo");
       this.updateStatusBar(editor);
       return;
     }
