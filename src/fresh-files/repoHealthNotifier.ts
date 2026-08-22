@@ -1,6 +1,31 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from "fs";
 import { AbsolutePath, NormalizedRepoPath } from "../pathTypes";
+import { ConfigService } from "../config/configService";
+import { execGitWithArgs } from "../git/gitOperations";
+
+/**
+ * Whether the repo has a commit-graph file. Resolves the real git dir via
+ * `--git-common-dir`, so linked worktrees and submodules (where `.git` is a
+ * file and the objects live in the main checkout) are answered correctly.
+ * Errs on "true" — if we can't verify, don't nag.
+ */
+export async function hasCommitGraph(repoPath: string): Promise<boolean> {
+  try {
+    const out = await execGitWithArgs(["rev-parse", "--git-common-dir"], repoPath);
+    const commonDir = path.resolve(repoPath, out.trim());
+    return fs.existsSync(path.join(commonDir, "objects", "info", "commit-graph"))
+      || fs.existsSync(path.join(commonDir, "objects", "info", "commit-graphs", "chain"));
+  } catch {
+    return true;
+  }
+}
+
+const COMMIT_GRAPH_SETUP_COMMANDS = [
+  "git maintenance start",
+  "git commit-graph write --reachable --changed-paths",
+].join("\n");
 
 /**
  * One-shot warning toasts for repo-level breakage found during scanning. Each kind
@@ -8,10 +33,15 @@ import { AbsolutePath, NormalizedRepoPath } from "../pathTypes";
  * state don't re-toast.
  */
 export class RepoHealthNotifier {
+  /** A history load slower than this suggests the repo would benefit from a commit-graph. */
+  static readonly SLOW_LOAD_THRESHOLD_MS = 3000;
+
   /** Worktree paths already surfaced to the user. */
   private readonly notifiedBrokenWorktrees = new Set<string>();
   /** Repos already toasted for a corrupt index. */
   private readonly notifiedCorruptIndex = new Set<NormalizedRepoPath>();
+  /** Repos already checked for a missing commit-graph (checked once per session, toasted at most once). */
+  private readonly checkedCommitGraph = new Set<NormalizedRepoPath>();
 
   /**
    * Warn (once per path) when a directory looks like a git worktree but git no longer recognizes
@@ -42,6 +72,52 @@ export class RepoHealthNotifier {
       await vscode.env.openExternal(
         vscode.Uri.parse("https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-repair"),
       );
+    }
+  }
+
+  /**
+   * Suggest a commit-graph when a repo's history load was measurably slow and no
+   * graph exists. Advice, not breakage — fires as an information toast, gated by
+   * `freshFileExplorer.warnMissingCommitGraph` ("Don't ask again" turns it off
+   * globally). `detect` is injectable for tests.
+   */
+  async notifyIfMissingCommitGraph(
+    normalizedRepoPath: NormalizedRepoPath,
+    loadMs: number,
+    detect: (repoPath: string) => Promise<boolean> = hasCommitGraph,
+  ): Promise<void> {
+    if (loadMs < RepoHealthNotifier.SLOW_LOAD_THRESHOLD_MS) {
+      return;
+    }
+    if (!ConfigService.getWarnMissingCommitGraph()) {
+      return;
+    }
+    if (this.checkedCommitGraph.has(normalizedRepoPath)) {
+      return;
+    }
+    this.checkedCommitGraph.add(normalizedRepoPath);
+
+    if (await detect(normalizedRepoPath)) {
+      return;
+    }
+
+    const seconds = (loadMs / 1000).toFixed(1);
+    const message = `Fresh File Explorer spent ${seconds}s reading git history for "${path.basename(normalizedRepoPath)}". A commit-graph would speed this up — a one-time, reversible git optimization.`;
+
+    const COPY = "Copy setup commands";
+    const LEARN = "Learn more";
+    const NEVER = "Don't ask again";
+    const choice = await vscode.window.showInformationMessage(message, COPY, LEARN, NEVER);
+    if (choice === COPY) {
+      await vscode.env.clipboard.writeText(COMMIT_GRAPH_SETUP_COMMANDS);
+    } else if (choice === LEARN) {
+      const extensionUri = vscode.extensions.getExtension("frehu.fresh-file-explorer")?.extensionUri;
+      if (extensionUri) {
+        const docUri = vscode.Uri.joinPath(extensionUri, "docs", "commit-graph.md");
+        await vscode.commands.executeCommand("markdown.showPreview", docUri);
+      }
+    } else if (choice === NEVER) {
+      await ConfigService.setWarnMissingCommitGraph(false);
     }
   }
 

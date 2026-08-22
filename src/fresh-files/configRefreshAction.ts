@@ -41,6 +41,7 @@ const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
   FRESH_FILE_LOADING:              "hard",
 
   // Handled elsewhere or behavioural only — no tree refresh needed.
+  WARN_MISSING_COMMIT_GRAPH:       "none",
   HEATMAP_ENABLED:                 "none",
   BLAME_HEATMAP_AUTO_APPLY:        "none",
   BLAME_HEATMAP_BG_OPACITY:        "none",

@@ -1998,6 +1998,11 @@
           ],
           "description": "When the fresh-files scan reads git history."
         },
+        "freshFileExplorer.warnMissingCommitGraph": {
+          "type": "boolean",
+          "default": true,
+          "description": "Suggest enabling a git commit-graph when a repository's history load is slow and no graph exists. The commit-graph is a one-time, reversible git optimization that speeds up history reads."
+        },
         "freshFileExplorer.gitTimeout": {
           "type": "number",
           "default": 30,

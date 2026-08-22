@@ -325,6 +325,20 @@ export class ConfigService {
     return ConfigService.cfg().get<FreshFileLoadingMode>(ConfigKeys.FRESH_FILE_LOADING, "startup");
   }
 
+  /** Offer a commit-graph when a repo's history load was slow and none exists. */
+  static getWarnMissingCommitGraph(): boolean {
+    return ConfigService.cfg().get<boolean>(ConfigKeys.WARN_MISSING_COMMIT_GRAPH, true);
+  }
+
+  /** "Don't ask again" on the commit-graph toast — global, like the toast's advice. */
+  static setWarnMissingCommitGraph(value: boolean): Thenable<void> {
+    return vscode.workspace.getConfiguration().update(
+      ConfigKeys.WARN_MISSING_COMMIT_GRAPH,
+      value,
+      vscode.ConfigurationTarget.Global,
+    );
+  }
+
   /** Show the Fresh Files loading-progress status-bar entry. */
   static getStatusBarLoadingEnabled(): boolean {
     return ConfigService.cfg().get<boolean>(ConfigKeys.STATUS_BAR_LOADING, true);

@@ -1298,6 +1298,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     const commitStatsMap = new Map<string, CommitStats>();
     try {
+      const loadStarted = Date.now();
       const { error: repoError, fullData } = await DataCollector.collectHistoricalForRepo(
         folder,
         repoRelPath,
@@ -1314,6 +1315,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       if (!repoError && fullData.size > 0) {
         this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoScope.getPathspec(normalizedRepoPath), commitStatsMap);
         log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath}`);
+      }
+      if (!repoError) {
+        // Slow successful load → suggest a commit-graph (no-op below the threshold).
+        void this.repoHealth.notifyIfMissingCommitGraph(normalizedRepoPath, Date.now() - loadStarted);
       }
 
       // Historical git log always loads up to maxDays, but we must only display
