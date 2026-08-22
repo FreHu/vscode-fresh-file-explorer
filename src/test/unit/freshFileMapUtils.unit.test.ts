@@ -10,6 +10,7 @@ import {
   buildTargetWorkspaceFolders,
   computeHistoricalLoadPlan,
   scopeFilesByRepo,
+  mergePendingFiles,
 } from "../../fresh-files/freshFileMapUtils";
 
 const abs = (p: string): AbsolutePath => p as AbsolutePath;
@@ -129,5 +130,56 @@ suite("scopeFilesByRepo", () => {
     const map = new Map<AbsolutePath, number>([[abs("/work/proj"), 1]]);
     const result = scopeFilesByRepo(map, "/work/proj");
     assert.strictEqual(result.size, 1);
+  });
+});
+
+suite("mergePendingFiles", () => {
+  const maps = (entries: [string, number][]) =>
+    new Map<AbsolutePath, number>(entries.map(([p, v]) => [abs(p), v]));
+
+  test("untargeted: historical baseline restores reverted files, pending overrides", () => {
+    const result = mergePendingFiles({
+      historicalFiles: maps([["/ws/a.ts", 1], ["/ws/b.ts", 1]]),
+      currentFiles: maps([["/ws/a.ts", 9], ["/ws/stale-pending.ts", 9]]),
+      pendingFiles: maps([["/ws/a.ts", 2]]),
+      removedPaths: [],
+    });
+    // Reverted pending (stale-pending.ts) disappears, b.ts restored from baseline,
+    // a.ts takes the fresh pending value.
+    assert.deepStrictEqual(result, maps([["/ws/a.ts", 2], ["/ws/b.ts", 1]]));
+  });
+
+  test("untargeted: removed rename sources are dropped even if historical", () => {
+    const result = mergePendingFiles({
+      historicalFiles: maps([["/ws/old.ts", 1]]),
+      currentFiles: maps([]),
+      pendingFiles: maps([["/ws/new.ts", 2]]),
+      removedPaths: [abs("/ws/old.ts")],
+    });
+    assert.deepStrictEqual(result, maps([["/ws/new.ts", 2]]));
+  });
+
+  test("targeted: target repos reset to baseline, others keep current state", () => {
+    const result = mergePendingFiles({
+      historicalFiles: maps([["/ws/tgt/a.ts", 1], ["/ws/other/hist.ts", 1]]),
+      currentFiles: maps([["/ws/tgt/stale.ts", 9], ["/ws/other/cur.ts", 5]]),
+      pendingFiles: maps([["/ws/tgt/a.ts", 2]]),
+      removedPaths: [],
+      targetRepoPaths: ["/ws/tgt"],
+    });
+    // Target repo: baseline + fresh pending, stale pending gone.
+    // Non-target repo: current entry kept, its historical baseline NOT re-applied.
+    assert.deepStrictEqual(result, maps([["/ws/tgt/a.ts", 2], ["/ws/other/cur.ts", 5]]));
+  });
+
+  test("targeted: removal applies after the merge", () => {
+    const result = mergePendingFiles({
+      historicalFiles: maps([["/ws/tgt/old.ts", 1]]),
+      currentFiles: maps([]),
+      pendingFiles: maps([]),
+      removedPaths: [abs("/ws/tgt/old.ts")],
+      targetRepoPaths: ["/ws/tgt"],
+    });
+    assert.strictEqual(result.size, 0);
   });
 });

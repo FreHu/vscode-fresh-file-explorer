@@ -54,6 +54,38 @@ export function buildTargetWorkspaceFolders(
 }
 
 /**
+ * Rebuild the fresh-file map after a pending (git status) update.
+ *
+ * The historical map is the baseline — this restores entries whose pending
+ * changes were reverted. With `targetRepoPaths`, only those repos are reset to
+ * baseline and every other repo keeps its current entry. New pending entries
+ * override the baseline; `removedPaths` (old sides of renames) are dropped last.
+ */
+export function mergePendingFiles<V>(opts: {
+  historicalFiles: Map<AbsolutePath, V>;
+  currentFiles: Map<AbsolutePath, V>;
+  pendingFiles: Map<AbsolutePath, V>;
+  removedPaths: AbsolutePath[];
+  targetRepoPaths?: string[];
+}): Map<AbsolutePath, V> {
+  const { historicalFiles, currentFiles, pendingFiles, removedPaths, targetRepoPaths } = opts;
+  const merged = new Map<AbsolutePath, V>();
+  if (targetRepoPaths) {
+    for (const [absPath, metadata] of historicalFiles) {
+      if (fileInTargetRepo(absPath, targetRepoPaths)) { merged.set(absPath, metadata); }
+    }
+    for (const [absPath, metadata] of currentFiles) {
+      if (!fileInTargetRepo(absPath, targetRepoPaths)) { merged.set(absPath, metadata); }
+    }
+  } else {
+    for (const [absPath, metadata] of historicalFiles) { merged.set(absPath, metadata); }
+  }
+  for (const [absPath, metadata] of pendingFiles) { merged.set(absPath, metadata); }
+  for (const removed of removedPaths) { merged.delete(removed); }
+  return merged;
+}
+
+/**
  * The maximum historical window to load from git in one pass, plus the day
  * thresholds at which incremental tree updates should fire. Pending-only
  * windows need neither (returns no thresholds); disabling incremental

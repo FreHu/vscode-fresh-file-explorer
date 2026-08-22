@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 
 import { ConfigService } from "../config/configService";
 import { ConfigKeys } from "../config/configKeyConstants";
@@ -8,7 +7,8 @@ import { FileIndex } from "./fileIndex";
 import { RefreshEpochGuard, RefreshCancelledError } from "./refreshEpochGuard";
 import { RepoScopeStore } from "./repoScopeStore";
 import { aggregateAuthors, aggregateCommits } from "./freshFilesAggregator";
-import { fileInTargetRepo, fileMapExcludingRepos, buildTargetWorkspaceFolders, computeHistoricalLoadPlan, scopeFilesByRepo } from "./freshFileMapUtils";
+import { fileMapExcludingRepos, buildTargetWorkspaceFolders, computeHistoricalLoadPlan, scopeFilesByRepo, mergePendingFiles } from "./freshFileMapUtils";
+import { findParentItem, revealFileInTree } from "./treeNavigation";
 export type { CacheRepoStats };
 import {
   WorkspaceFolderInfo,
@@ -30,12 +30,12 @@ import { FilterManager } from "./freshFileFilterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
 import { DataCollector, RepoInfo } from "./dataCollector";
 import { NormalizedRepoPath } from "../pathTypes";
-import { findWorkspaceFolderForPath, findRepoForFile } from "../utils/pathUtils";
 import { ContextManager } from "../extension/contextManager";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { FilesExcludeFilter } from "./filesExcludeFilter";
 import { buildTree, buildFlatList, buildRepoRootItems, type TreeBuildContext, type RepoViewContext } from "./treeStructureBuilder";
 import { resolveConfigRefreshAction } from "./configRefreshAction";
+import { RepoHealthNotifier } from "./repoHealthNotifier";
 import { Commands } from "../commands/commandConstants";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
@@ -105,6 +105,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   workspaceFolders: WorkspaceFolderInfo[] = [];
   private errorToShowInTreeView: string | undefined;
   private refreshPromise: Promise<void> | undefined;
+  private readonly repoHealth = new RepoHealthNotifier();
   // In-flight repo discovery, shared between discovery-only callers and full loads.
   private discoveryPromise: Promise<void> | undefined;
   /**
@@ -446,48 +447,18 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     if (this.workspaceFolders.length === 0) {
       return;
     }
-
-    if (targetRepoPaths) {
-      // Targeted update: only query the repos that changed.
-      const targetFolders = buildTargetWorkspaceFolders(this.workspaceFolders, targetRepoPaths);
-      const { files: pendingFiles, removedPaths } = await DataCollector.collectPendingFiles(targetFolders);
-
-      // Merge strategy:
-      // 1. Historical baseline for target repos (reset to committed state).
-      // 2. Current freshFiles entries for non-target repos (preserve their state).
-      // 3. Fresh pending entries for target repos (override historical baseline).
-      // 4. Remove paths from renames (old paths that no longer exist).
-      const merged = new Map<AbsolutePath, FileMetadata>();
-      for (const [absPath, metadata] of this.historicalCache.historicalFiles) {
-        if (fileInTargetRepo(absPath, targetRepoPaths)) {
-          merged.set(absPath, metadata);
-        }
-      }
-      for (const [absPath, metadata] of this._freshFiles) {
-        if (!fileInTargetRepo(absPath, targetRepoPaths)) {
-          merged.set(absPath, metadata);
-        }
-      }
-      for (const [absPath, metadata] of pendingFiles) {
-        merged.set(absPath, metadata);
-      }
-      for (const removed of removedPaths) {
-        merged.delete(removed);
-      }
-      this._setFreshFiles(merged);
-    } else {
-      const { files: pendingFiles, removedPaths } = await DataCollector.collectPendingFiles(this.workspaceFolders);
-      // Rebuild freshFiles from cached historical baseline + new pending entries.
-      // This restores historical entries for files whose pending changes were reverted.
-      const merged = new Map<AbsolutePath, FileMetadata>(this.historicalCache.historicalFiles);
-      for (const [absolutePath, metadata] of pendingFiles) {
-        merged.set(absolutePath, metadata);
-      }
-      for (const removed of removedPaths) {
-        merged.delete(removed);
-      }
-      this._setFreshFiles(merged);
-    }
+    // Targeted update: only query the repos that changed.
+    const folders = targetRepoPaths
+      ? buildTargetWorkspaceFolders(this.workspaceFolders, targetRepoPaths)
+      : this.workspaceFolders;
+    const { files: pendingFiles, removedPaths } = await DataCollector.collectPendingFiles(folders);
+    this._setFreshFiles(mergePendingFiles({
+      historicalFiles: this.historicalCache.historicalFiles,
+      currentFiles: this._freshFiles,
+      pendingFiles,
+      removedPaths,
+      targetRepoPaths,
+    }));
   }
 
   setTimeWindow(timeWindow: TimeWindow): void {
@@ -744,49 +715,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   getParent(element: FreshFilesTreeItem): FreshFilesTreeItem | undefined {
-    if (!(element instanceof FreshFileItem)) {
-      return undefined;
-    }
-
-    // Repo root nodes are root-level items — they have no parent in our tree.
-    if (element.id?.startsWith("repo:")) {
-      return undefined;
-    }
-
-    const folder = findWorkspaceFolderForPath(asAbsolutePath(element.resourceUri.fsPath), this.workspaceFolders);
-    if (!folder) {
-      return undefined;
-    }
-
-    // Compute the path relative to the workspace folder (normalized, forward slashes).
-    const relativeToFolder = normalizePath(path.relative(folder.path, element.resourceUri.fsPath));
-
-    // Find the most-specific repo that contains this item.
-    const repoLocation = findRepoForFile(folder, relativeToFolder);
-    if (!repoLocation) {
-      return undefined;
-    }
-
-    // filePathInRepo is the path from the repo root to this item (normalized).
-    const filePathInRepo = repoLocation.filePathInRepo;
-    const lastSlash = filePathInRepo.lastIndexOf("/");
-
-    // In flat list mode all files are direct children of the repo root — no directory nodes exist.
-    if (this.groupingMode === "Flat List" || lastSlash === -1) {
-      const repoFsPath = vscode.Uri.file(repoLocation.repoFullPath).fsPath;
-      return this._repoItemCache.get(`repo:${repoFsPath}`);
-    }
-
-    // This item is nested inside a subdirectory — return the immediate parent directory.
-    const parentPathInRepo = filePathInRepo.substring(0, lastSlash);
-    const parentFullPath = path.join(repoLocation.repoFullPath, parentPathInRepo);
-    const parentUri = vscode.Uri.file(parentFullPath);
-    return FreshFileItem.forDirectory(
-      parentUri,
-      this.openChangesMode,
-      this.countFilesInDirectory(parentUri.fsPath),
-      false,
-    );
+    return findParentItem(element, {
+      workspaceFolders: this.workspaceFolders,
+      groupingMode: this.groupingMode,
+      openChangesMode: this.openChangesMode,
+      repoItemCache: this._repoItemCache,
+      countFilesInDirectory: (p) => this.countFilesInDirectory(p),
+    });
   }
 
   async getChildren(element?: FreshFilesTreeItem): Promise<FreshFilesTreeItem[]> {
@@ -1039,41 +974,14 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     await this.revealFileByUri(uri, focus);
   }
 
-  /**
-   * Reveal a specific file URI in the Fresh Files tree.
-   *
-   * Skips when the view isn't visible *and* the caller isn't asking for
-   * focus — auto-reveal shouldn't pop the view open uninvited. Explicit
-   * user invocations (focus=true) always reveal.
-   *
-   * Returns true if the reveal succeeded; false when the file isn't
-   * currently in the tree (filtered out, outside time window, deleted, etc.)
-   */
+  /** Reveal a file in the tree — see `revealFileInTree` for the visibility rules. */
   async revealFileByUri(uri: vscode.Uri, focus: boolean = false): Promise<boolean> {
-    if (!this.treeView || !this.dataLoaded) { return false; }
-    if (!focus && !this.treeView.visible) { return false; }
-    if (uri.scheme !== "file") { return false; }
-
-    const normalizedPath = asAbsolutePath(normalizePath(uri.fsPath));
-    const metadata = this._freshFiles.get(normalizedPath);
-    if (!metadata || metadata.isDeleted) { return false; }
-
-    const item = FreshFileItem.forFile(
-      uri,
-      this.openChangesMode,
-      false,
-      metadata.commitHash,
-      metadata.isPending ?? false,
-      metadata.status,
-      metadata.renameSource,
-    );
-    try {
-      await this.treeView.reveal(item, { select: true, focus, expand: true });
-      return true;
-    } catch (e) {
-      log(`revealFileByUri: could not reveal ${uri.fsPath}: ${e}`, "warn");
-      return false;
-    }
+    return revealFileInTree(uri, focus, {
+      treeView: this.treeView,
+      dataLoaded: this.dataLoaded,
+      freshFiles: this._freshFiles,
+      openChangesMode: this.openChangesMode,
+    });
   }
 
   /** Returns true if a file passes the current visibility filters. */
@@ -1224,7 +1132,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // Surface broken worktrees (gitdir link stale, e.g. after a move). These silently failed to
     // load as repos; without a nudge the user just sees a too-short repo list. Fire-and-forget so
     // the tree still renders immediately.
-    void this.notifyBrokenWorktrees(brokenWorktrees);
+    void this.repoHealth.notifyBrokenWorktrees(brokenWorktrees);
 
     // Apply discovered repos only after confirming we're not cancelled,
     // so state is never mutated by a stale load.
@@ -1249,77 +1157,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     this.reposDiscovered = true;
     this._onReposReady.fire();
-  }
-
-  /** Worktree paths already surfaced to the user, so manual refreshes don't re-toast the same breakage. */
-  private readonly notifiedBrokenWorktrees = new Set<string>();
-
-  /**
-   * Warn (once per path) when a directory looks like a git worktree but git no longer recognizes
-   * it — typically a stale gitdir pointer after the worktree folder was moved. Such repos silently
-   * drop out of the tree; the toast names them and offers the `git worktree repair` fix.
-   */
-  private async notifyBrokenWorktrees(brokenWorktrees: AbsolutePath[]): Promise<void> {
-    const fresh = brokenWorktrees.filter(p => !this.notifiedBrokenWorktrees.has(p));
-    if (fresh.length === 0) {
-      return;
-    }
-    fresh.forEach(p => this.notifiedBrokenWorktrees.add(p));
-
-    const names = fresh.map(p => path.basename(p));
-    const message = fresh.length === 1
-      ? `Fresh File Explorer skipped "${names[0]}": it looks like a git worktree but its .git link is broken (its gitdir pointer is stale — common after moving the folder). That repository won't appear in the tree.`
-      : `Fresh File Explorer skipped ${fresh.length} folders with broken git worktree links (${names.join(", ")}). They won't appear in the tree.`;
-
-    const COPY = "Copy repair command";
-    const LEARN = "Learn more";
-    const choice = await vscode.window.showWarningMessage(message, COPY, LEARN);
-    if (choice === COPY) {
-      // Run from the worktree's owning repository checkout. We can't reliably know that path from
-      // here, so hand the user the exact per-worktree commands keyed by absolute path.
-      const command = fresh.map(p => `git worktree repair "${p}"`).join("\n");
-      await vscode.env.clipboard.writeText(command);
-    } else if (choice === LEARN) {
-      await vscode.env.openExternal(
-        vscode.Uri.parse("https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-repair"),
-      );
-    }
-  }
-
-  /** Repos already toasted for a corrupt index, so repeated refreshes against the same broken index don't re-toast. */
-  private readonly notifiedCorruptIndex = new Set<NormalizedRepoPath>();
-
-  /**
-   * Warn once per repo when git reports a corrupt index while reading pending changes. Left
-   * unsurfaced, this reads as "no pending changes" instead of "couldn't check" — the tree looks
-   * clean while the working tree may not be.
-   */
-  private async notifyCorruptIndex(
-    normalizedRepoPath: NormalizedRepoPath,
-    folderName: string,
-    repoRelPath: string,
-    error: string,
-  ): Promise<void> {
-    if (!/index file corrupt|bad signature/i.test(error)) {
-      return;
-    }
-    if (this.notifiedCorruptIndex.has(normalizedRepoPath)) {
-      return;
-    }
-    this.notifiedCorruptIndex.add(normalizedRepoPath);
-
-    const repoLabel = repoRelPath ? `${folderName}/${repoRelPath}` : folderName;
-    const message = `Fresh File Explorer couldn't read pending changes for "${repoLabel}": its git index is corrupt. Pending changes won't show up until it's fixed — committed history is unaffected.`;
-
-    const LEARN = "How to fix";
-    const choice = await vscode.window.showWarningMessage(message, LEARN);
-    if (choice === LEARN) {
-      const extensionUri = vscode.extensions.getExtension("frehu.fresh-file-explorer")?.extensionUri;
-      if (extensionUri) {
-        const docUri = vscode.Uri.joinPath(extensionUri, "docs", "git-index-corruption.md");
-        await vscode.commands.executeCommand("markdown.showPreview", docUri);
-      }
-    }
   }
 
   private async loadPendingAndHistoricalFiles(assertNotCancelled: () => void): Promise<string | undefined> {
@@ -1351,7 +1188,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       const pendingError = await this.loadPendingForRepo(folder, repoRelPath, normalizedRepoPath, newFiles, pendingOnly);
       assertNotCancelled();
       if (pendingError) {
-        void this.notifyCorruptIndex(normalizedRepoPath, folder.name, repoRelPath, pendingError);
+        void this.repoHealth.notifyCorruptIndex(normalizedRepoPath, folder.name, repoRelPath, pendingError);
       }
 
       if (pendingOnly) {
