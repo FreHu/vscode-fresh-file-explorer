@@ -36,6 +36,7 @@ import { FilesExcludeFilter } from "./filesExcludeFilter";
 import { buildTree, buildFlatList, buildRepoRootItems, type TreeBuildContext, type RepoViewContext } from "./treeStructureBuilder";
 import { resolveConfigRefreshAction } from "./configRefreshAction";
 import { RepoHealthNotifier } from "./repoHealthNotifier";
+import { RepoDiscovery } from "./repoDiscovery";
 import { Commands } from "../commands/commandConstants";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
@@ -48,9 +49,9 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * blame heatmap auto-apply) wait until `findRepoForAbsolutePath` will actually
    * resolve before they try to attach to the active editor.
    */
-  private _onReposReady = new vscode.EventEmitter<void>();
-  readonly onReposReady = this._onReposReady.event;
-  get areReposReady(): boolean { return this.reposDiscovered; }
+  get onReposReady(): vscode.Event<void> { return this.discovery.onReposReady; }
+  get areReposReady(): boolean { return this.discovery.reposDiscovered; }
+  private get reposDiscovered(): boolean { return this.discovery.reposDiscovered; }
 
   /**
    * Snapshot of where loading currently sits — drives the fresh-files status
@@ -106,8 +107,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private errorToShowInTreeView: string | undefined;
   private refreshPromise: Promise<void> | undefined;
   private readonly repoHealth = new RepoHealthNotifier();
-  // In-flight repo discovery, shared between discovery-only callers and full loads.
-  private discoveryPromise: Promise<void> | undefined;
+  // Repo discovery: workspace walk, results, in-flight dedup, onReposReady.
+  private readonly discovery = new RepoDiscovery({
+    getWorkspaceFolders: () => this.workspaceFolders,
+    onBrokenWorktrees: (paths) => void this.repoHealth.notifyBrokenWorktrees(paths),
+  });
   /**
    * Manual-scan mode: true once the scan has been armed for this session. Sticky
    * on purpose — the point of manual scan is to skip the cost for users who never
@@ -121,8 +125,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     ContextManager.setLoading(!value);
   }
   get isDataLoaded(): boolean { return this._dataLoaded; }
-  // Set to true once git repos have been discovered (before file loading completes)
-  private reposDiscovered: boolean = false;
   // Normalized absolute paths of repos whose initial (pending) file loading is still in progress
   private reposLoading: Set<NormalizedRepoPath> = new Set();
   // Normalized absolute paths of repos that have pending files loaded but historical is still running
@@ -164,14 +166,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   // Target repo paths for the current refresh (undefined = all repos).
   // Set by refresh() to scope updateFreshFiles() to only specific repos.
   private _targetRepoPaths: NormalizedRepoPath[] | undefined = undefined;
-
-  // Cached resolved repo list, populated after discovery and cleared on hard refresh.
-  // Contains only scannable repos — uninitialized submodules are held separately.
-  private _resolvedRepos: RepoInfo[] = [];
-
-  // Uninitialized (not-checked-out) submodules, kept for display only. Deliberately
-  // excluded from _resolvedRepos and folder.gitRepos so no scan path ever touches them.
-  private _uninitializedSubmodules: RepoInfo[] = [];
 
   // Cache of the most-recently returned repo root FreshFileItem instances, keyed by id.
   // Populated in buildRepoView so revealSubmoduleRepo can pass the exact same object
@@ -368,9 +362,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     log(`Hard refresh (repo discovery + history) with time window: ${this.currentTimeWindow.label}`);
     this.dataLoaded = false;
     this._targetRepoPaths = undefined; // a cancelled targeted refresh must not scope this full reload
-    this.reposDiscovered = false;
-    this._resolvedRepos = [];
-    this._uninitializedSubmodules = [];
+    this.discovery.reset();
     this._repoItemCache.clear();
     this.reposLoading.clear();
     this.reposLoadingHistorical.clear();
@@ -605,7 +597,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   /** Get discovered repos as {name, normalizedPath} pairs for external consumers. */
   getRepoList(): { name: string; path: NormalizedRepoPath }[] {
-    return this._resolvedRepos.map(r => ({ name: r.folder.name + (r.repoRelPath ? "/" + r.repoRelPath : ""), path: r.normalizedRepoPath }));
+    return this.discovery.resolvedRepos.map(r => ({ name: r.folder.name + (r.repoRelPath ? "/" + r.repoRelPath : ""), path: r.normalizedRepoPath }));
   }
 
   /** Get all visible file paths (excluding deleted files) for search operations */
@@ -641,8 +633,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * new repository (e.g. a freshly created worktree) apart from one we already track.
    */
   knowsRepoPath(normalizedRepoPath: NormalizedRepoPath): boolean {
-    return this._resolvedRepos.some(r => r.normalizedRepoPath === normalizedRepoPath)
-      || this._uninitializedSubmodules.some(r => r.normalizedRepoPath === normalizedRepoPath);
+    return this.discovery.resolvedRepos.some(r => r.normalizedRepoPath === normalizedRepoPath)
+      || this.discovery.uninitializedSubmodules.some(r => r.normalizedRepoPath === normalizedRepoPath);
   }
 
   /**
@@ -790,14 +782,14 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
       // Park uninitialized submodules under a single collapsed node at the bottom,
       // regardless of grouping mode, so the user knows they exist without scanning them.
-      if (this._uninitializedSubmodules.length > 0) {
-        children.push(new UninitializedSubmodulesGroupItem(this._uninitializedSubmodules.length));
+      if (this.discovery.uninitializedSubmodules.length > 0) {
+        children.push(new UninitializedSubmodulesGroupItem(this.discovery.uninitializedSubmodules.length));
       }
       return children;
     }
 
     if (element instanceof UninitializedSubmodulesGroupItem) {
-      return this._uninitializedSubmodules.map(
+      return this.discovery.uninitializedSubmodules.map(
         r => new UninitializedSubmoduleItem(r.repoRelPath, r.repoFullPath),
       );
     }
@@ -919,13 +911,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   /** All repos across all workspace folders with pre-computed absolute and normalized paths. */
   private get resolvedRepos(): RepoInfo[] {
-    return this._resolvedRepos;
+    return this.discovery.resolvedRepos;
   }
 
   /** Set of normalized absolute paths that are submodule repository roots. */
   private get submoduleRootPaths(): Set<AbsolutePath> {
     const set = new Set<AbsolutePath>();
-    for (const repo of this._resolvedRepos) {
+    for (const repo of this.discovery.resolvedRepos) {
       if (repo.isSubmodule) {
         set.add(asAbsolutePath(normalizePath(repo.repoFullPath)));
       }
@@ -999,7 +991,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     try {
       // --- Phase 1: Discover repositories (skipped on soft refresh) ---
-      await this.discoverRepositories(assertNotCancelled);
+      await this.discovery.discoverRepositories(assertNotCancelled);
 
       // Mark repos as loading and fire so the repo list appears immediately with
       // per-repo spinners before any git log runs. A targeted refresh already
@@ -1089,7 +1081,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
     const token = this.refreshGuard.capture();
     try {
-      await this.discoverRepositories(() => token.assertLive());
+      await this.discovery.discoverRepositories(() => token.assertLive());
     } catch (e) {
       if (e instanceof RefreshCancelledError) {
         log("ensureReposDiscovered: cancelled (refresh started)");
@@ -1098,65 +1090,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       throw e;
     }
     this._onDidChangeTreeData.fire(); // repo nodes can render now
-  }
-
-  /**
-   * Deduplicating front for `runDiscovery`, so a discovery-only caller and a
-   * full load starting at the same time share one workspace walk.
-   */
-  private async discoverRepositories(assertNotCancelled: () => void): Promise<void> {
-    // Skip if repos already discovered (soft refresh)
-    if (this.reposDiscovered) {
-      log(`Reloading files for ${this.totalRepoCount} known Git repository(ies) (skipping discovery)`);
-      return;
-    }
-
-    if (this.discoveryPromise) {
-      // Swallow the shared promise's cancellation — it belongs to the originating
-      // caller, not to us. We re-check and run our own discovery below.
-      await this.discoveryPromise.catch(() => {});
-      assertNotCancelled();
-      if (this.reposDiscovered) { return; }
-    }
-
-    this.discoveryPromise = this.runDiscovery(assertNotCancelled)
-      .finally(() => { this.discoveryPromise = undefined; });
-    return this.discoveryPromise;
-  }
-
-  private async runDiscovery(assertNotCancelled: () => void): Promise<void> {
-    // --- Phase 1: Discover repositories ---
-    const { repos: discoveredRepos, brokenWorktrees } = await DataCollector.discoverAllRepos(this.workspaceFolders);
-    assertNotCancelled();
-
-    // Surface broken worktrees (gitdir link stale, e.g. after a move). These silently failed to
-    // load as repos; without a nudge the user just sees a too-short repo list. Fire-and-forget so
-    // the tree still renders immediately.
-    void this.repoHealth.notifyBrokenWorktrees(brokenWorktrees);
-
-    // Apply discovered repos only after confirming we're not cancelled,
-    // so state is never mutated by a stale load.
-    // Uninitialized submodules are display-only: they must stay out of _resolvedRepos
-    // and folder.gitRepos so no scan/cache/branch-compare path ever runs git in them.
-    this._uninitializedSubmodules = discoveredRepos.filter(r => r.isUninitialized);
-    const scannableRepos = discoveredRepos.filter(r => !r.isUninitialized);
-
-    // Back-fill folder.gitRepos for consumers that accept WorkspaceFolderInfo[] directly.
-    for (const folder of this.workspaceFolders) {
-      folder.gitRepos = [];
-    }
-    for (const repo of scannableRepos) {
-      repo.folder.gitRepos.push(repo.repoRelPath);
-    }
-    this._resolvedRepos = scannableRepos;
-
-    const uninitializedNote = this._uninitializedSubmodules.length > 0
-      ? ` (+${this._uninitializedSubmodules.length} uninitialized submodule(s), display only)`
-      : "";
-    log(`Discovered ${this.totalRepoCount} Git repository(ies) across ${this.workspaceFolders.length} workspace folder(s)${uninitializedNote}`);
-
-    this.reposDiscovered = true;
-    this._onReposReady.fire();
   }
 
   private async loadPendingAndHistoricalFiles(assertNotCancelled: () => void): Promise<string | undefined> {
