@@ -22,6 +22,11 @@ When a repository's history load is measurably slow
   tools). Disable with `freshFileExplorer.warnMissingCommitGraph` or the
   notification's "Don't ask again".
 
+### File History
+
+- Added a new button to show a vscode diff in a side panel
+- Fixed visual alignment of the list in case there's a commit with no changed lines
+
 ### Find Files Modified Together [experimental]
 
 Examines your recent git history for files that usually change together with what you're changing but are still not in your pending changes.
@@ -41,7 +46,9 @@ Examines your recent git history for files that usually change together with wha
 
 ### Fixes
 
-- Blame heatmap: deleted-lines gutter badges no longer linger (and leak) after
+- Branch comparison settings - Use icons instead of dropdowns (mode, grouping) - it's fewer clicks and fits more when the tab isn't full-width
+- Blame heatmap gutter decorations - fix slight visual misalignment
+- Blame heatmap - deleted-lines gutter badges no longer linger (and leak) after
   the heatmap bails out on a file — e.g. when the file grows past the line
   limit or blame fails on a re-apply.
 - CodeStonks: the chart no longer briefly renders unfiltered full-history data
