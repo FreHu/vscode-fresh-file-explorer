@@ -10,6 +10,8 @@ export const TreeItemContextValues = {
   WORKSPACE_FOLDER: "workspaceFolder",
   REPO_FOLDER: "repoFolder",
   PINNED_FILE: "pinnedFile",
+  /** Machine-created co-change suggestion in the pinned view. */
+  SUGGESTED_FILE: "suggestedFile",
   PINNED_FOLDER: "pinnedFolder",
   PINNED_NOTE: "pinnedNote",
   AUTHOR_GROUP: "authorGroup",

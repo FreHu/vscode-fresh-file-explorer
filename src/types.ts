@@ -61,9 +61,15 @@ export type PinnedItemType = "note" | "file";
 export interface PinnedItem {
   type: PinnedItemType;
   id: string; // noteId for notes, file path for files
-  data: string; // note text for notes, empty for files
+  data: string; // note text for notes; for suggested files, the evidence text
   /** Whether the item is checked off in the todo list (files and notes alike). */
   completed?: boolean;
+  /**
+   * Machine-created co-change suggestion, not a user pin. Rendered distinctly;
+   * runs add with path dedup, and deliberate placement or "Keep as Pin"
+   * promotes it to a user pin.
+   */
+  suggested?: boolean;
 }
 
 

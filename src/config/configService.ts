@@ -339,6 +339,21 @@ export class ConfigService {
     );
   }
 
+  /** How far back the co-change suggestion command reads git history (days). */
+  static getCochangeLookbackDays(): number {
+    return ConfigService.cfg().get<number>(ConfigKeys.COCHANGE_LOOKBACK_DAYS, 365);
+  }
+
+  /** Maximum number of co-change suggestions per run. */
+  static getCochangeMaxSuggestions(): number {
+    return ConfigService.cfg().get<number>(ConfigKeys.COCHANGE_MAX_SUGGESTIONS, 8);
+  }
+
+  /** Extra ticket-id regex for the cross-repo join, beyond the built-in JIRA/ClickUp shapes. */
+  static getCochangeTicketPattern(): string {
+    return ConfigService.cfg().get<string>(ConfigKeys.COCHANGE_TICKET_PATTERN, "");
+  }
+
   /** Show the Fresh Files loading-progress status-bar entry. */
   static getStatusBarLoadingEnabled(): boolean {
     return ConfigService.cfg().get<boolean>(ConfigKeys.STATUS_BAR_LOADING, true);

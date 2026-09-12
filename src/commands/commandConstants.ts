@@ -49,6 +49,9 @@ export const Commands = {
   // Pin commands
   PIN_FILE: "freshFileExplorer.pinFile",
   UNPIN_FILE: "freshFileExplorer.unpinFile",
+  SUGGEST_COCHANGES: "freshFileExplorer.suggestCochanges",
+  KEEP_SUGGESTION: "freshFileExplorer.keepSuggestion",
+  CLEAR_SUGGESTIONS: "freshFileExplorer.clearSuggestions",
   ADD_NOTE: "freshFileExplorer.addNote",
   EDIT_NOTE: "freshFileExplorer.editNote",
   DELETE_NOTE: "freshFileExplorer.deleteNote",

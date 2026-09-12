@@ -187,6 +187,63 @@ export class PinnedItemsManager {
   }
 
   // ============================================================
+  // Co-change suggestions
+  // ============================================================
+
+  /**
+   * Add a run's suggestions, deduplicated by path: a user pin wins outright,
+   * an existing suggestion gets its evidence note refreshed instead of a
+   * duplicate. Runs accumulate on purpose — suggestions are gathered one seed
+   * at a time; "Clear Suggestions" is the bulk exit.
+   */
+  addSuggestions(suggestions: { path: AbsolutePath; note: string }[]): void {
+    for (const s of suggestions) {
+      const existing = this.pinnedItems.find(item => item.type === "file" && normalizePath(item.id) === normalizePath(s.path));
+      if (existing) {
+        if (existing.suggested) {
+          existing.data = s.note; // fresher evidence for the same path
+        }
+        continue;
+      }
+      this.pinnedItems.push({ type: "file", id: s.path, data: s.note, suggested: true });
+    }
+    this.persistAndNotify();
+    log(`Added co-change suggestions: ${suggestions.length} item(s)`);
+  }
+
+  /**
+   * Record a no-result outcome where the user is actually looking (the pinned
+   * view), instead of a toast. Added pre-checked — it's information, not a
+   * todo — and deduplicated by text so reruns don't stack copies. Cleared with
+   * the rest of the suggestion population.
+   */
+  addSuggestionNote(text: string, completed = true): void {
+    if (this.pinnedItems.some(item => item.suggested && item.type === "note" && item.data === text)) {
+      return;
+    }
+    this.pinnedItems.push({ type: "note", id: Date.now().toString(), data: text, completed, suggested: true });
+    this.persistAndNotify();
+    log(`Added suggestion note: ${text}`);
+  }
+
+  /** Remove every machine-created suggestion; user pins are untouched. */
+  clearSuggestions(): void {
+    this.pinnedItems = this.pinnedItems.filter(item => !item.suggested);
+    this.persistAndNotify();
+    log("Cleared co-change suggestions");
+  }
+
+  /** Promote a suggestion to a normal user pin (evidence text stays as reference). */
+  keepSuggestion(filePath: AbsolutePath): void {
+    const item = this.pinnedItems.find(i => i.suggested && normalizePath(i.id) === normalizePath(filePath));
+    if (item) {
+      item.suggested = false;
+      this.persistAndNotify();
+      log(`Kept suggestion as pin: ${filePath}`);
+    }
+  }
+
+  // ============================================================
   // Note Operations
   // ============================================================
 
@@ -276,6 +333,9 @@ export class PinnedItemsManager {
     const newTargetIndex = sourceIndex < targetIndex ? targetIndex : targetIndex;
     const insertIndex = dropBefore ? newTargetIndex : newTargetIndex + 1;
     this.pinnedItems.splice(insertIndex, 0, movedItem);
+    // Deliberately placing a suggestion is curation — it becomes a user pin,
+    // so "Clear Suggestions" and future dedup respect the chosen position.
+    movedItem.suggested = undefined;
 
     this.persistAndNotify();
     log(`Reordered pinned item from index ${sourceIndex} to ${insertIndex}`);
@@ -302,6 +362,7 @@ export class PinnedItemsManager {
 
     const [movedItem] = this.pinnedItems.splice(sourceIndex, 1);
     this.pinnedItems.unshift(movedItem);
+    movedItem.suggested = undefined; // deliberate placement promotes a suggestion
 
     this.persistAndNotify();
     log(`Moved pinned item from index ${sourceIndex} to first position`);

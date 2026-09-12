@@ -67,8 +67,11 @@ export function handleUnpinFile(
 ): void {
   const items = selectedItems && selectedItems.length > 0 ? selectedItems : [item];
 
-  // Only handle pinned files
-  const pinnedFiles = items.filter(i => i.contextValue === TreeItemContextValues.PINNED_FILE);
+  // Only handle pinned files — machine-created suggestions unpin (dismiss) the same way.
+  const pinnedFiles = items.filter(i =>
+    i.contextValue === TreeItemContextValues.PINNED_FILE
+    || i.contextValue === TreeItemContextValues.SUGGESTED_FILE,
+  );
 
   if (pinnedFiles.length === 0) {
     showWarning("No pinned files selected");

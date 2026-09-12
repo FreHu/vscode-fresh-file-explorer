@@ -1,5 +1,55 @@
 # Change Log
 
+## [1.15.0]
+
+### Fresh Files
+
+#### Manual loading 
+
+You can now turn off the Fresh File Explorer part of the Fresh File Explorer.
+
+Set `freshFileExplorer.freshFileLoading: "manual"` to disable FFE reading git history until you ask. Aimed at users who care about startup impact or mainly use the extension's other features and never open the Fresh Files view. The tree then offers a click-to-load entry and the status bar shows "manual".
+
+- Repo discovery still runs, because it is critical for other parts of the extension.  
+- Anything you explicitly invoke (search in fresh files, the stonks panel, enabling the heatmap) requests a load.
+- Once the load is requested, the view stays live for the rest of the session.
+
+#### Commit-graph advice 
+
+When a repository's history load is measurably slow
+  and the repo has no git commit-graph, a one-time notification offers the
+  setup commands and a guide (it also speeds up merges, `git status`, and other
+  tools). Disable with `freshFileExplorer.warnMissingCommitGraph` or the
+  notification's "Don't ask again".
+
+### Find Files Modified Together [experimental]
+
+Examines your recent git history for files that usually change together with what you're changing but are still not in your pending changes.
+
+- Triggered from the lightbulb in the Pinned Items view, or right-clicking a file (Fresh Files, Explorer, or the editor). With no file given it checks your pending changes; with nothing pending, the active editor's file.
+- Results land in **Pinned Items** as suggestions: lightbulb icon, evidence in
+  the description. A run that finds nothing appears as a completed item, so you know that an attempt was made.
+- **Works across repositories** where commit messages carry ticket ids
+  (recognized out of the box: JIRA/Linear/YouTrack-style keys, ClickUp task
+  ids, Azure Boards `AB#…` references, Shortcut `sc-…` stories, and CVE ids;
+  other trackers via `freshFileExplorer.cochange.ticketPattern`; GitHub-style
+  `#123` is deliberately not joined — issue numbers are per-repo).
+- To avoid noisy results, couplings need repeated recent evidence. Files that co-change with everything (locale files), bulk commits, and couplings that died in a refactor are all attempted to be filtered out. This is a hard balance to strike which is why the feature is labelled experimental for now.
+- Settings: `freshFileExplorer.cochange.lookbackDays`,
+  `freshFileExplorer.cochange.maxSuggestions`,
+  `freshFileExplorer.cochange.ticketPattern`.
+
+### Fixes
+
+- Blame heatmap: deleted-lines gutter badges no longer linger (and leak) after
+  the heatmap bails out on a file — e.g. when the file grows past the line
+  limit or blame fails on a re-apply.
+- CodeStonks: the chart no longer briefly renders unfiltered full-history data
+  when the panel opens mid-refresh, and moving the panel to another editor
+  group no longer desyncs the highlighted repo from the charted one.
+- Repo discovery no longer double-walks the workspace (and double-fires
+  dependent reloads like Branch Compare) when a refresh lands mid-discovery.
+
 ## [1.14.0]
 
 ### Branch Compare
@@ -112,8 +162,8 @@
 
 A new tree view that surfaces saved branch-to-branch comparisons. Each row is one `source..target` ref pair.
 
-| Settings panel | Tree view |
-|---|---|
+| Settings panel                                                   | Tree view                                                |
+| ---------------------------------------------------------------- | -------------------------------------------------------- |
 | ![branch compare settings](./img/branch-comparison-settings.png) | ![branch compare view](./img/branch-comparison-view.png) |
 
 #### How it works

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from "fs";
 
 import { PinnedItemsManager } from "./pinnedItemsManager";
 import {
@@ -23,6 +24,14 @@ import type { FreshFileProvider } from "./freshFileProvider";
  * (pin, unpin, notes, reorder, …) are exposed here so commands can target
  * this provider directly.
  */
+function isDirectory(fsPath: string): boolean {
+  try {
+    return fs.statSync(fsPath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
   readonly onDidChangeTreeData: vscode.Event<FreshFilesTreeItem | undefined | void> =
@@ -88,7 +97,10 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
         );
 
         // Distinct contextValue so the context menu shows "Unpin" rather than "Pin"
-        item.contextValue = TreeItemContextValues.PINNED_FILE;
+        // (and suggestion-specific actions for machine-created entries).
+        item.contextValue = pinnedItem.suggested
+          ? TreeItemContextValues.SUGGESTED_FILE
+          : TreeItemContextValues.PINNED_FILE;
 
         // Stable ID that differs from the regular view so VS Code can track both independently
         item.id = createPinnedFileId(uri.fsPath);
@@ -108,6 +120,19 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
         }
 
         item.tooltip = metadata ? formatFileTooltip(metadata, ConfigService.getDescriptionFormat()) : filePath;
+
+        if (pinnedItem.suggested) {
+          // Suggestions carry their evidence instead of the directory — the
+          // "why" is what makes a machine pin trustworthy.
+          item.iconPath = new vscode.ThemeIcon("lightbulb");
+          item.description = pinnedItem.data;
+          item.tooltip = `Suggested: ${pinnedItem.data}\n${filePath}`;
+          // Directory targets (e.g. a migrations folder) can't open in an
+          // editor — reveal them in the Explorer instead.
+          if (isDirectory(filePath)) {
+            item.command = { command: "revealInExplorer", title: "Reveal in Explorer", arguments: [uri] };
+          }
+        }
 
         items.push(item);
       }

@@ -75,6 +75,12 @@ function createHandleDrag() {
 // Pinned Items view — drag & drop handlers
 // ---------------------------------------------------------------------------
 
+/** File rows in the Pinned Items view: user pins and machine suggestions drag alike. */
+function isPinnedViewFile(item: FreshFileItem): boolean {
+  return item.contextValue === TreeItemContextValues.PINNED_FILE
+    || item.contextValue === TreeItemContextValues.SUGGESTED_FILE;
+}
+
 /**
  * Drag handler for the Pinned Items view.
  * Exposes pinned item IDs (for reordering) and file URIs (for external drops).
@@ -84,7 +90,7 @@ function createHandlePinnedDrag() {
     const ids = items
       .filter(
         (item): item is FreshFileItem | NoteTreeItem =>
-          (item instanceof FreshFileItem && item.contextValue === TreeItemContextValues.PINNED_FILE) ||
+          (item instanceof FreshFileItem && isPinnedViewFile(item)) ||
           item instanceof NoteTreeItem,
       )
       .map(item => item.id!);
@@ -99,7 +105,7 @@ function createHandlePinnedDrag() {
       .filter(
         (item): item is FreshFileItem =>
           item instanceof FreshFileItem &&
-          item.contextValue === TreeItemContextValues.PINNED_FILE &&
+          isPinnedViewFile(item) &&
           !item.isDeleted,
       )
       .map(item => item.resourceUri);
@@ -128,7 +134,7 @@ function createHandlePinnedDrop(pinnedItemsProvider: PinnedItemsProvider) {
     if (internalData) {
       const sourceIds = parseJsonStringArray(internalData);
       if (sourceIds && sourceIds.length === 1) {
-        if (target && ((target instanceof FreshFileItem && target.contextValue === TreeItemContextValues.PINNED_FILE) ||
+        if (target && ((target instanceof FreshFileItem && isPinnedViewFile(target)) ||
                        target instanceof NoteTreeItem)) {
           log(`PinnedDrop: Reordering ${sourceIds[0]} → before ${target.id}`);
           pinnedItemsProvider.pinnedItemsManager.reorderPinnedItems(sourceIds[0], target.id!, false);
@@ -148,7 +154,7 @@ function createHandlePinnedDrop(pinnedItemsProvider: PinnedItemsProvider) {
     const filePaths = await parseAndFilterUris(uriListData);
     if (filePaths.length === 0) { return; }
 
-    if (target instanceof FreshFileItem && target.contextValue === TreeItemContextValues.PINNED_FILE && target.id) {
+    if (target instanceof FreshFileItem && isPinnedViewFile(target) && target.id) {
       pinnedItemsProvider.pinnedItemsManager.pinFilesAfterItem(filePaths, target.id);
     } else if (target instanceof NoteTreeItem && target.id) {
       pinnedItemsProvider.pinnedItemsManager.pinFilesAfterItem(filePaths, target.id);

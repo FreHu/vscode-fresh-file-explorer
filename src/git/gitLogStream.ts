@@ -108,7 +108,7 @@ export function createNameStatusLineProcessor(
  * close events uniformly so individual streaming functions only need to supply
  * the per-line processing logic.
  */
-function spawnGitLines(
+export function spawnGitLines(
   args: string[],
   cwd: string,
   timeout: number | undefined,

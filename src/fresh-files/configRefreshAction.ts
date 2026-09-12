@@ -42,6 +42,9 @@ const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
 
   // Handled elsewhere or behavioural only — no tree refresh needed.
   WARN_MISSING_COMMIT_GRAPH:       "none",
+  COCHANGE_LOOKBACK_DAYS:          "none",
+  COCHANGE_MAX_SUGGESTIONS:        "none",
+  COCHANGE_TICKET_PATTERN:         "none",
   HEATMAP_ENABLED:                 "none",
   BLAME_HEATMAP_AUTO_APPLY:        "none",
   BLAME_HEATMAP_BG_OPACITY:        "none",

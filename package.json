@@ -467,6 +467,20 @@
         "icon": "$(pinned)"
       },
       {
+        "command": "freshFileExplorer.suggestCochanges",
+        "title": "Find Files Modified Together",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "freshFileExplorer.keepSuggestion",
+        "title": "Keep as Pin",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "freshFileExplorer.clearSuggestions",
+        "title": "Clear Suggestions"
+      },
+      {
         "command": "freshFileExplorer.addNote",
         "title": "Add Note",
         "icon": "$(add)"
@@ -778,6 +792,11 @@
           "group": "z_freshfiles@4"
         },
         {
+          "command": "freshFileExplorer.suggestCochanges",
+          "when": "editorTextFocus && resourceScheme == file",
+          "group": "z_freshfiles@6"
+        },
+        {
           "command": "freshFileExplorer.searchInFoundFiles",
           "when": "inSearchEditor",
           "group": "1_search@10"
@@ -798,6 +817,11 @@
           "command": "freshFileExplorer.pinFile",
           "when": "!explorerResourceIsFolder",
           "group": "2_workspace@100"
+        },
+        {
+          "command": "freshFileExplorer.suggestCochanges",
+          "when": "!explorerResourceIsFolder",
+          "group": "2_workspace@101"
         },
         {
           "command": "freshFileExplorer.gitLogFile",
@@ -877,6 +901,11 @@
           "group": "navigation@0"
         },
         {
+          "command": "freshFileExplorer.suggestCochanges",
+          "when": "view == pinnedItems",
+          "group": "navigation@0"
+        },
+        {
           "command": "freshFileExplorer.addNote",
           "when": "view == pinnedItems",
           "group": "navigation@1"
@@ -890,6 +919,11 @@
           "command": "freshFileExplorer.clearAllPinned",
           "when": "view == pinnedItems",
           "group": "navigation@3"
+        },
+        {
+          "command": "freshFileExplorer.clearSuggestions",
+          "when": "view == pinnedItems",
+          "group": "1_manage@1"
         },
         {
           "command": "freshFileExplorer.revealActiveFile",
@@ -1004,6 +1038,16 @@
           "group": "1_open@1"
         },
         {
+          "command": "freshFileExplorer.suggestCochanges",
+          "when": "view == freshFileExplorer && viewItem == pendingGroup",
+          "group": "inline@2"
+        },
+        {
+          "command": "freshFileExplorer.suggestCochanges",
+          "when": "view == freshFileExplorer && viewItem == pendingGroup",
+          "group": "2_pin@1"
+        },
+        {
           "command": "freshFileExplorer.gitLogFile",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile)$/",
           "group": "3_reveal@4"
@@ -1079,6 +1123,11 @@
           "group": "2_pin@1"
         },
         {
+          "command": "freshFileExplorer.suggestCochanges",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/",
+          "group": "2_pin@2"
+        },
+        {
           "command": "freshFileExplorer.copyAbsolutePath",
           "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
           "group": "5_copypath@1"
@@ -1122,6 +1171,26 @@
           "command": "freshFileExplorer.unpinFile",
           "when": "view == pinnedItems && viewItem == pinnedFile",
           "group": "2_pin@1"
+        },
+        {
+          "command": "freshFileExplorer.keepSuggestion",
+          "when": "view == pinnedItems && viewItem == suggestedFile",
+          "group": "inline@1"
+        },
+        {
+          "command": "freshFileExplorer.keepSuggestion",
+          "when": "view == pinnedItems && viewItem == suggestedFile",
+          "group": "2_pin@1"
+        },
+        {
+          "command": "freshFileExplorer.unpinFile",
+          "when": "view == pinnedItems && viewItem == suggestedFile",
+          "group": "2_pin@2"
+        },
+        {
+          "command": "freshFileExplorer.openFile",
+          "when": "view == pinnedItems && viewItem == suggestedFile",
+          "group": "1_open@1"
         },
         {
           "command": "freshFileExplorer.openFile",
@@ -1997,6 +2066,24 @@
             "Don't read git history until you run Refresh in the Fresh Files view. Repository discovery still runs, so Branch Compare and the per-line blame heatmap keep working. Once refreshed, the view stays live for the rest of the session. The recency heatmap's file colors stay off until then, since they need the history."
           ],
           "description": "When the fresh-files scan reads git history."
+        },
+        "freshFileExplorer.cochange.lookbackDays": {
+          "type": "number",
+          "default": 365,
+          "minimum": 30,
+          "description": "How far back 'Find Files Modified Together' reads git history when mining which files usually change together. Longer windows give more evidence for stable couplings; couplings that stopped co-changing recently are filtered out regardless."
+        },
+        "freshFileExplorer.cochange.maxSuggestions": {
+          "type": "number",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 30,
+          "description": "Maximum number of co-change suggestions placed in the Pinned Items view per run."
+        },
+        "freshFileExplorer.cochange.ticketPattern": {
+          "type": "string",
+          "default": "",
+          "description": "Extra regular expression for ticket ids anywhere in commit messages (subject or body), used to join related work across repositories (e.g. backend and frontend commits referencing the same ticket). Recognized out of the box: JIRA/Linear/YouTrack-style keys (AB-123), ClickUp task ids, Azure Boards references (AB#123), Shortcut stories (sc-123), and CVE ids."
         },
         "freshFileExplorer.warnMissingCommitGraph": {
           "type": "boolean",

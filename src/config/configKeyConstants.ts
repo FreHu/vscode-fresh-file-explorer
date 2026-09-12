@@ -27,6 +27,11 @@ export const ConfigKeys = {
   FRESH_FILE_LOADING: "freshFileExplorer.freshFileLoading",
   WARN_MISSING_COMMIT_GRAPH: "freshFileExplorer.warnMissingCommitGraph",
 
+  // Co-change suggestions
+  COCHANGE_LOOKBACK_DAYS: "freshFileExplorer.cochange.lookbackDays",
+  COCHANGE_MAX_SUGGESTIONS: "freshFileExplorer.cochange.maxSuggestions",
+  COCHANGE_TICKET_PATTERN: "freshFileExplorer.cochange.ticketPattern",
+
   // Heatmap settings
   HEATMAP_ENABLED: "freshFileExplorer.heatmap.enabled",
   BLAME_HEATMAP_AUTO_APPLY: "freshFileExplorer.blameHeatmap.autoApply",

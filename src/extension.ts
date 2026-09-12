@@ -33,6 +33,7 @@ import { handleSearchInFreshFiles, handlesearchInFoundFiles, handleOpenAllFoundF
 import { handleQuickPickFile } from "./commands/quickPickCommand";
 import { showBlameHeatmapPicker } from "./commands/heatmapQuickPickCommand";
 import { handlePinFile, handleUnpinFile } from "./commands/pinCommands";
+import { handleSuggestCochanges, handleKeepSuggestion } from "./commands/cochangeCommands";
 import { handleAddNote, handleEditNote, handleDeleteNote, handleClearAllPinned, handleClearCompleted } from "./commands/noteCommands";
 import { handleViewOptions } from "./commands/viewOptionsCommand";
 import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, handleCopySubtreeStructure } from "./commands/copyPathCommands";
@@ -453,6 +454,14 @@ function registerCommands(
   register(Commands.UNPIN_FILE, (item: FreshFileItem, selectedItems?: FreshFileItem[]) =>
     handleUnpinFile(item, selectedItems, pinnedItemsProvider),
   );
+
+  register(Commands.SUGGEST_COCHANGES, (arg?: FreshFileItem | vscode.Uri) =>
+    handleSuggestCochanges(freshFileProvider, pinnedItemsProvider, arg),
+  );
+  register(Commands.KEEP_SUGGESTION, (item: FreshFileItem | undefined) =>
+    handleKeepSuggestion(pinnedItemsProvider, item),
+  );
+  register(Commands.CLEAR_SUGGESTIONS, () => pinnedItemsProvider.pinnedItemsManager.clearSuggestions());
 
   register(Commands.ADD_NOTE, () => handleAddNote(pinnedItemsProvider));
 
