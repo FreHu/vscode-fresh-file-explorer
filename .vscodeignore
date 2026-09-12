@@ -23,5 +23,5 @@ personal/**
 scripts/**
 .github/**
 .githooks/**
-claude.md
+CLAUDE.md
 settings.local.json

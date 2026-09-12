@@ -168,9 +168,12 @@ function extractPaths(text: string): string[] {
 
 suite("Docs ↔ source drift", () => {
   for (const doc of DOCS) {
-    const text = fs.readFileSync(path.join(root, doc), "utf8");
+    // Read inside each test: a miss (e.g. wrong casing on a case-sensitive FS)
+    // must fail this test, not abort the whole unit run at collection time.
+    const read = (): string => fs.readFileSync(path.join(root, doc), "utf8");
 
     test(`${doc}: every referenced file exists`, () => {
+      const text = read();
       const broken: string[] = [];
       for (const ref of new Set(extractPaths(text))) {
         if (EXTERNAL_PATHS.has(ref)) {
@@ -185,6 +188,7 @@ suite("Docs ↔ source drift", () => {
     });
 
     test(`${doc}: every "symbol lives in file" claim is true`, () => {
+      const text = read();
       const wrong: string[] = [];
       for (const claim of extractClaims(text)) {
         if (EXTERNAL_PATHS.has(claim.ref)) {
