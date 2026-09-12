@@ -39,7 +39,7 @@ export const GROUPING_MODE_OPTIONS: GroupingModeOption[] = [
     mode: "Moon Phase",
     label: "Moon Phase",
     description: "Group by lunar phase at commit time",
-    icon: "$(circle-filled)",
+    icon: "$(color-mode)",
   },
 ];
 

@@ -87,8 +87,38 @@ export function getBranchCompareSettingsHtml(
     .col-repo { white-space: nowrap; }
     .col-source, .col-target { min-width: 220px; }
     .col-label { min-width: 160px; }
-    .col-diff { width: 110px; }
-    .col-grouping { width: 150px; }
+    .col-diff { width: 56px; text-align: center; }
+    .icon-toggle {
+      display: inline-flex;
+      border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .icon-toggle button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 22px;
+      padding: 0;
+      border: none;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      cursor: pointer;
+    }
+    .icon-toggle button + button { border-left: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); }
+    .icon-toggle button:hover:not(.selected):not([disabled]) { background: var(--vscode-toolbar-hoverBackground); }
+    .icon-toggle button.selected {
+      background: var(--vscode-inputOption-activeBackground, var(--vscode-button-background));
+      color: var(--vscode-inputOption-activeForeground, var(--vscode-button-foreground));
+    }
+    .icon-toggle button:focus-visible {
+      outline: 1px solid var(--vscode-focusBorder);
+      outline-offset: -1px;
+    }
+    .icon-toggle[aria-disabled="true"] { opacity: 0.5; }
+    .icon-toggle[aria-disabled="true"] button { cursor: default; }
+    .col-grouping { width: 132px; text-align: center; }
     .col-hide-reviewed { width: 90px; text-align: center; }
     .col-heatmap { width: 80px; text-align: center; }
     .col-actions { width: 160px; text-align: right; white-space: nowrap; }

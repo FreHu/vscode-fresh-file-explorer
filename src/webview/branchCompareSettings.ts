@@ -62,28 +62,69 @@ batchGrouping.addEventListener("change", () => {
   send({ command: "setAllGroupingMode", mode: mode as GroupingMode });
 });
 
-/** Build a per-row grouping <select>, pre-selected to `current`. */
-function groupingSelect(current: GroupingMode | undefined, onChange: (mode: GroupingMode) => void): HTMLSelectElement {
-  const select = document.createElement("select");
-  for (const opt of GROUPING_MODE_OPTIONS) {
-    const o = new Option(opt.label, opt.mode);
-    if (opt.mode === current) { o.selected = true; }
-    select.appendChild(o);
-  }
-  select.addEventListener("change", () => onChange(select.value as GroupingMode));
-  return select;
+/**
+ * Build a per-row grouping icon toggle.
+ * `onChange` omitted renders a disabled toggle (draft rows).
+ */
+function groupingToggle(current: GroupingMode | undefined, onChange?: (mode: GroupingMode) => void): HTMLElement {
+  return iconToggle(
+    GROUPING_MODE_OPTIONS.map(o => ({
+      value: o.mode,
+      // shared with the quick pick, where icons carry the `$(name)` wrapper
+      icon: o.icon.replace(/^\$\(|\)$/g, ""),
+      title: `${o.label} — ${o.description}`,
+    })),
+    current,
+    onChange,
+  );
 }
 
-/** Build a per-row diff-mode <select> (Merge vs Full), pre-selected to `current`. */
-function diffSelect(current: DiffMode, onChange: (mode: DiffMode) => void): HTMLSelectElement {
-  const select = document.createElement("select");
-  for (const [value, label] of [["merge", "Merge"], ["full", "Full"]] as const) {
-    const o = new Option(label, value);
-    if (value === current) { o.selected = true; }
-    select.appendChild(o);
+interface IconToggleOption<T> { value: T; icon: string; title: string; }
+
+/** Segmented icon radio group. Disabled (no `onChange`) rows still show the current value. */
+function iconToggle<T extends string>(
+  options: readonly IconToggleOption<T>[],
+  current: T | undefined,
+  onChange?: (value: T) => void,
+  disabledTitle = "Set after saving the comparison",
+): HTMLElement {
+  const group = document.createElement("div");
+  group.className = "icon-toggle";
+  group.setAttribute("role", "radiogroup");
+  if (!onChange) { group.setAttribute("aria-disabled", "true"); }
+  for (const opt of options) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("role", "radio");
+    btn.innerHTML = `<i class="codicon codicon-${opt.icon}"></i>`;
+    const selected = opt.value === current;
+    btn.classList.toggle("selected", selected);
+    btn.setAttribute("aria-checked", String(selected));
+    if (onChange) {
+      btn.title = opt.title;
+      btn.addEventListener("click", () => {
+        if (opt.value !== current) { onChange(opt.value); }
+      });
+    } else {
+      btn.title = disabledTitle;
+      btn.disabled = true;
+    }
+    group.appendChild(btn);
   }
-  select.addEventListener("change", () => onChange(select.value as DiffMode));
-  return select;
+  return group;
+}
+
+const DIFF_MODE_OPTIONS = [
+  { value: "merge", icon: "git-merge", title: "Merge: diff vs the merge-base (PR-style)" },
+  { value: "full", icon: "git-compare", title: "Full: exact diff against the target ref" },
+] as const satisfies readonly IconToggleOption<DiffMode>[];
+
+/**
+ * Build a per-row diff-mode icon toggle (Merge vs Full).
+ * `onChange` omitted renders a disabled toggle (draft rows).
+ */
+function diffToggle(current: DiffMode, onChange?: (mode: DiffMode) => void): HTMLElement {
+  return iconToggle(DIFF_MODE_OPTIONS, current, onChange);
 }
 
 /** Reflect the comparisons' shared grouping mode in the batch select, or "(mixed)". */
@@ -387,7 +428,7 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   // Diff mode (merge vs full)
   const diffTd = document.createElement("td");
   diffTd.className = "col-diff";
-  diffTd.appendChild(diffSelect(c.diffMode, mode => {
+  diffTd.appendChild(diffToggle(c.diffMode, mode => {
     send({ command: "update", id: c.id, patch: { diffMode: mode } });
   }));
   tr.appendChild(diffTd);
@@ -408,7 +449,7 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   // Grouping mode (per-comparison)
   const groupingTd = document.createElement("td");
   groupingTd.className = "col-grouping";
-  groupingTd.appendChild(groupingSelect(c.groupingMode, mode => {
+  groupingTd.appendChild(groupingToggle(c.groupingMode, mode => {
     send({ command: "update", id: c.id, patch: { groupingMode: mode } });
   }));
   tr.appendChild(groupingTd);
@@ -553,11 +594,7 @@ function renderDraftRow(d: DraftRow, idx: number): HTMLTableRowElement {
   // Diff mode (defaults to Merge once saved — can't set on a draft)
   const diffTd = document.createElement("td");
   diffTd.className = "col-diff";
-  const diffSel = document.createElement("select");
-  diffSel.disabled = true;
-  diffSel.title = "Set diff mode after saving the comparison";
-  diffSel.appendChild(new Option("Merge", "merge"));
-  diffTd.appendChild(diffSel);
+  diffTd.appendChild(diffToggle("merge"));
   tr.appendChild(diffTd);
 
   // Label
@@ -574,11 +611,7 @@ function renderDraftRow(d: DraftRow, idx: number): HTMLTableRowElement {
   // Grouping (seeded from the workspace default once saved — can't set on a draft)
   const groupingTd = document.createElement("td");
   groupingTd.className = "col-grouping";
-  const groupingSel = document.createElement("select");
-  groupingSel.disabled = true;
-  groupingSel.title = "Set grouping after saving the comparison";
-  groupingSel.appendChild(new Option("(default)", ""));
-  groupingTd.appendChild(groupingSel);
+  groupingTd.appendChild(groupingToggle(undefined));
   tr.appendChild(groupingTd);
 
   // Hide reviewed (cannot be set on a draft — needs an id)
