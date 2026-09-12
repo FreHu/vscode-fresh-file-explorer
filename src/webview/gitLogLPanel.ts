@@ -152,9 +152,10 @@ function renderTimeline(): void {
 
     const header = document.createElement("div");
     header.className = "commit-header";
+    // placeholder keeps the column width so rows without stats stay aligned
     const statHtml = (commit.added || commit.removed)
       ? html`<span class="stat"><span class="stat-add">+${commit.added}</span> <span class="stat-del">-${commit.removed}</span></span>`
-      : "";
+      : html`<span class="stat"><span class="stat-add"></span> <span class="stat-del"></span></span>`;
     const renameHtml = commit.filePathAtCommit
       ? html`<span class="rename" title="File was at ${commit.filePathAtCommit} in this commit">↪ ${commit.filePathAtCommit}</span>`
       : "";
