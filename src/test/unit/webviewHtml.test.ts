@@ -9,7 +9,8 @@ import { formatGitCommand } from "../../utils/formatUtils";
  */
 suite("Webview HTML – gitLogLPanelUI", () => {
   const scriptUri = "vscode-webview://fake-origin/media/gitLogLPanel.js";
-  const html = getGitLogLPanelHtml("https://example.com", scriptUri);
+  const codiconCssUri = "vscode-webview://fake-origin/media/codicons/codicon.css";
+  const html = getGitLogLPanelHtml("https://example.com", scriptUri, codiconCssUri);
 
   test("contains DOCTYPE and html root", () => {
     assert.ok(html.startsWith("<!DOCTYPE html>"), "should start with DOCTYPE");

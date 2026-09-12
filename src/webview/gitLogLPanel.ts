@@ -163,6 +163,7 @@ function renderTimeline(): void {
     header.innerHTML = html`
       <button class="ab-btn" data-action="ab" title="Mark as A or B for comparison">·</button>
       <span class="chevron">▶</span>
+      <button class="diff-btn" data-action="openFileDiff" title="Open this file's change as a diff to the side"><i class="codicon codicon-diff-single"></i></button>
       ${raw(statHtml)}
       <span class="hash" data-action="openCommit" title="Open commit in multi-diff editor">${commit.shortHash}</span>
       <span class="message"${raw(msgTitle)}>${commit.message || "(no message)"}</span>
@@ -186,9 +187,15 @@ function renderTimeline(): void {
       postMessage({ command: "openCommit", hash: commit.hash });
     });
 
+    header.querySelector<HTMLElement>('[data-action="openFileDiff"]')!.addEventListener("click", e => {
+      e.stopPropagation();
+      postMessage({ command: "openFileDiff", hash: commit.hash });
+    });
+
     header.addEventListener("click", (e: MouseEvent) => {
       if ((e.target as Element).closest('[data-action="ab"]')) { return; }
       if ((e.target as Element).closest('[data-action="openCommit"]')) { return; }
+      if ((e.target as Element).closest('[data-action="openFileDiff"]')) { return; }
       row.classList.toggle("expanded");
       updateChevron(row);
     });

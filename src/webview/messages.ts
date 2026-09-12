@@ -118,6 +118,7 @@ export type GitLogLFromWebview =
   | { command: "ready" }
   | { command: "compare"; hashA: string; hashB: string }
   | { command: "openCommit"; hash: string }
+  | { command: "openFileDiff"; hash: string }
   | { command: "openSingle"; hash: string };
 
 // ── Diff Search panel ─────────────────────────────────────────────────────────

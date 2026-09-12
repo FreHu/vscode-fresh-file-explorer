@@ -84,7 +84,10 @@ export class GitLogLPanel {
     const scriptUri = panel.webview
       .asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "gitLogLPanel.js"))
       .toString();
-    this._panel.webview.html = getGitLogLPanelHtml(this._panel.webview.cspSource, scriptUri);
+    const codiconCssUri = panel.webview
+      .asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "codicons", "codicon.css"))
+      .toString();
+    this._panel.webview.html = getGitLogLPanelHtml(this._panel.webview.cspSource, scriptUri, codiconCssUri);
 
     this._panel.onDidDispose(() => {
       GitLogLPanel.panels.delete(mapKey);
@@ -158,6 +161,9 @@ export class GitLogLPanel {
         break;
       case "openCommit":
         await this._openCommit(msg.hash);
+        break;
+      case "openFileDiff":
+        await this._openFileDiff(msg.hash);
         break;
       default: {
         const unhandled: never = msg;
@@ -237,6 +243,70 @@ export class GitLogLPanel {
       const message = err instanceof Error ? err.message : String(err);
       showError(`Failed to open commit: ${message}`, `git log -L open commit error: ${message}`);
     }
+  }
+
+  /**
+   * Open this file's own change at `hash` as a plain diff beside the panel —
+   * the commit's version against its parent's, matching the Git extension's
+   * "Open Changes". Falls back to the read-only snapshot for a root commit.
+   *
+   * The side that doesn't exist at a boundary (the parent of an add, the child
+   * of a delete) gets an empty virtual document rather than a `git:` URI for a
+   * path git can't resolve — that URI opens as "file was not found", not as an
+   * empty pane. Renames take their old path on the parent side.
+   */
+  private async _openFileDiff(hash: string) {
+    try {
+      const commitPath = this._filePathByHash.get(hash)
+        ?? normalizePath(path.relative(this._repoRoot, this._filePath));
+      const parentHash = await getCommitParent(this._repoRoot, hash);
+      if (!parentHash) {
+        await this._openSingle(hash);
+        return;
+      }
+
+      const changes = await getCommitChanges(this._repoRoot, hash);
+      const change = changes.find(c => normalizePath(c.filePath) === commitPath);
+      const status = change?.status;
+      const originalPath = status === "R" || status === "C"
+        ? normalizePath(change!.originalFilePath!)
+        : commitPath;
+
+      const refUri = (relPath: string, ref: string) =>
+        gitUri(vscode.Uri.file(path.join(this._repoRoot, relPath)), ref);
+      const shortHash = hash.slice(0, 7);
+      const ext = path.extname(commitPath);
+      const basename = path.basename(commitPath, ext);
+      const emptyUri = (side: string) =>
+        this._emptyDocUri(`${basename}@${shortHash}.${side}${ext}`);
+
+      // No entry at all means the path is untouched by this commit (possible
+      // for a `-L` range whose commit only moved surrounding lines) — diff it
+      // against the parent anyway rather than claiming an add.
+      const original = status === "A" ? emptyUri("base") : refUri(originalPath, parentHash);
+      const modified = status === "D" ? emptyUri("head") : refUri(commitPath, hash);
+
+      const title = originalPath === commitPath
+        ? `${path.basename(commitPath)} (${shortHash})`
+        : `${path.basename(originalPath)} → ${path.basename(commitPath)} (${shortHash})`;
+      await vscode.commands.executeCommand(
+        "vscode.diff",
+        original,
+        modified,
+        title,
+        { viewColumn: vscode.ViewColumn.Beside, preview: true, preserveFocus: true },
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      showError(`Could not open diff: ${message}`, `git log -L file diff error: ${message}`);
+    }
+  }
+
+  /** A registered, permanently empty `gitlogl://` document — the blank side of an add/delete diff. */
+  private _emptyDocUri(displayName: string): vscode.Uri {
+    const uri = vscode.Uri.parse(`gitlogl://empty/${displayName}`);
+    GitLogLContentProvider.instance.set(uri.toString(), "");
+    return uri;
   }
 
   private async _openSingle(hash: string) {

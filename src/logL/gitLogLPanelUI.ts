@@ -1,7 +1,7 @@
 import { html, css, raw } from "../utils/templateHelpers";
 import { getNonce } from "../utils/webviewUtils";
 
-export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): string {
+export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codiconCssUri: string): string {
   const nonce = getNonce();
 
   const styles = css`
@@ -191,6 +191,25 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): strin
       letter-spacing: 0.04em;
     }
     .ab-btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+    .diff-btn {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: none;
+      border-radius: 3px;
+      background: transparent;
+      color: var(--vscode-icon-foreground, var(--vscode-foreground));
+      opacity: 0.7;
+      cursor: pointer;
+    }
+    .diff-btn:hover {
+      opacity: 1;
+      background: var(--vscode-toolbar-hoverBackground);
+    }
     .ab-btn.sel-a {
       background: var(--vscode-gitDecoration-addedResourceForeground, #2ea043);
       color: #fff;
@@ -369,8 +388,9 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string): strin
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}'; font-src ${cspSource};">
   <title>Git Log -L</title>
+  <link rel="stylesheet" href="${raw(codiconCssUri)}">
   <style>${raw(styles)}</style>
 </head>
 <body>

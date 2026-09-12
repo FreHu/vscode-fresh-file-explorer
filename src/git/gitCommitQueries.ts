@@ -63,8 +63,10 @@ export interface CommitChange {
  */
 export async function getCommitChanges(repoFullPath: string, commitHash: string): Promise<CommitChange[]> {
   // -r: recurse into subtrees, --no-commit-id: omit commit hash line,
-  // --name-status: show status + file paths, -z: NUL-delimited output for safe parsing
-  const args = ["diff-tree", "-r", "--no-commit-id", "--name-status", "--root", "-z", commitHash];
+  // --name-status: show status + file paths, -z: NUL-delimited output for safe parsing,
+  // -M: detect renames — diff-tree is plumbing and ignores `diff.renames`, so without
+  // this a rename arrives as a D/A pair and the R/C branches below never fire.
+  const args = ["diff-tree", "-r", "-M", "--no-commit-id", "--name-status", "--root", "-z", commitHash];
   log(`Getting commit changes: git ${args.join(" ")}`);
 
   const output = await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
