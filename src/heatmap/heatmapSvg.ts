@@ -7,9 +7,15 @@
  * A 16×16 SVG with a full-height colored bar on the right edge, mimicking the
  * GitLens-style gutter indicator. `#` is percent-encoded so the string is safe
  * to embed directly in a `data:image/svg+xml,` URI.
+ *
+ * Paired with `gutterIconSize: "100% 100%"`, never `contain`: VS Code sizes the
+ * glyph-margin box as `trunc(lineHeight)` wide by the *fractional* line height
+ * tall, so `contain` letterboxes a square icon and leaves a seam between lines
+ * at any zoom where the line height isn't a whole number. The bar overdraws
+ * past the viewport vertically so its ends are clipped rather than antialiased.
  */
 export function gutterBarSvg(hexColor: string): string {
-  return `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><rect x='12' y='0' width='2' height='16' fill='${hexColor.replace(/#/g, "%23")}'/></svg>`;
+  return `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><rect x='12' y='-2' width='2' height='20' fill='${hexColor.replace(/#/g, "%23")}'/></svg>`;
 }
 
 /**

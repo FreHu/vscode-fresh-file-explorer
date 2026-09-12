@@ -612,7 +612,10 @@ export class BlameHeatmapController implements vscode.Disposable {
       // mode keep the standard age palette.
       const target = addedLineNumbers.has(lineIndex + 1) ? rangesByAddedBucket : rangesByBucket;
       target[bucket].push({
-        range: new vscode.Range(lineIndex, 0, lineIndex, 0),
+        // Full-width range, not a zero-width one at column 0: the gutter icon is
+        // drawn once per *view* line the range covers, so a collapsed range
+        // leaves wrapped lines with a bar only on their first screen row.
+        range: new vscode.Range(lineIndex, 0, lineIndex, editor.document.lineAt(lineIndex).text.length),
         hoverMessage: hover,
       });
     }

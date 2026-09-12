@@ -24,7 +24,8 @@ function buildBucketTypes(
     vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
       gutterIconPath: makeGutterIconUri(colors[i]),
-      gutterIconSize: "contain",
+      // stretch, don't fit — see gutterBarSvg
+      gutterIconSize: "100% 100%",
       backgroundColor: hexToRgba(colors[i], opacity),
       overviewRulerColor: new vscode.ThemeColor(`freshFileExplorer.heatmap.${idPrefix}${i + 1}`),
       overviewRulerLane: vscode.OverviewRulerLane.Left,
