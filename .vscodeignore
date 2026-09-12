@@ -14,3 +14,14 @@ coverage/**
 out/test/**
 agents.md
 tsconfig.webview.json
+
+# Dev-only / private — never ship
+# Nothing gitignored would ship anyway - workflow builds the vsix from github source
+# But vsce package could produce a local vsix with extra stuff
+.codegraph/**
+personal/**
+scripts/**
+.github/**
+.githooks/**
+claude.md
+settings.local.json
