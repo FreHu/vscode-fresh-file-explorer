@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 
 import { log } from "../extension/logger";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
+import { normalizePath } from "../utils";
 import { execGitWithArgs, gitProbeSucceeds, fileExists } from "./gitOperations";
 import { ConfigService } from "../config/configService";
 
@@ -170,9 +171,38 @@ export async function discoverGitReposInSubdirs(rootPath: string, relativePrefix
   return { repos, brokenWorktrees };
 }
 
+/**
+ * Decide from `git rev-parse --path-format=absolute --git-dir --git-common-dir`
+ * output whether the cwd is a linked worktree. Line 1 is the git dir, line 2 the
+ * common dir; they coincide for the main checkout (and for submodules, whose
+ * git dir under `.git/modules/` is its own common dir) and diverge only for a
+ * linked worktree, whose git dir lives under `<common>/worktrees/<name>`.
+ */
+export function parseWorktreeProbe(output: string): boolean {
+  const [gitDir, commonDir] = output.split(/\r?\n/).map(l => normalizePath(l.trim()));
+  if (!gitDir || !commonDir) { return false; }
+  return gitDir !== commonDir;
+}
+
+/** True when `dirPath` is a linked worktree (`git worktree add`), false for the main checkout or on error. */
+export async function isLinkedWorktree(dirPath: string): Promise<boolean> {
+  try {
+    const out = await execGitWithArgs(
+      ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
+      dirPath,
+      { timeout: ConfigService.getGitTimeoutMs() },
+    );
+    return parseWorktreeProbe(out);
+  } catch {
+    return false;
+  }
+}
+
 export interface RepoInfo {
   name: string;
   path: AbsolutePath;
+  /** True for a linked worktree (its `.git` is a file pointing into the main checkout). */
+  isWorktree?: boolean;
 }
 
 /**
@@ -202,5 +232,6 @@ export async function discoverReposInWorkspace(
     }
   }
 
+  await Promise.all(repos.map(async r => { r.isWorktree = await isLinkedWorktree(r.path); }));
   return repos;
 }

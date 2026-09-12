@@ -5,6 +5,7 @@ import { CommitHash } from "../types";
 import { Commands } from "../commands/commandConstants";
 import { formatRelativeDate, shortSha } from "../utils/formatUtils";
 import { DiffSearchContextValues } from "./diffSearchConstants";
+import { RepoKind, repoKindIcon } from "../git/repoKind";
 
 /**
  * Tree item representing a file with diff matches
@@ -108,12 +109,13 @@ export class DiffSearchRepoItem extends vscode.TreeItem {
   constructor(
     public readonly repoName: string,
     public readonly matchCount: number,
+    kind: RepoKind = "repo",
   ) {
     super(repoName, matchCount > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 
     this.id = `repo::${repoName}`;
     this.description = `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
-    this.iconPath = new vscode.ThemeIcon("repo");
+    this.iconPath = new vscode.ThemeIcon(repoKindIcon(kind));
     this.contextValue = DiffSearchContextValues.REPO;
   }
 }

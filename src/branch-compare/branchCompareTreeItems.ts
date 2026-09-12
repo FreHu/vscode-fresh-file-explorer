@@ -6,6 +6,7 @@ import { Commands } from "../commands/commandConstants";
 import { AbsolutePath } from "../pathTypes";
 import { BranchCompareContextValues, DiffMode } from "./branchCompareConstants";
 import { formatLineChanges } from "../utils/formatUtils";
+import { RepoKind, repoKindIcon, repoKindLabel } from "../git/repoKind";
 
 /** Single-letter status badge shown in the description column. */
 function statusBadge(status: ChangeStatus): string {
@@ -61,6 +62,8 @@ export class RepoSectionItem extends vscode.TreeItem {
     hideReviewed = false,
     /** How many of `fileCount` are marked reviewed. Only surfaced when `hideReviewed` is on — otherwise the plain count is unambiguous. */
     reviewedCount = 0,
+    /** Plain repo / linked worktree / submodule — picks the icon the Source Control view uses. */
+    kind: RepoKind = "repo",
   ) {
     // Always expandable — even an empty section renders a "No changes / Loading…"
     // message child, which is meaningful to show. More importantly, VS Code's
@@ -114,10 +117,14 @@ export class RepoSectionItem extends vscode.TreeItem {
     if (hideReviewed) {
       tooltipLines.push("Hiding reviewed files");
     }
+    const kindLabel = repoKindLabel(kind);
+    if (kindLabel) {
+      tooltipLines.push(kindLabel);
+    }
     this.tooltip = tooltipLines.join("\n");
     // Auto-follow sections get the "eye" (watching) icon and a distinct
     // contextValue so the "Stop following" action can target only them.
-    this.iconPath = new vscode.ThemeIcon(auto ? "eye" : "repo");
+    this.iconPath = new vscode.ThemeIcon(auto ? "eye" : repoKindIcon(kind));
     this.contextValue = auto
       ? BranchCompareContextValues.AUTO_REPO_SECTION
       : BranchCompareContextValues.REPO_SECTION;

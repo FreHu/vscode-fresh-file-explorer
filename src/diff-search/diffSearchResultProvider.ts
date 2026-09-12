@@ -36,6 +36,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
   private displayMatches: DiffMatch[] = [];
   private changeTypeFilter: ChangeTypeFilter = "all";
   private repoNames = new Map<AbsolutePath, string>(); // repo path -> repo name
+  private worktreeRepos: ReadonlySet<AbsolutePath> = new Set();
 
   // Performance optimization: cache groupings to avoid rebuilding on every display
   private commitGroupsCache: Map<CommitHash, DiffMatch[]> | null = null;
@@ -100,11 +101,13 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
    * @param pattern The search pattern used
    * @param matches Array of diff matches
    * @param repoNames Map of repo paths to repo names
+   * @param worktreeRepos Repo paths that are linked worktrees (icon only)
    */
-  showResults(pattern: string, matches: DiffMatch[], repoNames: Map<AbsolutePath, string>): void {
+  showResults(pattern: string, matches: DiffMatch[], repoNames: Map<AbsolutePath, string>, worktreeRepos: ReadonlySet<AbsolutePath> = new Set()): void {
     this.searchPattern = pattern;
     this.allMatches = matches;
     this.repoNames = repoNames;
+    this.worktreeRepos = worktreeRepos;
 
     // A new search starts unfiltered — show everything, then let the user narrow. Avoids a
     // stale filter from a previous search silently hiding the new results.
@@ -128,6 +131,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     this.allMatches = [];
     this.displayMatches = [];
     this.repoNames.clear();
+    this.worktreeRepos = new Set();
     this.commitRepoNames.clear();
 
     // Clear caches
@@ -228,7 +232,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     for (const [repoPath, matches] of repoGroups) {
       const repoName = this.repoNames.get(repoPath) || path.basename(repoPath);
       const matchCount = matches.length;
-      items.push(new DiffSearchRepoItem(repoName, matchCount));
+      items.push(new DiffSearchRepoItem(repoName, matchCount, this.worktreeRepos.has(repoPath) ? "worktree" : "repo"));
     }
     
     // Sort repos alphabetically

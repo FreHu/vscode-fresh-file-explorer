@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { suite, test } from "mocha";
-import { classifyDiscoveryEntry, type DiscoveryAction } from "../../git/gitRepoDiscovery";
+import { classifyDiscoveryEntry, parseWorktreeProbe, type DiscoveryAction } from "../../git/gitRepoDiscovery";
 
 const classify = (over: Partial<Parameters<typeof classifyDiscoveryEntry>[0]>): DiscoveryAction =>
   classifyDiscoveryEntry({
@@ -42,5 +42,33 @@ suite("repo discovery — classifyDiscoveryEntry", () => {
   test("gitRecognizesRepo is ignored when there is no .git entry", () => {
     // Caller passes false to avoid spawning git; the recurse decision must not depend on it.
     assert.strictEqual(classify({ hasGitEntry: false, gitRecognizesRepo: true }), "recurse");
+  });
+});
+
+suite("repo discovery — parseWorktreeProbe", () => {
+  test("main checkout: git dir equals common dir", () => {
+    assert.strictEqual(parseWorktreeProbe("D:/repo/.git\nD:/repo/.git\n"), false);
+  });
+
+  test("linked worktree: git dir lives under <common>/worktrees/<name>", () => {
+    assert.strictEqual(
+      parseWorktreeProbe("D:/repo/.git/worktrees/repo.feature-a\nD:/repo/.git\n"),
+      true,
+    );
+  });
+
+  test("tolerates CRLF and backslashes", () => {
+    const bs = "\\";
+    assert.strictEqual(parseWorktreeProbe(`D:${bs}repo${bs}.git\r\nD:/repo/.git\r\n`), false);
+    assert.strictEqual(parseWorktreeProbe(`D:${bs}repo${bs}.git${bs}worktrees${bs}wt\r\nD:${bs}repo${bs}.git\r\n`), true);
+  });
+
+  test("submodule: module git dir is its own common dir", () => {
+    assert.strictEqual(parseWorktreeProbe("D:/repo/.git/modules/sub\nD:/repo/.git/modules/sub\n"), false);
+  });
+
+  test("malformed output is not a worktree", () => {
+    assert.strictEqual(parseWorktreeProbe(""), false);
+    assert.strictEqual(parseWorktreeProbe(".git\n"), false);
   });
 });

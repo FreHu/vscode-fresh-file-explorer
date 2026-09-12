@@ -1,5 +1,9 @@
 # Change Log
 
+## [Unreleased]
+
+- Repo icons now match the Source Control view: linked worktrees (`git worktree add`) get the `worktree` icon and submodules the `archive` icon instead of the plain `repo` icon — in Fresh Files, Branch Compare sections and diff-search results. Worktree detection is one `git rev-parse --git-dir --git-common-dir` per repo at discovery time.
+
 ## [1.15.0]
 
 ### Fresh Files

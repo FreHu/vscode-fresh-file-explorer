@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { Commands } from "../commands/commandConstants";
 import { formatRepoDescription, formatRepoTooltip } from "../utils/formatUtils";
+import { RepoKind, repoKindIcon, repoKindLabel } from "../git/repoKind";
 import { CommitHash } from "../types";
 import { TreeItemContextValues, createNoteId } from "./treeItemConstants";
 
@@ -95,6 +96,7 @@ constructor(
     pathspec?: string,
     folderScope?: string,
     isLoadingHistorical: boolean = false,
+    kind: RepoKind = "repo",
   ): FreshFileItem {
     // VS Code's TreeView locks in the *initial* collapsibleState the first time
     // an item id is shown. Any later change to collapsibleState on the same id
@@ -130,8 +132,10 @@ constructor(
       item.tooltip = `Loading ${repoName}…`;
     } else {
       item.description = formatRepoDescription(branchName, fileCount, pathspec, folderScope);
-      item.iconPath = new vscode.ThemeIcon("repo");
-      item.tooltip = formatRepoTooltip(repoName, branchName, fileCount, pathspec, folderScope);
+      item.iconPath = new vscode.ThemeIcon(repoKindIcon(kind));
+      const kindLabel = repoKindLabel(kind);
+      item.tooltip = formatRepoTooltip(repoName, branchName, fileCount, pathspec, folderScope)
+        + (kindLabel ? `\n${kindLabel}` : "");
     }
     item.contextValue = contextValue;
 
@@ -270,7 +274,7 @@ export class SubmoduleEntryItem extends vscode.TreeItem {
     this.id = `submodule-entry:${parentPath}/${name}`;
     this.description = "submodule";
     this.tooltip = `Submodule: ${submoduleFsPath}`;
-    this.iconPath = new vscode.ThemeIcon("repo");
+    this.iconPath = new vscode.ThemeIcon(repoKindIcon("submodule"));
     this.contextValue = TreeItemContextValues.SUBMODULE_ENTRY;
     this.command = {
       command: Commands.FOCUS_SUBMODULE_REPO,

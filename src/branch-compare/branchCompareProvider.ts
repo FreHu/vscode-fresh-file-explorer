@@ -787,6 +787,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           cmp.auto,
           cmp.hideReviewed,
           this.reviewedCountIn(cmp.id, cmp.files),
+          this.freshFileProvider.getRepoKind(repoKey),
         ),
       );
     }

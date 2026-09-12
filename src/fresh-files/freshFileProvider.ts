@@ -39,6 +39,7 @@ import { RepoHealthNotifier } from "./repoHealthNotifier";
 import { RepoDiscovery } from "./repoDiscovery";
 import { LoadOrchestrator } from "./loadOrchestrator";
 import { Commands } from "../commands/commandConstants";
+import { RepoKind, repoKindOf } from "../git/repoKind";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -581,6 +582,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   /** Current HEAD branch for the given normalized repo path, if known. */
   getRepoBranch(normalizedRepoPath: NormalizedRepoPath): BranchName | undefined {
     return this.repoBranches.get(normalizedRepoPath);
+  }
+
+  /** Kind of the discovered repo at this path (plain / linked worktree / submodule). */
+  getRepoKind(normalizedRepoPath: NormalizedRepoPath): RepoKind {
+    const repo = this.resolvedRepos.find(r => r.normalizedRepoPath === normalizedRepoPath);
+    return repo ? repoKindOf(repo) : "repo";
   }
 
   getTreeItem(element: FreshFilesTreeItem): vscode.TreeItem {

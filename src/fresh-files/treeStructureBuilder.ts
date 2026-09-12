@@ -31,6 +31,7 @@ import {
   formatDirectoryTooltip,
   formatGroupDescription,
 } from "../utils/formatUtils";
+import { repoKindOf } from "../git/repoKind";
 
 /**
  * Everything the structural tree builders need from the provider, passed
@@ -97,7 +98,8 @@ export function buildRepoRootItems(contextValue: string, ctx: RepoViewContext): 
 
   const items: FreshFileItem[] = [];
   // Default: group by file structure
-  for (const { folder, repoRelPath, repoFullPath, normalizedRepoPath } of ctx.resolvedRepos) {
+  for (const repo of ctx.resolvedRepos) {
+    const { folder, repoRelPath, repoFullPath, normalizedRepoPath } = repo;
     const repoName = repoRelPath || folder.name;
     const activeFolderScope = ctx.getFolderScope(normalizedRepoPath);
 
@@ -134,6 +136,7 @@ export function buildRepoRootItems(contextValue: string, ctx: RepoViewContext): 
       activePathspec,
       folderScopeDisplay,
       isLoadingHistorical,
+      repoKindOf(repo),
     );
     items.push(repoItem);
   }

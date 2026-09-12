@@ -5,7 +5,7 @@ import { normalizePath } from "../utils";
 import { log } from "../extension/logger";
 import { collectHistoricalChanges } from "../git/gitLogStream";
 import { collectPendingChanges } from "../git/gitPendingChanges";
-import { discoverGitReposInSubdirs, isGitRepository, isGitRepositoryRoot, readGitModulesSubmodulePaths } from "../git/gitRepoDiscovery";
+import { discoverGitReposInSubdirs, isGitRepository, isGitRepositoryRoot, isLinkedWorktree, readGitModulesSubmodulePaths } from "../git/gitRepoDiscovery";
 
 /** Fully-resolved information about a single Git repository within a workspace folder. */
 export interface RepoInfo {
@@ -21,6 +21,8 @@ export interface RepoInfo {
    * the empty dir to the superproject — so they are kept only for display.
    */
   isUninitialized?: boolean;
+  /** True for a linked worktree (`git worktree add`) — its `.git` is a file pointing into the main checkout. */
+  isWorktree?: boolean;
 }
 
 /**
@@ -49,7 +51,8 @@ export class DataCollector {
       }
       for (const repoRelPath of discovered.repos) {
         const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;
-        result.push({ folder, repoRelPath, repoFullPath, normalizedRepoPath: asNormalizedRepoPath(repoFullPath) });
+        const isWorktree = await isLinkedWorktree(repoFullPath);
+        result.push({ folder, repoRelPath, repoFullPath, normalizedRepoPath: asNormalizedRepoPath(repoFullPath), isWorktree });
         await DataCollector.collectSubmoduleRepos(folder, repoFullPath, repoRelPath, result);
       }
     }

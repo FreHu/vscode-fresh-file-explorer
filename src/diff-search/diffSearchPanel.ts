@@ -212,8 +212,10 @@ export class DiffSearchPanel {
       
       // Build repo names map from actual discovered repositories
       const repoNames = new Map<AbsolutePath, string>();
+      const worktreeRepos = new Set<AbsolutePath>();
       for (const repo of actualRepos) {
         repoNames.set(repo.path, repo.name);
+        if (repo.isWorktree) { worktreeRepos.add(repo.path); }
       }
       log(`Diff search across ${totalRepos} git repositories in ${totalFolders} workspace folders`, "info");
 
@@ -319,7 +321,7 @@ export class DiffSearchPanel {
       });
 
       // Now update tree view once with all results
-      this._resultProvider.showResults(pattern, allMatches, repoNames);
+      this._resultProvider.showResults(pattern, allMatches, repoNames, worktreeRepos);
 
       // Focus the diff search results view
       await vscode.commands.executeCommand("diffSearchResults.focus");
