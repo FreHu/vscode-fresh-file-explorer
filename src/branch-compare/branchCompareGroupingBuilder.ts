@@ -4,7 +4,7 @@ import { ChangedFile } from "./branchCompareData";
 import { DescriptionFormat, SortOrder } from "../types";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase } from "../fresh-files/moonPhase";
-import { formatRelativeDate, formatCommitTooltip, formatCommitGroupDescription } from "../utils/formatUtils";
+import { formatRelativeDate, formatCommitTooltip, formatCommitGroupHeader } from "../utils/formatUtils";
 import { BranchCompareContextValues, PENDING_GROUP_KEY } from "./branchCompareConstants";
 import { collapseEpochSuffix } from "./branchCompareTreeItems";
 
@@ -117,6 +117,7 @@ export function buildGroupedItems(
   const items: BranchCompareGroupItem[] = [];
   for (const [key, group] of sorted) {
     const fileCount = group.files.length;
+    let label = group.label;
     let description: string;
     let tooltip: string;
 
@@ -126,7 +127,7 @@ export function buildGroupedItems(
       const firstCommit = group.files.find(f => f.commit)?.commit;
       if (firstCommit) {
         // The file rows carry only name + status; the header carries the rest.
-        description = formatCommitGroupDescription({ fileCount, ...firstCommit }, descriptionFormat);
+        ({ label, description } = formatCommitGroupHeader({ fileCount, ...firstCommit }, descriptionFormat));
         tooltip = formatCommitTooltip({
           hash: firstCommit.hash,
           author: firstCommit.author,
@@ -157,7 +158,7 @@ export function buildGroupedItems(
         : BranchCompareContextValues.GROUP;
 
     items.push(
-      new BranchCompareGroupItem(key, repoFullPath, comparisonId, group.files, group.label, description, tooltip, group.icon, contextValue, collapseEpoch),
+      new BranchCompareGroupItem(key, repoFullPath, comparisonId, group.files, label, description, tooltip, group.icon, contextValue, collapseEpoch),
     );
   }
 

@@ -11,7 +11,7 @@ import {
   formatAiCoAuthorTooltip,
   formatCommitTooltip,
   formatFileDescription,
-  formatCommitGroupDescription,
+  formatCommitGroupHeader,
   getStatusLetter,
   AI_COAUTHOR_BADGE,
 } from "../../utils/formatUtils";
@@ -35,24 +35,26 @@ suite("Format Utils", () => {
     });
   });
 
-  suite("formatCommitGroupDescription", () => {
-    const commit = { fileCount: 2, author: "Ada", date: new Date(), aiCoAuthored: true, message: "Fix it" };
+  suite("formatCommitGroupHeader", () => {
+    const commit = { hash: "abc1234", fileCount: 2, author: "Ada", date: new Date(), aiCoAuthored: true, message: "Fix it\n\nbody" };
     const all = { showAuthor: true, showDate: true, showCommitMessage: true };
 
-    test("shows everything when all toggles are on", () => {
-      const parts = formatCommitGroupDescription(commit, all).split(" • ");
-      assert.deepStrictEqual([parts[0], parts[1], parts[3], parts[4]], ["2 files", "Ada", AI_COAUTHOR_BADGE, "Fix it"]);
+    test("subject is the label; hash leads the description", () => {
+      const { label, description } = formatCommitGroupHeader(commit, all);
+      assert.strictEqual(label, "Fix it");
+      const parts = description.split(" • ");
+      assert.deepStrictEqual([parts[0], parts[1], parts[2], parts[4]], ["abc1234", "2 files", "Ada", AI_COAUTHOR_BADGE]);
     });
 
-    test("honors author / date / message toggles; count and AI badge always stay", () => {
-      const desc = formatCommitGroupDescription(commit, { showAuthor: false, showDate: false, showCommitMessage: false });
-      assert.strictEqual(desc, `2 files • ${AI_COAUTHOR_BADGE}`);
+    test("message off: hash is the label; author / date toggles honored; count and AI badge stay", () => {
+      const header = formatCommitGroupHeader(commit, { showAuthor: false, showDate: false, showCommitMessage: false });
+      assert.deepStrictEqual(header, { label: "abc1234", description: `2 files • ${AI_COAUTHOR_BADGE}` });
     });
 
-    test("singular file count", () => {
-      assert.strictEqual(
-        formatCommitGroupDescription({ fileCount: 1, date: new Date() }, { ...all, showDate: false }),
-        "1 file",
+    test("no message: hash is the label, singular file count", () => {
+      assert.deepStrictEqual(
+        formatCommitGroupHeader({ hash: "abc1234", fileCount: 1, date: new Date() }, { ...all, showDate: false }),
+        { label: "abc1234", description: "1 file" },
       );
     });
   });

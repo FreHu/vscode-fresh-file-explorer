@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
+import { FreshFileItem, commitHashOfGroup } from "../fresh-files/freshFileTreeItems";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log, showError, showInfo } from "../extension/logger";
 import { gitUri } from "../git/gitOperations";
@@ -92,7 +92,7 @@ export async function handleOpenCommit(
  * it's nested under is `groupRepoScope`.
  */
 export async function handleOpenCommitGroup(item: FreshFileItem | undefined): Promise<void> {
-  const commitHash = item?.resourceUri.path.replace(/^\//, "");
+  const commitHash = item ? commitHashOfGroup(item) : undefined;
   if (!commitHash || !item?.groupRepoScope) {
     log("Open commit (header): missing commit hash or repo scope on the item", "warn");
     return;

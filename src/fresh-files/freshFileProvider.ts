@@ -22,7 +22,7 @@ import {
 import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { log, showWarning } from "../extension/logger";
-import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, isPendingGroup, isMoonPhaseGroup } from "./freshFileTreeItems";
+import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, commitHashOfGroup, isPendingGroup, isMoonPhaseGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
@@ -704,9 +704,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     }
 
     if (isCommitHashGroup(element)) {
-      const commitHash = element.label as string;
       return GroupingViewBuilder.buildCommitHashFiles(
-        commitHash,
+        commitHashOfGroup(element),
         this.freshFilesForRepoScope(element.groupRepoScope),
         (metadata) => this.filterManager.passesFilters(metadata),
         this.sortOrder,

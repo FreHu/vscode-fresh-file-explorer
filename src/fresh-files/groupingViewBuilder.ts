@@ -4,7 +4,7 @@ import { AbsolutePath } from "../pathTypes";
 import { DescriptionFormat, FileMetadata, SortOrder } from "../types";
 import { ConfigService } from "../config/configService";
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitTooltip, formatCommitGroupDescription } from "../utils/formatUtils";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitTooltip, formatCommitGroupHeader } from "../utils/formatUtils";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
 import { type GroupingMode } from "../fresh-files/groupingMode";
@@ -230,13 +230,12 @@ export class GroupingViewBuilder {
         GroupingViewBuilder.groupsExpandByDefault(),
       );
 
-      commitItem.label = commitHash;
-      
-      // The header carries author / time / message for the whole group; the
-      // file rows below intentionally omit them (see buildCommitHashFiles) since
-      // every file in a commit shares the same values — repeating is noise.
-      commitItem.description = formatCommitGroupDescription(
+      // The header carries hash / author / time / message for the whole group;
+      // the file rows below intentionally omit them (see buildCommitHashFiles)
+      // since every file in a commit shares the same values — repeating is noise.
+      const header = formatCommitGroupHeader(
         {
+          hash: commitHash,
           fileCount,
           author: firstFile.metadata.author,
           date: firstFile.metadata.date,
@@ -245,6 +244,8 @@ export class GroupingViewBuilder {
         },
         ConfigService.getDescriptionFormat(),
       );
+      commitItem.label = header.label;
+      commitItem.description = header.description;
       
       // Calculate total line changes for this commit
       const totals = calculateTotalLineChanges(group);

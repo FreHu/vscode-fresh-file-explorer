@@ -384,30 +384,32 @@ export function formatFileDescription(metadata: FileMetadata, format: Descriptio
 }
 
 /**
- * Description of a commit-hash group header (Fresh Files and Branch Compare).
- * Honors the same author / date / message toggles as file rows; the hash is
- * the header's label, so `showCommitHash` doesn't apply.
+ * Label and description of a commit-hash group header (Fresh Files and Branch
+ * Compare). The commit subject is the label, since that is what people
+ * recognize; the hash moves into the description. With `showCommitMessage`
+ * off, or no message, the hash stays the label. Author / date honor the same
+ * toggles as file rows.
  */
-export function formatCommitGroupDescription(
-  commit: { fileCount: number; author?: string; date: Date; aiCoAuthored?: boolean; message?: string },
+export function formatCommitGroupHeader(
+  commit: { hash: string; fileCount: number; author?: string; date: Date; aiCoAuthored?: boolean; message?: string },
   format: Pick<DescriptionFormat, "showAuthor" | "showDate" | "showCommitMessage">,
-): string {
-  const parts = [`${commit.fileCount} file${commit.fileCount === 1 ? "" : "s"}`];
+): { label: string; description: string } {
+  const subject = format.showCommitMessage ? commit.message?.split("\n")[0].trim() : undefined;
+  const parts: string[] = [];
+  if (subject) {
+    parts.push(commit.hash);
+  }
+  parts.push(`${commit.fileCount} file${commit.fileCount === 1 ? "" : "s"}`);
   if (format.showAuthor && commit.author) {
     parts.push(commit.author);
   }
   if (format.showDate) {
     parts.push(formatRelativeDate(commit.date));
   }
-  // Badge before the message so it survives the tree's single-line ellipsis.
   if (commit.aiCoAuthored) {
     parts.push(AI_COAUTHOR_BADGE);
   }
-  // Full message, last — VS Code ellipsizes it at the view edge.
-  if (format.showCommitMessage && commit.message) {
-    parts.push(commit.message);
-  }
-  return parts.join(" • ");
+  return { label: subject || commit.hash, description: parts.join(" • ") };
 }
 
 /**

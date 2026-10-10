@@ -333,6 +333,10 @@ export function isAuthorGroup(el: FreshFilesTreeItem): el is FreshFileItem {
 export function isCommitHashGroup(el: FreshFilesTreeItem): el is FreshFileItem {
   return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.COMMIT_HASH_GROUP;
 }
+/** The hash of a commit group header, from its `freshfiles://commit/<hash>` URI (the label is the commit subject). */
+export function commitHashOfGroup(item: FreshFileItem): string {
+  return item.resourceUri.path.replace(/^\//, "");
+}
 export function isPendingGroup(el: FreshFilesTreeItem): el is FreshFileItem {
   return el instanceof FreshFileItem && el.contextValue === TreeItemContextValues.PENDING_GROUP;
 }
