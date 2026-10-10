@@ -102,7 +102,7 @@ export async function handleGitLogL(): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("There is no path")) {
-      showWarning("This file has no git history yet — it may be untracked or not yet committed.", `git log -L error: ${message}`);
+      showWarning(noHistoryMessage(filePath, repoRoot), `git log -L error: ${message}`);
     } else {
       showError(`git log -L failed: ${message}`, `git log -L error: ${message}`);
     }
@@ -156,7 +156,7 @@ export async function handlegitLogFile(arg?: FreshFileItem | vscode.Uri): Promis
     log(`git log file: parsed ${commits.length} commits`, "info");
 
     if (commits.length === 0) {
-      showWarning("This file has no git history yet — it may be untracked or not yet committed.");
+      showWarning(noHistoryMessage(filePath, repoRoot));
       return;
     }
 
@@ -169,6 +169,16 @@ export async function handlegitLogFile(arg?: FreshFileItem | vscode.Uri): Promis
     const message = err instanceof Error ? err.message : String(err);
     showError(`git log failed: ${message}`, `git log file error: ${message}`);
   }
+}
+
+/**
+ * History comes from whichever repo contains the file — not necessarily a
+ * workspace repo (a file opened from elsewhere resolves to its own enclosing
+ * repo) — so name both.
+ */
+function noHistoryMessage(filePath: string, repoRoot: string): string {
+  return `${nodePath.basename(filePath)} has no commits in ${repoRoot}. `
+    + "It may be untracked, ignored, or not committed yet — or that repo isn't the one you expected.";
 }
 
 async function findGitRoot(filePath: string): Promise<string | null> {
