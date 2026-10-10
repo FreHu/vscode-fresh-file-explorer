@@ -5,6 +5,7 @@
 - Branch Comparisons settings moved from an editor tab into the bottom panel.
 - Blame heatmap: the Branch / Tag mode is now called **Baseline**, since it accepts any ref. The right-click menu lists only the modes (Age / Baseline / Turn off) in its first group, with a checkmark on the active one; "Change baseline…" moved to the actions group.
 - Branch Compare: a `HEAD~N` target works in a repo with N or fewer commits — it shows every commit there is, with a "⚠ only N commits" note on the section and a warning (not an error) in the settings panel. Set up a rolling "last 10 commits" comparison in a brand-new repo ahead of time.
+- Blame heatmap: "Turn off" is now **Off**, listed first in the editor menu and status-bar picker. The settings panel replaces the auto-apply checkbox with one Off / Age / Baseline choice for newly opened files; marking a comparison as heatmap baseline selects Baseline. In the comparisons table the heatmap-baseline column uses the heatmap's own icon instead of a star, and the Hide Reviewed / heatmap columns have icon headers to save width.
 - Branch Compare: new `branchCompare.fileIcons` setting (also in the Branch Comparisons panel toolbar) — show the file-type icon, or one icon per change kind (added / modified / deleted / renamed / untracked) in the Source Control view's colors.
 - Branch Compare: an unnamed `HEAD` vs `HEAD~N` comparison is called "last N commits", and the name follows N when you edit the target.
 

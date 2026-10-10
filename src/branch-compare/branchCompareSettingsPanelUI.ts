@@ -62,7 +62,7 @@ export function getBranchCompareSettingsHtml(
     .col-handle.disabled {
       visibility: hidden; /* draft rows reserve the column width but show no grip */
     }
-    .col-active { width: 60px; text-align: center; }
+    .col-active { width: 40px; text-align: center; }
     .col-repo { white-space: nowrap; }
     .col-source, .col-target { min-width: 220px; }
     .col-label { min-width: 160px; }
@@ -98,8 +98,11 @@ export function getBranchCompareSettingsHtml(
     .icon-toggle[aria-disabled="true"] { opacity: 0.5; }
     .icon-toggle[aria-disabled="true"] button { cursor: default; }
     .col-grouping { width: 132px; text-align: center; }
-    .col-hide-reviewed { width: 90px; text-align: center; }
-    .col-heatmap { width: 80px; text-align: center; }
+    .col-hide-reviewed { width: 40px; text-align: center; }
+    .col-heatmap { width: 40px; text-align: center; }
+    th.col-hide-reviewed, th.col-heatmap { cursor: help; }
+    th .codicon { font-size: 14px; vertical-align: middle; }
+    .col-heatmap .icon-btn:not(.heatmap-on):not([disabled]) { opacity: 0.6; }
     .col-actions { width: 160px; text-align: right; white-space: nowrap; }
     .icon-btn[disabled] {
       opacity: 0.35;
@@ -227,6 +230,23 @@ export function getBranchCompareSettingsHtml(
       margin-bottom: 8px;
     }
     .table-toolbar .spacer { flex: 1; }
+    .link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 6px;
+      border: none;
+      border-radius: 3px;
+      background: transparent;
+      color: var(--vscode-textLink-foreground);
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      cursor: pointer;
+    }
+    .link-btn:hover {
+      color: var(--vscode-textLink-activeForeground);
+      background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+    }
     .table-toolbar .field-row { margin: 0; }
     .table-toolbar > label {
       color: var(--vscode-descriptionForeground);
@@ -352,6 +372,9 @@ export function getBranchCompareSettingsHtml(
 </head>
 <body>
   <div class="table-toolbar">
+    <button class="link-btn" id="showTreeBtn" title="Reveal the Branch Compare tree in the Explorer side bar">
+      <i class="codicon codicon-list-tree"></i> Show Branch Compare tree
+    </button>
     <span class="spacer"></span>
     <label for="fileIcons">File icons:</label>
     <select id="fileIcons" title="Icons on Branch Compare file rows (all comparisons)">
@@ -369,15 +392,15 @@ export function getBranchCompareSettingsHtml(
     <thead>
       <tr>
         <th class="col-handle" title="Drag to reorder"></th>
-        <th class="col-active" title="Show this comparison in the tree">Active</th>
+        <th class="col-active" title="Show this comparison in the tree">On</th>
         <th class="col-repo">Repo</th>
         <th class="col-source">Source</th>
         <th class="col-target">Target</th>
         <th class="col-diff" title="Merge: diff vs the merge-base (PR-style). Full: exact diff against the target ref.">Diff</th>
         <th class="col-label">Name</th>
         <th class="col-grouping" title="How this comparison's files are grouped in the tree">Grouping</th>
-        <th class="col-hide-reviewed" title="Hide files you've marked reviewed in the tree for this comparison">Hide Reviewed</th>
-        <th class="col-heatmap" title="Drives the blame heatmap (HEAD-source comparisons only, max one per repo)">Heatmap</th>
+        <th class="col-hide-reviewed" title="Hide reviewed: hide files you've marked reviewed in the tree for this comparison"><i class="codicon codicon-checklist"></i></th>
+        <th class="col-heatmap" title="Heatmap baseline: this comparison's target drives the line heatmap's Baseline mode (HEAD-source only, one per repo)"><i class="codicon codicon-color-mode"></i></th>
         <th class="col-actions"></th>
       </tr>
     </thead>
@@ -435,9 +458,9 @@ export function getBranchCompareSettingsHtml(
       </div>
       <div class="field-row">
         <input type="radio" name="hmMode" id="hmModeBranch" value="branch">
-        <label for="hmModeBranch"><strong>Baseline</strong> — only lines changed since the starred baseline are tinted</label>
+        <label for="hmModeBranch"><strong>Baseline</strong> — lines changed since the heatmap baseline are tinted</label>
       </div>
-      <div class="field-help" id="hmBranchHint">Baseline mode needs a comparison marked with the heatmap star above. Repos without a starred comparison show no heatmap in baseline mode.</div>
+      <div class="field-help" id="hmBranchHint">Baseline mode needs a comparison marked as heatmap baseline (<i class="codicon codicon-color-mode"></i> column above).</div>
     </div>
   </section>
 

@@ -63,6 +63,8 @@ batchGrouping.addEventListener("change", () => {
   send({ command: "setAllGroupingMode", mode: mode as GroupingMode });
 });
 
+document.getElementById("showTreeBtn")!.addEventListener("click", () => send({ command: "showTree" }));
+
 const fileIcons = document.getElementById("fileIcons") as HTMLSelectElement;
 fileIcons.addEventListener("change", () => {
   send({ command: "setFileIcons", style: fileIcons.value === "changeType" ? "changeType" : "fileType" });
@@ -486,12 +488,12 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   hideReviewedTd.appendChild(hideReviewedCb);
   tr.appendChild(hideReviewedTd);
 
-  // Heatmap toggle (gold star). Only meaningful for HEAD-source comparisons.
+  // Heatmap baseline toggle (lit when on). Only meaningful for HEAD-source comparisons.
   const heatmapTd = document.createElement("td");
   heatmapTd.className = "col-heatmap";
   const heatmapBtn = document.createElement("button");
   heatmapBtn.className = "icon-btn" + (c.isHeatmapBaseline ? " heatmap-on" : "");
-  heatmapBtn.appendChild(codicon(c.isHeatmapBaseline ? "star-full" : "star-empty"));
+  heatmapBtn.appendChild(codicon("color-mode"));
   heatmapBtn.disabled = c.source !== "HEAD";
   heatmapBtn.title = c.source !== "HEAD"
     ? "Heatmap baseline requires source=HEAD"
@@ -648,7 +650,7 @@ function renderDraftRow(d: DraftRow, idx: number): HTMLTableRowElement {
   heatmapTd.className = "col-heatmap";
   const heatmapBtn = document.createElement("button");
   heatmapBtn.className = "icon-btn";
-  heatmapBtn.appendChild(codicon("star-empty"));
+  heatmapBtn.appendChild(codicon("color-mode"));
   heatmapBtn.disabled = true;
   heatmapBtn.title = "Save the comparison first, then mark as heatmap baseline";
   heatmapTd.appendChild(heatmapBtn);

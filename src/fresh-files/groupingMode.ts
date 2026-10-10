@@ -39,7 +39,8 @@ export const GROUPING_MODE_OPTIONS: GroupingModeOption[] = [
     mode: "Moon Phase",
     label: "Moon Phase",
     description: "Group by lunar phase at commit time",
-    icon: "$(color-mode)",
+    // Matches the Moon Phase group headers in the trees; `color-mode` is the heatmap's icon.
+    icon: "$(circle-filled)",
   },
 ];
 

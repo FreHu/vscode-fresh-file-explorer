@@ -192,6 +192,10 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
       case "setAllGroupingMode":
         this.service.setAllGroupingModes(msg.mode);
         break;
+      case "showTree":
+        // `<viewId>.focus` reveals the view, opening the Explorer side bar if needed.
+        void vscode.commands.executeCommand("freshFileExplorer.branchCompare.focus");
+        break;
       case "keepAutoFollow":
         this.service.keepAutoFollow(msg.id);
         break;

@@ -64,7 +64,7 @@ export interface RefValidationResult {
 export interface HeatmapSettingsDTO {
   enabled: boolean;
   autoApply: boolean;
-  /** `absolute` = age tint; `branch` = diff vs the starred baseline. */
+  /** `absolute` = age tint; `branch` = diff vs the heatmap baseline comparison. */
   mode: "absolute" | "branch";
 }
 
@@ -100,6 +100,7 @@ export type BranchCompareSettingsFromWebview =
   | { command: "setAllGroupingMode"; mode: GroupingMode }
   | { command: "setFileIcons"; style: FileIconStyle }
   | { command: "keepAutoFollow"; id: string }
+  | { command: "showTree" }
   | { command: "requestRefs"; repoFullPath: string }
   | { command: "validateRef"; repoFullPath: string; ref: string }
   | { command: "refreshRefs" }

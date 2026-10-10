@@ -57,7 +57,8 @@ Use it to answer:
 ### Activation surfaces
 
 - **Status bar** (bottom-left, `Heatmap: …`) — click to open the rich picker. Shows current mode, saved baseline ref, and warnings inline (`not in a git repo`, `no blame data`, etc.).
-- **Right-click on the gutter** — `Blame Heatmap >` submenu with direct access to Age / Branch saved / Pick / Turn off / Diff vs baseline / Clear baseline / Toggle auto-apply.
+- **Right-click on the gutter** — `Blame Heatmap >` submenu: the modes (Off / Age / Baseline, the active one checked), then Change baseline / Diff with baseline / Clear baseline. These act on the current file only.
+- **Branch Comparisons panel** — Off / Age / Baseline for newly opened files. Marking a comparison as heatmap baseline (the heatmap icon in its row) picks Baseline.
 - **Right-click on a deletion badge** — `Copy baseline lines` / `Restore from baseline` (right-click, since left-click area is owned by the breakpoint glyph).
 - **Right-click in the editor** — `Diff with baseline…` opens a regular diff editor against the saved baseline. Prompts for a ref on first use; saves it for reuse.
 
