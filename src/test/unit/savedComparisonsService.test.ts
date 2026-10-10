@@ -490,6 +490,22 @@ suite("SavedComparisonsService", () => {
       assert.ok(service.getDismissedAutoFollows().has(followKeyOf(REPO_A, "feature/x")));
     });
 
+    test("keepAutoFollow adopts the row unchanged and dismisses", () => {
+      service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
+      const before = service.getAll()[0];
+      service.keepAutoFollow(before.id);
+      const after = service.getById(before.id);
+      assert.notStrictEqual(after?.auto, true);
+      assert.deepStrictEqual({ ...after, auto: undefined }, { ...before, auto: undefined });
+      assert.ok(service.getDismissedAutoFollows().has(followKeyOf(REPO_A, "feature/x")));
+    });
+
+    test("keepAutoFollow ignores manual rows", () => {
+      const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      service.keepAutoFollow(id);
+      assert.strictEqual(service.getDismissedAutoFollows().size, 0);
+    });
+
     test("editing grouping mode on an auto row does NOT adopt it", () => {
       service.applyAutoReconcile([{ repoFullPath: REPO_A, target: "main", label: "feature/x" }], []);
       const id = service.getAll()[0].id;

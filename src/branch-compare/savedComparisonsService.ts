@@ -248,15 +248,10 @@ export class SavedComparisonsService implements vscode.Disposable {
     if (patch.hideReviewed !== undefined) { next.hideReviewed = patch.hideReviewed; }
 
     // Editing an auto-follow row's refs or name adopts it as a manual comparison.
-    // Reconcile only touches `auto` rows, so clearing the flag makes the edit stick.
-    // Also dismiss the (repo, branch) so reconcile doesn't spawn a fresh auto row
-    // alongside the one the user just adopted.
     if (existing.auto &&
         (next.source !== existing.source || next.target !== existing.target || next.label !== existing.label)) {
       next.auto = false;
-      if (existing.label) {
-        this.dismissedAutoFollows.add(this.autoFollowKey(existing.repoFullPath, existing.label));
-      }
+      this.dismissAutoFollowOf(existing);
     }
 
     // Heatmap baseline can only attach to a HEAD-source comparison.
@@ -301,6 +296,29 @@ export class SavedComparisonsService implements vscode.Disposable {
     );
   }
 
+  /** Adopt an auto-follow comparison as a manual one, unchanged otherwise. */
+  keepAutoFollow(id: string): void {
+    const idx = this.comparisons.findIndex(c => c.id === id);
+    const existing = this.comparisons[idx];
+    if (!existing?.auto) { return; }
+    this.comparisons[idx] = { ...existing, auto: false };
+    this.dismissAutoFollowOf(existing);
+    this.persist();
+    // Only the section's icon / context menu change; the diff is the same.
+    this._onDidChange.fire({ ids: [id], displayOnly: true });
+  }
+
+  /**
+   * Remember an auto-follow row's (repo, branch) so reconcile doesn't spawn a
+   * fresh auto row for it. `label` holds the followed branch name. Reconcile
+   * only touches `auto` rows, so an adopted row (flag cleared) sticks.
+   */
+  private dismissAutoFollowOf(c: SavedComparison): void {
+    if (c.label) {
+      this.dismissedAutoFollows.add(this.autoFollowKey(c.repoFullPath, c.label));
+    }
+  }
+
   /**
    * Set the grouping mode on every comparison at once (the panel's batch
    * toggle). Fires a single display-only event.
@@ -318,11 +336,10 @@ export class SavedComparisonsService implements vscode.Disposable {
   delete(id: string): void {
     const target = this.comparisons.find(c => c.id === id);
     if (!target) { return; }
-    // Deleting an auto-follow row is a dismissal: remember (repo, branch) so the
-    // follower doesn't immediately recreate it. The dismissal clears when the
-    // branch changes (the key changes). `label` holds the followed branch name.
-    if (target.auto && target.label) {
-      this.dismissedAutoFollows.add(this.autoFollowKey(target.repoFullPath, target.label));
+    // Deleting an auto-follow row is a dismissal: the follower doesn't recreate
+    // it until the branch changes (the key changes).
+    if (target.auto) {
+      this.dismissAutoFollowOf(target);
     }
     this.comparisons = this.comparisons.filter(c => c.id !== id);
     this.persist();

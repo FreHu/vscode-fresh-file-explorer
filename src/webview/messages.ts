@@ -99,6 +99,7 @@ export type BranchCompareSettingsFromWebview =
   | { command: "setHeatmapBaseline"; id: string | undefined }
   | { command: "setAllGroupingMode"; mode: GroupingMode }
   | { command: "setFileIcons"; style: FileIconStyle }
+  | { command: "keepAutoFollow"; id: string }
   | { command: "requestRefs"; repoFullPath: string }
   | { command: "validateRef"; repoFullPath: string; ref: string }
   | { command: "refreshRefs" }

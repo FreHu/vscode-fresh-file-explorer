@@ -192,6 +192,9 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
       case "setAllGroupingMode":
         this.service.setAllGroupingModes(msg.mode);
         break;
+      case "keepAutoFollow":
+        this.service.keepAutoFollow(msg.id);
+        break;
       case "setFileIcons":
         await ConfigService.setBranchCompareFileIcons(msg.style);
         break;

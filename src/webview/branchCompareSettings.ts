@@ -423,14 +423,15 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   // comparison if you need a different repo)
   const repoTd = document.createElement("td");
   repoTd.className = "col-repo";
-  if (c.auto) {
-    const eye = codicon("eye");
-    eye.title = "Auto-followed — edit any field to keep it, delete to stop following";
-    eye.style.marginRight = "5px";
-    eye.style.opacity = "0.8";
-    repoTd.appendChild(eye);
-  }
   repoTd.appendChild(document.createTextNode(repoNameFor(c.repoFullPath)));
+  if (c.auto) {
+    const keep = document.createElement("button");
+    keep.className = "icon-btn keep-btn";
+    keep.title = "Auto-followed — click to keep it as your own comparison; delete to stop following";
+    keep.appendChild(codicon("eye"));
+    keep.addEventListener("click", () => send({ command: "keepAutoFollow", id: c.id }));
+    repoTd.appendChild(keep);
+  }
   tr.appendChild(repoTd);
 
   // Source ref input (with autocomplete)

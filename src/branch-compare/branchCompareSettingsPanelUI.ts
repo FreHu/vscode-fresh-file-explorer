@@ -215,6 +215,11 @@ export function getBranchCompareSettingsHtml(
       gap: 14px;
       flex-wrap: wrap;
     }
+    .add-row .spacer { flex: 1; }
+    /* Align with the add button, which carries a top margin. */
+    .add-row .auto-follow-row { margin: 12px 0 0 0; }
+    .col-repo .keep-btn { margin-left: 4px; vertical-align: middle; opacity: 0.8; }
+    .col-repo .keep-btn:hover { opacity: 1; }
     .table-toolbar {
       display: flex;
       align-items: center;
@@ -347,10 +352,6 @@ export function getBranchCompareSettingsHtml(
 </head>
 <body>
   <div class="table-toolbar">
-    <div class="field-row">
-      <input type="checkbox" id="autoFollow">
-      <label for="autoFollow">Auto-follow diverged branches &amp; worktrees</label>
-    </div>
     <span class="spacer"></span>
     <label for="fileIcons">File icons:</label>
     <select id="fileIcons" title="Icons on Branch Compare file rows (all comparisons)">
@@ -391,11 +392,16 @@ export function getBranchCompareSettingsHtml(
       <i class="codicon codicon-warning"></i>
       <span id="dupWarningText">Duplicate active comparisons detected — the tree renders only one.</span>
     </span>
+    <span class="spacer"></span>
+    <div class="field-row auto-follow-row">
+      <input type="checkbox" id="autoFollow">
+      <label for="autoFollow">Auto-follow diverged branches &amp; worktrees</label>
+    </div>
   </div>
 
   <div class="legend">
     <ul>
-      <li><strong>Auto-follow</strong> — adds a live comparison for any repo or worktree whose branch has diverged from its default. Rows are marked <i class="codicon codicon-eye"></i>; delete one to stop following it, edit to keep it as your own.</li>
+      <li><strong>Auto-follow</strong> — adds a live comparison for any repo or worktree whose branch has diverged from its default. Rows are marked <i class="codicon codicon-eye"></i>; click the eye (or edit the row) to keep it as your own, delete it to stop following.</li>
       <li><strong>Source</strong> — the branch with the work you want to inspect.</li>
       <li><strong>Target</strong> — the baseline you compare against (the older / reference side).</li>
       <li>The autocomplete lists branches and tags, but the input accepts any ref git understands — commit SHAs, <code>HEAD~N</code>, <code>origin/main^</code>, etc. Type freely; the green check confirms it resolves.</li>
