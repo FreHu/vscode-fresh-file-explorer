@@ -332,10 +332,7 @@ export function getBranchCompareSettingsHtml(
       padding-left: 4px;
     }
     .mode-group .field-row { margin: 4px 0; }
-    .mode-group[aria-disabled="true"] {
-      opacity: 0.5;
-      pointer-events: none;
-    }
+    .mode-group .mode-caption { margin-left: 0; }
   `;
 
   return html`<!DOCTYPE html>
@@ -404,25 +401,23 @@ export function getBranchCompareSettingsHtml(
 
   <section class="section" id="heatmapSection">
     <div class="section-header">
-      <h3>Blame Heatmap</h3>
+      <h3>Heatmap Settings</h3>
       <button class="icon-btn" id="hmHelpBtn" title="Open heatmap documentation">
         <i class="codicon codicon-question"></i>
       </button>
     </div>
-    <p class="section-desc">Tints lines in the editor by age or by diff-vs-baseline. Affects every repo that has a heatmap-baseline starred above.</p>
 
     <div class="field-row">
       <input type="checkbox" id="hmEnabled">
-      <label for="hmEnabled">Show heatmap decorations</label>
+      <label for="hmEnabled">Heatmap coloring for files (Fresh or classic file explorer)</label>
     </div>
-
-    <div class="field-row">
-      <input type="checkbox" id="hmAutoApply">
-      <label for="hmAutoApply">Auto-apply when opening files</label>
-    </div>
-    <div class="field-help">Without this, run "Blame heatmap…" from the editor's right-click menu per file.</div>
 
     <div class="mode-group" id="hmModeGroup">
+      <div class="field-help mode-caption">Line heatmap for newly opened files</div>
+      <div class="field-row">
+        <input type="radio" name="hmMode" id="hmModeOff" value="off">
+        <label for="hmModeOff"><strong>Off</strong> — apply per file from the editor's right-click menu</label>
+      </div>
       <div class="field-row">
         <input type="radio" name="hmMode" id="hmModeAbsolute" value="absolute">
         <label for="hmModeAbsolute"><strong>Age</strong> — older lines tinted darker</label>

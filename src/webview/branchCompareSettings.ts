@@ -137,10 +137,9 @@ function syncBatchGrouping(): void {
 
 // ── Heatmap settings section ──────────────────────────────────────────────
 const hmEnabled = document.getElementById("hmEnabled") as HTMLInputElement;
-const hmAutoApply = document.getElementById("hmAutoApply") as HTMLInputElement;
+const hmModeOff = document.getElementById("hmModeOff") as HTMLInputElement;
 const hmModeAbsolute = document.getElementById("hmModeAbsolute") as HTMLInputElement;
 const hmModeBranch = document.getElementById("hmModeBranch") as HTMLInputElement;
-const hmModeGroup = document.getElementById("hmModeGroup") as HTMLElement;
 const hmHelpBtn = document.getElementById("hmHelpBtn") as HTMLButtonElement;
 const hmBranchHint = document.getElementById("hmBranchHint") as HTMLElement;
 
@@ -162,18 +161,23 @@ autoFollow.addEventListener("change", () => {
 hmEnabled.addEventListener("change", () => {
   send({ command: "updateHeatmap", patch: { enabled: hmEnabled.checked } });
 });
-hmAutoApply.addEventListener("change", () => {
-  send({ command: "updateHeatmap", patch: { autoApply: hmAutoApply.checked } });
+// Off / Age / Baseline is one choice stored as two settings: Off is auto-apply
+// off; Age and Baseline turn auto-apply on with that mode.
+hmModeOff.addEventListener("change", () => {
+  if (hmModeOff.checked) {
+    send({ command: "updateHeatmap", patch: { autoApply: false } });
+  }
+  updateBranchHint();
 });
 hmModeAbsolute.addEventListener("change", () => {
   if (hmModeAbsolute.checked) {
-    send({ command: "updateHeatmap", patch: { mode: "absolute" } });
+    send({ command: "updateHeatmap", patch: { autoApply: true, mode: "absolute" } });
   }
   updateBranchHint();
 });
 hmModeBranch.addEventListener("change", () => {
   if (hmModeBranch.checked) {
-    send({ command: "updateHeatmap", patch: { mode: "branch" } });
+    send({ command: "updateHeatmap", patch: { autoApply: true, mode: "branch" } });
   }
   updateBranchHint();
 });
@@ -222,12 +226,9 @@ window.addEventListener("message", (event: MessageEvent<BranchCompareSettingsToW
       break;
     case "heatmapState":
       hmEnabled.checked = msg.settings.enabled;
-      hmAutoApply.checked = msg.settings.autoApply;
-      hmModeAbsolute.checked = msg.settings.mode === "absolute";
-      hmModeBranch.checked = msg.settings.mode === "branch";
-      // Mode picker is only meaningful when decorations are on — dim it
-      // otherwise so the user sees it's not in effect.
-      hmModeGroup.setAttribute("aria-disabled", msg.settings.enabled ? "false" : "true");
+      hmModeOff.checked = !msg.settings.autoApply;
+      hmModeAbsolute.checked = msg.settings.autoApply && msg.settings.mode === "absolute";
+      hmModeBranch.checked = msg.settings.autoApply && msg.settings.mode === "branch";
       updateBranchHint();
       break;
   }

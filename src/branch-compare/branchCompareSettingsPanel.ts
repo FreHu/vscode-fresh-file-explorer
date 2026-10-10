@@ -45,8 +45,10 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
     extensionUri: vscode.Uri,
     service: SavedComparisonsService,
     freshFileProvider: FreshFileProvider,
+    /** Bring open editors in line with a new line-heatmap default (Off / Age / Baseline). */
+    applyHeatmapDefault: (autoApply: boolean) => Promise<void>,
   ): vscode.Disposable {
-    const provider = new BranchCompareSettingsPanel(extensionUri, service, freshFileProvider);
+    const provider = new BranchCompareSettingsPanel(extensionUri, service, freshFileProvider, applyHeatmapDefault);
     const registration = vscode.window.registerWebviewViewProvider(
       BranchCompareSettingsPanel.viewId,
       provider,
@@ -63,6 +65,7 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
     private readonly extensionUri: vscode.Uri,
     private readonly service: SavedComparisonsService,
     private readonly freshFileProvider: FreshFileProvider,
+    private readonly applyHeatmapDefault: (autoApply: boolean) => Promise<void>,
   ) {}
 
   resolveWebviewView(view: vscode.WebviewView): void {
@@ -176,6 +179,12 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
         break;
       case "setHeatmapBaseline":
         this.service.setHeatmapBaseline(msg.id);
+        // Marking a heatmap baseline is a request to see it: switch to Baseline mode.
+        if (msg.id !== undefined) {
+          WorkspaceStateManager.setBlameHeatmapMode("branch");
+          await ConfigService.setBlameHeatmapAutoApply(true);
+          await this.applyHeatmapDefault(true);
+        }
         break;
       case "setAllGroupingMode":
         this.service.setAllGroupingModes(msg.mode);
@@ -194,11 +203,14 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
         if (msg.patch.enabled !== undefined) {
           await ConfigService.setHeatmapEnabled(msg.patch.enabled);
         }
-        if (msg.patch.autoApply !== undefined) {
-          await ConfigService.setBlameHeatmapAutoApply(msg.patch.autoApply);
-        }
+        // Mode before auto-apply: each change re-pushes panel state, and the
+        // reverse order would briefly show the old mode selected.
         if (msg.patch.mode !== undefined) {
           WorkspaceStateManager.setBlameHeatmapMode(msg.patch.mode);
+        }
+        if (msg.patch.autoApply !== undefined) {
+          await ConfigService.setBlameHeatmapAutoApply(msg.patch.autoApply);
+          await this.applyHeatmapDefault(msg.patch.autoApply);
         }
         break;
       case "setAutoFollow":

@@ -21,6 +21,14 @@ suite("HeatmapFileState", () => {
     assert.deepStrictEqual(s.getCache(FILE), { buckets: 3 });
   });
 
+  test("trackedPaths is a snapshot: forgetting while iterating drops every file", () => {
+    const s = state();
+    s.setMode(FILE, "age");
+    s.setMode("/repo/b.ts", "branch");
+    for (const p of s.trackedPaths()) { s.forget(p); }
+    assert.deepStrictEqual(s.trackedPaths(), []);
+  });
+
   test("unknown file yields undefined, not a throw", () => {
     const s = state();
     assert.strictEqual(s.getMode("/nope"), undefined);

@@ -258,7 +258,7 @@ Auto-follows are ordinary comparisons — they show up in the settings panel lik
 
 Star one HEAD-source comparison per repo to mark it as the blame heatmap's baseline. The heatmap then colors lines that changed between that comparison's target and HEAD.
 
-The same panel hosts the blame heatmap on/off toggle, the auto-apply-on-open switch, and the Age vs Baseline mode selector — replacing the old `settings.json` round-trip.
+The same panel hosts the file heatmap toggle and the line heatmap choice for newly opened files (Off / Age / Baseline) — replacing the old `settings.json` round-trip.
 
 ### Tips/gotchas
 

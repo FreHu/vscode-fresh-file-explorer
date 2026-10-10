@@ -236,21 +236,27 @@ export class BlameHeatmapController implements vscode.Disposable {
    * - in branch mode: the file's repo has a saved baseRef (no surprise picker)
    */
   private async maybeAutoApply(editor: vscode.TextEditor | undefined): Promise<void> {
-    if (!editor || editor.document.uri.scheme !== "file") return;
-    if (isEditorInDiff(editor)) return;
+    if (!editor) return;
     if (!ConfigService.getBlameHeatmapAutoApply()) return;
     if (this.lastUsedMode === undefined) return;
+    await this.autoApplyMode(editor, this.lastUsedMode);
+  }
+
+  /** The non-settings gates of {@link maybeAutoApply}, for an explicit mode. */
+  private async autoApplyMode(editor: vscode.TextEditor, mode: BlameHeatmapMode): Promise<void> {
+    if (editor.document.uri.scheme !== "file") return;
+    if (isEditorInDiff(editor)) return;
 
     const fsPath = editor.document.uri.fsPath;
     if (this.files.hasMode(fsPath)) return;
 
-    if (this.lastUsedMode === "branch") {
+    if (mode === "branch") {
       const repoResult = findRepoForAbsolutePath(this.freshFileProvider.workspaceFolders, fsPath);
       if (!repoResult) return;
       if (!this.baselineService.getBaseRef(repoResult.repoFullPath)) return;
     }
 
-    await this.applyToEditor(editor, this.lastUsedMode);
+    await this.applyToEditor(editor, mode);
   }
 
   /**
@@ -301,6 +307,26 @@ export class BlameHeatmapController implements vscode.Disposable {
     }
     this.files.setMode(fsPath, mode);
     await this.applyToEditor(editor, mode);
+  }
+
+  /**
+   * Bring every file in line with the default for newly opened files (Off /
+   * Age / Baseline, set in the settings panel). Visible editors switch now;
+   * hidden ones are forgotten so they pick up the default when shown again.
+   * `autoApply` is passed in because a just-written setting may not be readable yet.
+   */
+  async applyDefaultToOpenEditors(autoApply: boolean): Promise<void> {
+    const visible = vscode.window.visibleTextEditors;
+    const visiblePaths = new Set(visible.map(e => e.document.uri.fsPath));
+    for (const fsPath of this.files.trackedPaths()) {
+      if (!visiblePaths.has(fsPath)) { this.forgetFile(fsPath); }
+    }
+    const target = autoApply ? this.lastUsedMode : undefined;
+    for (const editor of visible) {
+      if (target !== undefined && this.files.getMode(editor.document.uri.fsPath) === target) { continue; }
+      this.turnOff(editor);
+      if (target !== undefined) { await this.autoApplyMode(editor, target); }
+    }
   }
 
   /** Explicit off. No-op if no mode is active on this file. */

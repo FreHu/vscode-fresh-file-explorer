@@ -320,7 +320,12 @@
       },
       {
         "command": "freshFileExplorer.blameTurnOff",
-        "title": "Turn off",
+        "title": "Off",
+        "category": "Blame Heatmap"
+      },
+      {
+        "command": "freshFileExplorer.blameTurnOffChecked",
+        "title": "✓ Off",
         "category": "Blame Heatmap"
       },
       {
@@ -331,11 +336,6 @@
       {
         "command": "freshFileExplorer.blameToggleAutoApply",
         "title": "Auto-apply",
-        "category": "Blame Heatmap"
-      },
-      {
-        "command": "freshFileExplorer.blameToggleAutoApplyChecked",
-        "title": "✓ Auto-apply",
         "category": "Blame Heatmap"
       },
       {
@@ -788,7 +788,12 @@
         {
           "command": "freshFileExplorer.blameTurnOff",
           "when": "freshFileExplorer.blameHeatmap.active",
-          "group": "1_modes@3"
+          "group": "1_modes@0"
+        },
+        {
+          "command": "freshFileExplorer.blameTurnOffChecked",
+          "when": "!freshFileExplorer.blameHeatmap.active",
+          "group": "1_modes@0"
         },
         {
           "command": "freshFileExplorer.blamePickBranch",
@@ -809,16 +814,6 @@
           "command": "freshFileExplorer.blameClearBaseline",
           "when": "freshFileExplorer.blameHeatmap.hasBaseRef",
           "group": "2_actions@2"
-        },
-        {
-          "command": "freshFileExplorer.blameToggleAutoApply",
-          "when": "!config.freshFileExplorer.blameHeatmap.autoApply",
-          "group": "3_settings@1"
-        },
-        {
-          "command": "freshFileExplorer.blameToggleAutoApplyChecked",
-          "when": "config.freshFileExplorer.blameHeatmap.autoApply",
-          "group": "3_settings@1"
         }
       ],
       "editor/context": [
@@ -1550,6 +1545,7 @@
         }
       ],
       "commandPalette": [
+        { "command": "freshFileExplorer.blameTurnOffChecked", "when": "false" },
         { "command": "freshFileExplorer.branchCompare.collapseSection", "when": "false" },
         { "command": "freshFileExplorer.branchCompare.refreshRepo", "when": "false" },
         { "command": "freshFileExplorer.branchCompare.open", "when": "false" },
@@ -1585,10 +1581,6 @@
         },
         {
           "command": "freshFileExplorer.blameApplyBranchSavedChecked",
-          "when": "false"
-        },
-        {
-          "command": "freshFileExplorer.blameToggleAutoApplyChecked",
           "when": "false"
         },
         {

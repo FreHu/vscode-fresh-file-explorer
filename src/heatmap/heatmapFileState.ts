@@ -34,6 +34,11 @@ export class HeatmapFileState<TMode, TCache> {
     this.modes.set(fsPath, mode);
   }
 
+  /** Every file with an active mode — a snapshot, safe to {@link forget} while iterating. */
+  trackedPaths(): string[] {
+    return [...this.modes.keys()];
+  }
+
   // ── cached decorations ───────────────────────────────────────────────────
 
   getCache(fsPath: string): TCache | undefined {

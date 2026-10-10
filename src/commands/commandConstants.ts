@@ -84,7 +84,7 @@ export const Commands = {
   // "✓"-titled twins: extensions can't use `toggled`, so the menu swaps these in via `when`.
   BLAME_APPLY_AGE_CHECKED: "freshFileExplorer.blameApplyAgeChecked",
   BLAME_APPLY_BRANCH_SAVED_CHECKED: "freshFileExplorer.blameApplyBranchSavedChecked",
-  BLAME_TOGGLE_AUTO_APPLY_CHECKED: "freshFileExplorer.blameToggleAutoApplyChecked",
+  BLAME_TURN_OFF_CHECKED: "freshFileExplorer.blameTurnOffChecked",
 
   // Diff search commands
   OPEN_DIFF_SEARCH_PANEL: "freshFileExplorer.openDiffSearchPanel",

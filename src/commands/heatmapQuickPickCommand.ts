@@ -27,6 +27,11 @@ export async function showBlameHeatmapPicker(controller: BlameHeatmapController)
   // ── Modes ──────────────────────────────────────────────────────────────────
   items.push(sep("Modes"));
   items.push({
+    label: activeMode ? "$(circle-slash) Off" : "$(check) Off",
+    description: activeMode ? "Clear the decorations on this file" : "",
+    id: "off",
+  });
+  items.push({
     label: activeMode === "absolute" ? "$(check) Age" : "$(history) Age",
     description: "Colorize lines by commit age",
     id: "age",
@@ -39,14 +44,6 @@ export async function showBlameHeatmapPicker(controller: BlameHeatmapController)
       : "Colorize lines changed since a baseline ref (prompts for one)",
     id: "branch",
   });
-
-  if (activeMode) {
-    items.push({
-      label: "$(circle-slash) Turn off",
-      description: `Clear ${activeMode === "absolute" ? "Age" : "Baseline"} decorations on this file`,
-      id: "off",
-    });
-  }
 
   // ── Actions ────────────────────────────────────────────────────────────────
   items.push(sep("Actions"));
