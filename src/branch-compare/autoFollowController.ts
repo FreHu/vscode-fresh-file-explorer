@@ -3,12 +3,13 @@ import * as vscode from "vscode";
 import { SavedComparisonsService } from "./savedComparisonsService";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { ConfigService } from "../config/configService";
-import { getCurrentBranch, getDefaultBranch } from "../git/gitCommitQueries";
+import { getCurrentBranch, getDefaultBranch, getRefDistancesFromHead } from "../git/gitCommitQueries";
 import { log } from "../extension/logger";
 import { listWorkspaceRepos } from "../utils/pathUtils";
 import { AbsolutePath, NormalizedRepoPath } from "../pathTypes";
 import {
   computeDesiredFollows,
+  pickNearestBase,
   reconcileFollows,
   RepoHeadState,
 } from "./autoFollow";
@@ -20,8 +21,9 @@ import {
  *
  * Whenever a repo's HEAD branch differs from its default branch (on a branch or
  * in a sibling worktree — both surface as repos in FFE's discovery), this
- * controller adds an `auto`-flagged `SavedComparison` (`HEAD..<default>`, merge
- * mode) via the service. Those are ordinary persisted comparisons — they show in
+ * controller adds an `auto`-flagged `SavedComparison` (`HEAD..<base>`, merge
+ * mode) via the service. `<base>` is the nearest ancestor branch when HEAD is
+ * stacked on another branch, else the default branch. Those are ordinary persisted comparisons — they show in
  * the settings panel, and the existing refresh machinery live-updates them on
  * every commit, stage, and file save. Deleting one dismisses it; editing one
  * adopts it as a manual comparison (both handled in the service).
@@ -102,7 +104,7 @@ export class AutoFollowController implements vscode.Disposable {
       states.push({
         repoFullPath: r.normalizedPath,
         headBranch,
-        baseBranch: await this.resolveDefaultBranch(r.normalizedPath, r.repoFullPath),
+        baseBranch: await this.resolveBase(r.normalizedPath, r.repoFullPath, headBranch),
       });
     }
 
@@ -127,6 +129,23 @@ export class AutoFollowController implements vscode.Disposable {
       toAdd.map(d => ({ repoFullPath: d.repoFullPath, target: d.target, label: d.headBranch })),
       toRemoveIds,
     );
+  }
+
+  /** Nearest ancestor branch of HEAD (stacked branches), else the default branch. Not cached: parents move. */
+  private async resolveBase(
+    key: NormalizedRepoPath,
+    full: AbsolutePath,
+    headBranch: string | undefined,
+  ): Promise<string | undefined> {
+    const defaultBranch = await this.resolveDefaultBranch(key, full);
+    // On the default branch itself: keep it as base so computeDesiredFollows skips the repo.
+    if (!defaultBranch || !headBranch || defaultBranch.endsWith(`/${headBranch}`) || defaultBranch === headBranch) {
+      return defaultBranch;
+    }
+    // getDefaultBranch returns `origin/…` only for the remote symref; local defaults are already in refs/heads.
+    const isRemote = defaultBranch.startsWith("origin/");
+    const distances = await getRefDistancesFromHead(full, isRemote ? [defaultBranch] : []);
+    return distances ? pickNearestBase(distances, headBranch, defaultBranch) : defaultBranch;
   }
 
   private async resolveDefaultBranch(key: NormalizedRepoPath, full: AbsolutePath): Promise<string | undefined> {

@@ -202,6 +202,45 @@ export async function getDefaultBranch(repoFullPath: string): Promise<string | u
   return undefined;
 }
 
+/** A ref's position relative to HEAD: `ahead` = commits only on the ref, `behind` = commits only on HEAD. */
+export interface RefDistance {
+  ref: string;
+  ahead: number;
+  behind: number;
+}
+
+/**
+ * Ahead/behind counts vs HEAD for every local branch plus `extraRefs`
+ * (remote refs like `origin/main`), in one `for-each-ref` call. Needs git ≥ 2.41
+ * (`%(ahead-behind:)`); returns `undefined` on older git or any failure.
+ */
+export async function getRefDistancesFromHead(
+  repoFullPath: string,
+  extraRefs: string[] = [],
+): Promise<RefDistance[] | undefined> {
+  try {
+    const out = await execGitWithArgs(
+      [
+        "for-each-ref",
+        "--format=%(refname:short) %(ahead-behind:HEAD)",
+        "refs/heads",
+        ...extraRefs.map(r => `refs/remotes/${r}`),
+      ],
+      repoFullPath,
+      { timeout: ConfigService.getGitTimeoutMs() },
+    );
+    const rows: RefDistance[] = [];
+    for (const line of out.split("\n")) {
+      const [ref, ahead, behind] = line.trim().split(" ");
+      if (!ref || ahead === undefined || behind === undefined) { continue; }
+      rows.push({ ref, ahead: Number(ahead), behind: Number(behind) });
+    }
+    return rows;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Get the set of commit SHAs reachable from `toInclusive` but not from `fromExclusive`.
  * Equivalent to `git log --format=%H fromExclusive..toInclusive`.

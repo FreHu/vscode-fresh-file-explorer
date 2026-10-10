@@ -2,6 +2,7 @@ import * as assert from "assert";
 
 import {
   computeDesiredFollows,
+  pickNearestBase,
   reconcileFollows,
   followKey,
   RepoHeadState,
@@ -66,6 +67,45 @@ suite("autoFollow.computeDesiredFollows", () => {
   test("targets the remote base ref verbatim", () => {
     const got = computeDesiredFollows([state("/r", "feature/x", "origin/main")], NONE);
     assert.strictEqual(got[0].target, "origin/main");
+  });
+});
+
+suite("autoFollow.pickNearestBase", () => {
+  const d = (ref: string, ahead: number, behind: number) => ({ ref, ahead, behind });
+
+  test("stacked on a branch with its own commits → that branch", () => {
+    // main ← parent (2 commits) ← HEAD (1 commit)
+    const got = pickNearestBase([d("main", 0, 3), d("parent", 0, 1), d("child", 0, 0)], "child", "main");
+    assert.strictEqual(got, "parent");
+  });
+
+  test("fresh branch off a branch with commits (HEAD == parent tip) → that branch", () => {
+    assert.strictEqual(pickNearestBase([d("main", 0, 2), d("parent", 0, 0), d("child", 0, 0)], "child", "main"), "parent");
+  });
+
+  test("parent moved on after branching → still found via merge-base distance", () => {
+    assert.strictEqual(pickNearestBase([d("main", 0, 3), d("parent", 2, 1)], "child", "main"), "parent");
+  });
+
+  test("tie between non-default branches → default", () => {
+    assert.strictEqual(pickNearestBase([d("main", 0, 3), d("a", 0, 0), d("b", 0, 0)], "child", "main"), "main");
+  });
+
+  test("default among the nearest → default", () => {
+    assert.strictEqual(pickNearestBase([d("main", 0, 0), d("test3333", 0, 0)], "test3334", "main"), "main");
+  });
+
+  test("ignores branches stacked on top of HEAD", () => {
+    assert.strictEqual(pickNearestBase([d("main", 0, 2), d("grandchild", 3, 0)], "child", "main"), "main");
+  });
+
+  test("remote default: local twin at the same commit counts as default", () => {
+    assert.strictEqual(pickNearestBase([d("origin/main", 0, 2), d("main", 0, 2)], "x", "origin/main"), "origin/main");
+    assert.strictEqual(pickNearestBase([d("main", 0, 2)], "x", "origin/main"), "origin/main");
+  });
+
+  test("no candidates → default", () => {
+    assert.strictEqual(pickNearestBase([d("x", 0, 0)], "x", "main"), "main");
   });
 });
 
