@@ -152,6 +152,7 @@ export class GitLogLPanel {
   // never arrive here — excluding it lets the `never` arm below actually
   // enforce exhaustiveness over the commands this switch is responsible for.
   private async _handleMessage(msg: Exclude<GitLogLFromWebview, { command: "ready" }>) {
+    await this._ensureRepoOpen();
     switch (msg.command) {
       case "compare":
         await this._openDiff(msg.hashA, msg.hashB);
@@ -170,6 +171,25 @@ export class GitLogLPanel {
         log(`GitLogLPanel: unhandled webview command: ${JSON.stringify(unhandled)}`, "warn");
       }
     }
+  }
+
+  private _repoOpened: Promise<void> | undefined;
+
+  /**
+   * `git:` URIs are served by VS Code's git extension, only for repos it has
+   * open: workspace repos and ones it auto-detects. A file from elsewhere can
+   * live in a repo it never opened, so its diffs show "file not found". Opening
+   * the repo is a no-op for known repos; for others it also lists the repo in
+   * Source Control, as opening a file there in an editor would.
+   */
+  private _ensureRepoOpen(): Promise<void> {
+    this._repoOpened ??= Promise.resolve(
+      vscode.commands.executeCommand("git.openRepository", this._repoRoot),
+    ).then(
+      () => undefined,
+      err => log(`GitLogLPanel: git.openRepository failed for ${this._repoRoot} — ${err}`, "warn"),
+    );
+    return this._repoOpened;
   }
 
   private async _openDiff(hashA: string, hashB: string) {
