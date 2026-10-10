@@ -18,12 +18,13 @@ function state(p: string, head: string | undefined, base: string | undefined): R
   return { repoFullPath: repo(p), headBranch: head, baseBranch: base };
 }
 
-function autoCmp(p: string, target: string, id: string): SavedComparison {
+function autoCmp(p: string, target: string, id: string, label = "x"): SavedComparison {
   return {
     id,
     repoFullPath: repo(p) as unknown as NormalizedRepoPath,
     source: HEAD_SOURCE,
     target,
+    label,
     active: true,
     groupingMode: DEFAULT_GROUPING_MODE,
     diffMode: DEFAULT_DIFF_MODE,
@@ -101,6 +102,15 @@ suite("autoFollow.reconcileFollows", () => {
     assert.deepStrictEqual(toRemoveIds, ["cmp-1"]);
     assert.strictEqual(toAdd.length, 1);
     assert.strictEqual(toAdd[0].target, "develop");
+    assert.strictEqual(kept.length, 0);
+  });
+
+  test("HEAD branch change with same base is a remove + add", () => {
+    const existing = [autoCmp("/a", "main", "cmp-1", "test3333")];
+    const desired: DesiredFollow[] = [{ repoFullPath: repo("/a"), target: "main", headBranch: "test3334" }];
+    const { toAdd, toRemoveIds, kept } = reconcileFollows(desired, existing);
+    assert.deepStrictEqual(toRemoveIds, ["cmp-1"]);
+    assert.deepStrictEqual(toAdd.map(a => a.headBranch), ["test3334"]);
     assert.strictEqual(kept.length, 0);
   });
 
