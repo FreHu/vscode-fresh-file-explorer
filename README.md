@@ -6,6 +6,7 @@ GitLens companion or lean alternative. No telemetry. No AI buttons.
 
 [![Install from VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-007ACC?style=for-the-badge&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer)
 [![Open VSX](https://img.shields.io/open-vsx/dt/frehu/fresh-file-explorer?style=for-the-badge&label=Open%20VSX&color=A60EE5)](https://open-vsx.org/extension/frehu/fresh-file-explorer)
+[![GitHub](https://img.shields.io/badge/GitHub-Source-181717?style=for-the-badge&logo=github)](https://github.com/FreHu/vscode-fresh-file-explorer)
 
 ![time-window-switch](docs/img/time-window-switch.gif)
 
@@ -30,20 +31,17 @@ GitLens companion or lean alternative. No telemetry. No AI buttons.
 | Share a permalink to this file? | [Copy Remote URL](#context-menu-actions) |
 | I can't read? | [CodeStonks Charts](#codestonks) |
 
-## Links
-
-[Marketplace](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer) | [OpenVSX](https://open-vsx.org/extension/frehu/fresh-file-explorer) | [Github](https://github.com/FreHu/vscode-fresh-file-explorer)
 ## Features
 
 ### Time Window based File Explorer
 
-Switch between viewing pending changes or files last modified in configurable time periods. The view is a hybrid of File Explorer (which sometimes shows too much) and Source Control (which sometimes shows too little).
+Switch between viewing pending changes or files last modified in configurable time periods (`freshFileExplorer.timeWindows`). The view is a hybrid of File Explorer (which sometimes shows too much) and Source Control (which sometimes shows too little). It honors your `files.exclude` (`freshFileExplorer.respectFilesExclude`).
 
 ### Deleted File Support
 
 Deleted files appear in the tree where they used to be, ready for necromancy.
 
-- **Exhume**: Click the file to open it in a read-only temp file
+- **Exhume**: Click the file to open a copy of its last version in a temp file
 - **Resurrect**: Restores the file to its original location `(git restore)`
   
 ![resurrect](docs/img/resurrect.png)
@@ -59,8 +57,8 @@ Heatmaps for different scales.
 
 **Blame heatmap** — paints individual lines inside the editor. Two modes:
 
-- **Age** - line color reflects recency of the last commit on that line. Other blame tools surface who/when textually - hover popups, inline annotations — and stop there. This one paints the file. Fresh code stands out, ancient code fades. Drill into the metadata only when you want it.
-- **Baseline Branch/Tag** - colors *only* lines changed since a chosen baseline. Pre-baseline lines stay uncolored. Added lines get a distinct green palette. Pure deletions surface as red gutter badges with **restore from baseline** / **copy baseline lines** actions.
+- **Age** - line color reflects recency of the last commit on that line. Other blame tools show who/when as text and stop there; this one paints the file, so fresh code stands out and old code fades.
+- **Baseline** - colors *only* lines committed since you branched off a chosen baseline (branch, tag or any ref). Added lines get a distinct green palette. Pure deletions surface as red gutter badges with **restore from baseline** / **copy baseline lines** actions.
 
 Useful for questions like:
 
@@ -85,10 +83,12 @@ Adds a special "pinned items" view. This is for files you want to keep handy ind
 - Pin a deleted file
 - Pin a search editor (must be saved as a file)
 - Create short notes and use it as a todo list. They can be reordered and marked as complete.
-- Pin a Markdown (`.md`, `.mdx`, Quarto `.qmd`, R Markdown `.Rmd`), Org-mode (`.org`) or AsciiDoc (`.adoc`) file and its headings show up as children, kept in sync as you edit. Org-mode TODO keywords show next to their heading. Click a heading to jump to it. `freshFileExplorer.pinned.headingDepth` sets the deepest heading shown, `freshFileExplorer.pinned.headingExpandDepth` how many levels start expanded.
+- Pin a Markdown (`.md`, `.markdown`, `.mdx`, Quarto `.qmd`, R Markdown `.Rmd`), Org-mode (`.org`) or AsciiDoc (`.adoc`, `.asciidoc`) file and its headings show up as children, kept in sync as you edit. Org-mode TODO keywords show next to their heading. Click a heading to jump to it. `freshFileExplorer.pinned.headingDepth` sets the deepest heading shown, `freshFileExplorer.pinned.headingExpandDepth` how many levels start expanded.
 - Pin your sensitive API keys as notes. All the pros do it.
 
 The pins are stored per workspace.
+
+**Find Files Modified Together** (right-click a file, or the Pinned Items toolbar) suggests files that usually change together with what you're working on, learned from history, including across repos linked by ticket IDs in commit messages (`freshFileExplorer.cochange.*`). Suggestions show up here with the reason; keep them as pins or clear them.
 
 ### Sync Status Notifications
 
@@ -103,14 +103,15 @@ Both options can be individually disabled.
 ### Filtering
 - **Filter by Author**: Hide files from specific authors
 - **Filter by Commit**: Hide files from specific commits
+- **Filter by AI Co-authorship**: Show or hide changes from commits with an AI agent's `Co-authored-by` trailer (extend the recognized agents with `freshFileExplorer.aiCoAuthorEmails`)
 - **Pathspec Filter**: Restrict git log to specific files or directories using [git pathspecs](https://css-tricks.com/git-pathspecs-and-how-to-use-them/) (right-click on a repo folder)
 - **Scope to Folder**: Focus on a specific folder within a repo (right-click on any folder)
 - **Clear filters**
-- Author and commit filters are temporary and reset when changing time windows
+- Author, commit and AI filters are temporary and reset when changing time windows
   
 ![filter-commit](docs/img/filter-commit.png)
 
-> **Note:** The extension tracks the _most recent_ commit per file only. If a file was modified by both a filtered author and a non-filtered author within the time window, the file will be hidden entirely (because the most recent commit is what's filtered). This is a deliberate simplification - for deeper history analysis, consider using something like GitLens or learning more than 5 git commands.
+> **Note:** Filters look at each file's _most recent_ commit only, so a file last touched by a filtered author is hidden even if others changed it earlier. For deeper history analysis, use something like GitLens or learn more than 5 git commands.
 
 
 ### Grouping Modes
@@ -119,7 +120,7 @@ Organize your files in different ways beyond the standard folder structure:
 
 ![grouping modes](docs/img/grouping-modes.png)
 
-- **File Structure** - Traditional folder hierarchy
+- **Folder Structure** - Traditional folder hierarchy
   
 - **Flat list** - If you don't care for the nesting.
   
@@ -133,9 +134,9 @@ As well as one additional grouping for advanced git blame use cases.
 
 - **Moon Phase** (`git blame moon`)
 
-Uneven distribution of commits during the full moon can indicate werevolves among your contributors.
+Uneven distribution of commits during the full moon can indicate werewolves among your contributors.
 
-> Note: This is astronomy (hard science), not astrology (garbage). If you want to know if you will have merge conflicts with the changes made by a sagitarius, you need to look elsewhere.
+> Note: This is astronomy (hard science), not astrology (garbage). If you want to know if you will have merge conflicts with the changes made by a Sagittarius, you need to look elsewhere.
 
 
 **Relevant settings:**
@@ -148,22 +149,15 @@ Uneven distribution of commits during the full moon can indicate werevolves amon
 
 Use **"Fresh Files: Quick Open"** to get a quick pick showing files from your Fresh File Explorer view. Type to filter by filename or path, then select a file to open it. This is similar to VS Code's Ctrl+P, but filtered to only your fresh files, with some additional actions on top.
 
-**Features:**
-- Respects current time window, author and commit filters
-- Special filter options to refine the list
-- Special search option to trigger a fulltext search within these files
-- You can use the filter first and then search to narrow down the list
-  - First filter for example "pending modified"
-  - A second quick pick will be shown with only those files
-  - Now the search action will search only pending modified files
+It respects the current time window and filters, adds its own filters (e.g. "pending modified"), and can start a full-text search in the listed files, so filter first, then search only those.
 
 > Note: the quick open excludes deleted files. You'll have to access those from the tree.
 
 ### Context Menu Actions
 
-Routine file operations (copy / cut / paste / rename / create / delete, and path copying) work like File Explorer with the standard keybindings. Beyond that:
+Routine file operations (copy / cut / paste / rename / create / delete, copy path) work like in File Explorer; copy, cut, paste, Delete and F2 have the usual keybindings. Beyond that:
 
-- **Open / Open to Side** — opens either the file or its diff depending on `freshFileExplorer.defaultOpenChangesMode`. A view-title button toggles the left-click action, alternating between a file icon and a diff icon to show the current mode. Branch Compare has its own independent toggle (defaulting to diffs). Respects `workbench.editor.revealIfOpen` for both files and diffs.
+- **Open / Open to Side** — opens the file or its diff, per `freshFileExplorer.defaultOpenChangesMode`. A view-title button switches what a click opens; Branch Compare has its own switch (diffs by default).
 - **Copy Remote URL** — generates a browser link for the file at the current branch + path. Supports GitHub, GitLab, Bitbucket, and Azure DevOps (incl. SSH-style remotes and legacy `*.visualstudio.com`). Multi-select copies one URL per line.
 - **Copy Subtree Structure** — pastes the directory tree as text. From the Fresh Files tree it's **filtered to fresh files**. From the regular File Explorer it lists the full subtree, respecting `.gitignore`. Choice of absolute / relative / filename labels. Useful for chat, docs, and LLM prompts.
 - **Compare Selected** (`Ctrl+Alt+C`) — diff any two files against each other. With 3+ files, choose between *all permutations* or *one vs. all others* in a multi-diff editor.
@@ -172,6 +166,7 @@ Routine file operations (copy / cut / paste / rename / create / delete, and path
 - **Rename** (`F2`) — uses `git mv` by default so the rename is auto-staged and properly tracked. See `freshFileExplorer.autoStageRename`.
 - **Discard Changes** (pending files) / **Resurrect** (deleted files) — see [Deleted File Support](#deleted-file-support).
 - **Pin** — drag-and-drop or right-click to add to the [Pinned section](#pinned-section).
+- **Find Files Modified Together** — see the [Pinned section](#pinned-section).
 
 ### Multi-Repository Support
 
@@ -180,7 +175,7 @@ Works seamlessly across:
 - **Folders containing multiple repos in subfolders** — the "monorepo of repos" layout
 - **Multi-root workspaces**
 - **Worktrees** — each worktree shows its own pending changes and history
-- **Submodules** (experimental) — treated as nested repos with their own time windows
+- **Submodules** (experimental) — treated as nested repos
 
 ![submodules](docs/img/submodules.png)
 
@@ -192,14 +187,14 @@ A chart view showing how your repository evolved over time. Access it from the "
 
 You can keep this open if you want your boss to think you are daytrading when you're really vibecoding.
 
-For full details see the [CodeStonks docs](docs/codestonks.md). The same document can be opened directly the help button inside the view.
+For full details see the [CodeStonks docs](docs/codestonks.md), also opened by the help button inside the view.
 
 **Metrics (all toggleable):**
 - **Files in repo** — cumulative file count at each commit
 - **Files changed** — additions and deletions per commit
-- **Unique authors** — distinct authors in a rolling window
-- **Author concentration** — percentage of commits by the top-N authors in a rolling window
-- **Commit velocity** — commits per calendar day
+- **Unique authors** *(per-commit mode)* — distinct authors in a rolling window
+- **Author concentration** *(per-commit mode)* — percentage of commits by the top-N authors in a rolling window
+- **Commit velocity** — commits per day, or per bucket
 - **Churn rate** — files changed as a percentage of total repo size
 - **Avg commit size** — rolling average of files changed per commit
 
@@ -209,7 +204,7 @@ For full details see the [CodeStonks docs](docs/codestonks.md). The same documen
 - **Shift + scroll** (or trackpad horizontal swipe) to pan when there are more commits than the visible window
 - **Max ticks** — configurable limit for how many commits are rendered at once before panning kicks in
 - **X-axis mode** — per-commit or bucketed per day/week/month
-- **Compare repos** — overlay multiple repos' file count lines for side-by-side comparison
+- **Compare repos** *(day/week/month modes)* — overlay multiple repos' file count lines
 - **Export SVG** — save the current chart
 
 ---
@@ -224,9 +219,10 @@ A new tree view that surfaces saved branch-to-branch comparisons. Each row is on
 
 ### How it works
 
-- Open the settings panel via the gear icon in the view title.
+- Open the Branch Comparisons panel via the gear icon in the view title.
 - Add a comparison: pick a repo, type a **source** ref (the branch with the work) and a **target** ref (the baseline you compare against).
-- Click any file in the tree → opens a diff between the comparison's baseline (the merge-base) and the source ref.
+- Click any file in the tree → opens a diff between the comparison's baseline (the merge-base) and the source ref. Per comparison you can switch to a **full** diff against the target itself, hide files you've ticked as reviewed, or swap the two sides.
+- File icons can show the file type or the kind of change (`freshFileExplorer.branchCompare.fileIcons`); `freshFileExplorer.branchCompare.workingTreeSide` picks which side of the diff your working tree is on.
 - Right-click a deleted file → **Restore from Baseline** writes the baseline content back into the working tree as an unstaged change.
 - Right-click a section or folder → **Open All Changes** queues every diff in the background.
 - Right-click a file → **Open in External Diff Tool** opens it in your configured `git difftool` instead of the built-in diff editor.
@@ -236,7 +232,7 @@ A new tree view that surfaces saved branch-to-branch comparisons. Each row is on
 
 - **Branches and tags** — `main`, `origin/release-q4`, `v1.2.0`. Autocomplete lists what's available.
 - **`HEAD` as source** — tracks your current branch dynamically. Only HEAD-source comparisons include working-tree changes; uncommitted files appear with a `•` marker.
-- **`HEAD~N` as target** — quick "what did I change in my last N commits" view.
+- **`HEAD~N` as target** — quick "what did I change in my last N commits" view, named "last N commits". In a repo with fewer than N commits it shows all of them.
 - **Any git-resolvable ref** — commit SHAs, `origin/main^`, etc. The green check next to the input confirms the ref resolves.
 
 ### Multiple comparisons
@@ -245,21 +241,17 @@ Define `vs main`, `vs release-q4`, and `vs colleague-branch` simultaneously — 
 
 ### Auto-follow diverged branches
 
-Tick **Auto-follow diverged branches & worktrees** in the settings panel and comparisns just appear: every repo or worktree whose current branch has diverged from its default branch gets its own live section.
+Tick **Auto-follow diverged branches & worktrees** in the panel and comparisons just appear: every repo or worktree whose current branch has diverged from its default branch gets its own live section, and it disappears again when the branch goes back to the default or the worktree is removed. Work in progress shows up wherever it happens, in any number of worktrees.
 
-Doesn't matter who is doing the work: you, or an LLM agent juggling 20 worktrees behind your back. You just check a toggle.
-
-Auto-follows are ordinary comparisons — they show up in the settings panel like any other, marked with the 👁 icon. They're reconciled from live git, so switching a repo back to `main` or removing a worktree makes its section disappear on its own.
-
-- **Delete** one (panel trash, or **Stop Following** on the tree section) to stop following it for the rest of the session — it stays gone until that branch changes (or you restart).
-- **Edit** one (retarget or rename it) to adopt it as your own permanent comparison; auto-follow stops managing it from then on.
-- A branch sitting *on* its default branch produces nothing (an empty diff isn't worth a section). A manual comparison for the same branch takes precedence in the tree.
+These rows are marked with 👁 in the panel:
+- **Delete** one (or **Stop Following** on the tree section) to stop following it until that branch changes.
+- **Click the eye**, or edit the row, to keep it as your own comparison.
 
 ### Heatmap settings also live here
 
-Star one HEAD-source comparison per repo to mark it as the blame heatmap's baseline. The heatmap then colors lines that changed between that comparison's target and HEAD.
+Mark one HEAD-source comparison per repo as the blame heatmap's baseline (the heatmap icon in its row). Baseline mode then colors lines committed since HEAD branched off that comparison's target.
 
-The same panel hosts the file heatmap toggle and the line heatmap choice for newly opened files (Off / Age / Baseline) — replacing the old `settings.json` round-trip.
+The same panel holds the file heatmap toggle and the line heatmap choice for newly opened files (Off / Age / Baseline).
 
 ### Tips/gotchas
 
@@ -267,7 +259,7 @@ The same panel hosts the file heatmap toggle and the line heatmap choice for new
 - **Merge commits** — when a `HEAD~N..HEAD` comparison sweeps in unexpected commits via merges, the tooltip surfaces both counts so the number of files in the tree makes sense.
 - **Invalid refs** are hidden from the tree. The red X next to the input in the settings panel is the source of truth.
 - **Duplicates** (same repo + source + target) are deduped in the tree and flagged with a warning in the settings panel.
-- **External diff tool** — the single-file action works with any `diff.tool`. The multi-file (`--dir-diff`) action only works correctly with tools that support directory comparison (WinMerge, Meld, Beyond Compare); single-file tools like `code --diff` won't error, they'll just open an empty two-folder workspace with nothing diffed. That's the tool's limitation, not a bug — pick a directory-capable tool before enabling `enableDirDiffTool`.
+- **External diff tool** — the single-file action works with any `diff.tool`. The multi-file (`--dir-diff`) action needs a tool that compares directories (WinMerge, Meld, Beyond Compare); with a single-file tool like `code --diff` it opens two empty folders.
 
 ---
 
@@ -278,7 +270,7 @@ The same panel hosts the file heatmap toggle and the line heatmap choice for new
 | **Search in Fresh Files** | Where is `x` in my current work? | File contents, on disk, scoped to fresh files |
 | **Search in Found Files** | I want to find `y` in all files that contain `x`. Then find `z` only in those. | File contents, on disk, chained from a previous search |
 | **File History** | What's the full history of this file? | Git log for an entire file, following renames |
-| **Diff Search** | When was `x` ever added or removed? | Git diff history across all commits `(pickaxe)`. Surfaces a not widely known but extremely useful git feature. |
+| **Diff Search** | When was `x` ever added or removed? | Commits whose diff adds or removes a line matching `x` (`git log -G`, git's "pickaxe"). A little-known but extremely useful git feature. |
 | **Line / Function History** | What's the full history of this function or code block? | Git log for a specific line range or function name `(log -L)` |
 
 ![History options](docs/img/history-options.png)
@@ -286,17 +278,15 @@ The same panel hosts the file heatmap toggle and the line heatmap choice for new
 
 ### Diff Search (pickaxe)
 
-Answers the question "when was this string ever added or removed?"
+Answers "when was this string ever added or removed?"
 
-Access through the editor right-click menu ("Search Diffs for Selection").
-
-Results appear in a tree view grouped by file and commit, and each match can be clicked to navigate to it.
+Right-click a selection in the editor (**Search Diffs for Selection**), or open the **Diff Search** panel for regex, case, include / exclude paths and a time limit. Results appear in a tree grouped by repo, commit and file; click a match to open it, and filter to added or removed lines.
 
 ### Line and Function History
 ![l-history](docs/img/l-history.png)
 Access via right-click in the editor → **"Line/Function History"**.
 
-Based on your selection, shows every commit that touched those lines or that function, following renames. This is a wrapper of `git log -L`.
+Based on your selection, shows every commit that touched those lines or that function. This is a wrapper of `git log -L`.
 
 - **Single cursor / single line** — treated as a function name (uses the word under the cursor as the funcname pattern)
 - **Multi-line selection** — treated as a line range
@@ -316,13 +306,13 @@ Shows every commit that touched a file, following renames across the full reposi
 **Line-changes chart** — a stacked bar chart at the top of the panel showing how many lines were added (green) and removed (red) in each commit:
 - Hover over a bar to see the commit hash, message, author, date and exact line counts
 - Click a bar to jump to that commit in the timeline below
-- Up to 100 commits are shown at once; pan with the scrollbar or mouse wheel when there are more
+- Up to 100 commits are shown at once; pan with the scrollbar, Shift + scroll or a horizontal swipe when there are more
 
 
 
 ### Search in Fresh Files
 
-The search icon in the Fresh Files toolbar will open VS Code's search view with all currently visible files pre-filled in the "files to include" pattern. This lets you search only within the files you're actively working on, respecting your current filters and time window. This searches file *contents* on disk. To search the tree itself, use `CTRL+ALT+F`.
+**Search in Fresh Files** (in the Fresh Files `…` menu) opens VS Code's search with all currently visible files pre-filled in "files to include". This lets you search only within the files you're actively working on, respecting your current filters and time window. This searches file *contents* on disk. To search the tree itself, use `CTRL+ALT+F`.
 
 You can also trigger the search from the [quick pick](#quick-open).
 
@@ -351,9 +341,7 @@ You need to have the extension installed and enable `freshFileExplorer.codeTeles
 
 **Configuration:**
 - `freshFileExplorer.openSearchInEditor`: Open searches in a Search Editor tab instead of the Search view
-- `freshFileExplorer.searchPatternMaxLength`: Maximum pattern length per batch. Set a lower value if you encounter command-line length limits on your OS, or a higher value if your searches are getting batched. The default (4000 chars) is very conservative and can likely be set much higher on Linux.
-
-> When you have many files or very long paths, VS Code's underlying search mechanism (ripgrep) can hit OS command-line length limits. In this case, the file list will be split into batches which will open as separate search editors.
+- `freshFileExplorer.searchPatternMaxLength`: The file list is split into batches (separate search editors) so ripgrep stays under OS command-line limits. The default (4000 chars) is conservative; raise it if searches get batched, lower it if you hit the limit.
 
 ### Search Editor Actions
 ![search editor actions](docs/img/search-editor.png)
@@ -364,79 +352,13 @@ There are several new action buttons in the search editor results:
 
 ## Use Cases
 
-### "I just cloned a large repo and don't know where to start"
-
-You joined a new company and the codebase has thousands of files. Most haven't been touched in the last 75 years. But the file explorer shows everything, making it overwhelming to find where active development is happening.
-
-| Approach                | How it works                                                                      | Friction                                                     |
-| ----------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **Default VS Code**     | Browse folders manually, maybe search for recent commits in Source Control        | High - requires mental context switching, no visual overview |
-| **GitLens**             | Use "Commits" view to see recent commits, then navigate to files from there       | Medium - commit-centric view, extra clicks to open files     |
-| [Fresh File Explorer](#features) | Open the Fresh Files panel, see all files modified in last 30 days as a file tree | Low - immediate visual overview, familiar tree navigation    |
-
----
-
-### "I swear this file was here at some point"
-
-You remember a file existed, but it's not there. Was it renamed? Moved? Did you misremember the path? Have you been drinking again? It's someone else's fault _this time_, but you're questioning your own sanity.
-
-| Approach                | How it works                                                         | Friction                                        |
-| ----------------------- | -------------------------------------------------------------------- | ----------------------------------------------- |
-| **Default VS Code**     | Search for the filename, find nothing, assume you're wrong           | High - no hint that deletion occurred           |
-| **GitLens**             | Would need to think "maybe it was deleted" and search commit history | High - requires the right mental model          |
-| [Fresh File Explorer](#deleted-file-support) | Deleted files appear right where they used to be                     | Zero - it's still there, just marked as deleted |
-
----
-
-### "I accidentally deleted some files and need them back"
-
-**Pain Point:** You deleted files and realize you need them. They're committed to git but you wish it was easier to get them back.
-
-| Approach                | How it works                                                     | Friction                                                  |
-| ----------------------- | ---------------------------------------------------------------- | --------------------------------------------------------- |
-| **Default VS Code**     | `git log --diff-filter=D`, then `git checkout <hash>^ -- <path>` | High - requires git expertise                             |
-| **GitLens**             | Find the deletion commit, view file at revision, copy content    | Medium - several steps                                    |
-| [Fresh File Explorer](#deleted-file-support) | Deleted files are there, right-click → "Resurrect"               | Low - one-click restore. Works on multiple files at once. |
-
----
-
-### "I made a commit and now I've lost track of what I was working on"
-
-You make a commit but now your "pending changes" view is empty. You've lost the mental map of which files you were touching. This actually discourages small, frequent commits because you want to keep that overview.
-
-| Approach                | How it works                                                                                 | Friction                                                                                                        |
-| ----------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Default VS Code**     | Pending changes disappear after commit, must remember or check git log                       | High - punishes good commit practices                                                                           |
-| **GitLens**             | Can view recent commits, but context switch required                                         | Medium - the information is there, but in a different place, and you can only have so many views open at a time |
-| [Fresh File Explorer](#time-window-selection) | Set time window to "Last 7 days" - your committed files still appear, organized by directory | Low - commit freely, overview persists                                                                          |
-
-### "I was using Fresh File Explorer and it was going great, but then someone reformatted the entire codebase and now all the files are fresh"
-
-**Pain Point:** A large automated change (formatting, linting, dependency updates) pollutes your view of what actually changed.
-
-| Approach                | How it works                                                                                           | Friction                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| **Default VS Code**     | No built-in way to filter by author                                                                    | High - must use terminal commands           |
-| **GitLens**             | Can filter by author in various views                                                                  | Medium - need to know where to look         |
-| [Fresh File Explorer](#filtering) | Filter out the person doing the formatting, or (it was _you_, wasn't it?) the commit where it was done | Low - visual multi-select, instant feedback |
-
----
-
-
-### "Cool extension but I was looking for a todo list app"
-
-**Pain Point:** There just aren't enough todo list apps out there.
-
-| Approach  | How it works  | Friction  |
-| --------------- | ----------------- | ---------------- |
-| **Default VS Code**     | Is not a todo list | High - must vibe-code your own todo list |
-| **GitLens**             | Is probably not a todo list | Medium - I don't know, maybe it even has a todo list  |
-| [Fresh File Explorer](#pinned-section) | Is *also* a todo list | Low - Can't miss it |
----
-
-### "Cool extension but can it group my files by moon phase"
-
-[Yes.](#grouping-modes) It might even be the *only* piece of software that does that.
+- **"I just cloned a large repo and don't know where to start."** Most files haven't been touched in the last 75 years. Fresh Files shows only what changed in the last 30 days, as a familiar tree. → [Time window](#time-window-based-file-explorer)
+- **"I swear this file was here at some point."** Have you been drinking again? No: deleted files appear right where they used to be. → [Deleted files](#deleted-file-support)
+- **"I deleted some files and need them back."** Right-click → *Resurrect*, several at once, no `git log --diff-filter=D` archaeology. → [Deleted files](#deleted-file-support)
+- **"I committed and lost track of what I was working on."** Pending changes empty out on commit; with a "last 7 days" window your files stay in view, so small, frequent commits stop costing you the overview. → [Time window](#time-window-based-file-explorer)
+- **"Someone reformatted the whole codebase and now every file is fresh."** Filter out that author, or (it was _you_, wasn't it?) that commit. → [Filtering](#filtering)
+- **"Cool extension, but I was looking for a todo list app."** There just aren't enough of those. Fresh File Explorer is *also* a todo list. → [Pinned section](#pinned-section)
+- **"Can it group my files by moon phase?"** [Yes.](#grouping-modes) It might be the *only* software that does.
 
 ## Extension Settings
 
@@ -449,6 +371,8 @@ Unlike File Explorer, which just needs the files on your disk, Fresh File Explor
 ![incremental load](docs/img/incremental-load.gif)
 
 Not looking 5 years back in a large repo will go a long way in terms of performance. But you can. Also avoid configuring long time windows you never need - adds pointless startup overhead in the background.
+
+If you mainly use the other features, set `freshFileExplorer.freshFileLoading` to `"manual"`: the history scan then waits for a Refresh (or a feature that needs it), while Branch Compare, the blame heatmap and the rest keep working.
 
 ## Security
 
@@ -466,7 +390,7 @@ Potentially dangerous features: none, really. But for completeness' sake:
 - Rename uses `git mv` by default, or a plain filesystem rename if `freshFileExplorer.autoStageRename` is disabled. It will not overwrite existing files.
 - It can create files if you choose to (via create or resurrect), but will never overwrite existing ones.
 - When viewing deleted files (referred to as `exhume`), a copy is saved as a temp file in `%TEMP%\fresh-file-explorer` or `/tmp/fresh-file-explorer`. This is only for files you try to open. If you really want something gone, you'll have to delete it from there.
-- Commands that involve user-controlled data (like filenames from git output) use `cp.spawn("git", args)` to prevent shell injection.
+- Every git call passes its arguments as an array to one spawn wrapper, never through a shell, so filenames can't inject commands. A lint rule keeps it that way.
   
 As well as some warnings:
 

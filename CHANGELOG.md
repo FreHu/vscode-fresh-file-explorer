@@ -2,16 +2,32 @@
 
 ## [Unreleased]
 
-- Pinned Items: a pinned Markdown (`.md`, `.mdx`, `.qmd`, `.Rmd`), Org-mode (`.org`) or AsciiDoc (`.adoc`) file lists its headings as children, synced live with the file (unsaved edits included) and clickable to jump to the heading. Org-mode TODO keywords (default or from `#+TODO:`) show next to their heading. Malformed structure is handled best effort: skipped levels nest under the nearest shallower heading, and headings inside code blocks or front matter are ignored. New settings `pinned.headingDepth` (default 3, 0 turns it off) and `pinned.headingExpandDepth` (default 1).
+### Pinned Items
 
-- Branch Comparisons settings moved from an editor tab into the bottom panel.
-- Blame heatmap: the Branch / Tag mode is now called **Baseline**, since it accepts any ref. The right-click menu lists only the modes (Age / Baseline / Turn off) in its first group, with a checkmark on the active one; "Change baseline…" moved to the actions group.
-- Branch Compare: a `HEAD~N` target works in a repo with N or fewer commits — it shows every commit there is, with a "⚠ only N commits" note on the section and a warning (not an error) in the settings panel. Set up a rolling "last 10 commits" comparison in a brand-new repo ahead of time.
-- Blame heatmap: "Turn off" is now **Off**, listed first in the editor menu and status-bar picker. The settings panel replaces the auto-apply checkbox with one Off / Age / Baseline choice for newly opened files; marking a comparison as heatmap baseline selects Baseline. In the comparisons table the heatmap-baseline column uses the heatmap's own icon instead of a star, and the Hide Reviewed / heatmap columns have icon headers to save width.
-- Branch Compare: new `branchCompare.fileIcons` setting (also in the Branch Comparisons panel toolbar) — show the file-type icon, or one icon per change kind (added / modified / deleted / renamed / untracked) in the Source Control view's colors.
-- Branch Compare: an unnamed `HEAD` vs `HEAD~N` comparison is called "last N commits", and the name follows N when you edit the target.
+- A pinned Markdown (`.md`, `.markdown`, `.mdx`, `.qmd`, `.Rmd`), Org-mode (`.org`) or AsciiDoc (`.adoc`, `.asciidoc`) file lists its headings as children, synced live with the file (unsaved edits included). Headings with sub-headings expand on click and have a *Go to Heading* button; the others jump to their heading. Org-mode TODO keywords (default or from `#+TODO:`) show next to their heading. Malformed structure is handled best effort: skipped levels nest under the nearest shallower heading, and headings inside code blocks or front matter are ignored. New settings `pinned.headingDepth` (default 3, 0 turns it off) and `pinned.headingExpandDepth` (default 1).
 
-- Repo icons now match the Source Control view: linked worktrees (`git worktree add`) get the `worktree` icon and submodules the `archive` icon instead of the plain `repo` icon — in Fresh Files, Branch Compare sections and diff-search results. Worktree detection is one `git rev-parse --git-dir --git-common-dir` per repo at discovery time.
+### Branch Compare
+
+- The Branch Comparisons settings moved from an editor tab into the bottom panel, with compact icon columns ("On", hide reviewed, heatmap baseline) and a button that shows the Branch Compare tree.
+- A `HEAD~N` target works in a repo with N or fewer commits: it shows every commit there is, with a "⚠ only N commits" note. An unnamed `HEAD` vs `HEAD~N` comparison is called "last N commits" and follows N.
+- New `branchCompare.fileIcons` setting (also in the panel toolbar): file-type icons, or one icon per kind of change in the Source Control view's colors.
+- Click the 👁 on an auto-followed row to keep it as your own comparison.
+- *Collapse All* on a comparison section; *Refresh This Repo* is now *Refresh This Comparison*.
+- Commit groups (here and in Fresh Files) show the commit subject as the label, with the hash in the description, and honor the author / date / message description settings.
+
+### Blame heatmap
+
+- The Branch / Tag mode is now **Baseline**, since it accepts any ref.
+- One **Off / Age / Baseline** choice: first in the editor's right-click menu (the active one checked) and in the status-bar picker, and in the Branch Comparisons panel for newly opened files, where it replaces the auto-apply checkbox and applies to open editors right away. Marking a comparison as heatmap baseline switches to Baseline.
+
+### Other
+
+- File history works for files outside the workspace, including its diffs.
+- The "no history" warning names the file and the repo it was looked up in.
+- Ahead / behind rows at the top of Fresh Files open the Source Control view.
+- Commands that only work from a tree item are hidden from the command palette.
+- *Resurrect* respects `gitTimeout`.
+- Repo icons match the Source Control view: linked worktrees get the `worktree` icon (Fresh Files, Branch Compare, diff search) and submodules the `archive` icon (Fresh Files, Branch Compare).
 
 ## [1.15.0]
 
