@@ -1,142 +1,70 @@
 # Heatmaps
 
-Heatmpas help visualize how recent the work in your repo is, but at different scales:
-
-## File heatmap
-Colors files in the tree (and File Explorer) by how recently they were last modified. Answers *"which files have been touched recently?"* at a glance.
-
-![file-heatmap](img/heatmap.png)
-
-## Blame Heatmaps
-
-Colors lines inside a file. Two sub-modes: 
-
-### Age - *"which parts of this file are fresh?"*
-![age-heatmap](img/age-heatmap.png)
-
-### Baseline - *"what is happening here compared to the baseline (e.g. last release branch/tag)?"*
-
-![baseline-heatmap](img/baseline-heatmap.png)
-
-The colors use an 8-color palette (`age1..age8`), so a file glowing bright in the tree will glow bright at the line level too.
-- colors of the file heatmap are reused
-- the baseline heatmap adds a second 8-color greenish palette for lines added since the baseline
-
-## How the buckets work
-
-Both heatmaps split the age signal into 8 color buckets, `age1` (most recent) through `age8` (oldest / out of window). The mapping uses a non-linear curve so recent edits get more distinction than ancient ones — what you touched today vs 3 days ago is more likely to fall in different buckets, while "2 years ago" and "3 years ago" are more likely to blend into the same bucket.
+Two heatmaps show how recent the work in your repo is, at two scales.
 
 ## File heatmap
 
-Colors files in the Fresh Files view and File Explorer by their last modification date. Brighter = more recent.
+Colors files by when they were last changed, in the Fresh Files view, the File Explorer and editor tabs. Answers *"which files have been touched recently?"* at a glance.
 
 ![file heatmap](img/heatmap.png)
 
-Toggle from the Fresh Files view (`...` menu, or *Toggle Heatmap Coloring* command). The coloring uses your active time window:
+Turn it on from the Fresh Files `…` menu, the *Toggle Heatmap Coloring* command, or the Branch Comparisons panel (`freshFileExplorer.heatmap.enabled`, off by default).
 
-- Within the window: bucketed across `age1..age7`.
-- Older than the window: lumped into `age8` ("even older than that"), kept distinct so you can tell within-window-but-old apart from really-out-of-window.
-
-Switching time windows reframes the signal — useful for zooming the heatmap to your timeframe.
+The colors follow your active time window: files inside it spread across `age1` (newest) to `age7`, and anything older than the window is `age8`, so "old but in range" stays distinct from "out of range". Switching the time window rescales the colors. Uncommitted files aren't colored; Git already marks them. With `freshFileLoading: "manual"`, colors appear after the first Refresh.
 
 ## Blame heatmap
 
-Per-line gutter coloring + a faint background wash inside the editor — the same recency signal as the file heatmap, taken one level deeper.
+Colors each line in the editor, as a gutter bar plus a faint background, by the commit that last changed it.
 
-Use it to answer:
-
-- *"Which lines in this big function did I just change, and which have been around for a while?"*
-- *"What did **this** branch actually touch in this file vs. main?"*
-- *"What got deleted from this file since I branched off — and can I get it back?"*
+- *"Which lines in this function did I just change, and which have been around for a while?"*
+- *"What did this branch actually touch in this file?"*
+- *"What got deleted here since I branched off, and can I get it back?"*
 
 ### Modes
 
-- **Age** — line color reflects recency of the last commit on that line. Other blame tools surface who/when textually — hover popups, inline annotations — and stop there. This one paints the file. The pattern reads at a glance: fresh code stands out, ancient code fades. Drill into the metadata only when you actually want it. The recency window auto-derives from the file's own oldest line, so all 8 buckets get used regardless of how old the file is overall.
-- **Baseline** — colors only lines changed since a chosen baseline ref (any ref git resolves: branch, tag, SHA, `HEAD~N`). Pre-baseline lines stay uncolored. Added lines get a distinct (green) palette; modified lines keep the age palette. Pure deletions surface as red gutter badges with the deleted line count.
+- **Age**: every line is colored by the age of its last commit, scaled to the file's own oldest line, so even a very old file uses the full range `age1` (newest) to `age7`. Fresh code stands out and old code fades; the who/when details are a hover away when you want them.
 
-### Activation surfaces
+  ![age heatmap](img/age-heatmap.png)
 
-- **Status bar** (bottom-left, `Heatmap: …`) — click to open the rich picker. Shows current mode, saved baseline ref, and warnings inline (`not in a git repo`, `no blame data`, etc.).
-- **Right-click on the gutter** — `Blame Heatmap >` submenu: the modes (Off / Age / Baseline, the active one checked), then Change baseline / Diff with baseline / Clear baseline. These act on the current file only.
-- **Branch Comparisons panel** — Off / Age / Baseline for newly opened files. Marking a comparison as heatmap baseline (the heatmap icon in its row) picks Baseline.
-- **Right-click on a deletion badge** — `Copy baseline lines` / `Restore from baseline` (right-click, since left-click area is owned by the breakpoint glyph).
-- **Right-click in the editor** — `Diff with baseline…` opens a regular diff editor against the saved baseline. Prompts for a ref on first use; saves it for reuse.
+- **Baseline**: only lines from commits made since the baseline are colored. The baseline is the merge-base of your branch and a ref you pick (branch, tag, SHA or `HEAD~N`), so it means "since I branched off". Added lines get a green palette (`added*`), modified lines the age palette. Lines removed since the baseline show as red gutter badges with the number of deleted lines. Lines you haven't committed yet aren't colored in this mode.
 
-### Persistence
+  ![baseline heatmap](img/baseline-heatmap.png)
 
-- Last used mode and chosen baseline (per repo) survive window reloads.
-- Auto-apply re-renders the heatmap on newly opened tabs. Multi-repo aware — skips silently when the active editor's repo has no saved baseline, never pops an unwanted picker.
+A file that didn't exist at the baseline gets no colors, and the status bar shows `Heatmap: new file vs <ref>`.
 
-### Edge cases
+### Where to control it
 
-- File added since baseline → no decorations, status bar shows `Heatmap: new file vs <ref>`.
-- Restoring a deleted block must save the document or the deletion marker would reappear.
+- **Status bar** (`Heatmap: …`): opens a picker with the modes, the baseline actions and the auto-apply toggle. Warnings such as "not in a git repo" show here too. Hide it with `freshFileExplorer.statusBar.heatmap`.
+- **Right-click the line numbers** → *Blame Heatmap*: Off / Age / Baseline for this file, then *Change baseline…*, *Diff with saved baseline* and *Clear saved baseline* (once a baseline is set).
+- **Branch Comparisons panel**: Off / Age / Baseline for newly opened files. Marking a comparison as heatmap baseline (the heatmap icon in its row) sets the baseline and switches to Baseline.
+- **Right-click a deletion badge**: *Copy baseline lines* or *Restore from baseline*. Restoring saves the file.
+- **Right-click in the editor**: *Diff with baseline…* opens a diff against the baseline (it asks for a ref the first time).
 
-### Performance
+### Good to know
 
-- `git blame` runs once per file, results cached. Re-applies on text change debounced 1.5s.
-- Configurable max line count limit. "No blame because file is over limit" vs "no blame for other reasons (e.g. new file)" is distinguishable in the status bar.
-- Baseline mode caches the merge-base SHA per `(repo, ref)`, invalidates on any git state change for that repo (HEAD move, fetch, branch switch).
-- Status bar shows a spinner during compute so slow files don't appear stuck.
+- The baseline is per repo and survives reloads. It's stored as a Branch Compare comparison: picking a baseline marks one, creating it if needed.
+- If you switch to the branch you were comparing against, the baseline flips to the branch you just left, so the heatmap keeps showing "what changed relative to where you came from".
+- New tabs get the current mode automatically. In Baseline mode, files in a repo without a baseline are skipped instead of asking for one.
+- Files over `freshFileExplorer.blameHeatmap.maxFileLines` are skipped; the status bar says so, and shows a spinner while a large file is computed.
+- After you type, the heatmap refreshes about 1.5 s later. It blames the saved file, so unsaved edits that add or remove lines shift the colors until you save.
 
-## Configuration
+## Settings
 
-### Settings
+- `freshFileExplorer.heatmap.enabled` (default `false`): the file heatmap.
+- `freshFileExplorer.blameHeatmap.autoApply` (default `true`): color newly opened files with the current mode. The Branch Comparisons panel's Off choice turns this off.
+- `freshFileExplorer.blameHeatmap.backgroundOpacity` (default `0.1`): strength of the line background; 0.05–0.15 works best.
+- `freshFileExplorer.blameHeatmap.maxFileLines` (default `1500`): skip larger files to keep `git blame` fast.
+- `freshFileExplorer.statusBar.heatmap` (default `true`): show the status bar entry.
 
-- `freshFileExplorer.blameHeatmap.autoApply` (default: `true`) — auto-apply the blame heatmap to newly opened tabs.
-- `freshFileExplorer.blameHeatmap.backgroundOpacity` (default: `0.1`) — opacity of the per-line background wash in the blame heatmap. Recommended low (0.05–0.15).
-- `freshFileExplorer.blameHeatmap.maxFileLines` (default: `1500`) — skip the blame heatmap on files above this line count to keep `git blame` fast.
+## Colors
 
-### Colors
-
-`workbench.colorCustomizations` accepts all 16 color IDs:
+The palette is 16 color IDs: `freshFileExplorer.heatmap.age1` … `age8` (shared by both heatmaps) and `freshFileExplorer.heatmap.added1` … `added8` (Baseline mode only). Each has light, dark and high-contrast defaults. Override any of them in `workbench.colorCustomizations`:
 
 ```jsonc
 "workbench.colorCustomizations": {
-    "freshFileExplorer.heatmap.age1": "#FF0000",
-    "freshFileExplorer.heatmap.age2": "#FF4400",
-    "freshFileExplorer.heatmap.age3": "#FF8800",
-    "freshFileExplorer.heatmap.age4": "#FFCC00",
-    "freshFileExplorer.heatmap.age5": "#AACC00",
-    "freshFileExplorer.heatmap.age6": "#55AA00",
-    "freshFileExplorer.heatmap.age7": "#228800",
-    "freshFileExplorer.heatmap.age8": "#006644",
-
-    // Baseline heatmap only — added-since-baseline palette
-    "freshFileExplorer.heatmap.added1": "#00E676",
-    "freshFileExplorer.heatmap.added2": "#26A69A",
-    "freshFileExplorer.heatmap.added3": "#4CAF50",
-    "freshFileExplorer.heatmap.added4": "#388E3C",
-    "freshFileExplorer.heatmap.added5": "#2E7D32",
-    "freshFileExplorer.heatmap.added6": "#558B2F",
-    "freshFileExplorer.heatmap.added7": "#33691E",
-    "freshFileExplorer.heatmap.added8": "#666666"
+    "freshFileExplorer.heatmap.age1": "#FF5500",
+    "freshFileExplorer.heatmap.added1": "#00E676"
 }
 ```
 
-The `age*` palette is shared between the file heatmap and the blame heatmap's modified-line coloring. The `added*` palette is blame-only. Light/dark/high-contrast variants are pre-registered, so overrides apply across themes.
-
-#### Per-theme overrides
-
-`workbench.colorCustomizations` supports theme-scoped sections — wrap the IDs in a `"[ThemeName]"` block to apply only when that theme is active. Useful when you want different palettes per theme without flipping settings every time you switch:
-
-```jsonc
-"workbench.colorCustomizations": {
-    // Applies to every theme unless overridden below
-    "freshFileExplorer.heatmap.age1": "#FF0000",
-
-    // Exact theme name match
-    "[Default Dark Modern]": {
-        "freshFileExplorer.heatmap.age1": "#00E5FF",
-        "freshFileExplorer.heatmap.age8": "#444444"
-    },
-
-    // Wildcard — matches any theme whose name contains "Light"
-    "[*Light*]": {
-        "freshFileExplorer.heatmap.age1": "#0066CC",
-        "freshFileExplorer.heatmap.age8": "#BBBBBB"
-    }
-}
-```
-
-Theme-scoped overrides win over the unscoped ones for matching themes; everything else falls back to the unscoped value, then the registered default.
+Theme-scoped sections (`"[Theme Name]": { … }`) work for the file heatmap, but the blame heatmap's gutter bar and background currently read only the top-level values.

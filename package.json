@@ -2171,7 +2171,7 @@
         "freshFileExplorer.blameHeatmap.autoApply": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically apply the last used blame heatmap mode (Absolute Age or Branch Changes) when you open or switch to a new editor tab. The branch ref selected during the last manual toggle is reused, so you won't be prompted again. Performance note — Absolute Age runs git blame on every new file (~100ms–2s depending on file size and history depth); Branch Changes adds a merge-base lookup and a branch commit-range query on top of that (~50–150ms extra, dominated by blame). This will not slow down tab opening, but may take a short while for the heatmap to show up."
+          "description": "Color newly opened editor tabs with the last used blame heatmap mode (Age or Baseline). The Branch Comparisons panel shows this as its Off / Age / Baseline choice. Baseline mode reuses each repo's saved baseline and skips repos without one instead of prompting. Each file runs git blame in the background, so tabs open as fast as before and the colors follow shortly after."
         },
         "freshFileExplorer.blameHeatmap.backgroundOpacity": {
           "type": "number",

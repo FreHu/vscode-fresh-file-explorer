@@ -133,8 +133,8 @@ export function computeHeatmapColorId(
  * timestamp (seconds) and a window derived from the oldest line in the file.
  *
  * Because `windowDays` spans the full age range of the file, every line sits
- * within [0, 1] and the out-of-window bucket is never produced — all 8 buckets
- * are used uniformly across the file's own history.
+ * within [0, 1], so the in-window buckets (age1..age7) span the file's own
+ * history and the out-of-window bucket (age8) is never produced.
  */
 export function blameTimestampToBucket(
   timestampSeconds: number,
