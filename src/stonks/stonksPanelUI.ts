@@ -488,7 +488,7 @@ export function getWebviewHtml(cspSource: string, scriptUri: string, codiconCssU
           <div class="section-options" id="optionsCommitSize">Window: <input type="number" id="commitSizeWindowSize" value="10" min="2" max="100" style="width: 50px"> commits</div>
         </div>
         <div class="section-toggle" id="sectionActivityHeatmap">
-          <label title="Grid heatmap of commits by day of week and hour of day in the committer's local timezone — reveals contributor timezone distribution, crunch patterns, and weekend work (commit mode only)"><input type="checkbox" id="toggleActivityHeatmap"> Activity heatmap</label>
+          <label title="Grid heatmap of commits by day of week and hour of day in the committer's local time — reveals crunch patterns and weekend work (commit mode only)"><input type="checkbox" id="toggleActivityHeatmap"> Activity heatmap</label>
           <div class="section-options heatmap-options" id="optionsActivityHeatmap">
             <div class="heatmap-workday" title="Outline marks Mon–Fri × these hours on the heatmap. Cells outside it are off-hours commits.">Workday: <input type="number" id="heatmapWorkdayStart" value="8" min="0" max="23" style="width:40px"> – <input type="number" id="heatmapWorkdayEnd" value="16" min="1" max="24" style="width:40px"></div>
             <div class="heatmap-authors-wrap">

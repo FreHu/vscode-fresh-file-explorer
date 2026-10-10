@@ -1,8 +1,8 @@
 # CodeStonks
 
-CodeStonks is a visual analytics panel that charts the evolution of your codebase over time. It turns your commit history into interactive, stacked time-series charts — giving you a high-level view of how the codebase is growing, who's contributing, and how activity patterns change.
+CodeStonks charts how your codebase evolves: stacked time-series of growth, contributors and activity, built from the commit history Fresh Files already loads (one extra `git ls-tree` per repo gives the starting file count). Nothing stonks-related, the UI just borrows from TradingView.
 
-It doesn't actually do anything stonks-related, just uses TradingView as an inspiration for the UI. The charts reuse local git history data the extension already loads on startup based on your configured time windows.
+Open it from the Fresh Files `…` menu or the *CodeStonks* command. Its settings are remembered per workspace, and the save icon exports the chart as SVG.
 
 ## Watchlist
 
@@ -30,7 +30,7 @@ Cumulative file count at each point in time. A steadily rising line means the co
 
 ### Files changed
 
-Bar chart of files touched per commit (or per bucket in aggregated modes). Green bars = net additions, red bars = net deletions.
+Bar chart of files touched per commit (or per bucket in aggregated modes). Red bars = more files deleted than added; green otherwise.
 
 ### Unique authors *(commit mode only)*
 
@@ -58,16 +58,15 @@ Average number of files changed per commit. In commit mode, this is a rolling av
 
 - **Window size**: Number of commits in the rolling window (default: 10).
 
-### Activity heatmap
+### Activity heatmap *(commit mode only)*
 
-A 7×24 grid showing when commits land, broken down by day of week (rows) and hour of day (columns). Darker cells = more commits at that time.
+A 7×24 grid of when commits land: day of week (rows) by hour (columns), in each committer's local time. The more commits in a slot, the stronger its color. It shows crunch patterns (late nights, weekends) and work rhythm. Because it uses local time, a team spread across timezones working 9–5 lands in the same cells.
 
-Useful for spotting:
-- **Timezone distribution** — where in the world your contributors are
-- **Crunch patterns** — late night or weekend bursts
-- **Work rhythm** — morning vs. afternoon commit tendencies
+- **Workday** outline (default 8–16, Mon–Fri) marks normal hours; cells outside it are off-hours commits.
+- **Author chips** limit the grid to selected people.
+- **Click a cell** to copy its commit hashes.
 
-The heatmap reflects the currently visible data (respecting the time window and any zoom applied to the chart).
+It follows the visible data: time window and chart zoom.
 
 ## Comparing repos
 
@@ -77,12 +76,12 @@ Enable **Compare repos** in the sidebar, then check individual repos to overlay 
 
 | Action | Effect |
 |--------|--------|
-| **Drag** on the chart | Select a range to zoom in |
+| **Drag** on the chart | Select a range to zoom in (or pick a level from the zoom dropdown) |
 | **Double-click** | Zoom out one level |
-| **Shift + scroll** | Pan horizontally when zoomed |
+| **Shift + scroll** / horizontal swipe | Pan, when there are more points than *Max ticks* |
 | **Hover** | Tooltip with detailed stats for that point |
-| **Click commit hash** in watchlist | Opens that commit in the editor |
+| **Click a commit dot** | Opens that commit |
 
 ## Max ticks
 
-Controls the maximum number of data points rendered at once before panning kicks in. Lower values improve responsiveness of the chart. Default: 1000.
+The most data points drawn at once (default 1000). Beyond that the chart pans; lower values keep it responsive.
