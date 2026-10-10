@@ -4,7 +4,8 @@ import * as path from "path";
 import { ChangedFile, ChangeStatus, FolderNode } from "./branchCompareData";
 import { Commands } from "../commands/commandConstants";
 import { AbsolutePath } from "../pathTypes";
-import { BranchCompareContextValues, DiffMode } from "./branchCompareConstants";
+import { BranchCompareContextValues, DEFAULT_FILE_ICON_STYLE, DiffMode, FileIconStyle } from "./branchCompareConstants";
+import { changeTypeIcon } from "./changeTypeIcon";
 import { formatLineChanges } from "../utils/formatUtils";
 import { RepoKind, repoKindIcon, repoKindLabel } from "../git/repoKind";
 
@@ -206,6 +207,8 @@ export class BranchCompareFileItem extends vscode.TreeItem {
     openChangesMode: boolean = true,
     /** Whether this file is marked reviewed for this comparison — drives the checkbox. */
     reviewed = false,
+    /** `changeType` swaps the theme's file icon for one per change kind. */
+    iconStyle: FileIconStyle = DEFAULT_FILE_ICON_STYLE,
   ) {
     const uri = vscode.Uri.file(file.absolutePath);
     super(uri, vscode.TreeItemCollapsibleState.None);
@@ -215,9 +218,9 @@ export class BranchCompareFileItem extends vscode.TreeItem {
       ? vscode.TreeItemCheckboxState.Checked
       : vscode.TreeItemCheckboxState.Unchecked;
 
-    // Pending entries are skipped:
-    // VS Code's native git decoration already badges them
-    const badge = file.isPending ? "" : statusBadge(file.status);
+    // Skipped for pending entries (VS Code's native git decoration already
+    // badges them) and when the change-type icon already says it.
+    const badge = file.isPending || iconStyle === "changeType" ? "" : statusBadge(file.status);
     const pendingMark = file.isPending ? "•" : "";
     // Line deltas exist only for pending entries (tracked working-tree changes).
     const lineChanges = formatLineChanges(file.linesAdded, file.linesDeleted);
@@ -242,6 +245,11 @@ export class BranchCompareFileItem extends vscode.TreeItem {
       this.command = openChangesMode
         ? { command: Commands.BRANCH_COMPARE_OPEN, title: "Open Changes", arguments: [this] }
         : { command: Commands.BRANCH_COMPARE_OPEN_FILE, title: "Open File", arguments: [this] };
+    }
+
+    if (iconStyle === "changeType") {
+      const { icon, color } = changeTypeIcon(file.status);
+      this.iconPath = new vscode.ThemeIcon(icon, new vscode.ThemeColor(color));
     }
   }
 }

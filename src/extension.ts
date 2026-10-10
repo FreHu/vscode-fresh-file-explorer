@@ -269,10 +269,11 @@ export async function activate(context: vscode.ExtensionContext) {
       if (e.affectsConfiguration("freshFileExplorer")) {
         freshFileProvider.onConfigurationChanged(e);
 
-        // Branch Compare shares the sort order and description format — re-render on change.
+        // Display-only Branch Compare settings (sort order, description format, file icons) — re-render on change.
         if (
           e.affectsConfiguration("freshFileExplorer.defaultSortOrder") ||
-          e.affectsConfiguration("freshFileExplorer.description")
+          e.affectsConfiguration("freshFileExplorer.description") ||
+          e.affectsConfiguration(ConfigKeys.BRANCH_COMPARE_FILE_ICONS)
         ) {
           branchCompareProvider.rerender();
         }

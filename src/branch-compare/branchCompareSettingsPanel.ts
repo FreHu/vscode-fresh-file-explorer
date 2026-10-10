@@ -123,8 +123,11 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
         ) {
           this._pushHeatmapState();
         }
-        // Keep the auto-follow checkbox in sync when toggled from settings.json.
-        if (e.affectsConfiguration("freshFileExplorer.branchCompare.autoFollow")) {
+        // Keep the auto-follow checkbox and file-icons select in sync when changed from settings.json.
+        if (
+          e.affectsConfiguration("freshFileExplorer.branchCompare.autoFollow") ||
+          e.affectsConfiguration("freshFileExplorer.branchCompare.fileIcons")
+        ) {
           this._pushState();
         }
       }),
@@ -188,6 +191,9 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
         break;
       case "setAllGroupingMode":
         this.service.setAllGroupingModes(msg.mode);
+        break;
+      case "setFileIcons":
+        await ConfigService.setBranchCompareFileIcons(msg.style);
         break;
       case "requestRefs":
         await this._sendRefs(msg.repoFullPath);
@@ -298,7 +304,11 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
       hideReviewed: c.hideReviewed,
       auto: c.auto,
     }));
-    this._post({ command: "state", repos, comparisons, autoFollow: ConfigService.getAutoFollow() });
+    this._post({
+      command: "state", repos, comparisons,
+      autoFollow: ConfigService.getAutoFollow(),
+      fileIcons: ConfigService.getBranchCompareFileIcons(),
+    });
   }
 
   private _pushHeatmapState(): void {

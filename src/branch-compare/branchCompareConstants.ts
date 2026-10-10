@@ -37,3 +37,8 @@ export const PENDING_GROUP_KEY = "(Pending)";
 export type DiffMode = "merge" | "full";
 
 export const DEFAULT_DIFF_MODE: DiffMode = "merge";
+
+/** File row icons: the theme's file-type icon, or one per change kind (added / modified / …). */
+export type FileIconStyle = "fileType" | "changeType";
+
+export const DEFAULT_FILE_ICON_STYLE: FileIconStyle = "fileType";

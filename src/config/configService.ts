@@ -4,6 +4,7 @@ import { DEFAULT_TIME_WINDOWS, TimeWindowValue } from "../fresh-files/timeWindow
 import { ConfigKeys } from "./configKeyConstants";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { ChangeLevel } from "../extension/versionGate";
+import { DEFAULT_FILE_ICON_STYLE, FileIconStyle } from "../branch-compare/branchCompareConstants";
 
 /** Default color resolved from `contributes.colors` in the extension's own
  *  package.json — single source of truth, no duplicated hex tables. */
@@ -296,6 +297,20 @@ export class ConfigService {
     return ConfigService.cfg().get<"left" | "right">(
       ConfigKeys.BRANCH_COMPARE_WORKING_TREE_SIDE,
       "right",
+    );
+  }
+
+  /** Branch Compare file row icons: theme file-type icons, or one per change kind. */
+  static getBranchCompareFileIcons(): FileIconStyle {
+    const value = ConfigService.cfg().get<string>(ConfigKeys.BRANCH_COMPARE_FILE_ICONS, DEFAULT_FILE_ICON_STYLE);
+    return value === "changeType" ? "changeType" : "fileType";
+  }
+
+  static setBranchCompareFileIcons(value: FileIconStyle): Thenable<void> {
+    return vscode.workspace.getConfiguration().update(
+      ConfigKeys.BRANCH_COMPARE_FILE_ICONS,
+      value,
+      vscode.ConfigurationTarget.Global,
     );
   }
 

@@ -352,6 +352,11 @@ export function getBranchCompareSettingsHtml(
       <label for="autoFollow">Auto-follow diverged branches &amp; worktrees</label>
     </div>
     <span class="spacer"></span>
+    <label for="fileIcons">File icons:</label>
+    <select id="fileIcons" title="Icons on Branch Compare file rows (all comparisons)">
+      <option value="fileType">File type</option>
+      <option value="changeType">Change type</option>
+    </select>
     <label for="batchGrouping">Set grouping for all comparisons:</label>
     <select id="batchGrouping" title="Apply a grouping mode to every comparison at once"></select>
     <button class="icon-btn" id="refreshBtn" title="Re-fetch branches (pick up refs created since the panel was opened)">

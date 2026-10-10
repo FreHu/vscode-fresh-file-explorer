@@ -872,8 +872,6 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   }
 
   private renderFolderChildren(cmp: ResolvedComparison, node: FolderNode): BranchCompareTreeItem[] {
-    const baseRef = cmp.target;
-
     const folders: BranchCompareFolderItem[] = [];
     for (const child of node.children.values()) {
       const allFilesInChild = collectFilesIn(child);
@@ -886,27 +884,26 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     }
     folders.sort((a, b) => a.label!.toString().localeCompare(b.label!.toString()));
 
-    const files = sortFilesForGrouping(this.visibleFiles(cmp, node.files), this.sortOrder)
-      .map(f => new BranchCompareFileItem(
-        f, cmp.source, baseRef, cmp.id, cmp.diffMode, this.openChangesMode, this.isReviewed(cmp.id, f.pathInRepo),
-      ));
-
-    return [...folders, ...files];
+    return [...folders, ...this.fileItems(cmp, node.files)];
   }
 
   private renderFlatChildren(cmp: ResolvedComparison): BranchCompareTreeItem[] {
-    return sortFilesForGrouping(this.visibleFiles(cmp, cmp.files ?? []), this.sortOrder)
-      .map(f => new BranchCompareFileItem(
-        f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode, this.isReviewed(cmp.id, f.pathInRepo),
-      ));
+    return this.fileItems(cmp, cmp.files ?? []);
   }
 
   private renderGroupChildren(group: BranchCompareGroupItem): BranchCompareTreeItem[] {
     const cmp = this.comparisons.get(group.comparisonId);
     if (!cmp) { return []; }
-    return sortFilesForGrouping(this.visibleFiles(cmp, group.files), this.sortOrder)
+    return this.fileItems(cmp, group.files);
+  }
+
+  /** Visible, sorted file rows for `files` under `cmp`. */
+  private fileItems(cmp: ResolvedComparison, files: ChangedFile[]): BranchCompareFileItem[] {
+    const iconStyle = ConfigService.getBranchCompareFileIcons();
+    return sortFilesForGrouping(this.visibleFiles(cmp, files), this.sortOrder)
       .map(f => new BranchCompareFileItem(
-        f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode, this.isReviewed(cmp.id, f.pathInRepo),
+        f, cmp.source, cmp.target, cmp.id, cmp.diffMode, this.openChangesMode,
+        this.isReviewed(cmp.id, f.pathInRepo), iconStyle,
       ));
   }
 

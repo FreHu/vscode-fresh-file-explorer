@@ -3,7 +3,7 @@
 // tsconfig.webview.json (webview scripts).
 
 import type { GroupingMode } from "../fresh-files/groupingMode";
-import type { DiffMode } from "../branch-compare/branchCompareConstants";
+import type { DiffMode, FileIconStyle } from "../branch-compare/branchCompareConstants";
 import type {
   BenchmarkColumnSpec,
   BenchmarkInputSpec,
@@ -69,7 +69,7 @@ export interface HeatmapSettingsDTO {
 }
 
 export type BranchCompareSettingsToWebview =
-  | { command: "state"; repos: RepoDTO[]; comparisons: SavedComparisonDTO[]; autoFollow: boolean }
+  | { command: "state"; repos: RepoDTO[]; comparisons: SavedComparisonDTO[]; autoFollow: boolean; fileIcons: FileIconStyle }
   | { command: "refs"; repoFullPath: string; branches: RefDTO[] }
   | {
       command: "refValidation";
@@ -98,6 +98,7 @@ export type BranchCompareSettingsFromWebview =
   | { command: "moveTo"; id: string; targetIndex: number }
   | { command: "setHeatmapBaseline"; id: string | undefined }
   | { command: "setAllGroupingMode"; mode: GroupingMode }
+  | { command: "setFileIcons"; style: FileIconStyle }
   | { command: "requestRefs"; repoFullPath: string }
   | { command: "validateRef"; repoFullPath: string; ref: string }
   | { command: "refreshRefs" }

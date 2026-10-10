@@ -59,6 +59,7 @@ const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
   STATUS_BAR_LOADING:              "none",
   STATUS_BAR_HEATMAP:              "none",
   BRANCH_COMPARE_WORKING_TREE_SIDE: "none",
+  BRANCH_COMPARE_FILE_ICONS:        "none", // Branch Compare re-renders itself (extension.ts config listener)
   BULK_ACTION_CONFIRM_THRESHOLD:    "none",
   NOTIFY_ON:                       "none",
   AUTO_FOLLOW:                     "none", // handled by AutoFollowController.onConfigChanged, not the FF tree

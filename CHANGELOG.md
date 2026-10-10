@@ -5,6 +5,7 @@
 - Branch Comparisons settings moved from an editor tab into the bottom panel.
 - Blame heatmap: the Branch / Tag mode is now called **Baseline**, since it accepts any ref. The right-click menu lists only the modes (Age / Baseline / Turn off) in its first group, with a checkmark on the active one; "Change baseline…" moved to the actions group.
 - Branch Compare: a `HEAD~N` target works in a repo with N or fewer commits — it shows every commit there is, with a "⚠ only N commits" note on the section and a warning (not an error) in the settings panel. Set up a rolling "last 10 commits" comparison in a brand-new repo ahead of time.
+- Branch Compare: new `branchCompare.fileIcons` setting (also in the Branch Comparisons panel toolbar) — show the file-type icon, or one icon per change kind (added / modified / deleted / renamed / untracked) in the Source Control view's colors.
 - Branch Compare: an unnamed `HEAD` vs `HEAD~N` comparison is called "last N commits", and the name follows N when you edit the target.
 
 - Repo icons now match the Source Control view: linked worktrees (`git worktree add`) get the `worktree` icon and submodules the `archive` icon instead of the plain `repo` icon — in Fresh Files, Branch Compare sections and diff-search results. Worktree detection is one `git rev-parse --git-dir --git-common-dir` per repo at discovery time.

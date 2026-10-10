@@ -2231,6 +2231,19 @@
             "Show baseline on the left, working tree on the right."
           ],
           "description": "Which side of the diff editor your working tree appears on when opening a Branch Compare change. The baseline-side content is the merge-base (common ancestor), so it is always at-or-older than your working tree regardless of which ref you picked."
+        },
+        "freshFileExplorer.branchCompare.fileIcons": {
+          "type": "string",
+          "default": "fileType",
+          "enum": [
+            "fileType",
+            "changeType"
+          ],
+          "enumDescriptions": [
+            "Your file icon theme's icon for each file.",
+            "One icon per change kind (added, modified, deleted, renamed, untracked), in the Source Control view's colors."
+          ],
+          "description": "Icons on Branch Compare file rows. Also settable from the Branch Comparisons panel."
         }
       }
     }

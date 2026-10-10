@@ -61,6 +61,7 @@ export const ConfigKeys = {
 
   // Branch compare diff editor side preference
   BRANCH_COMPARE_WORKING_TREE_SIDE: "freshFileExplorer.branchCompare.workingTreeSide",
+  BRANCH_COMPARE_FILE_ICONS: "freshFileExplorer.branchCompare.fileIcons",
 
   // Bulk-action confirmation threshold (Open All Changes, Open All Found Files, etc.)
   BULK_ACTION_CONFIRM_THRESHOLD: "freshFileExplorer.bulkActionConfirmThreshold",

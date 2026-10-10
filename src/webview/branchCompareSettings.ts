@@ -63,6 +63,11 @@ batchGrouping.addEventListener("change", () => {
   send({ command: "setAllGroupingMode", mode: mode as GroupingMode });
 });
 
+const fileIcons = document.getElementById("fileIcons") as HTMLSelectElement;
+fileIcons.addEventListener("change", () => {
+  send({ command: "setFileIcons", style: fileIcons.value === "changeType" ? "changeType" : "fileType" });
+});
+
 /**
  * Build a per-row grouping icon toggle.
  * `onChange` omitted renders a disabled toggle (draft rows).
@@ -206,6 +211,7 @@ window.addEventListener("message", (event: MessageEvent<BranchCompareSettingsToW
       repos = msg.repos;
       comparisons = msg.comparisons;
       autoFollow.checked = msg.autoFollow;
+      fileIcons.value = msg.fileIcons;
       render();
       updateBranchHint();
       break;
