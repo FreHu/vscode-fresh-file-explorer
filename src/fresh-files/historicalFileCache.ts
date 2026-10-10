@@ -4,13 +4,9 @@ import * as v8 from "v8";
 import { AbsolutePath, NormalizedRepoPath } from "../pathTypes";
 import { CommitStats, FileMetadata, WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
+import type { CacheRepoStats } from "../webview/messages";
 
-export interface CacheRepoStats {
-  repoLabel: string;
-  repoPath: string;
-  entryCount: number;
-  sizeBytes: number;
-}
+export type { CacheRepoStats };
 
 interface CacheEntry {
   data: Map<AbsolutePath, FileMetadata>;

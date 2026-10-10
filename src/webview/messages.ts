@@ -4,6 +4,13 @@
 
 import type { GroupingMode } from "../fresh-files/groupingMode";
 import type { DiffMode } from "../branch-compare/branchCompareConstants";
+import type {
+  BenchmarkColumnSpec,
+  BenchmarkInputSpec,
+  BenchmarkInputValues,
+  BenchmarkOutputRow,
+  BenchmarkOutputSpec,
+} from "../benchmark/benchmark";
 
 // ── Branch Compare settings panel ───────────────────────────────────────────
 
@@ -249,3 +256,45 @@ export type StonksFromWebview =
   | { command: "requestCompareData" }
   | { command: "openHelp" }
   | { command: "exportSvg"; svg: string };
+
+// ── Perf Benchmark panel ──────────────────────────────────────────────────────
+
+export interface SerializableBenchmark {
+  name: string;
+  inputSpec: BenchmarkInputSpec;
+  outputSpec: BenchmarkOutputSpec;
+}
+
+export interface RepoStats {
+  repoLabel: string;
+  repoPath: string;
+  commitCount: number | null;
+  oldestCommitDate: string | null;
+  authorCount: number | null;
+  currentBranch: string | null;
+  hasCommitGraph: boolean;
+  commitGraphPath: string;
+  error?: string;
+}
+
+export interface CacheRepoStats {
+  repoLabel: string;
+  repoPath: string;
+  entryCount: number;
+  sizeBytes: number;
+}
+
+export type PerfBenchmarkToWebview =
+  | { command: "benchmarks"; benchmarks: SerializableBenchmark[] }
+  | { command: "results"; columns: BenchmarkColumnSpec[]; rows: BenchmarkOutputRow[] }
+  | { command: "error"; message: string }
+  | { command: "stats"; stats: RepoStats[] }
+  | { command: "statsError"; message: string }
+  | { command: "cacheStats"; stats: CacheRepoStats[] }
+  | { command: "cacheStatsError"; message: string };
+
+export type PerfBenchmarkFromWebview =
+  | { command: "ready" }
+  | { command: "run"; benchmarkName: string; inputs: BenchmarkInputValues }
+  | { command: "getStats" }
+  | { command: "getCacheStats" };

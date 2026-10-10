@@ -16,45 +16,21 @@ const cacheStatsStatus  = document.getElementById("cacheStatsStatus")  as HTMLDi
 const cacheStatsSection = document.getElementById("cacheStatsSection") as HTMLDivElement;
 
 
-import type { 
-  BenchmarkColumnSpec, 
-  BenchmarkInputSpec, 
-  BenchmarkOutputSpec, 
-  BenchmarkInputValues, 
-  BenchmarkOutputRow 
+import type {
+  BenchmarkColumnSpec,
+  BenchmarkInputValues,
+  BenchmarkOutputRow
 } from "../benchmark/benchmark";
+import type {
+  CacheRepoStats,
+  PerfBenchmarkFromWebview,
+  PerfBenchmarkToWebview,
+  RepoStats,
+  SerializableBenchmark,
+} from "./messages";
 
-interface SerializableBenchmark {
-  name: string;
-  inputSpec:  BenchmarkInputSpec;
-  outputSpec: BenchmarkOutputSpec;
-}
-
-interface BenchmarksMessage { command: "benchmarks"; benchmarks: SerializableBenchmark[]; }
-interface ResultsMessage    { command: "results";    columns: BenchmarkColumnSpec[]; rows: BenchmarkOutputRow[]; }
-interface ErrorMessage      { command: "error";      message: string; }
-interface StatsMessage      { command: "stats";      stats: RepoStats[]; }
-interface StatsErrMessage   { command: "statsError"; message: string; }
-interface CacheStatsMessage { command: "cacheStats";      stats: CacheRepoStats[]; }
-interface CacheStatsErrMsg  { command: "cacheStatsError"; message: string; }
-
-interface RepoStats {
-  repoLabel: string;
-  repoPath: string;
-  commitCount: number | null;
-  oldestCommitDate: string | null;
-  authorCount: number | null;
-  currentBranch: string | null;
-  hasCommitGraph: boolean;
-  commitGraphPath: string;
-  error?: string;
-}
-
-interface CacheRepoStats {
-  repoLabel: string;
-  repoPath: string;
-  entryCount: number;
-  sizeBytes: number;
+function postMessage(msg: PerfBenchmarkFromWebview): void {
+  vscode.postMessage(msg);
 }
 
 let benchmarks: SerializableBenchmark[] = [];
@@ -119,7 +95,7 @@ runBtn.addEventListener("click", () => {
   resultsDiv.style.display = "none";
   resultsDiv.innerHTML = "";
   showStatus("Running…", "info");
-  vscode.postMessage({ command: "run", benchmarkName: bm.name, inputs });
+  postMessage({ command: "run", benchmarkName: bm.name, inputs });
 });
 
 statsBtn.addEventListener("click", () => {
@@ -127,17 +103,17 @@ statsBtn.addEventListener("click", () => {
   statsSection.style.display = "none";
   statsSection.innerHTML = "";
   showStatsStatus("Loading…", "info");
-  vscode.postMessage({ command: "getStats" });
+  postMessage({ command: "getStats" });
 });
 cacheStatsBtn.addEventListener("click", () => {
   cacheStatsBtn.disabled = true;
   cacheStatsSection.style.display = "none";
   cacheStatsSection.innerHTML = "";
   showCacheStatsStatus("Loading\u2026", "info");
-  vscode.postMessage({ command: "getCacheStats" });
+  postMessage({ command: "getCacheStats" });
 });
 
-window.addEventListener("message", (event: MessageEvent<BenchmarksMessage | ResultsMessage | ErrorMessage | StatsMessage | StatsErrMessage | CacheStatsMessage | CacheStatsErrMsg>) => {
+window.addEventListener("message", (event: MessageEvent<PerfBenchmarkToWebview>) => {
   const msg = event.data;
   if (msg.command === "benchmarks") {
     benchmarks = msg.benchmarks;
@@ -191,7 +167,7 @@ window.addEventListener("message", (event: MessageEvent<BenchmarksMessage | Resu
 });
 
 // Signal the extension host that the webview is ready to receive messages
-vscode.postMessage({ command: "ready" });
+postMessage({ command: "ready" });
 
 function renderResults(columns: BenchmarkColumnSpec[], rows: BenchmarkOutputRow[]) {
   resultsDiv.innerHTML = "";

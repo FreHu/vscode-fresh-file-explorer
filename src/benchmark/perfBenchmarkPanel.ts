@@ -5,9 +5,9 @@ import { execGitWithArgs } from "../git/gitOperations";
 import { discoverReposInWorkspace, RepoInfo } from "../git/gitRepoDiscovery";
 import { getWebviewHtml } from "./perfBenchmarkPanelUI";
 import { Benchmark, BenchmarkInputValues } from "../benchmark/benchmark";
-import { CacheRepoStats } from "../fresh-files/freshFileProvider";
 import { createBranchCompareRefreshBenchmark } from "../branch-compare/branchCompareRefreshBenchmark";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
+import type { CacheRepoStats, PerfBenchmarkFromWebview, PerfBenchmarkToWebview, RepoStats } from "../webview/messages";
 
 /**
  * Expands multi-value params (comma-separated strings) into a flat list of
@@ -25,23 +25,7 @@ function expandMultiParams(inputs: BenchmarkInputValues, multiParamNames: string
   return sets;
 }
 
-interface RunMessage {
-  command: "run";
-  benchmarkName: string;
-  inputs: BenchmarkInputValues;
-}
-
-interface RepoStats {
-  repoLabel: string;
-  repoPath: string;
-  commitCount: number | null;
-  oldestCommitDate: string | null;
-  authorCount: number | null;
-  currentBranch: string | null;
-  hasCommitGraph: boolean;
-  commitGraphPath: string;
-  error?: string;
-}
+type RunMessage = Extract<PerfBenchmarkFromWebview, { command: "run" }>;
 
 export class PerfBenchmarkPanel {
   private static currentPanel: PerfBenchmarkPanel | undefined;
@@ -93,7 +77,7 @@ export class PerfBenchmarkPanel {
     this._panel.webview.html = this._getHtml();
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.onDidReceiveMessage(
-      async (message) => { await this._handleMessage(message); },
+      async (message: PerfBenchmarkFromWebview) => { await this._handleMessage(message); },
       null,
       this._disposables,
     );
@@ -108,19 +92,23 @@ export class PerfBenchmarkPanel {
     this._sendBenchmarkSpecs();
   }
 
+  private _post(msg: PerfBenchmarkToWebview): void {
+    void this._panel.webview.postMessage(msg);
+  }
+
   private _sendBenchmarkSpecs() {
-    this._panel.webview.postMessage({
+    this._post({
       command: "benchmarks",
       benchmarks: this._benchmarks.map(b => ({ name: b.name, inputSpec: b.inputSpec, outputSpec: b.outputSpec })),
     });
   }
 
-  private async _handleMessage(message: any) {
+  private async _handleMessage(message: PerfBenchmarkFromWebview) {
     if (message.command === "ready") {
       // Webview signals it is ready; re-send specs (handles reloads / first load race)
       this._sendBenchmarkSpecs();
     } else if (message.command === "run") {
-      await this._runBenchmark(message as RunMessage);
+      await this._runBenchmark(message);
     } else if (message.command === "getStats") {
       await this._sendStats();
     } else if (message.command === "getCacheStats") {
@@ -131,7 +119,7 @@ export class PerfBenchmarkPanel {
   private async _runBenchmark(msg: RunMessage) {
     const benchmark = this._benchmarks.find(b => b.name === msg.benchmarkName);
     if (!benchmark) {
-      this._panel.webview.postMessage({ command: "error", message: `Unknown benchmark: ${msg.benchmarkName}` });
+      this._post({ command: "error", message: `Unknown benchmark: ${msg.benchmarkName}` });
       return;
     }
     try {
@@ -139,20 +127,20 @@ export class PerfBenchmarkPanel {
       const multiParams = benchmark.inputSpec.params.filter(p => p.multi);
       const inputSets = expandMultiParams(msg.inputs, multiParams.map(p => p.name));
       const allRows = (await Promise.all(inputSets.map(inputs => benchmark.run(inputs)))).flat();
-      this._panel.webview.postMessage({ command: "results", columns: benchmark.outputSpec.columns, rows: allRows });
+      this._post({ command: "results", columns: benchmark.outputSpec.columns, rows: allRows });
     } catch (err: any) {
-      this._panel.webview.postMessage({ command: "error", message: String(err) });
+      this._post({ command: "error", message: String(err) });
     }
   }
 
   private async _sendStats() {
     const repos = await discoverReposInWorkspace(this._workspaceFolders, this._workspaceFolders.length);
     if (repos.length === 0) {
-      this._panel.webview.postMessage({ command: "statsError", message: "No Git repositories found in workspace." });
+      this._post({ command: "statsError", message: "No Git repositories found in workspace." });
       return;
     }
     const stats = await Promise.all(repos.map(r => this._getRepoStats(r)));
-    this._panel.webview.postMessage({ command: "stats", stats });
+    this._post({ command: "stats", stats });
   }
 
   private async _getRepoStats(repo: RepoInfo): Promise<RepoStats> {
@@ -198,9 +186,9 @@ export class PerfBenchmarkPanel {
   private _sendCacheStats(): void {
     try {
       const stats = this._getCacheStats();
-      this._panel.webview.postMessage({ command: "cacheStats", stats });
+      this._post({ command: "cacheStats", stats });
     } catch (err: any) {
-      this._panel.webview.postMessage({ command: "cacheStatsError", message: String(err) });
+      this._post({ command: "cacheStatsError", message: String(err) });
     }
   }
 
