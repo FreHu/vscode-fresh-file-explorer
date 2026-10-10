@@ -1,5 +1,19 @@
 import typescriptEslint from "typescript-eslint";
 
+// All settings access funnels through ConfigService (see CLAUDE.md).
+const NO_RAW_CONFIG = {
+    selector: "CallExpression[callee.object.property.name='workspace'][callee.property.name='getConfiguration']",
+    message: "Read settings through ConfigService, not vscode.workspace.getConfiguration directly (see CLAUDE.md).",
+};
+
+// Hand-rolled git calls drifted apart and missed the timeout and GitError
+// handling. Any call taking the literal "git" as its first argument — spawn,
+// execFile, a promisified alias — goes through spawnGitSettled / execGitWithArgs instead.
+const NO_RAW_GIT = {
+    selector: "CallExpression[arguments.0.value='git']",
+    message: "Run git through execGitWithArgs / spawnGitSettled (src/git/), not child_process directly (see CLAUDE.md).",
+};
+
 export default [{
     // Directories that must never be linted regardless of how ESLint is invoked
     ignores: [
@@ -62,26 +76,18 @@ export default [{
         semi: "warn",
     },
 }, {
-    // All settings access must funnel through ConfigService (see CLAUDE.md).
-    // configService.ts itself is the one allowed caller of the raw VS Code API.
+    // `no-restricted-syntax` is one rule: a later config block for the same
+    // files replaces an earlier one instead of adding to it. So each file group
+    // below lists every restriction that applies to it.
     files: ["**/*.ts"],
-    ignores: ["src/config/configService.ts", "src/test/**"],
-    rules: {
-        "no-restricted-syntax": ["error", {
-            selector: "CallExpression[callee.object.property.name='workspace'][callee.property.name='getConfiguration']",
-            message: "Read settings through ConfigService, not vscode.workspace.getConfiguration directly (see CLAUDE.md).",
-        }],
-    },
+    ignores: ["src/config/configService.ts", "src/git/gitSpawn.ts", "src/test/**"],
+    rules: { "no-restricted-syntax": ["error", NO_RAW_CONFIG, NO_RAW_GIT] },
 }, {
-    // Four hand-rolled `git` spawns drifted apart and shared the same timeout
-    // and rejection-shape bugs. spawnGitSettled is the only one now; keep it
-    // that way. gitSpawn.ts is the implementation, so it is exempt.
-    files: ["**/*.ts"],
-    ignores: ["src/git/gitSpawn.ts", "src/test/**"],
-    rules: {
-        "no-restricted-syntax": ["error", {
-            selector: "CallExpression[callee.property.name='spawn'][arguments.0.value='git']",
-            message: "Spawn git through spawnGitSettled (src/git/gitSpawn.ts), not cp.spawn directly (see CLAUDE.md).",
-        }],
-    },
+    // The one allowed caller of the raw settings API.
+    files: ["src/config/configService.ts"],
+    rules: { "no-restricted-syntax": ["error", NO_RAW_GIT] },
+}, {
+    // The one allowed git spawner.
+    files: ["src/git/gitSpawn.ts"],
+    rules: { "no-restricted-syntax": ["error", NO_RAW_CONFIG] },
 }];
