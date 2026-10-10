@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { log, showError } from "../extension/logger";
 import { getFileFromHistoryAsBuffer } from "../git/gitCommitQueries";
+import { execGitWithArgs } from "../git/gitOperations";
+import { ConfigService } from "../config/configService";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
 import { normalizePath } from "../utils";
 import { findRepoForFile, findWorkspaceFolderForPath } from "../utils/pathUtils";
@@ -128,25 +130,23 @@ export async function handleResurrect(
         continue;
       }
 
-      // Use git checkout to restore the file - this respects .gitattributes and core.autocrlf
-      // which properly handles line endings, while git show gives raw bytes
+      // `git restore` applies .gitattributes and core.autocrlf, so line endings
+      // come out right; `git show` would give the raw blob bytes.
       const ref = fileItem.commitHash ? `${fileItem.commitHash}~1` : "HEAD";
 
-      // Import child_process for git restore
-      const { execFile } = await import("child_process");
-      const { promisify } = await import("util");
-      const execFilePromise = promisify(execFile);
-
       try {
-        await execFilePromise("git", ["restore", "--source=" + ref, "--", repoLocation.filePathInRepo], {
-          cwd: repoLocation.repoFullPath,
-        });
+        await execGitWithArgs(
+          ["restore", `--source=${ref}`, "--", repoLocation.filePathInRepo],
+          repoLocation.repoFullPath,
+          { timeout: ConfigService.getGitTimeoutMs() },
+        );
         log(`Resurrected ${fileName} using git restore from ${ref}`);
         successCount++;
       } catch (gitError) {
-        log(`Git checkout failed for ${fileName}, falling back to manual write: ${gitError}`, "warn");
+        const reason = gitError instanceof Error ? gitError.message : String(gitError);
+        log(`git restore failed for ${fileName}, falling back to manual write: ${reason}`, "warn");
 
-        // Fallback: use buffer version if git checkout fails
+        // Fallback: write the blob content directly
         const result = await getDeletedFileContentAsBuffer(fileItem, provider);
         if (!result) {
           errors.push(fileName + " (content not found)");
