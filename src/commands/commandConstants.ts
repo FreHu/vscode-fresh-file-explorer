@@ -81,6 +81,10 @@ export const Commands = {
   BLAME_TURN_OFF: "freshFileExplorer.blameTurnOff",
   BLAME_CLEAR_BASELINE: "freshFileExplorer.blameClearBaseline",
   BLAME_TOGGLE_AUTO_APPLY: "freshFileExplorer.blameToggleAutoApply",
+  // "✓"-titled twins: extensions can't use `toggled`, so the menu swaps these in via `when`.
+  BLAME_APPLY_AGE_CHECKED: "freshFileExplorer.blameApplyAgeChecked",
+  BLAME_APPLY_BRANCH_SAVED_CHECKED: "freshFileExplorer.blameApplyBranchSavedChecked",
+  BLAME_TOGGLE_AUTO_APPLY_CHECKED: "freshFileExplorer.blameToggleAutoApplyChecked",
 
   // Diff search commands
   OPEN_DIFF_SEARCH_PANEL: "freshFileExplorer.openDiffSearchPanel",

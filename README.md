@@ -7,7 +7,7 @@ GitLens companion or lean alternative. No telemetry. No AI buttons.
 [![Install from VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-007ACC?style=for-the-badge&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=frehu.fresh-file-explorer)
 [![Open VSX](https://img.shields.io/open-vsx/dt/frehu/fresh-file-explorer?style=for-the-badge&label=Open%20VSX&color=A60EE5)](https://open-vsx.org/extension/frehu/fresh-file-explorer)
 
-![time-window-switch](img/time-window-switch.gif)
+![time-window-switch](docs/img/time-window-switch.gif)
 
 **Testimonials**
 
@@ -46,7 +46,7 @@ Deleted files appear in the tree where they used to be, ready for necromancy.
 - **Exhume**: Click the file to open it in a read-only temp file
 - **Resurrect**: Restores the file to its original location `(git restore)`
   
-![resurrect](img/resurrect.png)
+![resurrect](docs/img/resurrect.png)
 
 
 ### Heatmap Coloring
@@ -55,7 +55,7 @@ Heatmaps for different scales.
 
 **File heatmap** — colors files in the tree (and File Explorer) by recency. Brighter = more recent. Answers *"which files have been touched lately?"* at a glance, even when scrolling around in the classic File Explorer.
 
-![heatmap](img/heatmap.png)
+![heatmap](docs/img/heatmap.png)
 
 **Blame heatmap** — paints individual lines inside the editor. Two modes:
 
@@ -78,7 +78,7 @@ Full details - all the knobs, bucketing, theming, performance notes: [docs/heatm
 
 Adds a special "pinned items" view. This is for files you want to keep handy independent of whatever the fresh file explorer is showing you. You can pin items with drag&drop or through the right click menu in the file explorer. 
 
-![pinned section](img/pinned.png)
+![pinned section](docs/img/pinned.png)
 
 - Pin a non-fresh file you need to pay attention to, like a diagram or readme
 - Pin that critical file you've had on your desktop for the last 6 years. It does not have to be from your workspace.
@@ -91,7 +91,7 @@ The pins are stored per workspace.
 
 ### Sync Status Notifications
 
-![sync status](./img/sync-status.png)
+![sync status](docs/img/sync-status.png)
 Displays info at the top of the tree view:
 
 - When you are **behind/ahead** of the **remote** (meaning you need to push/pull)
@@ -107,7 +107,7 @@ Both options can be individually disabled.
 - **Clear filters**
 - Author and commit filters are temporary and reset when changing time windows
   
-![filter-commit](img/filter-commit.png)
+![filter-commit](docs/img/filter-commit.png)
 
 > **Note:** The extension tracks the _most recent_ commit per file only. If a file was modified by both a filtered author and a non-filtered author within the time window, the file will be hidden entirely (because the most recent commit is what's filtered). This is a deliberate simplification - for deeper history analysis, consider using something like GitLens or learning more than 5 git commands.
 
@@ -116,7 +116,7 @@ Both options can be individually disabled.
 
 Organize your files in different ways beyond the standard folder structure:
 
-![grouping modes](img/grouping-modes.png)
+![grouping modes](docs/img/grouping-modes.png)
 
 - **File Structure** - Traditional folder hierarchy
   
@@ -143,7 +143,7 @@ Uneven distribution of commits during the full moon can indicate werevolves amon
 
 ### Quick Open
 
-![quick-open](img/ff-quick-open.png)
+![quick-open](docs/img/ff-quick-open.png)
 
 Use **"Fresh Files: Quick Open"** to get a quick pick showing files from your Fresh File Explorer view. Type to filter by filename or path, then select a file to open it. This is similar to VS Code's Ctrl+P, but filtered to only your fresh files, with some additional actions on top.
 
@@ -181,11 +181,11 @@ Works seamlessly across:
 - **Worktrees** — each worktree shows its own pending changes and history
 - **Submodules** (experimental) — treated as nested repos with their own time windows
 
-![submodules](./img/submodules.png)
+![submodules](docs/img/submodules.png)
 
 ### CodeStonks
 
-![CodeStonks](img/codeStonks.gif)
+![CodeStonks](docs/img/codeStonks.gif)
 
 A chart view showing how your repository evolved over time. Access it from the "..." menu in the Fresh Files view or via the command palette (`Fresh File Explorer: CodeStonks`).
 
@@ -219,7 +219,7 @@ A new tree view that surfaces saved branch-to-branch comparisons. Each row is on
 
 | Settings panel | Tree view |
 |---|---|
-| ![branch compare settings](./img/branch-comparison-settings.png) | ![branch compare view](./img/branch-comparison-view.png) |
+| ![branch compare settings](docs/img/branch-comparison-settings.png) | ![branch compare view](docs/img/branch-comparison-view.png) |
 
 ### How it works
 
@@ -258,7 +258,7 @@ Auto-follows are ordinary comparisons — they show up in the settings panel lik
 
 Star one HEAD-source comparison per repo to mark it as the blame heatmap's baseline. The heatmap then colors lines that changed between that comparison's target and HEAD.
 
-The same panel hosts the blame heatmap on/off toggle, the auto-apply-on-open switch, and the Age vs Branch mode selector — replacing the old `settings.json` round-trip.
+The same panel hosts the blame heatmap on/off toggle, the auto-apply-on-open switch, and the Age vs Baseline mode selector — replacing the old `settings.json` round-trip.
 
 ### Tips/gotchas
 
@@ -280,8 +280,8 @@ The same panel hosts the blame heatmap on/off toggle, the auto-apply-on-open swi
 | **Diff Search** | When was `x` ever added or removed? | Git diff history across all commits `(pickaxe)`. Surfaces a not widely known but extremely useful git feature. |
 | **Line / Function History** | What's the full history of this function or code block? | Git log for a specific line range or function name `(log -L)` |
 
-![History options](./img/history-options.png)
-![history-view](img/history-view.png)
+![History options](docs/img/history-options.png)
+![history-view](docs/img/history-view.png)
 
 ### Diff Search (pickaxe)
 
@@ -292,7 +292,7 @@ Access through the editor right-click menu ("Search Diffs for Selection").
 Results appear in a tree view grouped by file and commit, and each match can be clicked to navigate to it.
 
 ### Line and Function History
-![l-history](img/l-history.png)
+![l-history](docs/img/l-history.png)
 Access via right-click in the editor → **"Line/Function History"**.
 
 Based on your selection, shows every commit that touched those lines or that function, following renames. This is a wrapper of `git log -L`.
@@ -304,7 +304,7 @@ Based on your selection, shows every commit that touched those lines or that fun
 
 ### File History
 
-![file history](/img/file-history.png)
+![file history](docs/img/file-history.png)
 
 Available via:
 - right-click menu in the Fresh File Explorer tree
@@ -325,7 +325,7 @@ The search icon in the Fresh Files toolbar will open VS Code's search view with 
 
 You can also trigger the search from the [quick pick](#quick-open).
 
-![search](img/ff-search.png)
+![search](docs/img/ff-search.png)
 
 - Respects author and commit filters
 - Excludes deleted files (they're not on disk to search)
@@ -344,7 +344,7 @@ You need to have the extension installed and enable `freshFileExplorer.codeTeles
 
 **Solution:** Search for `a`, then use this action to open another search editor scoped to the files you found with your first search, then search for `b`. This process can be chained as many times as you want.
 
-![search in found files](img/search-in-found-files.png)
+![search in found files](docs/img/search-in-found-files.png)
 
 > The action is available only in search editors, not the search view. But you can easily open your search view as a search editor.
 
@@ -355,7 +355,7 @@ You need to have the extension installed and enable `freshFileExplorer.codeTeles
 > When you have many files or very long paths, VS Code's underlying search mechanism (ripgrep) can hit OS command-line length limits. In this case, the file list will be split into batches which will open as separate search editors.
 
 ### Search Editor Actions
-![search editor actions](img/search-editor.png)
+![search editor actions](docs/img/search-editor.png)
 There are several new action buttons in the search editor results:
 - Search in found files - new search scoped to the files you found
 - Open all found files - opens all files as background tabs
@@ -445,7 +445,7 @@ Look under `freshfileexplorer.` to see all configurable settings.
 
 Unlike File Explorer, which just needs the files on your disk, Fresh File Explorer must load part of your git history to work. This is done in one streaming pass on startup, after which the results are cached. For the view to become usable, you only wait as long as your configured time window takes to load. The remaining time windows keep loading in the background, so that by the time you need them, they are ready. Reloads happen when switching branches or syncing changes.
 
-![incremental load](./img/incremental-load.gif)
+![incremental load](docs/img/incremental-load.gif)
 
 Not looking 5 years back in a large repo will go a long way in terms of performance. But you can. Also avoid configuring long time windows you never need - adds pointless startup overhead in the background.
 

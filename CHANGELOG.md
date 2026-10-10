@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Branch Comparisons settings moved from an editor tab into the bottom panel.
+- Blame heatmap: the Branch / Tag mode is now called **Baseline**, since it accepts any ref. The right-click menu lists only the modes (Age / Baseline / Turn off) in its first group, with a checkmark on the active one; "Change baseline…" moved to the actions group.
+
 - Repo icons now match the Source Control view: linked worktrees (`git worktree add`) get the `worktree` icon and submodules the `archive` icon instead of the plain `repo` icon — in Fresh Files, Branch Compare sections and diff-search results. Worktree detection is one `git rev-parse --git-dir --git-common-dir` per repo at discovery time.
 
 ## [1.15.0]
@@ -175,7 +178,7 @@ A new tree view that surfaces saved branch-to-branch comparisons. Each row is on
 
 | Settings panel                                                   | Tree view                                                |
 | ---------------------------------------------------------------- | -------------------------------------------------------- |
-| ![branch compare settings](./img/branch-comparison-settings.png) | ![branch compare view](./img/branch-comparison-view.png) |
+| ![branch compare settings](docs/img/branch-comparison-settings.png) | ![branch compare view](docs/img/branch-comparison-view.png) |
 
 #### How it works
 
@@ -225,11 +228,11 @@ Per-line gutter coloring + faint background wash inside the editor — a line-le
 
 - **Age** — color by line change recency.
 
-![age-heatmap](./img/age-heatmap.png)
+![age-heatmap](docs/img/age-heatmap.png)
 
 - **Baseline** — color only lines changed since a chosen baseline; added lines tinted differently from modified lines; deletions surfaced as red gutter badges with restore/copy actions.
 
-![baseline-heatmap](./img/baseline-heatmap.png)
+![baseline-heatmap](docs/img/baseline-heatmap.png)
 
 Reuses the file heatmap's `freshFileExplorer.heatmap.age*` palette plus a new `added*` palette, all customizable via `workbench.colorCustomizations`.
 
@@ -248,7 +251,7 @@ New chart type — a 7×24 grid of commits by day of week × hour of day, in the
 - Workday-hours overlay (Mon–Fri × configurable start/end) so off-hours work pops.
 - Click a cell to copy the bucket's commit hashes to the clipboard.
 
-![activity-heatmap-chart](./img/activity-heatmap-chart.png)
+![activity-heatmap-chart](docs/img/activity-heatmap-chart.png)
 
 See [docs/codestonks.md](docs/codestonks.md#activity-heatmap).
 
@@ -280,7 +283,7 @@ Several Fresh Files actions now also appear in the regular VS Code File Explorer
 
 ### File History chart
 
-![history-view](img/history-view.png)
+![history-view](docs/img/history-view.png)
 
 Added a line-changes chart to the File History panel. 
 
@@ -293,7 +296,7 @@ Added a line-changes chart to the File History panel.
 
 ### CodeStonks
 
-![CodeStonks](img/codeStonks.gif)
+![CodeStonks](docs/img/codeStonks.gif)
 
 A stock-price-style chart visualizing repository evolution over time. Toggle it from the Fresh Files "..." menu or the command palette.
 

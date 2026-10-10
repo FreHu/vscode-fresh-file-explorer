@@ -512,14 +512,18 @@ function registerCommands(
     const editor = vscode.window.activeTextEditor;
     if (editor) { return fn(editor); }
   };
-  register(Commands.BLAME_APPLY_AGE, onActiveEditor(e => blameHeatmapController.applyMode(e, "absolute")));
-  register(Commands.BLAME_APPLY_BRANCH_SAVED, onActiveEditor(e => blameHeatmapController.applyMode(e, "branch")));
+  const applyAge = onActiveEditor(e => blameHeatmapController.applyMode(e, "absolute"));
+  const applyBaseline = onActiveEditor(e => blameHeatmapController.applyMode(e, "branch"));
+  const toggleAutoApply = () => ConfigService.setBlameHeatmapAutoApply(!ConfigService.getBlameHeatmapAutoApply());
+  register(Commands.BLAME_APPLY_AGE, applyAge);
+  register(Commands.BLAME_APPLY_AGE_CHECKED, applyAge);
+  register(Commands.BLAME_APPLY_BRANCH_SAVED, applyBaseline);
+  register(Commands.BLAME_APPLY_BRANCH_SAVED_CHECKED, applyBaseline);
   register(Commands.BLAME_PICK_BRANCH, onActiveEditor(e => blameHeatmapController.selectBranchMode(e)));
   register(Commands.BLAME_TURN_OFF, onActiveEditor(e => blameHeatmapController.turnOff(e)));
   register(Commands.BLAME_CLEAR_BASELINE, onActiveEditor(e => blameHeatmapController.clearSavedBaseRef(e)));
-  register(Commands.BLAME_TOGGLE_AUTO_APPLY, () =>
-    ConfigService.setBlameHeatmapAutoApply(!ConfigService.getBlameHeatmapAutoApply()),
-  );
+  register(Commands.BLAME_TOGGLE_AUTO_APPLY, toggleAutoApply);
+  register(Commands.BLAME_TOGGLE_AUTO_APPLY_CHECKED, toggleAutoApply);
 
   // Diff search commands
   register(Commands.OPEN_DIFF_SEARCH_PANEL, () => 
@@ -640,9 +644,10 @@ function registerCommands(
   register(Commands.BRANCH_COMPARE_REVEAL_IN_FRESH_FILES, (item: any) =>
     handleBranchCompareRevealInFreshFiles(item, freshFileProvider),
   );
-  register(Commands.BRANCH_COMPARE_OPEN_SETTINGS, () =>
-    BranchCompareSettingsPanel.createOrShow(context.extensionUri, savedComparisons, freshFileProvider),
+  context.subscriptions.push(
+    BranchCompareSettingsPanel.register(context.extensionUri, savedComparisons, freshFileProvider),
   );
+  register(Commands.BRANCH_COMPARE_OPEN_SETTINGS, () => BranchCompareSettingsPanel.show());
   register(Commands.BRANCH_COMPARE_TOGGLE_ACTIVE, (arg: any) =>
     handleBranchCompareToggleActive(arg, savedComparisons),
   );

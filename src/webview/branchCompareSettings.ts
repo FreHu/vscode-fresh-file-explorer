@@ -141,6 +141,12 @@ const hmModeAbsolute = document.getElementById("hmModeAbsolute") as HTMLInputEle
 const hmModeBranch = document.getElementById("hmModeBranch") as HTMLInputElement;
 const hmModeGroup = document.getElementById("hmModeGroup") as HTMLElement;
 const hmHelpBtn = document.getElementById("hmHelpBtn") as HTMLButtonElement;
+const hmBranchHint = document.getElementById("hmBranchHint") as HTMLElement;
+
+function updateBranchHint(): void {
+  const unmet = hmModeBranch.checked && !comparisons.some(c => c.isHeatmapBaseline);
+  hmBranchHint.classList.toggle("warn", unmet);
+}
 
 hmHelpBtn.addEventListener("click", () => {
   send({ command: "openHeatmapHelp" });
@@ -162,11 +168,13 @@ hmModeAbsolute.addEventListener("change", () => {
   if (hmModeAbsolute.checked) {
     send({ command: "updateHeatmap", patch: { mode: "absolute" } });
   }
+  updateBranchHint();
 });
 hmModeBranch.addEventListener("change", () => {
   if (hmModeBranch.checked) {
     send({ command: "updateHeatmap", patch: { mode: "branch" } });
   }
+  updateBranchHint();
 });
 
 // Reusable list drag-and-drop. Rows opt in by setting `data-id` and rendering
@@ -194,6 +202,7 @@ window.addEventListener("message", (event: MessageEvent<BranchCompareSettingsToW
       comparisons = msg.comparisons;
       autoFollow.checked = msg.autoFollow;
       render();
+      updateBranchHint();
       break;
     case "refs":
       refsCache.set(msg.repoFullPath, msg.branches);
@@ -218,6 +227,7 @@ window.addEventListener("message", (event: MessageEvent<BranchCompareSettingsToW
       // Mode picker is only meaningful when decorations are on — dim it
       // otherwise so the user sees it's not in effect.
       hmModeGroup.setAttribute("aria-disabled", msg.settings.enabled ? "false" : "true");
+      updateBranchHint();
       break;
   }
 });

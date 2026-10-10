@@ -32,6 +32,8 @@ export const ContextKeys = {
   DIFF_SEARCH_CHANGE_FILTER: "diffSearchResults.changeFilter",
   /** Blame heatmap is active for the current editor. */
   BLAME_HEATMAP_ACTIVE: "freshFileExplorer.blameHeatmap.active",
+  /** Blame heatmap mode on the current editor: "absolute" | "branch" | "" (off). */
+  BLAME_HEATMAP_MODE: "freshFileExplorer.blameHeatmap.mode",
   /** A saved baseline ref exists for the current editor. */
   BLAME_HEATMAP_HAS_BASE_REF: "freshFileExplorer.blameHeatmap.hasBaseRef",
   /** 1-based editor line numbers that have deletions (for `editorLineNumber in …`). */

@@ -50,7 +50,24 @@
     }
   },
   "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "freshFileExplorerPanel",
+          "title": "Branch Comparisons",
+          "icon": "$(git-compare)"
+        }
+      ]
+    },
     "views": {
+      "freshFileExplorerPanel": [
+        {
+          "id": "freshFileExplorer.branchCompareSettings",
+          "name": "Branch Comparisons",
+          "type": "webview",
+          "icon": "$(git-compare)"
+        }
+      ],
       "explorer": [
         {
           "id": "freshFileExplorer",
@@ -173,7 +190,7 @@
       },
       {
         "command": "freshFileExplorer.blameDiffBaseline",
-        "title": "Diff with Branch / Tag…"
+        "title": "Diff with baseline…"
       },
       {
         "command": "freshFileExplorer.blameDiffBaselineConfigured",
@@ -282,13 +299,23 @@
         "category": "Blame Heatmap"
       },
       {
+        "command": "freshFileExplorer.blameApplyAgeChecked",
+        "title": "✓ Age",
+        "category": "Blame Heatmap"
+      },
+      {
         "command": "freshFileExplorer.blameApplyBranchSaved",
-        "title": "Branch / Tag (saved baseline)",
+        "title": "Baseline",
+        "category": "Blame Heatmap"
+      },
+      {
+        "command": "freshFileExplorer.blameApplyBranchSavedChecked",
+        "title": "✓ Baseline",
         "category": "Blame Heatmap"
       },
       {
         "command": "freshFileExplorer.blamePickBranch",
-        "title": "Pick branch / tag…",
+        "title": "Change baseline…",
         "category": "Blame Heatmap"
       },
       {
@@ -303,7 +330,12 @@
       },
       {
         "command": "freshFileExplorer.blameToggleAutoApply",
-        "title": "Toggle auto-apply",
+        "title": "Auto-apply",
+        "category": "Blame Heatmap"
+      },
+      {
+        "command": "freshFileExplorer.blameToggleAutoApplyChecked",
+        "title": "✓ Auto-apply",
         "category": "Blame Heatmap"
       },
       {
@@ -729,21 +761,33 @@
       "freshFileExplorer.blameHeatmap.gutter": [
         {
           "command": "freshFileExplorer.blameApplyAge",
+          "when": "freshFileExplorer.blameHeatmap.mode != absolute",
+          "group": "1_modes@1"
+        },
+        {
+          "command": "freshFileExplorer.blameApplyAgeChecked",
+          "when": "freshFileExplorer.blameHeatmap.mode == absolute",
           "group": "1_modes@1"
         },
         {
           "command": "freshFileExplorer.blameApplyBranchSaved",
-          "when": "freshFileExplorer.blameHeatmap.hasBaseRef",
+          "when": "freshFileExplorer.blameHeatmap.mode != branch",
           "group": "1_modes@2"
         },
         {
-          "command": "freshFileExplorer.blamePickBranch",
-          "group": "1_modes@3"
+          "command": "freshFileExplorer.blameApplyBranchSavedChecked",
+          "when": "freshFileExplorer.blameHeatmap.mode == branch",
+          "group": "1_modes@2"
         },
         {
           "command": "freshFileExplorer.blameTurnOff",
           "when": "freshFileExplorer.blameHeatmap.active",
-          "group": "1_modes@4"
+          "group": "1_modes@3"
+        },
+        {
+          "command": "freshFileExplorer.blamePickBranch",
+          "when": "freshFileExplorer.blameHeatmap.hasBaseRef",
+          "group": "2_actions@0"
         },
         {
           "command": "freshFileExplorer.blameDiffBaseline",
@@ -762,6 +806,12 @@
         },
         {
           "command": "freshFileExplorer.blameToggleAutoApply",
+          "when": "!config.freshFileExplorer.blameHeatmap.autoApply",
+          "group": "3_settings@1"
+        },
+        {
+          "command": "freshFileExplorer.blameToggleAutoApplyChecked",
+          "when": "config.freshFileExplorer.blameHeatmap.autoApply",
           "group": "3_settings@1"
         }
       ],
@@ -1479,6 +1529,18 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "freshFileExplorer.blameApplyAgeChecked",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.blameApplyBranchSavedChecked",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.blameToggleAutoApplyChecked",
+          "when": "false"
+        },
         {
           "command": "freshFileExplorer.diffSearch.showingAll",
           "when": "false"

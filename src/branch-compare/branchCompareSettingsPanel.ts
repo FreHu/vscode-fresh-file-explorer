@@ -22,96 +22,97 @@ import {
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 
 /**
- * Webview panel for managing the saved branch comparisons. Singleton — calling
- * `createOrShow` on an existing panel reveals it instead of creating a new one.
+ * Webview view (bottom panel) for managing the saved branch comparisons.
  *
  * Responsibilities:
  *  - Render the table UI (HTML/CSS via `getBranchCompareSettingsHtml`)
  *  - Receive command messages from the webview, dispatch to the service
  *  - Push state back to the webview whenever the service fires onDidChange
  *  - Resolve ref autocompletes by calling `getAvailableBranches` on demand
+ *
+ * VS Code may dispose the view (panel closed, view moved) and resolve it again
+ * later, so per-view subscriptions live in `_viewDisposables`.
  */
-export class BranchCompareSettingsPanel {
-  private static instance: BranchCompareSettingsPanel | undefined;
+export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, vscode.Disposable {
+  static readonly viewId = "freshFileExplorer.branchCompareSettings";
 
-  private readonly _panel: vscode.WebviewPanel;
-  private readonly _disposables: vscode.Disposable[] = [];
+  private _view: vscode.WebviewView | undefined;
+  private readonly _viewDisposables: vscode.Disposable[] = [];
   /** Per-repo branch-list cache so repeated picker openings don't re-spawn git for-each-ref. */
   private readonly _refsCache = new Map<NormalizedRepoPath, Promise<{ name: string; relativeDate: string }[]>>();
 
-  static createOrShow(
+  static register(
     extensionUri: vscode.Uri,
     service: SavedComparisonsService,
     freshFileProvider: FreshFileProvider,
-  ): void {
-    const existing = BranchCompareSettingsPanel.instance;
-    if (existing) {
-      existing._panel.reveal();
-      return;
-    }
-    const panel = vscode.window.createWebviewPanel(
-      "freshFileExplorer.branchCompareSettings",
-      "Branch Comparisons",
-      vscode.ViewColumn.Active,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        enableFindWidget: true,
-        localResourceRoots: getLocalResourceRoots(extensionUri),
-      },
+  ): vscode.Disposable {
+    const provider = new BranchCompareSettingsPanel(extensionUri, service, freshFileProvider);
+    const registration = vscode.window.registerWebviewViewProvider(
+      BranchCompareSettingsPanel.viewId,
+      provider,
+      { webviewOptions: { retainContextWhenHidden: true } },
     );
-    BranchCompareSettingsPanel.instance = new BranchCompareSettingsPanel(
-      panel, extensionUri, service, freshFileProvider,
-    );
+    return vscode.Disposable.from(registration, provider);
+  }
+
+  static show(): void {
+    void vscode.commands.executeCommand(`${BranchCompareSettingsPanel.viewId}.focus`);
   }
 
   private constructor(
-    panel: vscode.WebviewPanel,
     private readonly extensionUri: vscode.Uri,
     private readonly service: SavedComparisonsService,
     private readonly freshFileProvider: FreshFileProvider,
-  ) {
-    this._panel = panel;
+  ) {}
 
-    const scriptUri = panel.webview
+  resolveWebviewView(view: vscode.WebviewView): void {
+    this._disposeView();
+    this._view = view;
+
+    view.webview.options = {
+      enableScripts: true,
+      localResourceRoots: getLocalResourceRoots(this.extensionUri),
+    };
+    const scriptUri = view.webview
       .asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "branchCompareSettings.js"))
       .toString();
-    const codiconCssUri = panel.webview
+    const codiconCssUri = view.webview
       .asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "codicons", "codicon.css"))
       .toString();
-    this._panel.webview.html = getBranchCompareSettingsHtml(
-      this._panel.webview.cspSource,
+    view.webview.html = getBranchCompareSettingsHtml(
+      view.webview.cspSource,
       scriptUri,
       codiconCssUri,
     );
 
-    this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+    view.onDidDispose(() => {
+      if (this._view === view) { this._disposeView(); }
+    }, null, this._viewDisposables);
 
-    this._panel.webview.onDidReceiveMessage(
+    view.webview.onDidReceiveMessage(
       async (msg: BranchCompareSettingsFromWebview) => this._handleMessage(msg),
       null,
-      this._disposables,
+      this._viewDisposables,
     );
 
     // Push fresh state on any service change so the table stays in sync with
     // tree-side mutations (toggle-active from the tree, blame-heatmap baseline
     // changes, etc.).
-    this._disposables.push(
+    this._viewDisposables.push(
       this.service.onDidChange(() => this._pushState()),
     );
 
     // FreshFileProvider's branch info populates async — re-push state when
     // it lands so the "current branch" hint in the source-ref dropdown is right.
-    this._disposables.push(
+    this._viewDisposables.push(
       this.freshFileProvider.onDidChangeTreeData(() => this._pushState()),
     );
 
-    // Heatmap toggles + auto-apply live in user-config. The mode lives in
-    // workspace state, which has no event — but it only changes via this panel
-    // or via the editor's right-click picker, and either path runs through us
-    // or fires a config event indirectly. A periodic re-push on config change
-    // catches the common case; the rare stale-mode case clears on panel reveal.
-    this._disposables.push(
+    // Heatmap toggles + auto-apply live in user-config; the mode in workspace state.
+    this._viewDisposables.push(
+      WorkspaceStateManager.onDidChangeBlameHeatmapMode(() => this._pushHeatmapState()),
+    );
+    this._viewDisposables.push(
       vscode.workspace.onDidChangeConfiguration(e => {
         if (
           e.affectsConfiguration("freshFileExplorer.heatmap") ||
@@ -128,17 +129,20 @@ export class BranchCompareSettingsPanel {
   }
 
   dispose(): void {
-    BranchCompareSettingsPanel.instance = undefined;
-    while (this._disposables.length) {
-      const d = this._disposables.pop();
+    this._disposeView();
+  }
+
+  private _disposeView(): void {
+    this._view = undefined;
+    while (this._viewDisposables.length) {
+      const d = this._viewDisposables.pop();
       if (d) { try { d.dispose(); } catch { /* swallow */ } }
     }
-    try { this._panel.dispose(); } catch { /* may already be disposed */ }
   }
 
   /** Typed outbound channel — every host→webview message goes through here. */
   private _post(msg: BranchCompareSettingsToWebview): void {
-    void this._panel.webview.postMessage(msg);
+    void this._view?.webview.postMessage(msg);
   }
 
   private async _handleMessage(msg: BranchCompareSettingsFromWebview): Promise<void> {
@@ -195,9 +199,6 @@ export class BranchCompareSettingsPanel {
         }
         if (msg.patch.mode !== undefined) {
           WorkspaceStateManager.setBlameHeatmapMode(msg.patch.mode);
-          // Mode is workspace-state — onDidChangeConfiguration won't fire for
-          // it. Push the fresh state so the panel stays in sync.
-          this._pushHeatmapState();
         }
         break;
       case "setAutoFollow":

@@ -101,6 +101,9 @@ export class BlameHeatmapController implements vscode.Disposable {
     // Restore last-used mode so auto-apply works immediately after a restart.
     // Baseline refs are owned by `baselineService` and read on demand.
     this.lastUsedMode = WorkspaceStateManager.getBlameHeatmapMode();
+    this.subscriptions.push(
+      WorkspaceStateManager.onDidChangeBlameHeatmapMode(mode => { this.lastUsedMode = mode; }),
+    );
 
     // Re-apply cached decorations whenever an editor becomes visible again.
     // Two cases per editor:
@@ -166,8 +169,6 @@ export class BlameHeatmapController implements vscode.Disposable {
     );
 
     // Rebuild decoration types when the user changes age colors or opacity.
-    // Also refresh the menu context so the auto-apply submenu label flips
-    // immediately when the setting is toggled from outside the picker.
     this.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration(e => {
         if (
@@ -175,9 +176,6 @@ export class BlameHeatmapController implements vscode.Disposable {
           e.affectsConfiguration("freshFileExplorer.blameHeatmap.backgroundOpacity")
         ) {
           this.rebuildDecorationTypes();
-        }
-        if (e.affectsConfiguration("freshFileExplorer.blameHeatmap.autoApply")) {
-          this.updateMenuContext(vscode.window.activeTextEditor);
         }
         if (e.affectsConfiguration("freshFileExplorer.statusBar.heatmap")) {
           this.updateStatusBar(vscode.window.activeTextEditor);
@@ -313,6 +311,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     this.forgetFile(fsPath);
     this.statusBar.setNewFile(fsPath, false);
     this.updateStatusBar(editor);
+    this.updateMenuContext(editor);
     this.updateDeletionLinesContext(editor);
   }
 
@@ -687,13 +686,13 @@ export class BlameHeatmapController implements vscode.Disposable {
    * Drives context keys consumed by the gutter right-click menu / submenu:
    * - `hasBaseRef`  — saved baseline ref exists for this editor's repo.
    * - `active`      — heatmap is currently applied to this file.
-   * - `autoApply`   — auto-apply config is on.
+   * - `mode`        — which mode is applied ("" when off); drives menu checkmarks.
    */
   private updateMenuContext(editor: vscode.TextEditor | undefined): void {
-    const fsPath = editor?.document.uri.fsPath;
-    const active = fsPath !== undefined && this.files.hasMode(fsPath);
+    const mode = editor ? this.files.getMode(editor.document.uri.fsPath) : undefined;
     ContextManager.setBlameHeatmapHasBaseRef(this.getSavedBaseRefFor(editor) !== undefined);
-    ContextManager.setBlameHeatmapActive(active);
+    ContextManager.setBlameHeatmapActive(mode !== undefined);
+    ContextManager.setBlameHeatmapMode(mode ?? "");
   }
 
   private updateStatusBar(editor: vscode.TextEditor | undefined): void {

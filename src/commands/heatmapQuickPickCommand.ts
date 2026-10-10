@@ -4,7 +4,7 @@ import { BlameHeatmapController } from "../heatmap/blameHeatmapController";
 
 type ActionId =
   | "age"
-  | "branchSaved"
+  | "branch"
   | "branchPick"
   | "off"
   | "diff"
@@ -32,31 +32,18 @@ export async function showBlameHeatmapPicker(controller: BlameHeatmapController)
     id: "age",
   });
 
-  if (savedBaseRef) {
-    items.push({
-      label: activeMode === "branch"
-        ? `$(check) Branch / Tag — saved: ${savedBaseRef}`
-        : `$(git-branch) Branch / Tag — saved: ${savedBaseRef}`,
-      description: "Apply branch mode using the saved baseline",
-      id: "branchSaved",
-    });
-    items.push({
-      label: "$(git-branch) Pick branch / tag…",
-      description: "Choose a different baseline",
-      id: "branchPick",
-    });
-  } else {
-    items.push({
-      label: "$(git-branch) Pick branch / tag…",
-      description: "Colorize lines changed since a branch or tag",
-      id: "branchPick",
-    });
-  }
+  items.push({
+    label: activeMode === "branch" ? "$(check) Baseline" : "$(git-branch) Baseline",
+    description: savedBaseRef
+      ? `Colorize lines changed since ${savedBaseRef}`
+      : "Colorize lines changed since a baseline ref (prompts for one)",
+    id: "branch",
+  });
 
   if (activeMode) {
     items.push({
       label: "$(circle-slash) Turn off",
-      description: `Clear ${activeMode === "absolute" ? "Age" : "Branch"} decorations on this file`,
+      description: `Clear ${activeMode === "absolute" ? "Age" : "Baseline"} decorations on this file`,
       id: "off",
     });
   }
@@ -72,8 +59,13 @@ export async function showBlameHeatmapPicker(controller: BlameHeatmapController)
   });
   if (savedBaseRef) {
     items.push({
+      label: "$(git-branch) Change baseline…",
+      description: `Pick a different ref than ${savedBaseRef}`,
+      id: "branchPick",
+    });
+    items.push({
       label: `$(trash) Clear saved baseline (${savedBaseRef})`,
-      description: "Forget the saved ref. Branch mode will prompt next time.",
+      description: "Forget the saved ref. Baseline mode will prompt next time.",
       id: "clearBaseline",
     });
   }
@@ -91,7 +83,7 @@ export async function showBlameHeatmapPicker(controller: BlameHeatmapController)
   const placeHolder =
     activeMode === "absolute" ? "Heatmap: Age active"
     : activeMode === "branch" && savedBaseRef ? `Heatmap: vs ${savedBaseRef}`
-    : activeMode === "branch" ? "Heatmap: branch mode active"
+    : activeMode === "branch" ? "Heatmap: Baseline active"
     : "Heatmap: off";
 
   const picked = await vscode.window.showQuickPick(items, {
@@ -105,7 +97,7 @@ export async function showBlameHeatmapPicker(controller: BlameHeatmapController)
     case "age":
       await controller.applyMode(editor, "absolute");
       break;
-    case "branchSaved":
+    case "branch":
       await controller.applyMode(editor, "branch");
       break;
     case "branchPick":

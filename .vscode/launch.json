@@ -16,7 +16,8 @@
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
+			"preLaunchTask": "${defaultBuildTask}",
+			"trace": true
 		},
 		{
 			"name": "Run Extension (with others)",
@@ -28,7 +29,8 @@
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
+			"preLaunchTask": "${defaultBuildTask}",
+			"trace": true
 		}
 	]
 }

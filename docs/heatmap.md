@@ -5,18 +5,18 @@ Heatmpas help visualize how recent the work in your repo is, but at different sc
 ## File heatmap
 Colors files in the tree (and File Explorer) by how recently they were last modified. Answers *"which files have been touched recently?"* at a glance.
 
-![file-heatmap](./../img/heatmap.png)
+![file-heatmap](img/heatmap.png)
 
 ## Blame Heatmaps
 
 Colors lines inside a file. Two sub-modes: 
 
 ### Age - *"which parts of this file are fresh?"*
-![age-heatmap](./../img/age-heatmap.png)
+![age-heatmap](img/age-heatmap.png)
 
 ### Baseline - *"what is happening here compared to the baseline (e.g. last release branch/tag)?"*
 
-![baseline-heatmap](./../img/baseline-heatmap.png)
+![baseline-heatmap](img/baseline-heatmap.png)
 
 The colors use an 8-color palette (`age1..age8`), so a file glowing bright in the tree will glow bright at the line level too.
 - colors of the file heatmap are reused
@@ -30,7 +30,7 @@ Both heatmaps split the age signal into 8 color buckets, `age1` (most recent) th
 
 Colors files in the Fresh Files view and File Explorer by their last modification date. Brighter = more recent.
 
-![file heatmap](../img/heatmap.png)
+![file heatmap](img/heatmap.png)
 
 Toggle from the Fresh Files view (`...` menu, or *Toggle Heatmap Coloring* command). The coloring uses your active time window:
 
@@ -52,14 +52,14 @@ Use it to answer:
 ### Modes
 
 - **Age** — line color reflects recency of the last commit on that line. Other blame tools surface who/when textually — hover popups, inline annotations — and stop there. This one paints the file. The pattern reads at a glance: fresh code stands out, ancient code fades. Drill into the metadata only when you actually want it. The recency window auto-derives from the file's own oldest line, so all 8 buckets get used regardless of how old the file is overall.
-- **Branch / Tag** — colors only lines changed since a chosen baseline ref. Pre-baseline lines stay uncolored. Added lines get a distinct (green) palette; modified lines keep the age palette. Pure deletions surface as red gutter badges with the deleted line count.
+- **Baseline** — colors only lines changed since a chosen baseline ref (any ref git resolves: branch, tag, SHA, `HEAD~N`). Pre-baseline lines stay uncolored. Added lines get a distinct (green) palette; modified lines keep the age palette. Pure deletions surface as red gutter badges with the deleted line count.
 
 ### Activation surfaces
 
 - **Status bar** (bottom-left, `Heatmap: …`) — click to open the rich picker. Shows current mode, saved baseline ref, and warnings inline (`not in a git repo`, `no blame data`, etc.).
 - **Right-click on the gutter** — `Blame Heatmap >` submenu with direct access to Age / Branch saved / Pick / Turn off / Diff vs baseline / Clear baseline / Toggle auto-apply.
 - **Right-click on a deletion badge** — `Copy baseline lines` / `Restore from baseline` (right-click, since left-click area is owned by the breakpoint glyph).
-- **Right-click in the editor** — `Diff with Branch / Tag…` opens a regular diff editor against the saved baseline. Prompts for a ref on first use; saves it for reuse.
+- **Right-click in the editor** — `Diff with baseline…` opens a regular diff editor against the saved baseline. Prompts for a ref on first use; saves it for reuse.
 
 ### Persistence
 
@@ -75,7 +75,7 @@ Use it to answer:
 
 - `git blame` runs once per file, results cached. Re-applies on text change debounced 1.5s.
 - Configurable max line count limit. "No blame because file is over limit" vs "no blame for other reasons (e.g. new file)" is distinguishable in the status bar.
-- Branch mode caches the merge-base SHA per `(repo, ref)`, invalidates on any git state change for that repo (HEAD move, fetch, branch switch).
+- Baseline mode caches the merge-base SHA per `(repo, ref)`, invalidates on any git state change for that repo (HEAD move, fetch, branch switch).
 - Status bar shows a spinner during compute so slow files don't appear stuck.
 
 ## Configuration

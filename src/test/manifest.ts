@@ -295,12 +295,24 @@ export function referencedViewItemContextValues(manifest: Manifest): string[] {
 export function referencedContextKeys(manifest: Manifest, namespaces: readonly string[]): string[] {
   const rhs = /(?:==|!=|=~)\s*(?:\/[^/]*\/|'[^']*'|"[^"]*"|[^\s)]+)/g;
   const nsAlt = namespaces.map(escapeForRegExp).join("|");
-  const tokenRe = new RegExp(`(?:${nsAlt})[A-Za-z0-9_.]+`, "g");
+  // `config.<setting>` reads a setting, not a context key — see referencedConfigKeys.
+  const tokenRe = new RegExp(`(?<!config\\.)(?:${nsAlt})[A-Za-z0-9_.]+`, "g");
   const keys = new Set<string>();
   for (const when of collectWhenClauses(manifest)) {
     const cleaned = when.replace(rhs, " ");
     for (const match of cleaned.match(tokenRe) ?? []) {
       keys.add(match);
+    }
+  }
+  return [...keys];
+}
+
+/** Setting keys read via `config.<key>` in when clauses. */
+export function referencedConfigKeys(manifest: Manifest): string[] {
+  const keys = new Set<string>();
+  for (const when of collectWhenClauses(manifest)) {
+    for (const match of when.matchAll(/config\.([A-Za-z0-9_.]+)/g)) {
+      keys.add(match[1]);
     }
   }
   return [...keys];

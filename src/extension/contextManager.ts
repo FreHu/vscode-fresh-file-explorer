@@ -80,6 +80,11 @@ export class ContextManager {
     vscode.commands.executeCommand("setContext", ContextKeys.BLAME_HEATMAP_ACTIVE, value);
   }
 
+  /** Active blame heatmap mode for the current editor, or "" when off. */
+  static setBlameHeatmapMode(mode: "absolute" | "branch" | ""): void {
+    vscode.commands.executeCommand("setContext", ContextKeys.BLAME_HEATMAP_MODE, mode);
+  }
+
   /** Whether a saved baseline ref exists for the current editor. */
   static setBlameHeatmapHasBaseRef(value: boolean): void {
     vscode.commands.executeCommand("setContext", ContextKeys.BLAME_HEATMAP_HAS_BASE_REF, value);

@@ -17,32 +17,11 @@ export function getBranchCompareSettingsHtml(
   const styles = css`
     * { box-sizing: border-box; }
     body {
-      padding: 16px 20px;
+      padding: 8px 12px;
       font-family: var(--vscode-font-family);
       font-size: var(--vscode-font-size);
       color: var(--vscode-foreground);
       margin: 0;
-    }
-    h2 {
-      margin: 0;
-      font-size: 1.1em;
-    }
-    .header-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 4px;
-    }
-    .header-row .icon-btn {
-      width: 28px;
-      height: 28px;
-      font-size: 1.1em;
-    }
-    .subtitle {
-      color: var(--vscode-descriptionForeground);
-      font-size: 0.9em;
-      margin: 0 0 16px 0;
     }
 
     /* ── table ──────────────────────────────────────── */
@@ -238,11 +217,12 @@ export function getBranchCompareSettingsHtml(
     .table-toolbar {
       display: flex;
       align-items: center;
-      justify-content: flex-end;
       gap: 8px;
       margin-bottom: 8px;
     }
-    .table-toolbar label {
+    .table-toolbar .spacer { flex: 1; }
+    .table-toolbar .field-row { margin: 0; }
+    .table-toolbar > label {
       color: var(--vscode-descriptionForeground);
       font-size: 0.85em;
     }
@@ -345,6 +325,7 @@ export function getBranchCompareSettingsHtml(
       font-size: 0.85em;
       margin-left: 24px;
     }
+    .field-help.warn { color: var(--vscode-editorWarning-foreground, #d4a017); }
     .mode-group {
       margin-top: 6px;
       padding-left: 4px;
@@ -367,23 +348,17 @@ export function getBranchCompareSettingsHtml(
   <style>${raw(styles)}</style>
 </head>
 <body>
-  <div class="header-row">
-    <h2>Branch Comparisons</h2>
+  <div class="table-toolbar">
+    <div class="field-row">
+      <input type="checkbox" id="autoFollow">
+      <label for="autoFollow">Auto-follow diverged branches &amp; worktrees</label>
+    </div>
+    <span class="spacer"></span>
+    <label for="batchGrouping">Set grouping for all comparisons:</label>
+    <select id="batchGrouping" title="Apply a grouping mode to every comparison at once"></select>
     <button class="icon-btn" id="refreshBtn" title="Re-fetch branches (pick up refs created since the panel was opened)">
       <i class="codicon codicon-refresh"></i>
     </button>
-  </div>
-  <p class="subtitle">Define which comparisons appear in the Branch Compare tree. Each row is one (source &rarr; target) pair.</p>
-
-  <div class="field-row">
-    <input type="checkbox" id="autoFollow">
-    <label for="autoFollow">Auto-follow diverged branches &amp; worktrees</label>
-  </div>
-  <div class="field-help">Adds a live comparison for any repo or worktree whose branch has diverged from its default. Rows are marked <i class="codicon codicon-eye"></i>; delete one to stop following it, edit to keep it as your own.</div>
-
-  <div class="table-toolbar">
-    <label for="batchGrouping">Set grouping for all comparisons:</label>
-    <select id="batchGrouping" title="Apply a grouping mode to every comparison at once"></select>
   </div>
 
   <table class="cmp" id="comparisonsTable">
@@ -417,6 +392,7 @@ export function getBranchCompareSettingsHtml(
 
   <div class="legend">
     <ul>
+      <li><strong>Auto-follow</strong> — adds a live comparison for any repo or worktree whose branch has diverged from its default. Rows are marked <i class="codicon codicon-eye"></i>; delete one to stop following it, edit to keep it as your own.</li>
       <li><strong>Source</strong> — the branch with the work you want to inspect.</li>
       <li><strong>Target</strong> — the baseline you compare against (the older / reference side).</li>
       <li>The autocomplete lists branches and tags, but the input accepts any ref git understands — commit SHAs, <code>HEAD~N</code>, <code>origin/main^</code>, etc. Type freely; the green check confirms it resolves.</li>
@@ -452,9 +428,9 @@ export function getBranchCompareSettingsHtml(
       </div>
       <div class="field-row">
         <input type="radio" name="hmMode" id="hmModeBranch" value="branch">
-        <label for="hmModeBranch"><strong>Branch</strong> — only lines changed since the starred baseline are tinted</label>
+        <label for="hmModeBranch"><strong>Baseline</strong> — only lines changed since the starred baseline are tinted</label>
       </div>
-      <div class="field-help">Branch mode needs a comparison marked with the heatmap star above. Repos without a starred comparison show no heatmap in branch mode.</div>
+      <div class="field-help" id="hmBranchHint">Baseline mode needs a comparison marked with the heatmap star above. Repos without a starred comparison show no heatmap in baseline mode.</div>
     </div>
   </section>
 

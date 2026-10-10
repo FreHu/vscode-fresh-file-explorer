@@ -226,8 +226,13 @@ export class WorkspaceStateManager {
     return raw === "absolute" || raw === "branch" ? raw : undefined;
   }
 
+  private static readonly _onDidChangeBlameHeatmapMode = new vscode.EventEmitter<"absolute" | "branch">();
+  static readonly onDidChangeBlameHeatmapMode = WorkspaceStateManager._onDidChangeBlameHeatmapMode.event;
+
   static setBlameHeatmapMode(mode: "absolute" | "branch"): void {
+    if (WorkspaceStateManager.getBlameHeatmapMode() === mode) { return; }
     WorkspaceStateManager.ctx().workspaceState.update("blameHeatmapMode", mode);
+    WorkspaceStateManager._onDidChangeBlameHeatmapMode.fire(mode);
   }
 
   // ── Branch compare saved comparisons (multi-comparison list) ─────────────

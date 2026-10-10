@@ -28,6 +28,7 @@ import {
   viewsWelcomeViewRefs,
   activationCommandRefs,
   activationViewRefs,
+  referencedConfigKeys,
   nlsPlaceholders,
   versionFloor,
 } from "../manifest";
@@ -163,6 +164,12 @@ suite("Context keys (when clauses) ↔ ContextManager", () => {
       [],
       `when clause references unknown context key(s): ${unknown.join(", ")}`
     );
+  });
+
+  test("every config.<key> in a when clause is a declared setting", () => {
+    const declared = Object.keys(configProperties(manifest));
+    const unknown = referencedConfigKeys(manifest).filter(k => !declared.includes(k));
+    assert.deepStrictEqual(unknown, [], `when clause reads undeclared setting(s): ${unknown.join(", ")}`);
   });
 
   test("no duplicate values in the ContextKeys constant", () => {

@@ -166,6 +166,89 @@ function extractPaths(text: string): string[] {
   return found;
 }
 
+/** User-facing markdown: shipped in the package and opened in VS Code's markdown preview. */
+function userDocs(): string[] {
+  const docs = ["README.md", "CHANGELOG.md"];
+  for (const name of fs.readdirSync(path.join(root, "docs"))) {
+    if (name.endsWith(".md")) {
+      docs.push(`docs/${name}`);
+    }
+  }
+  return docs;
+}
+
+/** Local image targets of `![alt](target "title")` and `<img src="target">`, outside code fences. */
+export function extractImageRefs(text: string): string[] {
+  const prose = text.replace(/^```[\s\S]*?^```/gm, "");
+  const refs: string[] = [];
+  for (const m of prose.matchAll(/!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g)) {
+    refs.push(m[1]);
+  }
+  for (const m of prose.matchAll(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)) {
+    refs.push(m[1]);
+  }
+  return refs.filter(r => !/^(?:[a-z]+:|#)/i.test(r));
+}
+
+/**
+ * Why a doc-relative image ref won't render, or undefined if it will. VS Code's
+ * markdown preview of a file outside the workspace (every doc the extension
+ * opens from its install folder) only serves files under the doc's own folder,
+ * so `../img/x.png` is broken there even though it exists on disk.
+ */
+export function imageRefProblem(docRelPath: string, ref: string, exists: (relPath: string) => boolean): string | undefined {
+  if (ref.startsWith("/")) {
+    return "root-absolute path; use a path relative to the doc";
+  }
+  const docDir = path.posix.dirname(docRelPath);
+  const resolved = path.posix.normalize(path.posix.join(docDir, decodeURI(ref)));
+  const insideDocDir = docDir === "." ? !resolved.startsWith("../") : resolved.startsWith(`${docDir}/`);
+  if (!insideDocDir) {
+    return `resolves to ${resolved}, outside ${docDir}/ — the markdown preview blocks it`;
+  }
+  if (!exists(resolved)) {
+    return `${resolved} does not exist`;
+  }
+  return undefined;
+}
+
+suite("Docs ↔ images", () => {
+  const exists = (rel: string): boolean => fs.existsSync(path.join(root, rel));
+
+  for (const doc of userDocs()) {
+    test(`${doc}: every image renders`, () => {
+      const text = fs.readFileSync(path.join(root, doc), "utf8");
+      const broken = extractImageRefs(text)
+        .map(ref => ({ ref, problem: imageRefProblem(doc, ref, exists) }))
+        .filter(r => r.problem)
+        .map(r => `${r.ref} — ${r.problem}`);
+      assert.deepStrictEqual(broken, [], `${doc} has broken images:\n  ${broken.join("\n  ")}`);
+    });
+  }
+
+  test("imageRefProblem flags the parent-folder escape and missing files", () => {
+    const has = (rel: string): boolean => rel === "docs/img/a.png" || rel === "img/a.png";
+    assert.strictEqual(imageRefProblem("docs/x.md", "img/a.png", has), undefined);
+    assert.match(imageRefProblem("docs/x.md", "../img/a.png", has) ?? "", /outside docs\//);
+    assert.match(imageRefProblem("docs/x.md", "img/b.png", has) ?? "", /does not exist/);
+    assert.match(imageRefProblem("README.md", "/img/a.png", has) ?? "", /root-absolute/);
+    assert.strictEqual(imageRefProblem("README.md", "img/a.png", has), undefined);
+  });
+
+  test("extractImageRefs reads markdown and html images, skips urls and code fences", () => {
+    const text = [
+      "![a](img/a.png)",
+      '![b](img/b.png "title")',
+      '<img src="img/c.png" width="300">',
+      "![remote](https://example.com/d.png)",
+      "```md",
+      "![fenced](img/e.png)",
+      "```",
+    ].join("\n");
+    assert.deepStrictEqual(extractImageRefs(text), ["img/a.png", "img/b.png", "img/c.png"]);
+  });
+});
+
 suite("Docs ↔ source drift", () => {
   for (const doc of DOCS) {
     // Read inside each test: a miss (e.g. wrong casing on a case-sensitive FS)
