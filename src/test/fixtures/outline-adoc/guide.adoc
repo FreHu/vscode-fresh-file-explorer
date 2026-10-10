@@ -1,0 +1,13 @@
+= User Guide
+:toc:
+
+Expected: document title "User Guide" (level 1) with children "Install" and "Configure";
+"Install" has child "On Windows"; "Configure" has child "Advanced" (symmetric closing === stripped).
+
+== Install
+
+=== On Windows
+
+== Configure
+
+=== Advanced ===

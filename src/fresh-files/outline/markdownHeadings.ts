@@ -1,14 +1,4 @@
-// Pure, vscode-free: unit-tested against src/test/fixtures/markdown-headings/.
-
-export interface MarkdownHeading {
-  level: number;
-  text: string;
-  /** 0-based line of the heading (for setext, the text line, not the underline). */
-  line: number;
-  /** Stable among edits that don't touch this heading or its ancestors: parent key + text (+ `~n` for repeats). */
-  key: string;
-  children: MarkdownHeading[];
-}
+import { FlatHeading, OutlineHeading, buildHeadingTree } from "./headingTree";
 
 const ATX = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*$/;
 const SETEXT_UNDERLINE = /^ {0,3}(=+|-+)[ \t]*$/;
@@ -17,16 +7,14 @@ const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
 const NOT_PARAGRAPH = /^ {0,3}([-*+]\s|\d+[.)]\s|>|#)|^( {4}|\t)/;
 
 /**
- * Headings of a markdown document as a tree, best effort. Skipped levels nest
- * under the nearest shallower heading, a document may start at any level, and
- * headings deeper than `maxDepth` are dropped. Fenced code (closed or not),
- * indented code and YAML front matter are skipped, as VS Code's outline does.
- * Not a CommonMark implementation: lazy continuation and HTML blocks are ignored.
+ * Headings of a markdown document as a tree (nesting rules: {@link buildHeadingTree}).
+ * Fenced code (closed or not), indented code and YAML front matter are skipped,
+ * as VS Code's outline does; a setext heading's line is its text line. Not a
+ * CommonMark implementation: lazy continuation and HTML blocks are ignored.
  */
-export function parseMarkdownHeadings(source: string, maxDepth: number): MarkdownHeading[] {
-  const depth = Math.min(6, Math.max(1, Math.floor(maxDepth)));
+export function parseMarkdownHeadings(source: string, maxDepth: number): OutlineHeading[] {
   const lines = source.split(/\r?\n/);
-  const flat: { level: number; text: string; line: number }[] = [];
+  const flat: FlatHeading[] = [];
 
   let i = skipFrontMatter(lines);
   let fence: { char: string; length: number } | undefined;
@@ -69,7 +57,7 @@ export function parseMarkdownHeadings(source: string, maxDepth: number): Markdow
     prevParagraph = line.trim() && !NOT_PARAGRAPH.test(line) ? { text: line, line: i } : undefined;
   }
 
-  return buildTree(flat.filter(h => h.level <= depth));
+  return buildHeadingTree(flat, maxDepth);
 }
 
 /** Index of the first line after a leading `---` … `---`/`...` block; 0 when there is none or it never closes. */
@@ -95,26 +83,4 @@ function cleanInline(text: string): string {
     .replace(/(\*\*|__)(.+?)\1/g, "$2")
     .replace(/`+([^`]+)`+/g, "$1")
     .trim();
-}
-
-function buildTree(flat: { level: number; text: string; line: number }[]): MarkdownHeading[] {
-  const roots: MarkdownHeading[] = [];
-  const stack: MarkdownHeading[] = [];
-  /** Per parent key: how many children so far carry each text. */
-  const seen = new Map<string, Map<string, number>>();
-  for (const h of flat) {
-    while (stack.length && stack[stack.length - 1].level >= h.level) { stack.pop(); }
-    const parent = stack[stack.length - 1];
-    const siblings = parent ? parent.children : roots;
-    const parentKey = parent ? parent.key : "";
-    let counts = seen.get(parentKey);
-    if (!counts) { counts = new Map(); seen.set(parentKey, counts); }
-    const repeats = counts.get(h.text) ?? 0;
-    counts.set(h.text, repeats + 1);
-    const key = `${parentKey}/${h.text}${repeats ? `~${repeats}` : ""}`;
-    const node: MarkdownHeading = { ...h, key, children: [] };
-    siblings.push(node);
-    stack.push(node);
-  }
-  return roots;
 }

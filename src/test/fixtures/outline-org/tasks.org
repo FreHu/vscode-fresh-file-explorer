@@ -1,0 +1,14 @@
+#+TITLE: Tasks
+Expected: "Project plan" [TODO] with children "Set up the repo" [DONE], "Write the parser" [TODO]
+(which has child "Notes"), "Ship" (no keyword); then root "Someday" with child "Learn Emacs".
+Priority cookies and tags are stripped from the label.
+
+* TODO Project plan
+** DONE Set up the repo
+** TODO [#A] Write the parser                                  :work:urgent:
+   SCHEDULED: <2026-10-12 Mon>
+*** Notes
+Some text under the heading.
+** Ship
+* Someday
+** Learn Emacs

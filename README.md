@@ -85,7 +85,7 @@ Adds a special "pinned items" view. This is for files you want to keep handy ind
 - Pin a deleted file
 - Pin a search editor (must be saved as a file)
 - Create short notes and use it as a todo list. They can be reordered and marked as complete.
-- Pin a markdown file and its headings show up as children, kept in sync as you edit. Click one to jump to it. `freshFileExplorer.pinned.markdownHeadingDepth` sets the deepest heading shown, `freshFileExplorer.pinned.markdownExpandDepth` how many levels start expanded.
+- Pin a Markdown (`.md`, `.mdx`, Quarto `.qmd`, R Markdown `.Rmd`), Org-mode (`.org`) or AsciiDoc (`.adoc`) file and its headings show up as children, kept in sync as you edit. Org-mode TODO keywords show next to their heading. Click a heading to jump to it. `freshFileExplorer.pinned.headingDepth` sets the deepest heading shown, `freshFileExplorer.pinned.headingExpandDepth` how many levels start expanded.
 - Pin your sensitive API keys as notes. All the pros do it.
 
 The pins are stored per workspace.

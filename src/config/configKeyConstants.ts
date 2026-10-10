@@ -15,8 +15,8 @@ export const ConfigKeys = {
 
   // General settings
   AUTO_EXPAND_DEPTH: "freshFileExplorer.autoExpandDepth",
-  PINNED_MARKDOWN_HEADING_DEPTH: "freshFileExplorer.pinned.markdownHeadingDepth",
-  PINNED_MARKDOWN_EXPAND_DEPTH: "freshFileExplorer.pinned.markdownExpandDepth",
+  PINNED_HEADING_DEPTH: "freshFileExplorer.pinned.headingDepth",
+  PINNED_HEADING_EXPAND_DEPTH: "freshFileExplorer.pinned.headingExpandDepth",
   TIME_WINDOWS: "freshFileExplorer.timeWindows",
   GIT_TIMEOUT: "freshFileExplorer.gitTimeout",
   SHOW_CURRENT_BRANCH_SYNC: "freshFileExplorer.showCurrentBranchSync",

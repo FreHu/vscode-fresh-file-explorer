@@ -1,0 +1,22 @@
+---
+title: "Analysis"
+format: html
+---
+
+Expected: "Load data" with child "Clean"; then "Results". The `#` lines inside the
+R and Python chunks are comments, not headings.
+
+# Load data
+
+```{r}
+# read the csv
+data <- read.csv("x.csv")
+```
+
+## Clean
+
+```{python}
+# drop nulls
+```
+
+# Results

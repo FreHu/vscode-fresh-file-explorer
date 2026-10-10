@@ -1,0 +1,15 @@
+Expected: Asciidoctor's Markdown-style "#" titles work too: "Title" with child "Section";
+inline markup is stripped: "Bold and code", "Link text", "Cross ref".
+"==NoSpace" is not a section.
+
+# Title
+
+## Section
+
+## *Bold* and `code`
+
+## https://asciidoc.org[Link text]
+
+## <<intro,Cross ref>>
+
+==NoSpace

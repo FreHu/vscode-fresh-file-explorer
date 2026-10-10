@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Pinned Items: a pinned markdown file lists its headings as children, synced live with the file (unsaved edits included) and clickable to jump to the heading. Malformed structure is handled best effort: skipped levels nest under the nearest shallower heading, and headings in code fences or front matter are ignored. New settings `pinned.markdownHeadingDepth` (default 3, 0 turns it off) and `pinned.markdownExpandDepth` (default 1).
+- Pinned Items: a pinned Markdown (`.md`, `.mdx`, `.qmd`, `.Rmd`), Org-mode (`.org`) or AsciiDoc (`.adoc`) file lists its headings as children, synced live with the file (unsaved edits included) and clickable to jump to the heading. Org-mode TODO keywords (default or from `#+TODO:`) show next to their heading. Malformed structure is handled best effort: skipped levels nest under the nearest shallower heading, and headings inside code blocks or front matter are ignored. New settings `pinned.headingDepth` (default 3, 0 turns it off) and `pinned.headingExpandDepth` (default 1).
 
 - Branch Comparisons settings moved from an editor tab into the bottom panel.
 - Blame heatmap: the Branch / Tag mode is now called **Baseline**, since it accepts any ref. The right-click menu lists only the modes (Age / Baseline / Turn off) in its first group, with a checkmark on the active one; "Change baseline…" moved to the actions group.

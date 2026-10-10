@@ -1,7 +1,8 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { MarkdownHeading, parseMarkdownHeadings } from "../../fresh-files/markdownHeadings";
+import { OutlineHeading } from "../../fresh-files/outline/headingTree";
+import { parseMarkdownHeadings } from "../../fresh-files/outline/markdownHeadings";
 
 // Fixtures are copied from src/test/fixtures/ into out/test/fixtures/ by `npm run copy:fixtures`.
 // Each fixture's opening lines state what it should produce, for testing by hand too.
@@ -10,7 +11,7 @@ const fixture = (name: string): string =>
 
 /** Compact shape: `text` for a leaf, `[text, ...children]` otherwise. */
 type Shape = string | [string, ...Shape[]];
-function shape(nodes: MarkdownHeading[]): Shape[] {
+function shape(nodes: OutlineHeading[]): Shape[] {
   return nodes.map(n => (n.children.length ? [n.text, ...shape(n.children)] as Shape : n.text));
 }
 

@@ -1,0 +1,12 @@
+#+TODO: NEXT WAITING | FINISHED CANCELLED
+Expected: keywords from the #+TODO line are recognized: "Plan trip" [NEXT],
+"Book hotel" [WAITING], "Buy tickets" [FINISHED], "Old idea" [CANCELLED].
+"TODO" is not a keyword in this file once #+TODO redefines them, so "TODO is text" keeps it.
+Links keep their description: "Read the docs".
+
+* NEXT Plan trip
+** WAITING Book hotel
+** FINISHED Buy tickets
+* CANCELLED Old idea
+* TODO is text
+* [[https://orgmode.org][Read the docs]]

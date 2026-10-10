@@ -5,7 +5,7 @@ import { formatRepoDescription, formatRepoTooltip } from "../utils/formatUtils";
 import { RepoKind, repoKindIcon, repoKindLabel } from "../git/repoKind";
 import { CommitHash } from "../types";
 import { TreeItemContextValues, createNoteId } from "./treeItemConstants";
-import { MarkdownHeading } from "./markdownHeadings";
+import { OutlineHeading } from "./outline/headingTree";
 import { normalizePath } from "../utils";
 
 /**
@@ -203,7 +203,7 @@ constructor(
     isPending: boolean = false,
     status?: string,
     renameSource?: string,
-    /** Files are leaves, except a pinned markdown file that lists its headings. */
+    /** Files are leaves, except a pinned outline file that lists its headings. */
     collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.None,
   ): FreshFileItem {
     return new FreshFileItem(
@@ -262,15 +262,16 @@ export class NoteTreeItem extends vscode.TreeItem {
 }
 
 /**
- * A heading of a pinned markdown file. Clicking opens the file at the heading.
+ * A heading of a pinned outline file (markdown, Org-mode, AsciiDoc). Its
+ * `tag` (an Org-mode TODO keyword) shows as the description.
  * `treeDepth` is 1 for the file's top-level headings; it decides the default
  * expansion together with `expandDepth`, which is also part of the id so a
  * changed setting re-applies (VS Code pins collapse state to an id).
  */
-export class MarkdownHeadingItem extends vscode.TreeItem {
+export class OutlineHeadingItem extends vscode.TreeItem {
   constructor(
     public readonly fileUri: vscode.Uri,
-    public readonly heading: MarkdownHeading,
+    public readonly heading: OutlineHeading,
     public readonly treeDepth: number,
     expandDepth: number,
   ) {
@@ -282,15 +283,16 @@ export class MarkdownHeadingItem extends vscode.TreeItem {
           ? vscode.TreeItemCollapsibleState.Expanded
           : vscode.TreeItemCollapsibleState.Collapsed,
     );
-    this.id = `mdheading:${normalizePath(fileUri.fsPath)}#${heading.key}@e${expandDepth}`;
+    this.id = `heading:${normalizePath(fileUri.fsPath)}#${heading.key}@e${expandDepth}`;
     this.iconPath = new vscode.ThemeIcon("symbol-string");
-    this.tooltip = `${"#".repeat(heading.level)} ${heading.text}\nLine ${heading.line + 1}`;
+    this.description = heading.tag;
+    this.tooltip = `${heading.tag ? `${heading.tag} ` : ""}${heading.text}\nLevel ${heading.level}, line ${heading.line + 1}`;
     // A tree item with a command runs it on click instead of toggling, so
     // only leaves navigate on click; parents get an inline Go to Heading button.
     if (heading.children.length > 0) {
-      this.contextValue = TreeItemContextValues.MARKDOWN_HEADING_PARENT;
+      this.contextValue = TreeItemContextValues.OUTLINE_HEADING_PARENT;
     } else {
-      this.contextValue = TreeItemContextValues.MARKDOWN_HEADING;
+      this.contextValue = TreeItemContextValues.OUTLINE_HEADING;
       this.command = { command: Commands.GO_TO_HEADING, title: "Go to Heading", arguments: [this] };
     }
   }
@@ -369,7 +371,7 @@ export type FreshFilesTreeItem =
   | FreshFileItem
   | MessageTreeItem
   | NoteTreeItem
-  | MarkdownHeadingItem
+  | OutlineHeadingItem
   | SubmoduleEntryItem
   | UninitializedSubmodulesGroupItem
   | UninitializedSubmoduleItem;

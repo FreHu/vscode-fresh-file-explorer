@@ -1235,12 +1235,12 @@
         },
         {
           "command": "freshFileExplorer.goToHeading",
-          "when": "view == pinnedItems && viewItem == markdownHeadingParent",
+          "when": "view == pinnedItems && viewItem == outlineHeadingParent",
           "group": "inline@1"
         },
         {
           "command": "freshFileExplorer.goToHeading",
-          "when": "view == pinnedItems && viewItem =~ /^markdownHeading(Parent)?$/",
+          "when": "view == pinnedItems && viewItem =~ /^outlineHeading(Parent)?$/",
           "group": "1_open@1"
         },
         {
@@ -2033,19 +2033,19 @@
           "maximum": 10,
           "description": "Number of directory levels to automatically expand when the tree is loaded (0 = collapsed, 1 = root expanded, etc.)"
         },
-        "freshFileExplorer.pinned.markdownHeadingDepth": {
+        "freshFileExplorer.pinned.headingDepth": {
           "type": "number",
           "default": 3,
           "minimum": 0,
           "maximum": 6,
-          "description": "Pinned markdown files list their headings as children, kept in sync as you edit. This is the deepest heading level shown (1 = only # headings, 3 = down to ###). 0 shows no headings."
+          "description": "Pinned Markdown (.md, .mdx, .qmd, .Rmd), Org-mode (.org) and AsciiDoc (.adoc) files list their headings as children, kept in sync as you edit. This is the deepest heading level shown (1 = top-level headings only, 3 = down to the third level). 0 shows no headings."
         },
-        "freshFileExplorer.pinned.markdownExpandDepth": {
+        "freshFileExplorer.pinned.headingExpandDepth": {
           "type": "number",
           "default": 1,
           "minimum": 0,
           "maximum": 6,
-          "description": "How many levels of a pinned markdown file's heading tree start expanded (0 = the file starts collapsed, 1 = its top-level headings are visible, etc.)."
+          "description": "How many levels of a pinned file's heading tree start expanded (0 = the file starts collapsed, 1 = its top-level headings are visible, etc.)."
         },
         "freshFileExplorer.autoReveal": {
           "type": "boolean",

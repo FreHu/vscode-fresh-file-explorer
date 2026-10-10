@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
-import { normalizePath } from "../utils";
+import { normalizePath } from "../../utils";
 
 /** Quiet time before a refresh. */
 const DEBOUNCE_MS = 300;
@@ -9,12 +9,12 @@ const DEBOUNCE_MS = 300;
 const MAX_WAIT_MS = 1000;
 
 /**
- * Fires `onDidChange` with the (normalized) path of a watched markdown file
+ * Fires `onDidChange` with the (normalized) path of a watched outline file
  * that changed: typing in an open editor (debounced, unsaved edits included)
  * or a write from outside the editor (git checkout, another tool). One file
  * watcher per path, because pinned files can live outside the workspace.
  */
-export class PinnedMarkdownSync implements vscode.Disposable {
+export class PinnedOutlineSync implements vscode.Disposable {
   private readonly _onDidChange = new vscode.EventEmitter<string>();
   readonly onDidChange = this._onDidChange.event;
 

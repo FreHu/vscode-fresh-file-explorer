@@ -1,0 +1,13 @@
+Expected: "Real heading" with child "After the blocks"; star lines inside blocks are not headings.
+"*bold text*" at line start is emphasis, not a heading (no space after the star).
+
+* Real heading
+#+BEGIN_SRC python
+* not a heading: inside a source block
+#+END_SRC
+#+begin_example
+** lowercase block markers work too
+#+end_example
+*bold text* is just emphasis
+ * indented star: a list item, not a heading
+** After the blocks

@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
 
 const require = createRequire(import.meta.url);
-const { parseMarkdownHeadings } = require("../out/fresh-files/markdownHeadings.js");
+const { parseMarkdownHeadings } = require("../out/fresh-files/outline/markdownHeadings.js");
 
 const headings = Number(process.argv[2] ?? 200);
 const linesPerSection = Number(process.argv[3] ?? 10);

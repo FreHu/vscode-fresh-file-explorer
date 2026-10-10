@@ -1,0 +1,36 @@
+= Blocks
+
+Expected: "Blocks" with children "Real section" and "After the blocks". Section-looking lines
+inside listing, literal, example, comment, passthrough and fenced blocks are not sections.
+A block title like ".Title" is not a section either.
+
+== Real section
+
+----
+== not a section: inside a listing block
+----
+
+....
+== literal block
+....
+
+====
+== inside an example block
+====
+
+////
+== commented out
+////
+
+++++
+== passthrough
+++++
+
+```
+== fenced code
+```
+
+.A block title
+// == a single-line comment
+
+== After the blocks

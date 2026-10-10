@@ -60,8 +60,8 @@ const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
   STATUS_BAR_HEATMAP:              "none",
   BRANCH_COMPARE_WORKING_TREE_SIDE: "none",
   BRANCH_COMPARE_FILE_ICONS:        "none", // Branch Compare re-renders itself (extension.ts config listener)
-  PINNED_MARKDOWN_HEADING_DEPTH:    "none", // Pinned Items view re-renders itself
-  PINNED_MARKDOWN_EXPAND_DEPTH:     "none", // Pinned Items view re-renders itself
+  PINNED_HEADING_DEPTH:    "none", // Pinned Items view re-renders itself
+  PINNED_HEADING_EXPAND_DEPTH:     "none", // Pinned Items view re-renders itself
   BULK_ACTION_CONFIRM_THRESHOLD:    "none",
   NOTIFY_ON:                       "none",
   AUTO_FOLLOW:                     "none", // handled by AutoFollowController.onConfigChanged, not the FF tree
