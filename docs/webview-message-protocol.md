@@ -22,8 +22,8 @@ messages flow on demand.
 |---|---|---|---|---|
 | Stonks | `src/stonks/stonksPanel.ts` | `src/webview/stonksPanel.ts` | `setRepos`, `setData`, `setCompareData`, `setLoading`, `setTimeWindows`, `setConfig` | `ready`, `selectRepo`, `openCommit`, `selectTimeWindow`, `updateConfig`, `requestCompareData`, `openHelp`, `exportSvg` |
 | Diff Search | `src/diff-search/diffSearchPanel.ts` | `src/webview/diffSearchPanel.ts` | `prefill`, `prefillParams`, `setHistory`, `reposStarted`, `repoProgress`, `repoComplete`, `searchComplete` | `ready`, `clearHistory`, `search` |
-| Git Log -L | `src/logL/gitLogLPanel.ts` | `src/webview/gitLogLPanel.ts` | `setCommits` | `ready`, `compare`, `openCommit`, `openSingle` |
-| Branch Compare settings | `src/branch-compare/branchCompareSettingsPanel.ts` | `src/webview/branchCompareSettings.ts` | `state`, `refs`, `refValidation`, `heatmapState` | `ready`, `add`, `update`, `delete`, `move`, `moveTo`, `setHeatmapBaseline`, `setAllGroupingMode`, `requestRefs`, `validateRef`, `refreshRefs`, `updateHeatmap`, `openHeatmapHelp` |
+| Git Log -L | `src/logL/gitLogLPanel.ts` | `src/webview/gitLogLPanel.ts` | `setCommits` | `ready`, `compare`, `openCommit`, `openFileDiff`, `openSingle` |
+| Branch Compare settings | `src/branch-compare/branchCompareSettingsPanel.ts` | `src/webview/branchCompareSettings.ts` | `state`, `refs`, `refValidation`, `heatmapState` | `ready`, `add`, `update`, `delete`, `move`, `moveTo`, `setHeatmapBaseline`, `setAllGroupingMode`, `requestRefs`, `validateRef`, `refreshRefs`, `updateHeatmap`, `setAutoFollow`, `openHeatmapHelp` |
 | Perf Benchmark | `src/benchmark/perfBenchmarkPanel.ts` | `src/webview/perfBenchmarkPanel.ts` | `benchmarks`, `results`, `error`, `stats`, `statsError`, `cacheStats`, `cacheStatsError` | `ready`, `run`, `getStats`, `getCacheStats` |
 
 The command lists above are a navigation aid, not the source of truth — the
