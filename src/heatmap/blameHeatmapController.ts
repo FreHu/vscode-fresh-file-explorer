@@ -33,6 +33,7 @@ import { gitUri } from "../git/gitOperations";
 import { openDiff } from "../utils";
 import { BaselineService } from "../baseline/baselineService";
 import { ContextManager } from "../extension/contextManager";
+import { flippedBaseRef } from "./baselineFlip";
 
 /** Which mode is active for a given editor file. */
 export type BlameHeatmapMode = "absolute" | "branch";
@@ -725,14 +726,7 @@ export class BlameHeatmapController implements vscode.Disposable {
     this.statusBar.update(editor);
   }
 
-  /**
-   * Connect the VS Code Git API so the controller can detect branch switches.
-   *
-   * When the user switches to the branch that was being used as the comparison
-   * base in branch mode, the comparison is automatically flipped to the branch
-   * they just left — so the heatmap continues to show "what changed relative to
-   * where you came from" without requiring a manual re-pick.
-   */
+  /** Watch branch switches to flip the baseline when needed ({@link flippedBaseRef}). */
   connectGitApi(api: GitApi): void {
     /** Track the last-known branch per repo (keyed by normalized root path). */
     const prevBranchByRepo = new Map<string, string | undefined>();
@@ -746,14 +740,13 @@ export class BlameHeatmapController implements vscode.Disposable {
       const prevBranch = prevBranchByRepo.get(key);
       prevBranchByRepo.set(key, newBranch);
 
-      if (prevBranch === undefined || newBranch === undefined || prevBranch === newBranch) return;
-      if (this.lastUsedMode !== "branch") return;
-      const repoBaseRef = this.baselineService.getBaseRef(repo.rootUri.fsPath);
-      if (!repoBaseRef) return;
-      // Only flip when the user switches TO the branch they were comparing against.
-      if (newBranch !== repoBaseRef) return;
-
-      const newBaseRef = prevBranch;
+      const newBaseRef = flippedBaseRef({
+        from: prevBranch,
+        to: newBranch,
+        mode: this.lastUsedMode,
+        baseRef: this.baselineService.getBaseRef(repo.rootUri.fsPath),
+      });
+      if (!newBaseRef) return;
       this.baselineService.setBaseRef(repo.rootUri.fsPath, newBaseRef);
       this.updateMenuContext(vscode.window.activeTextEditor);
 
