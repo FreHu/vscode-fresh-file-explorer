@@ -39,6 +39,7 @@ import { RepoHealthNotifier } from "./repoHealthNotifier";
 import { RepoDiscovery } from "./repoDiscovery";
 import { LoadOrchestrator } from "./loadOrchestrator";
 import { Commands } from "../commands/commandConstants";
+import { TreeItemContextValues } from "./treeItemConstants";
 import { RepoKind, repoKindOf } from "../git/repoKind";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
@@ -655,7 +656,15 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
       // Always show sync warnings at the top
       if (this.syncWarnings.length > 0) {
-        results.push(...this.syncWarnings.map(w => new MessageTreeItem(w, "warning")));
+        results.push(...this.syncWarnings.map(w => {
+          const item = new MessageTreeItem(w, "warning", {
+            command: Commands.BRANCH_COMPARE_FOCUS_SOURCE_CONTROL,
+            title: "Open Source Control",
+          });
+          item.contextValue = TreeItemContextValues.SYNC_WARNING;
+          item.tooltip = `${w}\nClick to open Source Control`;
+          return item;
+        }));
       }
 
       // Show root folder node only if there is a single workspace folder and a single repo

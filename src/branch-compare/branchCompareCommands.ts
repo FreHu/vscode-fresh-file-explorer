@@ -313,6 +313,14 @@ export async function handleBranchCompareRefreshRepo(
   await provider.refreshComparison(arg.comparisonId, true);
 }
 
+export function handleBranchCompareCollapseSection(
+  arg: RepoSectionItem | undefined,
+  provider: BranchCompareProvider,
+): void {
+  if (!(arg instanceof RepoSectionItem) || !arg.comparisonId) { return; }
+  provider.collapseSection(arg.comparisonId);
+}
+
 /**
  * Restore a deleted file (or files) to the baseline version. Runs
  * `git restore --source=<mergeBase> -- <path>` per file so the working tree

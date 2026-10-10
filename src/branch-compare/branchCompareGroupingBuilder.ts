@@ -1,11 +1,12 @@
 import * as vscode from "vscode";
 
 import { ChangedFile } from "./branchCompareData";
-import { SortOrder } from "../types";
+import { DescriptionFormat, SortOrder } from "../types";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase } from "../fresh-files/moonPhase";
-import { formatRelativeDate, formatCommitTooltip, AI_COAUTHOR_BADGE } from "../utils/formatUtils";
+import { formatRelativeDate, formatCommitTooltip, formatCommitGroupDescription } from "../utils/formatUtils";
 import { BranchCompareContextValues, PENDING_GROUP_KEY } from "./branchCompareConstants";
+import { collapseEpochSuffix } from "./branchCompareTreeItems";
 
 /**
  * Tree item for a group header in the Branch Compare view.
@@ -28,11 +29,16 @@ export class BranchCompareGroupItem extends vscode.TreeItem {
     icon: string,
     /** Precomputed by the builder — pending / commit / generic group (see {@link buildGroupedItems}). */
     contextValue: string,
+    /** Section's collapse epoch: above 0 renders collapsed under a fresh id. */
+    collapseEpoch = 0,
   ) {
-    super(label, vscode.TreeItemCollapsibleState.Expanded);
+    super(
+      label,
+      collapseEpoch === 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
+    );
     // Distinct id prefix per comparison so VS Code's tree-state cache doesn't
     // fold groups across different comparisons that happen to share a label.
-    this.id = `branchCompare:group:${comparisonId}:${groupKey}`;
+    this.id = `branchCompare:group:${comparisonId}:${groupKey}${collapseEpochSuffix(collapseEpoch)}`;
     this.description = description;
     this.tooltip = tooltip;
     this.iconPath = new vscode.ThemeIcon(icon);
@@ -81,6 +87,8 @@ export function buildGroupedItems(
   repoFullPath: string,
   files: ChangedFile[],
   mode: GroupingMode,
+  descriptionFormat: Pick<DescriptionFormat, "showAuthor" | "showDate" | "showCommitMessage">,
+  collapseEpoch = 0,
 ): BranchCompareGroupItem[] {
   if (mode === "File Structure" || mode === "Flat List") {
     return [];
@@ -117,14 +125,8 @@ export function buildGroupedItems(
       // is known. Pending bucket falls back to a count-only description.
       const firstCommit = group.files.find(f => f.commit)?.commit;
       if (firstCommit) {
-        const parts = [`${fileCount} file${fileCount === 1 ? "" : "s"}`, firstCommit.author];
-        // Time on the header (matches Fresh Files); the file rows carry only name + status.
-        parts.push(formatRelativeDate(firstCommit.date));
-        // Badge before the message so it survives the tree's single-line ellipsis.
-        if (firstCommit.aiCoAuthored) { parts.push(AI_COAUTHOR_BADGE); }
-        // Full message, last — VS Code ellipsizes it at the view edge; no manual trim.
-        if (firstCommit.message) { parts.push(firstCommit.message); }
-        description = parts.join(" • ");
+        // The file rows carry only name + status; the header carries the rest.
+        description = formatCommitGroupDescription({ fileCount, ...firstCommit }, descriptionFormat);
         tooltip = formatCommitTooltip({
           hash: firstCommit.hash,
           author: firstCommit.author,
@@ -155,7 +157,7 @@ export function buildGroupedItems(
         : BranchCompareContextValues.GROUP;
 
     items.push(
-      new BranchCompareGroupItem(key, repoFullPath, comparisonId, group.files, group.label, description, tooltip, group.icon, contextValue),
+      new BranchCompareGroupItem(key, repoFullPath, comparisonId, group.files, group.label, description, tooltip, group.icon, contextValue, collapseEpoch),
     );
   }
 

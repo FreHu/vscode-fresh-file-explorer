@@ -121,7 +121,7 @@ export async function handleSetSortOrder(freshFileProvider: FreshFileProvider, b
     const selected = qp.selectedItems[0] as any;
     if (selected && selected.order !== freshFileProvider.sortOrder) {
       freshFileProvider.setSortOrder(selected.order as SortOrder);
-      branchCompareProvider?.rerenderForSortChange();
+      branchCompareProvider?.rerender();
     }
   });
 }

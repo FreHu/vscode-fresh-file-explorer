@@ -576,8 +576,14 @@
       },
       {
         "command": "freshFileExplorer.branchCompare.refreshRepo",
-        "title": "Refresh This Repo",
+        "title": "Refresh This Comparison",
         "icon": "$(refresh)",
+        "category": "Branch Compare"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.collapseSection",
+        "title": "Collapse All",
+        "icon": "$(collapse-all)",
         "category": "Branch Compare"
       },
       {
@@ -1404,7 +1410,7 @@
         },
         {
           "command": "freshFileExplorer.branchCompare.copySubtreeStructure",
-          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(folder|repoSection)$/",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(folder|repoSection|autoRepoSection)$/",
           "group": "5_copypath@5"
         },
         {
@@ -1446,6 +1452,11 @@
           "command": "freshFileExplorer.branchCompare.refreshRepo",
           "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
           "group": "2_files@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.collapseSection",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
+          "group": "2_files@4"
         },
         {
           "command": "freshFileExplorer.branchCompare.dismissAutoFollow",
@@ -1498,6 +1509,16 @@
           "group": "inline@1"
         },
         {
+          "command": "freshFileExplorer.branchCompare.focusSourceControl",
+          "when": "view == freshFileExplorer && viewItem == syncWarning",
+          "group": "1_open@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.focusSourceControl",
+          "when": "view == freshFileExplorer && viewItem == syncWarning",
+          "group": "inline@1"
+        },
+        {
           "command": "freshFileExplorer.branchCompare.openPendingChanges",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.groupPending",
           "group": "1_open@2"
@@ -1529,6 +1550,35 @@
         }
       ],
       "commandPalette": [
+        { "command": "freshFileExplorer.branchCompare.collapseSection", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.refreshRepo", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.open", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.openFile", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.openToSide", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.openAtBaseline", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.openAll", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.openDifftool", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.openDirDifftool", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.restoreFromBaseline", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.copySubtreeStructure", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.revealInFreshFiles", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.toggleActive", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.swapSides", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.toggleHideReviewed", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.dismissAutoFollow", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.focusSourceControl", "when": "false" },
+        { "command": "freshFileExplorer.expandSubtree", "when": "false" },
+        { "command": "freshFileExplorer.openChanges", "when": "false" },
+        { "command": "freshFileExplorer.openCommitFromBlame", "when": "false" },
+        { "command": "freshFileExplorer.restoreDeletedLinesAt", "when": "false" },
+        { "command": "freshFileExplorer.copyDeletedLinesAt", "when": "false" },
+        { "command": "freshFileExplorer.openDiffMatch", "when": "false" },
+        { "command": "freshFileExplorer.keepSuggestion", "when": "false" },
+        { "command": "freshFileExplorer.focusSubmoduleRepo", "when": "false" },
+        { "command": "freshFileExplorer.searchInFoundFiles", "when": "activeEditor == 'workbench.editor.searchEditor'" },
+        { "command": "freshFileExplorer.openAllFoundFiles", "when": "activeEditor == 'workbench.editor.searchEditor'" },
+        { "command": "freshFileExplorer.copyPathsFromSearchResults", "when": "activeEditor == 'workbench.editor.searchEditor'" },
+        { "command": "freshFileExplorer.clearDiffSearch", "when": "diffSearchResults.hasResults" },
         {
           "command": "freshFileExplorer.blameApplyAgeChecked",
           "when": "false"

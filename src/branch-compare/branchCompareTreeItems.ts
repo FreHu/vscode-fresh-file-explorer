@@ -35,6 +35,15 @@ function statusTooltip(status: ChangeStatus, isPending: boolean): string {
 }
 
 /**
+ * VS Code has no API to collapse a node's descendants, and it pins
+ * `collapsibleState` to an item id on first render. Collapsing a section
+ * therefore re-issues its folders / groups under new ids, rendered collapsed.
+ */
+export function collapseEpochSuffix(collapseEpoch: number): string {
+  return collapseEpoch > 0 ? `#c${collapseEpoch}` : "";
+}
+
+/**
  * Tree item representing a section in the Branch Compare view. One per
  * **active saved comparison** — multiple sections can share the same repo
  * (one per comparison id). The header label is the user-given comparison
@@ -140,12 +149,14 @@ export class BranchCompareFolderItem extends vscode.TreeItem {
     public readonly repoFullPath: AbsolutePath,
     public readonly node: FolderNode,
     public readonly fileCount: number,
-    expanded: boolean,
     /** The comparison this folder belongs to — needed to route commands to the right baseline when multiple comparisons exist in the same repo. */
     public readonly comparisonId: string,
     /** True when every file under this folder is marked reviewed */
     reviewed = false,
+    /** Section's collapse epoch (see `collapseSection`): above 0 renders collapsed under a fresh id. */
+    collapseEpoch = 0,
   ) {
+    const expanded = collapseEpoch === 0;
     const folderUri = vscode.Uri.file(path.join(repoFullPath, node.pathInRepo));
     super(
       folderUri,
@@ -156,7 +167,7 @@ export class BranchCompareFolderItem extends vscode.TreeItem {
     // Scope the id to the comparison so VS Code's TreeView tracks expansion
     // state separately when the same repo path appears under multiple
     // comparisons.
-    this.id = `branchCompare:folder:${comparisonId}:${node.pathInRepo}`;
+    this.id = `branchCompare:folder:${comparisonId}:${node.pathInRepo}${collapseEpochSuffix(collapseEpoch)}`;
     this.label = node.name;
     if (fileCount > 0) {
       this.description = `(${fileCount})`;

@@ -120,6 +120,8 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
 
   /** Resolved comparison state, keyed by the persisted comparison id. */
   private comparisons = new Map<string, ResolvedComparison>();
+  /** Per-comparison "Collapse All" counter; see `collapseSection`. */
+  private readonly collapseEpochs = new Map<string, number>();
 
   /** Per-comparison-id load token — used to drop stale results when reloads race. */
   private loadingTokens = new Map<string, number>();
@@ -840,7 +842,10 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       case "Author":
       case "Commit Hash":
       case "Moon Phase":
-        return buildGroupedItems(cmp.id, cmp.repoFullPath, this.visibleFiles(cmp, cmp.files), cmp.groupingMode);
+        return buildGroupedItems(
+          cmp.id, cmp.repoFullPath, this.visibleFiles(cmp, cmp.files), cmp.groupingMode,
+          ConfigService.getDescriptionFormat(), this.collapseEpochs.get(cmp.id),
+        );
       case "File Structure":
       default:
         if (!cmp.tree) {
@@ -865,7 +870,9 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       const visibleInChild = this.visibleFiles(cmp, allFilesInChild);
       if (cmp.hideReviewed && visibleInChild.length === 0) { continue; }
       const reviewed = this.allReviewed(cmp.id, allFilesInChild);
-      folders.push(new BranchCompareFolderItem(cmp.repoFullPath, child, visibleInChild.length, true, cmp.id, reviewed));
+      folders.push(new BranchCompareFolderItem(
+        cmp.repoFullPath, child, visibleInChild.length, cmp.id, reviewed, this.collapseEpochs.get(cmp.id),
+      ));
     }
     folders.sort((a, b) => a.label!.toString().localeCompare(b.label!.toString()));
 
@@ -898,8 +905,18 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     return WorkspaceStateManager.getSortOrder(ConfigService.getDefaultSortOrder());
   }
 
-  /** Re-render after a sort-order change. Display-only — no data refetch. */
-  rerenderForSortChange(): void {
+  /** Re-render after a display setting change (sort order, description format). No data refetch. */
+  rerender(): void {
+    this.fireChange();
+  }
+
+  /**
+   * Collapse every folder / group under one section, leaving the section open.
+   * Bumps the comparison's collapse epoch so those nodes re-render collapsed
+   * under new ids (see `collapseEpochSuffix`). No data refetch.
+   */
+  collapseSection(comparisonId: string): void {
+    this.collapseEpochs.set(comparisonId, (this.collapseEpochs.get(comparisonId) ?? 0) + 1);
     this.fireChange();
   }
 

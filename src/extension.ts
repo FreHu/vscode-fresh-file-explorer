@@ -81,6 +81,7 @@ import {
   handleBranchCompareOpenCommit,
   handleBranchCompareOpenPendingChanges,
   handleBranchCompareRefreshRepo,
+  handleBranchCompareCollapseSection,
   handleSetBaseline,
   handleClearBaseline,
   handleBranchCompareOpenAll,
@@ -268,9 +269,12 @@ export async function activate(context: vscode.ExtensionContext) {
       if (e.affectsConfiguration("freshFileExplorer")) {
         freshFileProvider.onConfigurationChanged(e);
 
-        // Branch Compare shares the sort order — re-render it when the default changes.
-        if (e.affectsConfiguration("freshFileExplorer.defaultSortOrder")) {
-          branchCompareProvider.rerenderForSortChange();
+        // Branch Compare shares the sort order and description format — re-render on change.
+        if (
+          e.affectsConfiguration("freshFileExplorer.defaultSortOrder") ||
+          e.affectsConfiguration("freshFileExplorer.description")
+        ) {
+          branchCompareProvider.rerender();
         }
 
         // Branch Compare shares files.exclude support — recompute its filtered view too.
@@ -625,6 +629,9 @@ function registerCommands(
   register(Commands.BRANCH_COMPARE_REFRESH, () => handleBranchCompareRefresh(branchCompareProvider));
   register(Commands.BRANCH_COMPARE_REFRESH_REPO, (arg: any) =>
     handleBranchCompareRefreshRepo(arg, branchCompareProvider),
+  );
+  register(Commands.BRANCH_COMPARE_COLLAPSE_SECTION, (arg: any) =>
+    handleBranchCompareCollapseSection(arg, branchCompareProvider),
   );
   register(Commands.BRANCH_COMPARE_SET_BASELINE, (arg: any) =>
     handleSetBaseline(arg, baselineService, freshFileProvider, savedComparisons),

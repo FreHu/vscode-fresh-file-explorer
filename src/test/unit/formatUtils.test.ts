@@ -11,6 +11,7 @@ import {
   formatAiCoAuthorTooltip,
   formatCommitTooltip,
   formatFileDescription,
+  formatCommitGroupDescription,
   getStatusLetter,
   AI_COAUTHOR_BADGE,
 } from "../../utils/formatUtils";
@@ -31,6 +32,28 @@ suite("Format Utils", () => {
     test("pending file omits the letter (git's native right-side badge covers it)", () => {
       const desc = formatFileDescription({ date: new Date(), status: " M", isPending: true } as any, STATUS_ONLY_FORMAT);
       assert.strictEqual(desc, "");
+    });
+  });
+
+  suite("formatCommitGroupDescription", () => {
+    const commit = { fileCount: 2, author: "Ada", date: new Date(), aiCoAuthored: true, message: "Fix it" };
+    const all = { showAuthor: true, showDate: true, showCommitMessage: true };
+
+    test("shows everything when all toggles are on", () => {
+      const parts = formatCommitGroupDescription(commit, all).split(" • ");
+      assert.deepStrictEqual([parts[0], parts[1], parts[3], parts[4]], ["2 files", "Ada", AI_COAUTHOR_BADGE, "Fix it"]);
+    });
+
+    test("honors author / date / message toggles; count and AI badge always stay", () => {
+      const desc = formatCommitGroupDescription(commit, { showAuthor: false, showDate: false, showCommitMessage: false });
+      assert.strictEqual(desc, `2 files • ${AI_COAUTHOR_BADGE}`);
+    });
+
+    test("singular file count", () => {
+      assert.strictEqual(
+        formatCommitGroupDescription({ fileCount: 1, date: new Date() }, { ...all, showDate: false }),
+        "1 file",
+      );
     });
   });
 

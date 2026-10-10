@@ -22,6 +22,8 @@ export const TreeItemContextValues = {
   UNINITIALIZED_SUBMODULE_GROUP: "uninitializedSubmoduleGroup",
   UNINITIALIZED_SUBMODULE: "uninitializedSubmodule",
   MESSAGE: "message",
+  /** Ahead / behind warning row at the top of the tree — opens Source Control */
+  SYNC_WARNING: "syncWarning",
   SUBMODULE_ENTRY: "submoduleEntry",
 } as const;
 

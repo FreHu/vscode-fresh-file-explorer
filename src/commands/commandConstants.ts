@@ -158,6 +158,7 @@ export const Commands = {
   BRANCH_COMPARE_OPEN_AT_BASELINE: "freshFileExplorer.branchCompare.openAtBaseline",
   BRANCH_COMPARE_REFRESH: "freshFileExplorer.branchCompare.refresh",
   BRANCH_COMPARE_REFRESH_REPO: "freshFileExplorer.branchCompare.refreshRepo",
+  BRANCH_COMPARE_COLLAPSE_SECTION: "freshFileExplorer.branchCompare.collapseSection",
   BRANCH_COMPARE_SET_BASELINE: "freshFileExplorer.branchCompare.setBaseline",
   BRANCH_COMPARE_CLEAR_BASELINE: "freshFileExplorer.branchCompare.clearBaseline",
   BRANCH_COMPARE_OPEN_ALL: "freshFileExplorer.branchCompare.openAll",

@@ -384,6 +384,33 @@ export function formatFileDescription(metadata: FileMetadata, format: Descriptio
 }
 
 /**
+ * Description of a commit-hash group header (Fresh Files and Branch Compare).
+ * Honors the same author / date / message toggles as file rows; the hash is
+ * the header's label, so `showCommitHash` doesn't apply.
+ */
+export function formatCommitGroupDescription(
+  commit: { fileCount: number; author?: string; date: Date; aiCoAuthored?: boolean; message?: string },
+  format: Pick<DescriptionFormat, "showAuthor" | "showDate" | "showCommitMessage">,
+): string {
+  const parts = [`${commit.fileCount} file${commit.fileCount === 1 ? "" : "s"}`];
+  if (format.showAuthor && commit.author) {
+    parts.push(commit.author);
+  }
+  if (format.showDate) {
+    parts.push(formatRelativeDate(commit.date));
+  }
+  // Badge before the message so it survives the tree's single-line ellipsis.
+  if (commit.aiCoAuthored) {
+    parts.push(AI_COAUTHOR_BADGE);
+  }
+  // Full message, last — VS Code ellipsizes it at the view edge.
+  if (format.showCommitMessage && commit.message) {
+    parts.push(commit.message);
+  }
+  return parts.join(" • ");
+}
+
+/**
  * Format file metadata into a detailed tooltip string
  * @param metadata The file metadata
  * @returns A formatted tooltip string

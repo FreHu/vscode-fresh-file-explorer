@@ -4,7 +4,7 @@ import { AbsolutePath } from "../pathTypes";
 import { DescriptionFormat, FileMetadata, SortOrder } from "../types";
 import { ConfigService } from "../config/configService";
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitTooltip, AI_COAUTHOR_BADGE } from "../utils/formatUtils";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitTooltip, formatCommitGroupDescription } from "../utils/formatUtils";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
 import { type GroupingMode } from "../fresh-files/groupingMode";
@@ -235,20 +235,16 @@ export class GroupingViewBuilder {
       // The header carries author / time / message for the whole group; the
       // file rows below intentionally omit them (see buildCommitHashFiles) since
       // every file in a commit shares the same values — repeating is noise.
-      const descriptionParts = [`${fileCount} file${fileCount === 1 ? "" : "s"}`];
-      if (firstFile.metadata.author) {
-        descriptionParts.push(firstFile.metadata.author);
-      }
-      descriptionParts.push(formatRelativeDate(firstFile.metadata.date));
-      // Badge before the message so it survives the single-line ellipsis.
-      if (firstFile.metadata.aiCoAuthored) {
-        descriptionParts.push(AI_COAUTHOR_BADGE);
-      }
-      // Full message, last — VS Code ellipsizes it at the view edge.
-      if (firstFile.metadata.commitMessage) {
-        descriptionParts.push(firstFile.metadata.commitMessage);
-      }
-      commitItem.description = descriptionParts.join(" • ");
+      commitItem.description = formatCommitGroupDescription(
+        {
+          fileCount,
+          author: firstFile.metadata.author,
+          date: firstFile.metadata.date,
+          aiCoAuthored: firstFile.metadata.aiCoAuthored,
+          message: firstFile.metadata.commitMessage,
+        },
+        ConfigService.getDescriptionFormat(),
+      );
       
       // Calculate total line changes for this commit
       const totals = calculateTotalLineChanges(group);
