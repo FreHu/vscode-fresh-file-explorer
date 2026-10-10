@@ -6,8 +6,13 @@ import { PinnedItemsManager } from "./pinnedItemsManager";
 import {
   FreshFileItem,
   FreshFilesTreeItem,
+  MarkdownHeadingItem,
   NoteTreeItem,
 } from "./freshFileTreeItems";
+import { MarkdownHeading, parseMarkdownHeadings } from "./markdownHeadings";
+import { PinnedMarkdownSync } from "./pinnedMarkdownSync";
+import { ConfigKeys } from "../config/configKeyConstants";
+import { log } from "../extension/logger";
 import { TreeItemContextValues, createPinnedFileId } from "./treeItemConstants";
 import { asAbsolutePath } from "../pathTypes";
 import { normalizePath } from "../utils";
@@ -16,14 +21,10 @@ import { formatFileTooltip } from "../utils/formatUtils";
 import { ConfigService } from "../config/configService";
 import type { FreshFileProvider } from "./freshFileProvider";
 
-/**
- * TreeDataProvider for the Pinned Items view.
- *
- * Renders pinned files and notes as a flat list (no folder wrapper — the
- * view title acts as the container label).  All management operations
- * (pin, unpin, notes, reorder, …) are exposed here so commands can target
- * this provider directly.
- */
+function isMarkdownPath(fsPath: string): boolean {
+  return /\.(md|markdown)$/i.test(fsPath);
+}
+
 function isDirectory(fsPath: string): boolean {
   try {
     return fs.statSync(fsPath).isDirectory();
@@ -32,14 +33,39 @@ function isDirectory(fsPath: string): boolean {
   }
 }
 
-export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
+/**
+ * TreeDataProvider for the Pinned Items view.
+ *
+ * Pinned files and notes form a flat list (no folder wrapper — the view title
+ * acts as the container label). A pinned markdown file is the exception: its
+ * headings render as children, kept in sync with the file.
+ */
+export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTreeItem>, vscode.Disposable {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
   readonly onDidChangeTreeData: vscode.Event<FreshFilesTreeItem | undefined | void> =
     this._onDidChangeTreeData.event;
 
   readonly pinnedItemsManager = new PinnedItemsManager();
+  private readonly markdownSync = new PinnedMarkdownSync();
+  /** The last-rendered row of each pinned markdown file, keyed by normalized path, for per-file refresh. */
+  private markdownItems = new Map<string, FreshFileItem>();
+  private readonly subscriptions: vscode.Disposable[] = [];
 
-  constructor(private readonly freshFileProvider: FreshFileProvider) {}
+  constructor(private readonly freshFileProvider: FreshFileProvider) {
+    this.subscriptions.push(
+      this.markdownSync,
+      // Refresh only the changed file's subtree; the rest of the view stays as is.
+      this.markdownSync.onDidChange(key => this._onDidChangeTreeData.fire(this.markdownItems.get(key))),
+      vscode.workspace.onDidChangeConfiguration(e => {
+        if (
+          e.affectsConfiguration(ConfigKeys.PINNED_MARKDOWN_HEADING_DEPTH) ||
+          e.affectsConfiguration(ConfigKeys.PINNED_MARKDOWN_EXPAND_DEPTH)
+        ) {
+          this._onDidChangeTreeData.fire();
+        }
+      }),
+    );
+  }
 
   /**
    * Wire the manager callback so any change fires a tree refresh.
@@ -47,6 +73,10 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
    */
   initialize(): void {
     this.pinnedItemsManager.initialize(() => this._onDidChangeTreeData.fire());
+  }
+
+  dispose(): void {
+    for (const s of this.subscriptions) { s.dispose(); }
   }
 
   /** Force a tree refresh without reloading data (e.g. after openChangesMode toggle). */
@@ -62,12 +92,39 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
     return element;
   }
 
-  getChildren(element?: FreshFilesTreeItem): FreshFilesTreeItem[] {
-    if (element) {
-      // Pinned items are a flat list — no children
+  async getChildren(element?: FreshFilesTreeItem): Promise<FreshFilesTreeItem[]> {
+    if (!element) {
+      return this.buildPinnedItems();
+    }
+    // Only pinned markdown files and their headings have children.
+    if (element instanceof MarkdownHeadingItem) {
+      return this.headingItems(element.fileUri, element.heading.children, element.treeDepth + 1);
+    }
+    if (element instanceof FreshFileItem && isMarkdownPath(element.resourceUri.fsPath)) {
+      const headings = await this.readHeadings(element.resourceUri);
+      return this.headingItems(element.resourceUri, headings, 1);
+    }
+    return [];
+  }
+
+  private headingItems(fileUri: vscode.Uri, headings: MarkdownHeading[], treeDepth: number): MarkdownHeadingItem[] {
+    const expandDepth = ConfigService.getPinnedMarkdownExpandDepth();
+    return headings.map(h => new MarkdownHeadingItem(fileUri, h, treeDepth, expandDepth));
+  }
+
+  /** Headings of a pinned markdown file: the open editor's text (unsaved edits included), else the file on disk. */
+  private async readHeadings(uri: vscode.Uri): Promise<MarkdownHeading[]> {
+    const depth = ConfigService.getPinnedMarkdownHeadingDepth();
+    if (depth <= 0) { return []; }
+    const key = normalizePath(uri.fsPath);
+    const open = vscode.workspace.textDocuments.find(d => normalizePath(d.uri.fsPath) === key);
+    try {
+      const text = open ? open.getText() : new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+      return parseMarkdownHeadings(text, depth);
+    } catch (err) {
+      log(`Pinned markdown: could not read ${uri.fsPath} — ${err instanceof Error ? err.message : String(err)}`, "warn");
       return [];
     }
-    return this.buildPinnedItems();
   }
 
   // ---------------------------------------------------------------------------
@@ -77,6 +134,8 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
   private buildPinnedItems(): FreshFilesTreeItem[] {
     const items: FreshFilesTreeItem[] = [];
     const { freshFiles, openChangesMode, workspaceFolders } = this.freshFileProvider;
+    const showHeadings = ConfigService.getPinnedMarkdownHeadingDepth() > 0;
+    const markdownItems = new Map<string, FreshFileItem>();
 
     for (const pinnedItem of this.pinnedItemsManager.getItems()) {
       if (pinnedItem.type === "note") {
@@ -85,6 +144,7 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
         const filePath = asAbsolutePath(pinnedItem.id);
         const uri = vscode.Uri.file(filePath);
         const metadata = freshFiles.get(filePath);
+        const listsHeadings = showHeadings && !pinnedItem.suggested && isMarkdownPath(filePath);
 
         const item = FreshFileItem.forFile(
           uri,
@@ -94,6 +154,11 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
           metadata?.isPending ?? false,
           metadata?.status,
           metadata?.renameSource,
+          !listsHeadings
+            ? vscode.TreeItemCollapsibleState.None
+            : ConfigService.getPinnedMarkdownExpandDepth() > 0
+              ? vscode.TreeItemCollapsibleState.Expanded
+              : vscode.TreeItemCollapsibleState.Collapsed,
         );
 
         // Distinct contextValue so the context menu shows "Unpin" rather than "Pin"
@@ -134,10 +199,13 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
           }
         }
 
+        if (listsHeadings) { markdownItems.set(normalizePath(filePath), item); }
         items.push(item);
       }
     }
 
+    this.markdownItems = markdownItems;
+    this.markdownSync.setWatched([...markdownItems.keys()]);
     return items;
   }
 

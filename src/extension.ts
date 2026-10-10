@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 import { initializeLogger, log } from "./extension/logger";
-import { FreshFileItem, FreshFilesTreeItem, NoteTreeItem } from "./fresh-files/freshFileTreeItems";
+import { FreshFileItem, FreshFilesTreeItem, MarkdownHeadingItem, NoteTreeItem } from "./fresh-files/freshFileTreeItems";
 import { handleClearFilters, handleFilterAiAuthored, handleFilterByAuthor, handleFilterByCommit } from "./commands/filterCommands";
 import {
   handleDeleteFile,
@@ -117,9 +117,11 @@ export async function activate(context: vscode.ExtensionContext) {
   freshFileProvider.setTreeView(treeView);
 
   // Create Pinned Items tree view
+  context.subscriptions.push(pinnedItemsProvider);
   const pinnedItemsTreeView = vscode.window.createTreeView("pinnedItems", {
     treeDataProvider: pinnedItemsProvider,
-    showCollapseAll: false,
+    // Pinned markdown files expand into their headings.
+    showCollapseAll: true,
     canSelectMany: true,
     dragAndDropController: createPinnedDragAndDropController(pinnedItemsProvider),
   });
@@ -467,6 +469,9 @@ function registerCommands(
     handleKeepSuggestion(pinnedItemsProvider, item),
   );
   register(Commands.CLEAR_SUGGESTIONS, () => pinnedItemsProvider.pinnedItemsManager.clearSuggestions());
+  register(Commands.GO_TO_HEADING, async (item: unknown) => {
+    if (item instanceof MarkdownHeadingItem) { await item.goTo(); }
+  });
 
   register(Commands.ADD_NOTE, () => handleAddNote(pinnedItemsProvider));
 

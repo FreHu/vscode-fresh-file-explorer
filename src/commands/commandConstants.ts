@@ -52,6 +52,7 @@ export const Commands = {
   SUGGEST_COCHANGES: "freshFileExplorer.suggestCochanges",
   KEEP_SUGGESTION: "freshFileExplorer.keepSuggestion",
   CLEAR_SUGGESTIONS: "freshFileExplorer.clearSuggestions",
+  GO_TO_HEADING: "freshFileExplorer.goToHeading",
   ADD_NOTE: "freshFileExplorer.addNote",
   EDIT_NOTE: "freshFileExplorer.editNote",
   DELETE_NOTE: "freshFileExplorer.deleteNote",

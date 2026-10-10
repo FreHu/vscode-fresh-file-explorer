@@ -90,6 +90,16 @@ export class ConfigService {
     return ConfigService.cfg().get<number>(ConfigKeys.AUTO_EXPAND_DEPTH, 2);
   }
 
+  /** Deepest heading level shown under a pinned markdown file; 0 shows none. */
+  static getPinnedMarkdownHeadingDepth(): number {
+    return ConfigService.cfg().get<number>(ConfigKeys.PINNED_MARKDOWN_HEADING_DEPTH, 3);
+  }
+
+  /** Levels of a pinned markdown file's tree that start expanded (0 = the file itself is collapsed). */
+  static getPinnedMarkdownExpandDepth(): number {
+    return ConfigService.cfg().get<number>(ConfigKeys.PINNED_MARKDOWN_EXPAND_DEPTH, 1);
+  }
+
   /**
    * Get the git timeout in milliseconds
    */

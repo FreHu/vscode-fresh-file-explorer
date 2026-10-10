@@ -14,6 +14,10 @@ export const TreeItemContextValues = {
   SUGGESTED_FILE: "suggestedFile",
   PINNED_FOLDER: "pinnedFolder",
   PINNED_NOTE: "pinnedNote",
+  /** Heading of a pinned markdown file, rendered as its child. Click navigates. */
+  MARKDOWN_HEADING: "markdownHeading",
+  /** Heading with sub-headings: click toggles it, navigation is an inline button. */
+  MARKDOWN_HEADING_PARENT: "markdownHeadingParent",
   AUTHOR_GROUP: "authorGroup",
   COMMIT_HASH_GROUP: "commitHashGroup",
   /** The "(Pending)" bucket shown in every non-File-Structure grouping mode — collects uncommitted files */

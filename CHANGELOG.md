@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Pinned Items: a pinned markdown file lists its headings as children, synced live with the file (unsaved edits included) and clickable to jump to the heading. Malformed structure is handled best effort: skipped levels nest under the nearest shallower heading, and headings in code fences or front matter are ignored. New settings `pinned.markdownHeadingDepth` (default 3, 0 turns it off) and `pinned.markdownExpandDepth` (default 1).
+
 - Branch Comparisons settings moved from an editor tab into the bottom panel.
 - Blame heatmap: the Branch / Tag mode is now called **Baseline**, since it accepts any ref. The right-click menu lists only the modes (Age / Baseline / Turn off) in its first group, with a checkmark on the active one; "Change baseline…" moved to the actions group.
 - Branch Compare: a `HEAD~N` target works in a repo with N or fewer commits — it shows every commit there is, with a "⚠ only N commits" note on the section and a warning (not an error) in the settings panel. Set up a rolling "last 10 commits" comparison in a brand-new repo ahead of time.
