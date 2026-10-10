@@ -201,6 +201,9 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     // BaselineService fires onDidChange for repo state changes.
     this.subscriptions.push(
       this.baselineService.onDidChange(event => {
+        // refChanged events are saved-comparison changes bubbled through; the
+        // subscription above already handles those.
+        if (event.refChanged) { return; }
         if (event.repoPath === undefined) {
           void this.refreshAll();
           return;

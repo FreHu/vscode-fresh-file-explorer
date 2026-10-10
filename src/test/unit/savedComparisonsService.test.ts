@@ -322,6 +322,23 @@ suite("SavedComparisonsService", () => {
       assert.strictEqual(captured?.displayOnly, true);
     });
 
+    test("toggling the heatmap baseline fires displayOnly=true (no diff re-fetch signal)", () => {
+      const a = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
+      const b = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "dev" });
+      const events: { ids?: string[]; displayOnly?: boolean }[] = [];
+      service.onDidChange(e => { events.push(e); });
+
+      service.setHeatmapBaseline(a);
+      service.setHeatmapBaseline(b);
+      service.update(b, { isHeatmapBaseline: false });
+      service.setHeatmapBaselineByRefForRepo(REPO_A, "main");
+      service.clearHeatmapBaselineForRepoByRef(REPO_A);
+
+      assert.strictEqual(events.length, 5);
+      for (const e of events) { assert.strictEqual(e.displayOnly, true); }
+      assert.deepStrictEqual(events[1].ids, [b, a], "switching the baseline lists both rows");
+    });
+
     test("an update touching a data field is NOT displayOnly even if grouping also changed", () => {
       const id = service.add({ repoFullPath: REPO_A, source: HEAD_SOURCE, target: "main" });
       let captured: { displayOnly?: boolean } | undefined;

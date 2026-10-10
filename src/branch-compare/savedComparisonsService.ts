@@ -53,7 +53,8 @@ export interface SavedComparisonsChangeEvent {
    */
   reorderOnly?: boolean;
   /**
-   * When true, only display state (grouping mode) changed — the diff data is
+   * When true, only display state (grouping mode, hideReviewed, heatmap
+   * baseline flag) changed — the diff data is
    * unaffected. Receivers re-render from cached files and only re-fetch when
    * the new grouping needs commit info the cached load didn't include.
    */
@@ -272,14 +273,14 @@ export class SavedComparisonsService implements vscode.Disposable {
       next.target !== existing.target ||
       next.label !== existing.label ||
       next.active !== existing.active ||
-      next.isHeatmapBaseline !== existing.isHeatmapBaseline ||
       next.repoFullPath !== existing.repoFullPath ||
       next.diffMode !== existing.diffMode;
-    // Grouping and hideReviewed are both display-only — they change what's
-    // rendered from cached files, not the diff data itself.
+    // Grouping, hideReviewed and the heatmap flag are display-only — they don't
+    // change the diff data itself.
     const displayChanged =
       next.groupingMode !== existing.groupingMode ||
-      next.hideReviewed !== existing.hideReviewed;
+      next.hideReviewed !== existing.hideReviewed ||
+      next.isHeatmapBaseline !== existing.isHeatmapBaseline;
 
     // Bail if the patch was a no-op — persisting + firing onChange here
     // cascades into the provider's diff re-fetch, which is wasteful.
@@ -370,23 +371,23 @@ export class SavedComparisonsService implements vscode.Disposable {
   setHeatmapBaseline(id: string | undefined): void {
     if (id === undefined) {
       // Clear all heatmap-baseline flags
-      let anyChanged = false;
+      const cleared: string[] = [];
       for (const c of this.comparisons) {
-        if (c.isHeatmapBaseline) { c.isHeatmapBaseline = false; anyChanged = true; }
+        if (c.isHeatmapBaseline) { c.isHeatmapBaseline = false; cleared.push(c.id); }
       }
-      if (anyChanged) {
+      if (cleared.length > 0) {
         this.persist();
-        this._onDidChange.fire({});
+        this._onDidChange.fire({ ids: cleared, displayOnly: true });
       }
       return;
     }
     const cmp = this.comparisons.find(c => c.id === id);
     if (!cmp) { return; }
     if (cmp.source !== HEAD_SOURCE) { return; }
-    this.clearHeatmapBaselineForRepo(cmp.repoFullPath);
+    const cleared = this.clearHeatmapBaselineForRepo(cmp.repoFullPath);
     cmp.isHeatmapBaseline = true;
     this.persist();
-    this._onDidChange.fire({ ids: [id] });
+    this._onDidChange.fire({ ids: [id, ...cleared], displayOnly: true });
   }
 
   /**
@@ -403,13 +404,13 @@ export class SavedComparisonsService implements vscode.Disposable {
       c => c.repoFullPath === repoKey && c.source === HEAD_SOURCE && c.target === targetRef,
     );
     if (existing) {
-      this.clearHeatmapBaselineForRepo(repoKey, existing.id);
+      const cleared = this.clearHeatmapBaselineForRepo(repoKey, existing.id);
       // Don't touch `active`: the heatmap baseline can be set on a comparison
       // the user deliberately hid from the tree. Flipping `active` here would
       // un-hide it without consent.
       existing.isHeatmapBaseline = true;
       this.persist();
-      this._onDidChange.fire({ ids: [existing.id] });
+      this._onDidChange.fire({ ids: [existing.id, ...cleared], displayOnly: true });
       return existing.id;
     }
     return this.add({
@@ -426,17 +427,10 @@ export class SavedComparisonsService implements vscode.Disposable {
    * "Clear Baseline" flow. Does not delete the comparison.
    */
   clearHeatmapBaselineForRepoByRef(repoFullPath: string): void {
-    const repoKey = asNormalizedRepoPath(repoFullPath);
-    let changed = false;
-    for (const c of this.comparisons) {
-      if (c.repoFullPath === repoKey && c.isHeatmapBaseline) {
-        c.isHeatmapBaseline = false;
-        changed = true;
-      }
-    }
-    if (changed) {
+    const cleared = this.clearHeatmapBaselineForRepo(asNormalizedRepoPath(repoFullPath));
+    if (cleared.length > 0) {
       this.persist();
-      this._onDidChange.fire({});
+      this._onDidChange.fire({ ids: cleared, displayOnly: true });
     }
   }
 
@@ -466,13 +460,15 @@ export class SavedComparisonsService implements vscode.Disposable {
 
   /**
    * Clear `isHeatmapBaseline` from every comparison in the given repo,
-   * optionally except for `keepId`. Caller must persist + fire.
+   * optionally except for `keepId`. Returns the cleared ids. Caller must persist + fire.
    */
-  private clearHeatmapBaselineForRepo(repoKey: NormalizedRepoPath, keepId?: string): void {
+  private clearHeatmapBaselineForRepo(repoKey: NormalizedRepoPath, keepId?: string): string[] {
+    const cleared: string[] = [];
     for (const c of this.comparisons) {
       if (c.repoFullPath !== repoKey) { continue; }
       if (c.id === keepId) { continue; }
-      if (c.isHeatmapBaseline) { c.isHeatmapBaseline = false; }
+      if (c.isHeatmapBaseline) { c.isHeatmapBaseline = false; cleared.push(c.id); }
     }
+    return cleared;
   }
 }
