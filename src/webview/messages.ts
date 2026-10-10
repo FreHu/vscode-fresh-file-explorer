@@ -52,6 +52,8 @@ export interface RefValidationResult {
   resolvedSha?: string;
   /** When invalid: the stderr line from `git rev-parse`. */
   message?: string;
+  /** When valid but degraded, e.g. a `HEAD~N` past the first commit that falls back to all of history. */
+  warning?: string;
 }
 
 /**

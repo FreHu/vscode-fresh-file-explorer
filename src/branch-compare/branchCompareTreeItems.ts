@@ -73,6 +73,8 @@ export class RepoSectionItem extends vscode.TreeItem {
     reviewedCount = 0,
     /** Plain repo / linked worktree / submodule — picks the icon the Source Control view uses. */
     kind: RepoKind = "repo",
+    /** Set when a `HEAD~N` target reaches past the root commit: how many commits the diff covers instead. */
+    availableCommits?: number,
   ) {
     // Always expandable — even an empty section renders a "No changes / Loading…"
     // message child, which is meaningful to show. More importantly, VS Code's
@@ -101,7 +103,10 @@ export class RepoSectionItem extends vscode.TreeItem {
       : showReviewedCount
         ? ` · ${fileCount} changes, ${reviewedCount} reviewed`
         : ` · ${fileCount} changes`;
-    this.description = `${changesText}${modeSuffix}`;
+    const shortHistory = availableCommits !== undefined
+      ? ` · ⚠ only ${availableCommits} commit${availableCommits === 1 ? "" : "s"}`
+      : "";
+    this.description = `${changesText}${modeSuffix}${shortHistory}`;
     const tooltipLines = [repoName];
     if (currentBranch) {
       tooltipLines.push(`Current branch: ${currentBranch}`);
@@ -113,6 +118,9 @@ export class RepoSectionItem extends vscode.TreeItem {
     );
     if (diffMode === "full") {
       tooltipLines.push("Full diff (against the target ref, not the merge-base)");
+    }
+    if (availableCommits !== undefined) {
+      tooltipLines.push(`${targetRef} reaches past the first commit; showing all ${availableCommits} commit(s)`);
     }
     if (mergeCone && mergeCone.total > mergeCone.firstParent) {
       const broughtIn = mergeCone.total - mergeCone.firstParent;

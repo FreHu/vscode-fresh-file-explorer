@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { SavedComparisonsService } from "./savedComparisonsService";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { execGitWithArgs } from "../git/gitOperations";
-import { getAvailableBranches } from "../git/gitCommitQueries";
+import { clampHeadOffsetRef, getAvailableBranches } from "../git/gitCommitQueries";
 import { ConfigService } from "../config/configService";
 import { log } from "../extension/logger";
 import { normalizePath } from "../utils";
@@ -250,6 +250,11 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
         const sha = out.trim();
         return { valid: true, resolvedSha: sha.slice(0, 7) };
       } catch (err) {
+        const clamped = await clampHeadOffsetRef(repoFullPath, ref);
+        if (clamped.availableCommits !== undefined) {
+          const n = clamped.availableCommits;
+          return { valid: true, warning: `Only ${n} commit${n === 1 ? "" : "s"} so far — the comparison shows all of them` };
+        }
         const message = String(err).split("\n").find(line => line.trim().length > 0) ?? "Invalid ref";
         return { valid: false, message: message.trim() };
       }

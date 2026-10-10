@@ -37,6 +37,8 @@ import { normalizePath } from "../utils";
 import { listWorkspaceRepos } from "../utils/pathUtils";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { DiffMode } from "./branchCompareConstants";
+import { defaultComparisonLabel, displayRef } from "./comparisonLabel";
+import { clampHeadOffsetRef } from "../git/gitCommitQueries";
 import { FilesExcludeFilter } from "../fresh-files/filesExcludeFilter";
 
 /**
@@ -73,6 +75,8 @@ interface ResolvedComparison {
    * surfaces this so HEAD~N users don't get blindsided by merged-in changes.
    */
   mergeCone: { total: number; firstParent: number } | undefined;
+  /** Set when the target is a `HEAD~N` past the root commit: the commits that exist (the diff covers all of them). */
+  availableCommits?: number;
   /** Per-comparison grouping mode, resolved from the saved record (default applied). */
   groupingMode: GroupingMode;
   /** Per-comparison diff mode — `merge` (vs merge-base) or `full` (vs target ref). */
@@ -329,6 +333,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.error = undefined;
       cmp.invalidRef = false;
       cmp.mergeCone = undefined;
+      cmp.availableCommits = undefined;
       this.fireChange();
     }
 
@@ -340,9 +345,11 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       // The base everything diffs against. `full` mode diffs the target ref
       // directly (exact target..source delta); `merge` mode diffs against the
       // merge-base (PR-style — what source adds since diverging). Full mode
-      // needs no merge-base, saving a git call.
-      const base = cmp.diffMode === "full"
-        ? cmp.target
+      // needs no merge-base, saving a git call. A HEAD~N past the root commit
+      // diffs against the empty tree in either mode.
+      const clamped = await clampHeadOffsetRef(cmp.repoFullPath, cmp.target);
+      const base = cmp.diffMode === "full" || clamped.availableCommits !== undefined
+        ? clamped.ref
         : await this.baselineService.getMergeBase(cmp.repoFullPath, cmp.target, sourceRef);
       if (this.loadingTokens.get(id) !== myToken) return;
 
@@ -378,6 +385,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.tree = buildFolderTree(cmp.files);
       cmp.error = undefined;
       cmp.mergeCone = mergeCone;
+      cmp.availableCommits = clamped.availableCommits;
       cmp.hasCommitInfo = wantsCommitInfo;
       // Drop review marks for files no longer in the diff, and (HEAD-source
       // only) for files edited again since being marked reviewed.
@@ -390,6 +398,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.rawFiles = [];
       cmp.tree = undefined;
       cmp.mergeCone = undefined;
+      cmp.availableCommits = undefined;
       cmp.hasCommitInfo = false;
       log(`branchCompare: failed to load comparison ${id} (${cmp.source}..${cmp.target} in ${cmp.repoFullPath}) — ${err}`, "warn");
     }
@@ -777,7 +786,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       const currentBranch = cmp.auto ? cmp.label : this.freshFileProvider.getRepoBranch(repoKey);
       const sectionLabel = cmp.label
         ? cmp.label
-        : `${cmp.repoName} · ${displayRef(cmp.source)}..${displayRef(cmp.target)}`;
+        : defaultComparisonLabel(cmp.repoName, cmp.source, cmp.target);
       sections.push(
         new RepoSectionItem(
           cmp.repoFullPath,
@@ -793,6 +802,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           cmp.hideReviewed,
           this.reviewedCountIn(cmp.id, cmp.files),
           this.freshFileProvider.getRepoKind(repoKey),
+          cmp.availableCommits,
         ),
       );
     }
@@ -928,9 +938,4 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   private updateContextKey(): void {
     ContextManager.setBranchCompareHasActiveComparison(this.savedComparisons.hasAnyActive());
   }
-}
-
-/** Display-friendly ref name. `"HEAD"` becomes `"HEAD"`; empty becomes `"?"`. */
-function displayRef(ref: string): string {
-  return ref || "?";
 }

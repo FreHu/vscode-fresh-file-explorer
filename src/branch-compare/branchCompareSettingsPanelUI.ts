@@ -141,6 +141,7 @@ export function getBranchCompareSettingsHtml(
     .ref-status.valid { color: var(--vscode-charts-green, #2ea043); }
     .ref-status.invalid { color: var(--vscode-errorForeground, #f85149); pointer-events: auto; cursor: help; }
     .ref-status.checking { color: var(--vscode-descriptionForeground); }
+    .ref-status.valid.warning { color: var(--vscode-editorWarning-foreground, #d4a017); pointer-events: auto; cursor: help; }
     .suggest-list {
       /* Position (left/top/width) is set inline in JS via getBoundingClientRect()
          — it's portaled to <body> while open, see branchCompareSettings.ts. */

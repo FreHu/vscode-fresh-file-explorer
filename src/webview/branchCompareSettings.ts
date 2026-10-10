@@ -10,6 +10,7 @@ import { enableListDragDrop } from "./listDragDrop";
 import { GROUPING_MODE_OPTIONS } from "../fresh-files/groupingMode";
 import type { GroupingMode } from "../fresh-files/groupingMode";
 import type { DiffMode } from "../branch-compare/branchCompareConstants";
+import { defaultComparisonLabel } from "../branch-compare/comparisonLabel";
 
 const vscode = acquireVsCodeApi();
 
@@ -29,7 +30,7 @@ const refsPending = new Set<string>();
  * until the host responds with a `refValidation` message.
  */
 type ValidationState =
-  | { state: "valid"; resolvedSha?: string }
+  | { state: "valid"; resolvedSha?: string; warning?: string }
   | { state: "invalid"; message: string }
   | { state: "checking" };
 const validationState = new Map<string, ValidationState>();
@@ -235,7 +236,7 @@ window.addEventListener("message", (event: MessageEvent<BranchCompareSettingsToW
 function applyValidationResult(repoFullPath: string, ref: string, result: RefValidationResult): void {
   const key = `${repoFullPath}::${ref}`;
   validationState.set(key, result.valid
-    ? { state: "valid", resolvedSha: result.resolvedSha }
+    ? { state: "valid", resolvedSha: result.resolvedSha, warning: result.warning }
     : { state: "invalid", message: result.message ?? "Invalid ref" });
   validationRequested.delete(key);
   // Update any visible inputs whose value matches.
@@ -448,7 +449,7 @@ function renderRow(c: SavedComparisonDTO, idx: number, total: number): HTMLTable
   labelTd.className = "col-label";
   const labelInput = document.createElement("input");
   labelInput.type = "text";
-  labelInput.placeholder = `${repoNameFor(c.repoFullPath)} · ${displayRef(c.source)}..${displayRef(c.target)}`;
+  labelInput.placeholder = defaultComparisonLabel(repoNameFor(c.repoFullPath), c.source, c.target);
   labelInput.value = c.label ?? "";
   labelInput.addEventListener("change", () => {
     send({ command: "update", id: c.id, patch: { label: labelInput.value } });
@@ -861,13 +862,17 @@ function updateRefStatus(input: HTMLInputElement): void {
 
   const repo = input.dataset.repo!;
   const verdict = syncValidationFor(repo, input.value);
-  status.classList.remove("shown", "valid", "invalid", "checking");
+  status.classList.remove("shown", "valid", "invalid", "checking", "warning");
   status.innerHTML = "";
   status.title = "";
   if (!verdict) { return; }
 
   status.classList.add("shown", verdict.state);
-  if (verdict.state === "valid") {
+  if (verdict.state === "valid" && verdict.warning) {
+    status.classList.add("warning");
+    status.appendChild(codicon("warning"));
+    status.title = verdict.warning;
+  } else if (verdict.state === "valid") {
     status.appendChild(codicon("pass"));
     status.title = verdict.resolvedSha
       ? `Resolves to ${verdict.resolvedSha}`
@@ -941,8 +946,4 @@ function updateFocus(items: NodeListOf<HTMLElement>, idx: number): void {
 
 function repoNameFor(fullPath: string): string {
   return repos.find(r => r.fullPath === fullPath)?.name ?? fullPath;
-}
-
-function displayRef(ref: string): string {
-  return ref || "?";
 }

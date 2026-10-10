@@ -15,7 +15,7 @@ import { HEAD_SOURCE, SavedComparisonsService } from "./savedComparisonsService"
 import { DiffMode } from "./branchCompareConstants";
 import { openCommitByHash, openPendingChangesMultiDiff } from "../commands/openCommitCommand";
 import { execGitWithArgs, gitUri } from "../git/gitOperations";
-import { fileExistsAtRef, getAvailableBranches, getMergeBase } from "../git/gitCommitQueries";
+import { clampHeadOffsetRef, fileExistsAtRef, getAvailableBranches, getMergeBase } from "../git/gitCommitQueries";
 import { openDiff, normalizePath } from "../utils";
 import { toRelativePaths, listWorkspaceRepos } from "../utils/pathUtils";
 import { log, showError, showInfo } from "../extension/logger";
@@ -150,7 +150,7 @@ async function resolveDiffBase(
   diffMode: DiffMode,
   callerLabel: string,
 ): Promise<string | undefined> {
-  if (diffMode === "full") { return baseRef; }
+  if (diffMode === "full") { return (await clampHeadOffsetRef(repoFullPath, baseRef)).ref; }
   try {
     return await getMergeBase(repoFullPath, sourceRef, baseRef);
   } catch (err) {

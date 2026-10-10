@@ -1,6 +1,7 @@
 import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 import { execGitWithArgs, execGitWithArgsBuffer, gitProbeSucceeds, decodeGitPath } from "./gitOperations";
+import { parseHeadOffset } from "./refSyntax";
 
 /**
  * Get the content of a file from git history as a Buffer (for binary/non-UTF8 files)
@@ -141,10 +142,58 @@ export async function getCommitSubject(repoFullPath: string, commitHash: string)
   return output.trim();
 }
 
+/** The empty tree's object id, per repository object format. */
+const EMPTY_TREE: Record<string, string> = {
+  sha1: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+  sha256: "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321",
+};
+
+export interface ClampedRef {
+  /** The ref to diff against: the input, or the empty tree when `HEAD~N` reaches past the root commit. */
+  ref: string;
+  /** Set only when clamped: how many first-parent commits HEAD actually has. */
+  availableCommits?: number;
+}
+
 /**
- * Get the merge-base commit (common ancestor) between two refs.
+ * Make `HEAD~N` usable in a repo with N or fewer commits: it then means "all
+ * of history", so return the empty tree, which `git diff` and `git rev-list`
+ * accept as a base. Any other ref, or a `HEAD~N` that resolves, comes back
+ * unchanged. `merge-base` and `show <tree>:<path>` reject the empty tree, so
+ * callers must skip the merge-base step for a clamped ref.
+ */
+export async function clampHeadOffsetRef(repoFullPath: string, ref: string): Promise<ClampedRef> {
+  const offset = parseHeadOffset(ref);
+  if (offset === undefined) { return { ref }; }
+  if (await gitProbeSucceeds(["rev-parse", "--verify", "-q", `${ref.trim()}^{commit}`], repoFullPath)) {
+    return { ref };
+  }
+  try {
+    const opts = { timeout: ConfigService.getGitTimeoutMs() };
+    const [count, format] = await Promise.all([
+      execGitWithArgs(["rev-list", "--count", "--first-parent", "HEAD"], repoFullPath, opts),
+      execGitWithArgs(["rev-parse", "--show-object-format"], repoFullPath, opts),
+    ]);
+    const available = parseInt(count.trim(), 10);
+    const emptyTree = EMPTY_TREE[format.trim()];
+    if (emptyTree && !Number.isNaN(available) && offset >= available) {
+      return { ref: emptyTree, availableCommits: available };
+    }
+  } catch {
+    // Unborn HEAD or unknown format: leave the ref for the caller's git call to report.
+  }
+  return { ref };
+}
+
+/**
+ * Get the merge-base commit (common ancestor) between two refs. A `HEAD~N`
+ * past the root commit yields the empty tree (see {@link clampHeadOffsetRef}).
  */
 export async function getMergeBase(repoFullPath: string, ref1: string, ref2: string): Promise<string> {
+  for (const ref of [ref1, ref2]) {
+    const clamped = await clampHeadOffsetRef(repoFullPath, ref);
+    if (clamped.availableCommits !== undefined) { return clamped.ref; }
+  }
   const output = await execGitWithArgs(["merge-base", ref1, ref2], repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   return output.trim();
 }
