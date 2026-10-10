@@ -86,7 +86,7 @@ export class StonksPanel {
     }, null, this._disposables);
   }
 
-  private _postMessage(msg: StonksToWebview): void {
+  private _post(msg: StonksToWebview): void {
     this._panel.webview.postMessage(msg);
   }
 
@@ -106,7 +106,7 @@ export class StonksPanel {
       }
       return ticker;
     });
-    this._postMessage({ command: "setRepos", repos: tickers, selectedPath: this._selectedRepo });
+    this._post({ command: "setRepos", repos: tickers, selectedPath: this._selectedRepo });
   }
 
   /** Sync the selection to the current repo list, then push the tickers (which carry it). */
@@ -127,7 +127,7 @@ export class StonksPanel {
         // Send persisted config first so webview can apply before rendering
         const savedConfig = WorkspaceStateManager.getStonksConfig();
         if (savedConfig) {
-          this._postMessage({ command: "setConfig", config: savedConfig });
+          this._post({ command: "setConfig", config: savedConfig });
         }
 
         // Send time window options, excluding pending (not meaningful for stonks)
@@ -144,7 +144,7 @@ export class StonksPanel {
           ?? (tw.type === "historical" ? tw.days : undefined)
           ?? historicalWindows[historicalWindows.length - 1]?.days
           ?? 30;
-        this._postMessage({ command: "setTimeWindows", options, selectedDays: this._selectedDays });
+        this._post({ command: "setTimeWindows", options, selectedDays: this._selectedDays });
 
         // Commit stats only exist after a scan. Opening this panel is an explicit
         // request for them, so load rather than render empty tickers; the
@@ -201,10 +201,10 @@ export class StonksPanel {
     const commitStatsMap = this._provider.getCommitStats(repoPath);
     if (!commitStatsMap || commitStatsMap.size === 0) {
       log(`[Stonks] No cached commit stats for ${repoPath}`, "warn");
-      this._postMessage({ command: "setData", data: [] });
+      this._post({ command: "setData", data: [] });
       return;
     }
-    this._postMessage({ command: "setLoading", loading: true });
+    this._post({ command: "setLoading", loading: true });
 
     // Filter stats to the panel's own time window (decoupled from the provider)
     let statsArray = Array.from(commitStatsMap.values());
@@ -214,8 +214,8 @@ export class StonksPanel {
       statsArray = statsArray.filter(s => s.commit.date >= cutoff);
     }
     if (statsArray.length === 0) {
-      this._postMessage({ command: "setData", data: [] });
-      this._postMessage({ command: "setLoading", loading: false });
+      this._post({ command: "setData", data: [] });
+      this._post({ command: "setLoading", loading: false });
       return;
     }
 
@@ -227,8 +227,8 @@ export class StonksPanel {
       .catch(() => 0) // no parent = initial commit, baseline 0
       .then(baseline => {
         const data = buildStonksData(statsArray, baseline);
-        this._postMessage({ command: "setData", data });
-        this._postMessage({ command: "setLoading", loading: false });
+        this._post({ command: "setData", data });
+        this._post({ command: "setLoading", loading: false });
       });
   }
 
@@ -258,7 +258,7 @@ export class StonksPanel {
       series.push({ repoName: repo.name, repoPath: repo.path, data: buildStonksData(statsArray, baseline) });
     }));
 
-    this._postMessage({ command: "setCompareData", series });
+    this._post({ command: "setCompareData", series });
   }
 
   private _update() {

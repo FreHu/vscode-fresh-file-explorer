@@ -14,11 +14,12 @@ and a `XFromWebview` union (webview → host).
 
 ## Per-panel protocol
 
-Every panel opens with the same handshake: the webview script's last line posts
-`{ command: "ready" }`; the host replies by pushing initial state. After that,
-messages flow on demand.
+Every webview opens with the same handshake: once its listeners are set up, the
+script posts `{ command: "ready" }`, and the host replies by pushing initial
+state. After that, messages flow on demand. (Branch Compare settings is a webview
+*view* in the panel area, not an editor panel; the protocol is the same.)
 
-| Panel | Host file | Webview file | To-webview (host sends) | From-webview (webview sends) |
+| Webview | Host file | Webview file | To-webview (host sends) | From-webview (webview sends) |
 |---|---|---|---|---|
 | Stonks | `src/stonks/stonksPanel.ts` | `src/webview/stonksPanel.ts` | `setRepos`, `setData`, `setCompareData`, `setLoading`, `setTimeWindows`, `setConfig` | `ready`, `selectRepo`, `openCommit`, `selectTimeWindow`, `updateConfig`, `requestCompareData`, `openHelp`, `exportSvg` |
 | Diff Search | `src/diff-search/diffSearchPanel.ts` | `src/webview/diffSearchPanel.ts` | `prefill`, `prefillParams`, `setHistory`, `reposStarted`, `repoProgress`, `repoComplete`, `searchComplete` | `ready`, `clearHistory`, `search` |
@@ -26,31 +27,23 @@ messages flow on demand.
 | Branch Compare settings | `src/branch-compare/branchCompareSettingsPanel.ts` | `src/webview/branchCompareSettings.ts` | `state`, `refs`, `refValidation`, `heatmapState` | `ready`, `add`, `update`, `delete`, `move`, `moveTo`, `setHeatmapBaseline`, `setAllGroupingMode`, `setFileIcons`, `keepAutoFollow`, `showTree`, `requestRefs`, `validateRef`, `refreshRefs`, `updateHeatmap`, `setAutoFollow`, `openHeatmapHelp` |
 | Perf Benchmark | `src/benchmark/perfBenchmarkPanel.ts` | `src/webview/perfBenchmarkPanel.ts` | `benchmarks`, `results`, `error`, `stats`, `statsError`, `cacheStats`, `cacheStatsError` | `ready`, `run`, `getStats`, `getCacheStats` |
 
-The command lists above are a navigation aid, not the source of truth — the
-unions in `messages.ts` are. If they disagree, the code is right and this table
-is stale.
+The unions in `messages.ts` are the source of truth; if this table disagrees, the table is stale.
 
 ## Enforcement
 
 The static guarantee only holds if neither side touches the raw `any`-typed
-`vscode` API directly. Each host panel funnels every outbound message through a
-single typed wrapper:
+`postMessage` directly. Each host sends every outbound message through one typed
+wrapper, `_post(msg: XToWebview)`, which calls `webview.postMessage` (on the
+panel, or on the resolved view for Branch Compare settings), and types its inbound
+handler as `XFromWebview`. Each webview script mirrors this with a typed send
+helper (`postMessage` or `send`) taking `XFromWebview`, and types its `window`
+message listener as `MessageEvent<XToWebview>`.
 
-```ts
-private _post(msg: XToWebview): void {
-  void this._panel.webview.postMessage(msg);
-}
-```
+**Do not** call `webview.postMessage({ ... })` with a bare object literal: that
+re-opens the `any` hole, and a renamed or dropped field ships green and renders
+`undefined` / `NaN` at runtime. Always go through `_post`.
 
-and types its inbound handler as `XFromWebview`, switching on `command`. Each
-webview script mirrors this with a local typed send helper (named `postMessage`
-or `send`) taking `XFromWebview`, and types its `window`-message listener as
-`MessageEvent<XToWebview>`.
-
-**Do not** call `this._panel.webview.postMessage({ ... })` with a bare object
-literal — that re-opens the `any` hole and a renamed/dropped field will ship
-green and render `undefined`/`NaN` at runtime. Always go through `_post`.
-
-The `branchCompareSettings` inbound handler additionally ends its `switch` with
-an exhaustive `never` check — a good pattern to copy when adding commands, since
-it turns "forgot to handle a new command" into a compile error.
+Branch Compare settings and Git Log -L end their inbound `switch` with an
+exhaustive `never` check, which turns "forgot to handle a new command" into a
+compile error. Copy that pattern when adding commands; Perf Benchmark still uses
+an `if` chain without it.

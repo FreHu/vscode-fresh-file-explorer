@@ -1,6 +1,6 @@
 // Shared message types between the extension host and webview scripts.
 // This file is compiled by both tsconfig.json (extension host) and
-// tsconfig.webview.json (webview scripts).
+// src/webview/tsconfig.json (webview scripts).
 
 import type { GroupingMode } from "../fresh-files/groupingMode";
 import type { DiffMode, FileIconStyle } from "../branch-compare/branchCompareConstants";

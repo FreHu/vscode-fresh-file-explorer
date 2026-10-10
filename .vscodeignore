@@ -13,7 +13,6 @@ vsc-extension-quickstart.md
 coverage/**
 out/test/**
 agents.md
-tsconfig.webview.json
 
 # Dev-only / private — never ship
 # Nothing gitignored would ship anyway - workflow builds the vsix from github source
@@ -25,3 +24,5 @@ scripts/**
 .githooks/**
 CLAUDE.md
 settings.local.json
+# Contributor docs. The other docs/ pages ship: the extension opens them.
+docs/webview-message-protocol.md
