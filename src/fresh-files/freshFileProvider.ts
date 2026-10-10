@@ -144,7 +144,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private readonly repoScope = new RepoScopeStore();
 
   // Cache of the most-recently returned repo root FreshFileItem instances, keyed by id.
-  // Populated in buildRepoView so revealSubmoduleRepo can pass the exact same object
+  // Filled from buildRepoRootItems' result so revealSubmoduleRepo can pass the exact same object
   // instances that VS Code already registered (reveal() rejects freshly constructed duplicates).
   private _repoItemCache: Map<string, FreshFileItem> = new Map();
 
@@ -836,7 +836,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
    * Reveal and focus the repo node in the tree view that corresponds to
    * the given submodule file-system path.
    *
-   * Uses the cached item instance from the last buildRepoView pass so that VS Code
+   * Uses the cached item instance from the last root render so that VS Code
    * receives the exact same object it already registered — constructing a new item
    * with the same id causes an "already registered" error.
    */
@@ -1121,7 +1121,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // The flat lenses (group-by-author/commit, search) have no folder-node
     // context, so they get an owner-filtered view. The File Structure / Flat
     // List trees evaluate files.exclude PER NODE at render time (see buildTree /
-    // buildFlatList / buildRepoView) — a file can be hidden under one root yet
+    // buildFlatList / buildRepoRootItems) — a file can be hidden under one root yet
     // shown under another — so their index is built from the raw map.
     this._displayFreshFiles = this.filesExcludeFilter.filterByOwner(map, this.workspaceFolders);
     this.fileIndex.rebuild(map);

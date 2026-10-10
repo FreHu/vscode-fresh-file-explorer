@@ -30,12 +30,10 @@ From cheapest to most expensive:
 
 `freshFileExplorer.freshFileLoading: "manual"` makes the fresh-files scan wait for
 an explicit Refresh (an enum, not a boolean, so a future fully-manual mode needs no
-settings migration). This setting is meant for users who care about startup impact,
-or those who simply don't care about the namesake feature of the fresh file explorer.
-Implemented as one predicate (`isScanDormant`) checked at two chokepoints
-— `kickOffLoad()` and `refreshPending()`, both in `LoadOrchestrator` — rather
-than at every call site that triggers a refresh. Add new automatic refresh triggers *above* those chokepoints and
-they're covered for free.
+settings migration). It's one predicate (`isScanDormant`) checked at two chokepoints
+— `kickOffLoad()` and `refreshPending()`, both in `LoadOrchestrator` — not at every
+call site. Add new automatic refresh triggers *above* those chokepoints and they're
+covered for free.
 
 Two rules keep it from breaking neighbouring features:
 
@@ -50,29 +48,22 @@ Two rules keep it from breaking neighbouring features:
   which calls `armScan()`. Silently returning empty would look like a bug. Arming is
   sticky for the session.
 
-  The test is who initiated the *call*, not whether the feature was opted into. The
-  heatmap sits on both sides of that line: `handleToggleHeatmap` arms, because a user
-  clicked it, while `HeatmapDecorationProvider.provideFileDecoration` checks
-  `isScanDormant` and bails, because VS Code polls it for every visible file right
-  after activation. Without that second guard, manual scan is a no-op for anyone with
-  `heatmap.enabled` on — it would arm immediately after activation with no user action.
-
-  Display-only commands (time window, grouping, sort order) deliberately do *not*
-  arm; they'd be a surprising trigger for a scan, and the dormant tree already says
-  it hasn't scanned.
+  The test is who initiated the *call*. VS Code polls decoration providers for every
+  visible file right after activation, so they must never arm: the file heatmap's
+  provider checks `isScanDormant` and bails, while `handleToggleHeatmap` (a click)
+  arms. Display-only commands (time window, grouping, sort order) don't arm either.
 
 `dataLoaded` stays false while dormant, so `enterDormant()` clears
 `ContextKeys.LOADING` explicitly — `package.json` `when` clauses depend on it.
 
-**`refreshEpoch`** is incremented by `refresh()` and `hardRefresh()`. The load (`LoadOrchestrator.runLoad()` and the per-repo loaders it delegates to) checks it at each async boundary and throws `RefreshCancelledError` if a newer refresh started. Always preserve this check when adding async work to the load path.
+**Cancellation:** `RefreshEpochGuard` (`refreshEpochGuard.ts`). `refresh()`, `hardRefresh()` and `cancelInFlight()` call `bump()`; the load path holds a `RefreshToken` and calls `assertLive()` at each async boundary, which throws `RefreshCancelledError` once a newer load started. Keep that check when adding async work to the load path.
 
 ## `files.exclude` is Per-Node, Not Global
 
-The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclude`, default on). The non-obvious part: a glob is evaluated **relative to the workspace folder of the node it's rendered under**, so the *same* absolute file can be hidden under one root and shown under another. The motivating case (issue #3): a repo root added alongside its own `backend/` subfolder, with the root excluding `backend` — `backend/app.js` must vanish under the root node yet remain under the backend node. A single global "display map" cannot express this; don't try to filter `_freshFiles` once and reuse it everywhere.
+The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclude`, default on). A glob is evaluated **relative to the workspace folder of the node it's rendered under**, so the *same* file can be hidden under one root and shown under another (issue #3: a repo root excluding `backend` next to its own `backend/` folder root). Don't filter `_freshFiles` once and reuse it everywhere.
 
-- Pure glob matching: [filesExcludeMatcher.ts](src/fresh-files/filesExcludeMatcher.ts) — a faithful port of VS Code's own `vs/base/common/glob.ts` engine (not minimatch). A bare `backend` matches the path *and its ancestor prefixes* (mirrors the Explorer pruning the `backend` dir node); bare patterns stay root-anchored.
-- Per-node application: [FilesExcludeFilter](src/fresh-files/filesExcludeFilter.ts). `isExcludedUnder(path, folder)` is the per-node check used by `buildTree`/`buildFlatList`/`buildRepoView`. `isExcludedByOwner` / `filterByOwner` handle the flat lenses (group-by-author/commit, search) that have no node context.
-- Both are pure/unit-tested; the provider holds only wiring + a compiled-glob cache invalidated on config change. `when`-clause (sibling) excludes are unsupported.
+- Glob matching: [filesExcludeMatcher.ts](src/fresh-files/filesExcludeMatcher.ts), a port of VS Code's own `vs/base/common/glob.ts` (not minimatch). A bare `backend` also matches ancestor prefixes, like the Explorer pruning that folder.
+- Per-node application: [FilesExcludeFilter](src/fresh-files/filesExcludeFilter.ts), which also owns the compiled-glob cache (the provider only calls `invalidate()` on config change). `isExcludedUnder(path, folder)` is used by `buildTree` / `buildFlatList` / `buildRepoRootItems`; `isExcludedByOwner` / `filterByOwner` serve the flat lenses (group by author/commit, search). `when`-clause (sibling) excludes are unsupported.
 
 ## Path Handling
 
@@ -84,7 +75,7 @@ The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclud
 
 Always use **`execGitWithArgs(args[], cwd)`** — uses `spawn()` with an argument array, no injection risk. For large outputs, stream instead of buffering: `streamGitLogNameStatus` in `src/git/gitLogStream.ts`, or the diff-search parser's own `streamGitDiffOutput` (local to `diffSearchParser.ts`).
 
-All of those sit on one primitive, **`spawnGitSettled`** in `src/git/gitSpawn.ts` — the only place that calls `cp.spawn("git", …)`, enforced by a `no-restricted-syntax` rule. Supply `onStdout` / `onSuccess` (and `onFinish` when a trailing partial line must be flushed even on a non-zero exit). Failures reject with **`GitError`**, carrying `stderr`, `exitCode`, `signal`, `timedOut`, `args`, `cwd`; a timeout kill is reported as an actionable timeout naming `freshFileExplorer.gitTimeout` rather than "exited with code null". `GitError.toString()` returns the bare message, so the many existing `String(err)` / `` `${err}` `` render sites are unaffected — but prefer `error instanceof Error ? error.message : String(error)` in new code, never `catch (e: any)` with `e.message`.
+All of those sit on one primitive, **`spawnGitSettled`** in `src/git/gitSpawn.ts` — the only place that starts a git process. A `no-restricted-syntax` rule flags any call taking the literal `"git"` as its first argument (spawn, execFile, a promisified alias) outside it. Failures reject with **`GitError`** (stderr, exit code, timeout naming `freshFileExplorer.gitTimeout`); in new code read it as `error instanceof Error ? error.message : String(error)`, never `catch (e: any)` with `e.message`.
 
 ## Webview Message Protocol
 
@@ -100,24 +91,17 @@ for the per-panel command tables and the enforcement rationale.
 
 Adding or changing a context menu item requires **both**:
 1. The `menus` entry in `package.json` (with a `when` clause matching `contextValue`)
-2. The correct `contextValue` set in the `FreshFileItem` constructor
+2. The item setting that `contextValue` — from the constants in `TreeItemContextValues` (`treeItemConstants.ts`), `BranchCompareContextValues` or `DiffSearchContextValues`
 
-Missing either side will silently not work. Valid context values can be found in `treeItemConstants.ts`.
+`packageJsonDrift.unit.test.ts` fails when a `when` clause names a context value nothing produces. The reverse (an item whose value no menu uses) still fails silently.
 
 ## Tree View — `collapsibleState` is sticky
 
-VS Code's `TreeView` locks in a tree item's `collapsibleState` on the **first render** it sees for a given `id`. Subsequent refreshes that return an item with the same `id` but a different state are silently ignored — the item keeps whatever state it had on first appearance.
+VS Code's `TreeView` locks in a tree item's `collapsibleState` on the **first render** of its `id`; a later refresh with the same id and a different state is ignored. So an item rendered `Collapsed` (or `None`) while loading stays that way after the data arrives.
 
-This bites async-loaded trees: if an item is rendered as `Collapsed` (or worse, `None`) while data is loading, then "fixed" to `Expanded` after data arrives, the tree stays collapsed forever — until a manual refresh that happens to skip the loading phase.
+**Rule:** the first time an id appears, its `collapsibleState` must already be the one you want. Either render the loading state with the final state (`FreshFileItem.forRepository` expands even while loading; `RepoSectionItem` never uses `None`), give loading and loaded variants different ids, or don't render a placeholder.
 
-**Rule:** the *first* time an item id appears, its `collapsibleState` must already match what you eventually want. Avoid rendering placeholder loading states with the same id as the loaded version. Either:
-- Render the loading state with the same `collapsibleState` you'd use post-load (e.g. expand the repo even while empty/loading — children populate later)
-- Use a different `id` for loading vs loaded variants
-- Suppress the placeholder entirely until data is ready
-
-Examples in this codebase:
-- [`FreshFileItem.forRepository`](src/fresh-files/freshFileTreeItems.ts) honors the `expanded` arg even when `isLoading` / `isLoadingHistorical` — without this, `autoExpandDepth` only "took effect" on manual refresh.
-- [`RepoSectionItem`](src/branch-compare/branchCompareTreeItems.ts) never uses `None` — sections always render at least a "Loading…" / "No changes" message child, so the state is always meaningful.
+The same lock is a tool: to re-apply a default state (Branch Compare's *Collapse All*, the pinned outline's expand-depth setting), re-issue the items under new ids.
 
 ## Keybindings
 
@@ -125,19 +109,25 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 
 ## Configuration
 
-- All settings access goes through [ConfigService](src/config/configService.ts). Never read `vscode.workspace.getConfiguration` directly elsewhere — a `no-restricted-syntax` ESLint rule enforces this (configService.ts and tests excepted).
-
-### `ConfigService` reads are expensive — never call them per-item in a hot loop
-
-Every `ConfigService.getX()` calls `vscode.workspace.getConfiguration().get(...)`, and `getConfiguration()` builds a fresh configuration snapshot each time. A single call is cheap; **thousands are not**.
-
-`ConfigService` mitigates this centrally: it caches the default-scope `getConfiguration()` snapshot (`ConfigService.cfg()`) and rebuilds it only on `onDidChangeConfiguration`, so `getX()` reads are now plain lookups and consumers do **not** need their own per-value caches. Section/resource-scoped reads (`getConfiguration("files", uri)`) bypass the cache and are still relatively costly — keep those out of per-file loops. Never add a second caching layer on top of `ConfigService`.
+- All settings access goes through [ConfigService](src/config/configService.ts); a `no-restricted-syntax` ESLint rule bans `vscode.workspace.getConfiguration` elsewhere (configService.ts and tests excepted).
+- `getX()` reads come from a cached snapshot that `ConfigService.invalidate()` drops on every config change, so they're cheap anywhere; don't add a second cache on top. Section- or resource-scoped reads (`getConfiguration("files", uri)`) bypass the cache — keep those out of per-file loops.
+- A new setting needs a `ConfigKeys` entry (`configKeyConstants.ts`) and must be classified as none / treeOnly / pending / hard in the exhaustive record of `configRefreshAction.ts`, or it won't compile.
 
 ## Commands
 
-- `commandConstants.ts` - contains available command names
-- tests enforce that commands in `package.json` are present in the constants and vice-versa
-- command registration goes in `extension.ts`, implementation elsewhere 
+- `commandConstants.ts` holds the command ids; registration goes in `extension.ts`, implementation elsewhere.
+- `packageJsonDrift.unit.test.ts` keeps `package.json` and the code in sync: commands, settings ↔ `ConfigKeys`, context keys in `when` clauses, context values, submenus and keybindings.
+- Commands that need a tree item or arguments built in code get `"when": "false"` in `menus.commandPalette`.
+
+## Build guards
+
+- `npm run pretest` runs compile, lint and `scripts/sizeRatchet.mjs`, which fails when the largest files grow past their line budget. Split a file rather than raising its budget.
+- `@typescript-eslint/no-floating-promises` is an error: fire-and-forget calls need an explicit `void`.
+
+## Conventions
+
+- An unused positional parameter that must keep its slot (e.g. `selectedItems` in `(item, selectedItems, provider)` command handlers) gets a `_` prefix; `noUnusedParameters` is on. Delete unused *trailing* parameters instead.
+- No file-header boilerplate ("Pure, vscode-free: tested against …"). A file-level note earns its place only for a constraint someone would otherwise break, e.g. "bundled into the settings webview" (no `vscode` import there).
 
 ## Useful concepts
 

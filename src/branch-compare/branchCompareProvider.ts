@@ -304,6 +304,10 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
    * Force re-fetch for every active comparison. Bails early when fresh-file-
    * provider hasn't finished repo discovery — the constructor's onReposReady
    * subscription will retry once discovery completes.
+   *
+   * The unbounded Promise.all is deliberate: branchCompareRefreshBenchmark
+   * showed a concurrency cap slows large repos (up to 2×) without helping
+   * small ones. Re-measure before adding one.
    */
   async refreshAll(): Promise<void> {
     if (!this.freshFileProvider.areReposReady) {
