@@ -60,10 +60,11 @@ Two rules keep it from breaking neighbouring features:
 
 ## `files.exclude` is Per-Node, Not Global
 
-The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclude`, default on). A glob is evaluated **relative to the workspace folder of the node it's rendered under**, so the *same* file can be hidden under one root and shown under another (issue #3: a repo root excluding `backend` next to its own `backend/` folder root). Don't filter `_freshFiles` once and reuse it everywhere.
+The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclude`, default on). The non-obvious part: a glob is evaluated **relative to the workspace folder of the node it's rendered under**, so the *same* absolute file can be hidden under one root and shown under another. The motivating case (issue #3): a repo root added alongside its own `backend/` subfolder, with the root excluding `backend` — `backend/app.js` must vanish under the root node yet remain under the backend node. A single global "display map" cannot express this; don't try to filter `_freshFiles` once and reuse it everywhere.
 
-- Glob matching: [filesExcludeMatcher.ts](src/fresh-files/filesExcludeMatcher.ts), a port of VS Code's own `vs/base/common/glob.ts` (not minimatch). A bare `backend` also matches ancestor prefixes, like the Explorer pruning that folder.
-- Per-node application: [FilesExcludeFilter](src/fresh-files/filesExcludeFilter.ts), which also owns the compiled-glob cache (the provider only calls `invalidate()` on config change). `isExcludedUnder(path, folder)` is used by `buildTree` / `buildFlatList` / `buildRepoRootItems`; `isExcludedByOwner` / `filterByOwner` serve the flat lenses (group by author/commit, search). `when`-clause (sibling) excludes are unsupported.
+- Pure glob matching: [filesExcludeMatcher.ts](src/fresh-files/filesExcludeMatcher.ts) — a faithful port of VS Code's own `vs/base/common/glob.ts` engine (not minimatch). A bare `backend` matches the path *and its ancestor prefixes* (mirrors the Explorer pruning the `backend` dir node); bare patterns stay root-anchored.
+- Per-node application: [FilesExcludeFilter](src/fresh-files/filesExcludeFilter.ts). `isExcludedUnder(path, folder)` is the per-node check used by `buildTree`/`buildFlatList`/`buildRepoRootItems`. `isExcludedByOwner` / `filterByOwner` handle the flat lenses (group-by-author/commit, search) that have no node context.
+- Both are pure/unit-tested; `FilesExcludeFilter` also holds the compiled-glob cache, which the provider invalidates on config change. `when`-clause (sibling) excludes are unsupported.
 
 ## Path Handling
 
@@ -91,15 +92,24 @@ for the per-panel command tables and the enforcement rationale.
 
 Adding or changing a context menu item requires **both**:
 1. The `menus` entry in `package.json` (with a `when` clause matching `contextValue`)
-2. The item setting that `contextValue` — from the constants in `TreeItemContextValues` (`treeItemConstants.ts`), `BranchCompareContextValues` or `DiffSearchContextValues`
+2. The correct `contextValue` set on the tree item (`FreshFileItem` and the other item classes)
 
-`packageJsonDrift.unit.test.ts` fails when a `when` clause names a context value nothing produces. The reverse (an item whose value no menu uses) still fails silently.
+Missing either side will silently not work. Valid context values can be found in `treeItemConstants.ts`, `BranchCompareContextValues` and `DiffSearchContextValues`. `packageJsonDrift.unit.test.ts` now catches a `when` clause naming a context value nothing produces; the reverse is still silent.
 
 ## Tree View — `collapsibleState` is sticky
 
-VS Code's `TreeView` locks in a tree item's `collapsibleState` on the **first render** of its `id`; a later refresh with the same id and a different state is ignored. So an item rendered `Collapsed` (or `None`) while loading stays that way after the data arrives.
+VS Code's `TreeView` locks in a tree item's `collapsibleState` on the **first render** it sees for a given `id`. Subsequent refreshes that return an item with the same `id` but a different state are silently ignored — the item keeps whatever state it had on first appearance.
 
-**Rule:** the first time an id appears, its `collapsibleState` must already be the one you want. Either render the loading state with the final state (`FreshFileItem.forRepository` expands even while loading; `RepoSectionItem` never uses `None`), give loading and loaded variants different ids, or don't render a placeholder.
+This bites async-loaded trees: if an item is rendered as `Collapsed` (or worse, `None`) while data is loading, then "fixed" to `Expanded` after data arrives, the tree stays collapsed forever — until a manual refresh that happens to skip the loading phase.
+
+**Rule:** the *first* time an item id appears, its `collapsibleState` must already match what you eventually want. Avoid rendering placeholder loading states with the same id as the loaded version. Either:
+- Render the loading state with the same `collapsibleState` you'd use post-load (e.g. expand the repo even while empty/loading — children populate later)
+- Use a different `id` for loading vs loaded variants
+- Suppress the placeholder entirely until data is ready
+
+Examples in this codebase:
+- [`FreshFileItem.forRepository`](src/fresh-files/freshFileTreeItems.ts) honors the `expanded` arg even when `isLoading` / `isLoadingHistorical` — without this, `autoExpandDepth` only "took effect" on manual refresh.
+- [`RepoSectionItem`](src/branch-compare/branchCompareTreeItems.ts) never uses `None` — sections always render at least a "Loading…" / "No changes" message child, so the state is always meaningful.
 
 The same lock is a tool: to re-apply a default state (Branch Compare's *Collapse All*, the pinned outline's expand-depth setting), re-issue the items under new ids.
 
@@ -109,14 +119,22 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 
 ## Configuration
 
-- All settings access goes through [ConfigService](src/config/configService.ts); a `no-restricted-syntax` ESLint rule bans `vscode.workspace.getConfiguration` elsewhere (configService.ts and tests excepted).
-- `getX()` reads come from a cached snapshot that `ConfigService.invalidate()` drops on every config change, so they're cheap anywhere; don't add a second cache on top. Section- or resource-scoped reads (`getConfiguration("files", uri)`) bypass the cache — keep those out of per-file loops.
+- All settings access goes through [ConfigService](src/config/configService.ts). Never read `vscode.workspace.getConfiguration` directly elsewhere — a `no-restricted-syntax` ESLint rule enforces this (configService.ts and tests excepted).
+
+### `ConfigService` reads — keep scoped reads out of hot loops
+
+`getConfiguration()` builds a fresh configuration snapshot each time. A single call is cheap; **thousands are not**.
+
+`ConfigService` mitigates this centrally: it caches the default-scope `getConfiguration()` snapshot (`ConfigService.cfg()`) and rebuilds it only on `onDidChangeConfiguration`, so `getX()` reads are now plain lookups and consumers do **not** need their own per-value caches. Section/resource-scoped reads (`getConfiguration("files", uri)`) bypass the cache and are still relatively costly — keep those out of per-file loops. Never add a second caching layer on top of `ConfigService`.
+
 - A new setting needs a `ConfigKeys` entry (`configKeyConstants.ts`) and must be classified as none / treeOnly / pending / hard in the exhaustive record of `configRefreshAction.ts`, or it won't compile.
 
 ## Commands
 
-- `commandConstants.ts` holds the command ids; registration goes in `extension.ts`, implementation elsewhere.
-- `packageJsonDrift.unit.test.ts` keeps `package.json` and the code in sync: commands, settings ↔ `ConfigKeys`, context keys in `when` clauses, context values, submenus and keybindings.
+- `commandConstants.ts` - contains available command names
+- tests enforce that commands in `package.json` are present in the constants and vice-versa
+- command registration goes in `extension.ts`, implementation elsewhere 
+- the same test file (`packageJsonDrift.unit.test.ts`) also checks settings ↔ `ConfigKeys`, context keys in `when` clauses, context values, submenus and keybindings.
 - Commands that need a tree item or arguments built in code get `"when": "false"` in `menus.commandPalette`.
 
 ## Build guards

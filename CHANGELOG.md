@@ -1,33 +1,34 @@
 # Change Log
 
-## [Unreleased]
+## [1.16.0]
 
 ### Pinned Items
 
-- A pinned Markdown (`.md`, `.markdown`, `.mdx`, `.qmd`, `.Rmd`), Org-mode (`.org`) or AsciiDoc (`.adoc`, `.asciidoc`) file lists its headings as children, synced live with the file (unsaved edits included). Headings with sub-headings expand on click and have a *Go to Heading* button; the others jump to their heading. Org-mode TODO keywords (default or from `#+TODO:`) show next to their heading. Malformed structure is handled best effort: skipped levels nest under the nearest shallower heading, and headings inside code blocks or front matter are ignored. New settings `pinned.headingDepth` (default 3, 0 turns it off) and `pinned.headingExpandDepth` (default 1).
+- Pinned Markdown, Org-mode and AsciiDoc files list their headings, live with the file. Settings `pinned.headingDepth` and `pinned.headingExpandDepth`.
 
 ### Branch Compare
 
-- The Branch Comparisons settings moved from an editor tab into the bottom panel, with compact icon columns ("On", hide reviewed, heatmap baseline) and a button that shows the Branch Compare tree.
-- A `HEAD~N` target works in a repo with N or fewer commits: it shows every commit there is, with a "⚠ only N commits" note. An unnamed `HEAD` vs `HEAD~N` comparison is called "last N commits" and follows N.
-- New `branchCompare.fileIcons` setting (also in the panel toolbar): file-type icons, or one icon per kind of change in the Source Control view's colors.
-- Click the 👁 on an auto-followed row to keep it as your own comparison.
-- *Collapse All* on a comparison section; *Refresh This Repo* is now *Refresh This Comparison*.
-- Commit groups (here and in Fresh Files) show the commit subject as the label, with the hash in the description, and honor the author / date / message description settings.
+- Comparison settings moved to the bottom panel, with compact icon columns.
+- Auto-follow targets the nearest ancestor branch, so stacked branches compare against their parent rather than `main`.
+- Keep an auto-followed comparison with one click.
+- `HEAD~N` works in repos with fewer than N commits.
+- New `branchCompare.fileIcons` setting: file-type icons or change-type (A/M/D...) icons.
+- Commit groups show the subject as the label (also in Fresh Files).
 
 ### Blame heatmap
 
-- The Branch / Tag mode is now **Baseline**, since it accepts any ref.
-- One **Off / Age / Baseline** choice: first in the editor's right-click menu (the active one checked) and in the status-bar picker, and in the Branch Comparisons panel for newly opened files, where it replaces the auto-apply checkbox and applies to open editors right away. Marking a comparison as heatmap baseline switches to Baseline.
+- One **Off / Age / Baseline** choice in the editor menu, status bar and Branch Comparisons panel. *Branch / Tag* mode is now *Baseline*.
 
 ### Other
 
-- File history works for files outside the workspace, including its diffs.
-- The "no history" warning names the file and the repo it was looked up in.
-- Ahead / behind rows at the top of Fresh Files open the Source Control view.
-- Commands that only work from a tree item are hidden from the command palette.
+- File history works for files outside the workspace.
+- Repo icons match the Source Control view for worktrees and submodules.
+
+### Fixes
+
+- Toggling a heatmap baseline no longer reloads Branch Compare.
+- Switching branches replaces the auto-followed row instead of leaving a stale one.
 - *Resurrect* respects `gitTimeout`.
-- Repo icons match the Source Control view: linked worktrees get the `worktree` icon (Fresh Files, Branch Compare, diff search) and submodules the `archive` icon (Fresh Files, Branch Compare).
 
 ## [1.15.0]
 
