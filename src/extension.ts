@@ -560,8 +560,8 @@ function registerCommands(
   );
 
   // Git log -L
-  register(Commands.GIT_LOG_L, () => handleGitLogL());
-  register(Commands.GIT_LOG_FILE, handlegitLogFile);
+  register(Commands.GIT_LOG_L, () => handleGitLogL(context.extensionUri));
+  register(Commands.GIT_LOG_FILE, (arg?: FreshFileItem | vscode.Uri) => handlegitLogFile(context.extensionUri, arg));
 
   // Performance benchmark
   register(Commands.PERF_BENCHMARK, () =>

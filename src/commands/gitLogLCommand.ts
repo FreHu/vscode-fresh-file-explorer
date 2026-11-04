@@ -39,7 +39,7 @@ export function buildLArg(spec: LArgSpec): { lArg: string; label: string } {
  * - If the selection is within a single line → function name mode: `git log -L :<word>:<file>`
  *   (uses the word under the cursor / selected text as the funcname pattern)
  */
-export async function handleGitLogL(): Promise<void> {
+export async function handleGitLogL(extensionUri: vscode.Uri): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     showWarning("No active editor.");
@@ -95,9 +95,6 @@ export async function handleGitLogL(): Promise<void> {
     const commits = parseGitLogL(rawOutput);
     log(`git log -L: parsed ${commits.length} commits`, "info");
 
-    const extensionUri = vscode.extensions.getExtension("frehu.fresh-file-explorer")?.extensionUri
-      ?? vscode.Uri.file(nodePath.resolve(__dirname, "../..")); 
-
     GitLogLPanel.createOrShow(extensionUri, repoRoot, filePath, lArg, label, commits, formatGitCommand(args), "logL");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -115,7 +112,7 @@ export async function handleGitLogL(): Promise<void> {
  * Whole-file history: `git log --follow -p -- <file>`
  * Works from the tree view (FreshFileItem) or the active editor.
  */
-export async function handlegitLogFile(arg?: FreshFileItem | vscode.Uri): Promise<void> {
+export async function handlegitLogFile(extensionUri: vscode.Uri, arg?: FreshFileItem | vscode.Uri): Promise<void> {
   // Caller may be the FFE tree (FreshFileItem), the regular file explorer
   // context menu (vscode.Uri), or the command palette (undefined → fall back
   // to the active editor).
@@ -159,10 +156,6 @@ export async function handlegitLogFile(arg?: FreshFileItem | vscode.Uri): Promis
       showWarning(noHistoryMessage(filePath, repoRoot));
       return;
     }
-
-    const extensionUri =
-      vscode.extensions.getExtension("frehu.fresh-file-explorer")?.extensionUri ??
-      vscode.Uri.file(nodePath.resolve(__dirname, "../..")); 
 
     GitLogLPanel.createOrShow(extensionUri, repoRoot, filePath, lArg, label, commits, formatGitCommand(args), "fileHistory");
   } catch (err) {
