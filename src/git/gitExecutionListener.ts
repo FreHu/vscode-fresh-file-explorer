@@ -309,6 +309,7 @@ export async function setupGitExtensionListener(
     context.subscriptions.push(
       api.onDidOpenRepository((repo: InternalRepository) => {
         const key = normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath;
+        log(`Git extension opened repository ${key} (HEAD ${repo.state.HEAD?.commit?.slice(0, 7) ?? "unknown"})`);
         // Snapshot the new repo immediately so first change can be compared
         repoSnapshots.set(key, takeSnapshot(repo));
         context.subscriptions.push(
