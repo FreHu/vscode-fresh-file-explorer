@@ -25,8 +25,8 @@ export default [{
         "**/*.js",        // compiled output; source is all .ts
     ],
 }, {
+    // Type-aware parsing needs a tsconfig; the .mjs build/demo scripts have none.
     files: ["**/*.ts"],
-}, {
     plugins: {
         "@typescript-eslint": typescriptEslint.plugin,
     },
