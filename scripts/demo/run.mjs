@@ -31,7 +31,10 @@ let failed = 0;
 for (const name of sceneNames) {
   const scene = (await import(pathToFileURL(join(here, "scenes", `${name}.mjs`)).href)).default;
   // One VS Code per scene: scenes can't leak view state, settings or open pickers into each other.
-  const workspace = buildFixtureRepo(join(stateDir, "orbit-shop"));
+  // Default workspace: the fixture repo itself. A scene can lay out its own around it.
+  const workspace = scene.workspace
+    ? scene.workspace({ stateDir, buildFixtureRepo })
+    : buildFixtureRepo(join(stateDir, "orbit-shop"));
   const { app, page } = await launchVSCode({ repoRoot, workspace, stateDir, settings: scene.settings, window: scene.window });
   try {
     // A scene returns one PNG, or a list of frames that becomes a GIF.

@@ -36,8 +36,13 @@ const USER_SETTINGS = {
  * (Code.exe would start as plain Node, no window) and the parent's VSCODE_* IPC
  * handles (the new window would attach to the running instance).
  */
-function cleanEnv() {
-  return Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(ELECTRON_|VSCODE_)/i.test(key)));
+function cleanEnv(stateDir) {
+  return {
+    ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(ELECTRON_|VSCODE_)/i.test(key))),
+    // The fixtures live inside this extension's own checkout. Without a ceiling, git in a
+    // non-repo fixture folder walks up into it, and discovery treats the folder as that repo.
+    GIT_CEILING_DIRECTORIES: stateDir,
+  };
 }
 
 /**
@@ -56,7 +61,7 @@ export async function launchVSCode({ repoRoot, workspace, stateDir, settings = {
 
   const app = await electron.launch({
     executablePath,
-    env: cleanEnv(),
+    env: cleanEnv(stateDir),
     args: [
       workspace,
       `--extensionDevelopmentPath=${repoRoot}`,

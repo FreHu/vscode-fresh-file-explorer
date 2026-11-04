@@ -102,6 +102,11 @@ export async function annotate(page, annotations) {
   }, { items: resolved, style: STYLE });
 }
 
+/** Removes the annotations, before the next frame of an animated scene. */
+export async function clearAnnotations(page) {
+  await page.evaluate(() => document.getElementById("demo-annotations")?.remove());
+}
+
 async function resolveTarget(page, target) {
   if (target.locator) {
     const box = await target.locator.boundingBox();

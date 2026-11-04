@@ -10,6 +10,33 @@ export async function runCommand(page, label) {
   await page.locator(".quick-input-list .monaco-list-row", { has: page.getByText(label, { exact: true }) }).first().click();
 }
 
+/**
+ * Settings for a terminal that shows only `$ ` as its prompt: no user name, host or
+ * local path in a published image. Git Bash, so the same commands work everywhere.
+ */
+export const PLAIN_TERMINAL_SETTINGS = {
+  "terminal.integrated.profiles.windows": {
+    demo: { path: "C:\\Program Files\\Git\\bin\\bash.exe", args: ["--noprofile", "--norc"], env: { PS1: "$ " } },
+  },
+  "terminal.integrated.defaultProfile.windows": "demo",
+  "terminal.integrated.fontSize": 13,
+  "terminal.integrated.shellIntegration.enabled": false,
+  "terminal.integrated.enablePersistentSessions": false,
+};
+
+/** Types a command into the integrated terminal (opening it if needed) and runs it. */
+export async function runInTerminal(page, command) {
+  const terminal = page.locator(".terminal-wrapper.active .xterm");
+  if (!(await terminal.isVisible())) {
+    await runCommand(page, "Terminal: Create New Terminal");
+    await terminal.waitFor();
+    await page.waitForTimeout(1000); // shell start-up
+  }
+  await terminal.click();
+  await page.keyboard.type(command);
+  await page.keyboard.press("Enter");
+}
+
 /** Clicks the row of the open quick pick whose label is exactly `label` (descriptions can mention other labels). */
 export async function pickQuickInput(page, label) {
   await page.locator(".quick-input-widget .monaco-list-row", { has: page.getByText(label, { exact: true }) }).first().click();
