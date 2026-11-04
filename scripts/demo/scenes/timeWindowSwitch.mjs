@@ -38,6 +38,7 @@ export default {
       await shot(1200);
       await pickQuickInput(page, label);
       await waitForFreshFile(page, newFile);
+      await page.keyboard.press("Control+1"); // focus leaves the view: no outline on its header
       await parkMouse(page);
       await shot(label === "3 months" ? 3000 : 2000);
     }

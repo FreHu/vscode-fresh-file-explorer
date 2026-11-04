@@ -27,8 +27,12 @@ const HISTORY = [
     "src/server.ts": "export function start() {}\n",
     "src/cart/cart.ts": "export class Cart {}\n",
     "src/catalog/products.ts": "export const products = [];\n",
-    "docs/architecture.md": "# Architecture\n",
+    "docs/architecture.md": [
+      "# Architecture", "", "## Storefront", "", "### Catalog", "", "### Cart", "",
+      "## Checkout", "", "### Payments", "", "### Retries", "", "## Operations", "",
+    ].join("\n"),
     "src/checkout/payment.ts": PAYMENT_V1,
+    "src/checkout/legacyCheckout.ts": "export function legacyCheckout() {}\n",
   } },
   { daysAgo: 40, author: "bo", message: "Add checkout flow", files: {
     "src/checkout/checkout.ts": "export function checkout() {}\n",
@@ -51,6 +55,10 @@ const HISTORY = [
   { daysAgo: 5, author: "bo", message: "Retry failed payments", files: {
     "src/checkout/payment.ts": PAYMENT_V4,
     "src/checkout/retry.ts": "export function retry() {}\n",
+  } },
+  // A deleted file: the tree keeps it where it was, ready to restore.
+  { daysAgo: 3, author: "bo", message: "Remove legacy checkout", files: {
+    "src/checkout/legacyCheckout.ts": null,
   } },
   { daysAgo: 2, author: "carmen", message: "Document the search API", files: {
     "docs/search.md": "# Search\n",
@@ -101,12 +109,7 @@ export function buildFixtureRepo(target, now = Date.now()) {
   for (const step of HISTORY) {
     writeFiles(target, step.files);
     git(target, ["add", "-A"]);
-    const { name, email } = AUTHORS[step.author];
-    const date = new Date(now - step.daysAgo * DAY_MS).toISOString();
-    git(target, ["commit", "-q", "-m", step.message], {
-      GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_AUTHOR_DATE: date,
-      GIT_COMMITTER_NAME: name, GIT_COMMITTER_EMAIL: email, GIT_COMMITTER_DATE: date,
-    });
+    commitAs(target, step, now);
     if (step.tag) { git(target, ["tag", step.tag]); }
   }
 
@@ -116,6 +119,55 @@ export function buildFixtureRepo(target, now = Date.now()) {
   writeFiles(target, PENDING.untracked);
   return target;
 }
+
+/**
+ * Commits as a fixture author at a time relative to `now`. `paths` limits the commit
+ * to those files, leaving anything else staged as it was.
+ */
+function commitAs(repo, { author, daysAgo, message }, now, paths = []) {
+  const { name, email } = AUTHORS[author];
+  const date = new Date(now - daysAgo * DAY_MS).toISOString();
+  git(repo, ["commit", "-q", "-m", message, ...(paths.length ? ["--", ...paths] : [])], {
+    GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_AUTHOR_DATE: date,
+    GIT_COMMITTER_NAME: name, GIT_COMMITTER_EMAIL: email, GIT_COMMITTER_DATE: date,
+  });
+}
+
+/**
+ * Gives `repo` an `origin` (a bare repo at `remoteDir`) that has moved on: the remote
+ * gains `REMOTE_ONLY` commits, the local repo one unpushed commit. Drives the
+ * "behind origin" / "unpushed" warnings at the top of the tree.
+ */
+export function addDivergedRemote(repo, remoteDir, now = Date.now()) {
+  rmSync(remoteDir, { recursive: true, force: true });
+  git(repo, ["clone", "-q", "--bare", ".", remoteDir]);
+  git(repo, ["remote", "add", "origin", remoteDir]);
+  git(repo, ["fetch", "-q", "origin"]);
+  git(repo, ["branch", "-q", "--set-upstream-to=origin/main", "main"]);
+
+  const other = `${remoteDir}-clone`;
+  rmSync(other, { recursive: true, force: true });
+  git(repo, ["clone", "-q", remoteDir, other]);
+  git(other, ["config", "core.autocrlf", "false"]);
+  for (const [i, step] of REMOTE_ONLY.entries()) {
+    writeFiles(other, { [`docs/release-notes-${i + 1}.md`]: `# ${step.message}\n` });
+    git(other, ["add", "-A"]);
+    commitAs(other, step, now);
+  }
+  git(other, ["push", "-q", "origin", "main"]);
+  rmSync(other, { recursive: true, force: true });
+  git(repo, ["fetch", "-q", "origin"]);
+
+  writeFiles(repo, { "src/cart/coupons.ts": "export function validateCoupon() {}\n" });
+  git(repo, ["add", "src/cart/coupons.ts"]);
+  commitAs(repo, { author: "ada", daysAgo: 0.05, message: "Coupon validation" }, now, ["src/cart/coupons.ts"]);
+}
+
+const REMOTE_ONLY = [
+  { author: "bo", daysAgo: 0.3, message: "Release notes for 1.1" },
+  { author: "carmen", daysAgo: 0.2, message: "Search tuning notes" },
+  { author: "bo", daysAgo: 0.1, message: "Payment FAQ" },
+];
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");

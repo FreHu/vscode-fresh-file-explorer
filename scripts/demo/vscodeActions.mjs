@@ -97,8 +97,24 @@ export async function showOnlyFreshFiles(page, loadedLabel) {
 
 /** Opens the time-window picker from the Fresh Files title bar. */
 export async function openTimeWindowPicker(page) {
+  // View title buttons show only while the view is focused or hovered.
+  await page.locator(".pane-header", { has: page.locator(".title", { hasText: /^Fresh Files$/i }) }).hover();
   await page.locator('[id="workbench.view.explorer"] .action-label[aria-label^="Set Time Window"]').click();
   await page.locator(".quick-input-widget .monaco-list-row").first().waitFor();
+}
+
+/** Switches Fresh Files to a time window by its picker label, e.g. "3 months". */
+export async function selectTimeWindow(page, label) {
+  await openTimeWindowPicker(page);
+  await pickQuickInput(page, label);
+}
+
+/** Crop of a sidebar section from its header down to its last rendered row. */
+export async function paneClip(page, title, padding = 6) {
+  const p = pane(page, title);
+  const header = await p.locator(".pane-header").boundingBox();
+  const bottoms = await p.locator(".monaco-list-row").evaluateAll(els => els.map(e => e.getBoundingClientRect().bottom));
+  return { x: header.x, y: header.y, width: header.width, height: Math.max(...bottoms) + padding - header.y };
 }
 
 /** Waits until the Fresh Files tree shows a row with this label, i.e. history has loaded. */

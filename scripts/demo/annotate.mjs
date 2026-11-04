@@ -14,14 +14,15 @@ const STYLE = {
  *   { editorLine: 17 }             end of that line's text
  *   { editorLines: [21, 25] }      a bracket after the longest of those lines
  *   { editorGutter: 32 }           the glyph margin of that line (badges live there)
- *   { locator }                    any Playwright locator; points at its top centre
+ *   { locator }                    any Playwright locator; points at its right edge
+ *   { locators: [a, b] }           the rectangle around several elements (use with `box: true`)
  */
 
 /**
  * @param {import("playwright-core").Page} page
  * @param {Array<{ target: object, text?: string, marker?: number, labelX?: number, above?: number }>} annotations
- *   `text` draws a callout label at `labelX` (same height as the target) or `above` px over it.
- *   `marker` draws a numbered circle on the target instead.
+ *   `text` draws a callout label at `labelX` (same height as the target), or `above` / `below` px from it.
+ *   `marker` draws a numbered circle on the target instead; `box: true` outlines it (label to its right).
  */
 export async function annotate(page, annotations) {
   const resolved = [];
@@ -61,13 +62,24 @@ export async function annotate(page, annotations) {
         position: "absolute", left: `${x}px`, top: `${y}px`, font: style.font, color: style.ink,
         background: style.accent, padding: "3px 9px", borderRadius: "6px", whiteSpace: "nowrap",
         boxShadow: "0 2px 8px rgba(0,0,0,.45)",
-        transform: anchor === "above" ? "translate(-50%, -100%)" : "translate(0, -50%)",
+        transform: anchor === "above" ? "translate(-50%, -100%)" : anchor === "below" ? "translate(-50%, 0)" : "translate(0, -50%)",
       });
       root.append(el);
     };
 
     for (const item of items) {
       const r = item.rect;
+      if (item.box) {
+        const b = r.box ?? r;
+        const el = document.createElement("div");
+        Object.assign(el.style, {
+          position: "absolute", left: `${b.x - 4}px`, top: `${b.y - 3}px`, width: `${b.width + 8}px`, height: `${b.height + 6}px`,
+          border: `2px solid ${style.accent}`, borderRadius: "6px", boxSizing: "border-box",
+        });
+        root.append(el);
+        if (item.text) { label(item.text, b.x + b.width + 16, b.y + b.height / 2, "right"); }
+        continue;
+      }
       if (item.marker !== undefined) {
         const el = document.createElement("div");
         el.textContent = String(item.marker);
@@ -92,6 +104,12 @@ export async function annotate(page, annotations) {
         dot(cx, r.y, 3.5);
         line(cx, r.y, cx, r.y - item.above);
         label(item.text, cx, r.y - item.above, "above");
+      } else if (item.below !== undefined) {
+        const cx = r.box ? r.box.x + r.box.width / 2 : r.x;
+        const bottom = r.box ? r.box.y + r.box.height : r.y + r.height;
+        dot(cx, bottom, 3.5);
+        line(cx, bottom, cx, bottom + item.below);
+        label(item.text, cx, bottom + item.below, "below");
       } else {
         dot(tx, ty, 3.5);
         line(tx, ty, item.labelX, ty);
@@ -108,6 +126,23 @@ export async function clearAnnotations(page) {
 }
 
 async function resolveTarget(page, target) {
+  if (target.locators) {
+    // The rectangle around several elements, e.g. a group of menu entries.
+    const boxes = [];
+    for (const l of target.locators) {
+      const b = await l.boundingBox();
+      if (!b) { throw new Error("annotation target not visible"); }
+      boxes.push(b);
+    }
+    const x = Math.min(...boxes.map(b => b.x));
+    const y = Math.min(...boxes.map(b => b.y));
+    const box = {
+      x, y,
+      width: Math.max(...boxes.map(b => b.x + b.width)) - x,
+      height: Math.max(...boxes.map(b => b.y + b.height)) - y,
+    };
+    return { ...box, x: box.x + box.width + 4, width: 0, box };
+  }
   if (target.locator) {
     const box = await target.locator.boundingBox();
     if (!box) { throw new Error("annotation target not visible"); }
