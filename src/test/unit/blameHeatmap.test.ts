@@ -160,11 +160,11 @@ suite("blameHeatmapController", () => {
       assert.deepStrictEqual(deletions[0].lines, ["only line"]);
     });
 
-    test("classifies mixed hunks as modifications, not deletions", () => {
-      // 3 lines removed, 1 line added at new-file line 8 — modification.
+    test("a mixed hunk is a modification; its surplus removed lines are a deletion folded into it", () => {
+      // 3 lines removed, 1 line added at new-file line 8: line 8 is modified, 2 lines are gone (badge on line 9).
       const diff = "@@ -10,3 +8,1 @@\n-old1\n-old2\n-old3\n+new\n";
       const { deletions, addedLines, modifiedLines } = parseBranchHunks(diff);
-      assert.strictEqual(deletions.length, 0);
+      assert.deepStrictEqual(deletions, [{ afterNewLine1: 9, count: 2, lines: ["old1", "old2", "old3"], foldedIntoEdit: true }]);
       assert.strictEqual(addedLines.size, 0);
       assert.deepStrictEqual([...modifiedLines], [8]);
     });
@@ -199,8 +199,11 @@ suite("blameHeatmapController", () => {
         "+replacement",
       ].join("\n");
       const { deletions, addedLines, modifiedLines } = parseBranchHunks(diff);
-      assert.strictEqual(deletions.length, 1);
-      assert.deepStrictEqual(deletions[0], { afterNewLine1: 2, count: 1, lines: ["removed early"] });
+      // The 2-for-1 modification also removed a line: it gets a badge, folded into the edit.
+      assert.deepStrictEqual(deletions, [
+        { afterNewLine1: 2, count: 1, lines: ["removed early"], foldedIntoEdit: false },
+        { afterNewLine1: 21, count: 1, lines: ["old1", "old2"], foldedIntoEdit: true },
+      ]);
       assert.deepStrictEqual([...addedLines].sort((a, b) => a - b), [9, 10]);
       assert.deepStrictEqual([...modifiedLines], [20]);
     });
@@ -217,7 +220,33 @@ suite("blameHeatmapController", () => {
       ].join("\n");
       const { deletions } = parseBranchHunks(diff);
       assert.strictEqual(deletions.length, 1);
-      assert.deepStrictEqual(deletions[0], { afterNewLine1: 6, count: 2, lines: ["line1", "line2"] });
+      assert.deepStrictEqual(deletions[0], { afterNewLine1: 6, count: 2, lines: ["line1", "line2"], foldedIntoEdit: false });
+    });
+
+    // git output for: edit formatReference's body, delete the function after it.
+    // The two `}` line up, so the deletion arrives inside the edit's hunk.
+    test("a function deleted next to an edited line still gets a badge", () => {
+      const diff = [
+        "@@ -2,5 +2 @@ export function formatReference(reference: string): string {",
+        "-  return reference.toUpperCase();",
+        "-}",
+        "-",
+        "-export function isRefundable(result: PaymentResult): boolean {",
+        "-  return result.ok && result.reference !== undefined;",
+        "+  return `PAY-${reference.slice(0, 8).toUpperCase()}`;",
+      ].join("\n");
+      const { deletions, modifiedLines } = parseBranchHunks(diff);
+      assert.deepStrictEqual([...modifiedLines], [2]);
+      assert.strictEqual(deletions.length, 1);
+      assert.strictEqual(deletions[0].afterNewLine1, 3, "on the line after the edit, which carries no heatmap mark");
+      assert.strictEqual(deletions[0].count, 4, "5 removed, 1 added: 4 lines are gone");
+      assert.strictEqual(deletions[0].lines.length, 5, "the whole removed block, to copy");
+      assert.strictEqual(deletions[0].foldedIntoEdit, true);
+    });
+
+    test("an edit that adds as many lines as it removes gets no badge", () => {
+      const { deletions } = parseBranchHunks(["@@ -3,2 +3,2 @@", "-a", "-b", "+c", "+d"].join("\n"));
+      assert.deepStrictEqual(deletions, []);
     });
   });
 });

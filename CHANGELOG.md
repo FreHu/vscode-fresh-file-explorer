@@ -14,6 +14,7 @@
 - Behind / unpushed warnings appear for a repo that VS Code's git opens after the extension started, instead of only after the next change.
 - A deleted file opened from the tree shows its own name in the tab, without a hash prefix.
 - Deleted files: Reveal in Explorer View / File Explorer shows the folder they were in, with a note saying so (it did nothing before). Copy Remote URL and Reveal in Source Control are no longer offered for them.
+- Baseline heatmap: lines deleted right next to an edited line get a badge too (git reports them inside the edit). Its menu offers Copy only: restoring would duplicate the edit.
 - The blame heatmap's baseline picker and its messages say "baseline" and mention tags, not "branch changes".
 - Counts read "1 file" / "3 files" everywhere instead of "file(s)" (tooltips, sync warnings, filter summary, notifications).
 

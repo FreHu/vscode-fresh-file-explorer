@@ -9,6 +9,8 @@ export interface DeletionDecoration {
   options: vscode.DecorationOptions;
   /** The deleted line content, retained so gutter-menu actions can copy/restore without re-fetching. */
   lines: string[];
+  /** False for a deletion folded into an edit: its lines can be copied, not re-inserted. */
+  restorable: boolean;
 }
 
 /** Wrap the deletion-badge SVG in a `data:image/svg+xml` gutter icon URI. */
@@ -37,10 +39,10 @@ export class DeletionMarkers implements vscode.Disposable {
    * decoration's zero-width range never triggers one anyway.
    */
   static build(
-    deletions: { afterNewLine1: number; count: number; lines: string[] }[],
+    deletions: { afterNewLine1: number; count: number; lines: string[]; foldedIntoEdit: boolean }[],
     lineCount: number,
   ): DeletionDecoration[] {
-    return deletions.map(({ afterNewLine1, count, lines }) => {
+    return deletions.map(({ afterNewLine1, count, lines, foldedIntoEdit }) => {
       const lineIndex = clampDeletionLineIndex(afterNewLine1, lineCount);
       return {
         type: vscode.window.createTextEditorDecorationType({
@@ -49,6 +51,7 @@ export class DeletionMarkers implements vscode.Disposable {
         }),
         options: { range: new vscode.Range(lineIndex, 0, lineIndex, 0) },
         lines,
+        restorable: !foldedIntoEdit,
       };
     });
   }
@@ -113,6 +116,11 @@ export class DeletionMarkers implements vscode.Disposable {
   /** 1-based line numbers of the file's markers (drives the gutter-menu context key). */
   linesFor(fsPath: string): number[] {
     return (this.byFile.get(fsPath) ?? []).map(d => d.options.range.start.line + 1);
+  }
+
+  /** The subset of {@link linesFor} whose deletion can be restored (drives the Restore entry). */
+  restorableLinesFor(fsPath: string): number[] {
+    return (this.byFile.get(fsPath) ?? []).filter(d => d.restorable).map(d => d.options.range.start.line + 1);
   }
 
   dispose(): void {

@@ -765,7 +765,7 @@
         },
         {
           "command": "freshFileExplorer.restoreDeletedLinesAt",
-          "when": "editorLineNumber in freshFileExplorer.blameHeatmap.deletionLines",
+          "when": "editorLineNumber in freshFileExplorer.blameHeatmap.restorableDeletionLines",
           "group": "z_freshfiles@2"
         }
       ],

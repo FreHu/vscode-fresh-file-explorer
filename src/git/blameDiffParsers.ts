@@ -121,6 +121,15 @@ export interface DeletedHunk {
   count: number;
   /** The actual content of the deleted lines (without the leading "-" prefix). */
   lines: string[];
+  /**
+   * The deletion came inside an edit: git reported it in one hunk with changed lines
+   * (e.g. a function deleted right after an edited line, the two `}` aligned by git).
+   * `count` is the surplus of removed over added lines; `lines` is the hunk's whole
+   * removed block, since git can't say which of its lines are "the deleted ones". Such
+   * a deletion can be copied but not restored: inserting the block would duplicate
+   * the edited lines.
+   */
+  foldedIntoEdit: boolean;
 }
 
 export interface BranchDiffHunks {
@@ -163,7 +172,7 @@ export function parseBranchHunks(diffOutput: string): BranchDiffHunks {
 
       if (oldCount > 0 && newCount === 0) {
         // Pure deletion
-        currentDeletion = { afterNewLine1: newStart, count: oldCount, lines: [] };
+        currentDeletion = { afterNewLine1: newStart, count: oldCount, lines: [], foldedIntoEdit: false };
         deletions.push(currentDeletion);
       } else if (oldCount === 0 && newCount > 0) {
         // Pure addition — record the new-file line range.
@@ -171,6 +180,12 @@ export function parseBranchHunks(diffOutput: string): BranchDiffHunks {
       } else if (oldCount > 0 && newCount > 0) {
         // Mixed (replacement) — the `+` lines occupy [newStart, newStart+newCount-1].
         for (let i = 0; i < newCount; i++) { modifiedLines.add(newStart + i); }
+        // More removed than added: lines were deleted inside the edit. Badge them on the line
+        // after it: the edit's own lines carry the heatmap's gutter mark, and a line shows one.
+        if (oldCount > newCount) {
+          currentDeletion = { afterNewLine1: newStart + newCount, count: oldCount - newCount, lines: [], foldedIntoEdit: true };
+          deletions.push(currentDeletion);
+        }
       }
       continue;
     }

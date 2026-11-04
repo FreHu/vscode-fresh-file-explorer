@@ -94,4 +94,9 @@ export class ContextManager {
   static setBlameHeatmapDeletionLines(lines: number[]): void {
     vscode.commands.executeCommand("setContext", ContextKeys.BLAME_HEATMAP_DELETION_LINES, lines);
   }
+
+  /** The subset of deletion lines that can be restored (not folded into an edit). */
+  static setBlameHeatmapRestorableDeletionLines(lines: number[]): void {
+    vscode.commands.executeCommand("setContext", ContextKeys.BLAME_HEATMAP_RESTORABLE_DELETION_LINES, lines);
+  }
 }

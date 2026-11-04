@@ -10,13 +10,21 @@ import { DeletionMarkers, DeletionDecoration } from "../heatmap/deletionMarkers"
  */
 suite("deletion markers", () => {
   /** A DeletionDecoration whose type counts disposals instead of touching VS Code. */
-  function fakeMarker(anchorLine0: number, lines: string[], disposed: { count: number }): DeletionDecoration {
+  function fakeMarker(anchorLine0: number, lines: string[], disposed: { count: number }, restorable = true): DeletionDecoration {
     return {
       type: { dispose: () => { disposed.count++; } } as vscode.TextEditorDecorationType,
       options: { range: new vscode.Range(anchorLine0, 0, anchorLine0, 0) },
       lines,
+      restorable,
     };
   }
+
+  test("restorableLinesFor leaves out deletions folded into an edit", () => {
+    const markers = new DeletionMarkers();
+    markers.replaceFor("/f.ts", [fakeMarker(1, ["a"], { count: 0 }), fakeMarker(5, ["b", "c"], { count: 0 }, false)]);
+    assert.deepStrictEqual(markers.linesFor("/f.ts"), [2, 6], "both get a badge, so both can be copied");
+    assert.deepStrictEqual(markers.restorableLinesFor("/f.ts"), [2], "only the plain deletion offers Restore");
+  });
 
   test("replaceFor disposes the previous set's types", () => {
     const markers = new DeletionMarkers();
@@ -103,8 +111,8 @@ suite("deletion markers", () => {
     // Real decoration types — dispose them at the end.
     const built = DeletionMarkers.build(
       [
-        { afterNewLine1: 3, count: 1, lines: ["mid"] },
-        { afterNewLine1: 999, count: 2, lines: ["past", "eof"] }, // beyond the 10-line doc
+        { afterNewLine1: 3, count: 1, lines: ["mid"], foldedIntoEdit: false },
+        { afterNewLine1: 999, count: 2, lines: ["past", "eof"], foldedIntoEdit: true }, // beyond the 10-line doc
       ],
       10,
     );
@@ -113,6 +121,7 @@ suite("deletion markers", () => {
       assert.strictEqual(built[0].options.range.start.line, 2, "afterNewLine1=3 anchors at 0-based line 2");
       assert.ok(built[1].options.range.start.line < 10, "anchor beyond EOF is clamped into the document");
       assert.deepStrictEqual(built[1].lines, ["past", "eof"]);
+      assert.deepStrictEqual(built.map(d => d.restorable), [true, false], "a deletion folded into an edit can't be restored");
     } finally {
       for (const d of built) { d.type.dispose(); }
     }

@@ -872,10 +872,10 @@ export class BlameHeatmapController implements vscode.Disposable {
     // different ref than whatever the diff editor is actually showing.
     // "Restore from baseline" there would silently resurrect lines from the
     // wrong ref. Hide the affordance instead of risking that.
-    const lines = editor && !isEditorInDiff(editor)
-      ? this.deletions.linesFor(editor.document.uri.fsPath)
-      : [];
-    ContextManager.setBlameHeatmapDeletionLines(lines);
+    const plain = editor && !isEditorInDiff(editor);
+    const fsPath = editor?.document.uri.fsPath ?? "";
+    ContextManager.setBlameHeatmapDeletionLines(plain ? this.deletions.linesFor(fsPath) : []);
+    ContextManager.setBlameHeatmapRestorableDeletionLines(plain ? this.deletions.restorableLinesFor(fsPath) : []);
   }
 
   /**
@@ -906,14 +906,18 @@ export class BlameHeatmapController implements vscode.Disposable {
    * and restore it. Invoked by the gutter right-click menu.
    */
   async restoreDeletionAt(uri: vscode.Uri, lineNumber1Based: number): Promise<void> {
-    // Belt-and-suspenders: the context-key gate already hides the menu in
-    // diff editors, but a keybinding or palette invocation could still reach
-    // here. Refuse so the user can't accidentally restore lines from the
-    // heatmap baseline while looking at a diff against a different ref.
+    // Second line of defence: the context keys already hide Restore in diff editors
+    // and on deletions folded into an edit, but a keybinding or palette invocation
+    // could still reach here. Refuse rather than restore lines from the heatmap
+    // baseline into a diff against another ref, or duplicate an edited block.
     const active = vscode.window.activeTextEditor;
     if (active && isEditorInDiff(active)) { return; }
     const deletion = this.findDeletionAt(uri.fsPath, lineNumber1Based);
     if (!deletion) { return; }
+    if (!deletion.restorable) {
+      showInfo("These lines were deleted inside an edit, so restoring them would duplicate it. Copy them instead.");
+      return;
+    }
     await this.applyRestoreEdit(uri, lineNumber1Based - 1, deletion.lines);
   }
 

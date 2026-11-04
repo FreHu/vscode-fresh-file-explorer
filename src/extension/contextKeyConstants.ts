@@ -38,6 +38,7 @@ export const ContextKeys = {
   BLAME_HEATMAP_HAS_BASE_REF: "freshFileExplorer.blameHeatmap.hasBaseRef",
   /** 1-based editor line numbers that have deletions (for `editorLineNumber in …`). */
   BLAME_HEATMAP_DELETION_LINES: "freshFileExplorer.blameHeatmap.deletionLines",
+  BLAME_HEATMAP_RESTORABLE_DELETION_LINES: "freshFileExplorer.blameHeatmap.restorableDeletionLines",
 } as const;
 
 /** Namespaces that identify a contributed id — context key, submenu, command —
