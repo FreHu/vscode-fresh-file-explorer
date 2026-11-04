@@ -155,6 +155,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 
 - Use this to look at UI changes yourself: write or run a scene, then read the PNG.
 - A scene returning a list of `{ png, holdMs, fadeMs? }` frames becomes a GIF (`encodeGif.mjs`; GIF is the one animated format GitHub, the Marketplace and Open VSX all play). Each frame is also saved under `.scratch/claude/demo/frames/<scene>/`: reading a GIF shows only its first frame.
+- `node scripts/demo/shrinkGif.mjs <in> <out> --width 900 --every 3` shrinks a GIF no scene can regenerate (e.g. `codeStonks.gif`, recorded on a real repo).
 - Annotations (`annotate.mjs`) are positioned from live elements (editor lines, gutter, locators), so they follow UI changes on rerun.
 - The fixture sets its own git identity: pending changes show the current `user.name`, which must never be the real user's in a published image.
 - The launcher strips `ELECTRON_*`/`VSCODE_*` from the environment. Inherited from a VS Code terminal, `ELECTRON_RUN_AS_NODE` makes Code.exe start as plain Node.

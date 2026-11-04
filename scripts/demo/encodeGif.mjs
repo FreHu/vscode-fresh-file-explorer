@@ -18,7 +18,14 @@ export async function encodeGif(page, frames) {
   if (decoded.some(f => f.width !== width || f.height !== height)) {
     throw new Error("all frames must have the same size");
   }
+  return encodeRgbaGif(decoded, width, height);
+}
 
+/**
+ * The encoder proper, on raw pixels: no page needed.
+ * @param {Array<{ rgba: Uint8Array, holdMs: number, fadeMs?: number }>} decoded
+ */
+export function encodeRgbaGif(decoded, width, height) {
   const gif = GIFEncoder();
   let previous;
   const write = (rgba, delay) => {
