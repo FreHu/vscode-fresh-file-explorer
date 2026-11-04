@@ -10,6 +10,21 @@ export async function runCommand(page, label) {
   await page.locator(".quick-input-list .monaco-list-row", { has: page.getByText(label, { exact: true }) }).first().click();
 }
 
+/** Clicks the row of the open quick pick whose label is exactly `label` (descriptions can mention other labels). */
+export async function pickQuickInput(page, label) {
+  await page.locator(".quick-input-widget .monaco-list-row", { has: page.getByText(label, { exact: true }) }).first().click();
+}
+
+/** Opens a workspace file through Quick Open and waits for its editor. */
+export async function openFile(page, fileName) {
+  await page.keyboard.press("Control+P");
+  const input = page.locator(".quick-input-widget input");
+  await input.waitFor();
+  await input.fill(fileName);
+  await page.locator(".quick-input-list .monaco-list-row", { hasText: fileName }).first().click();
+  await page.locator(".tab.active", { hasText: fileName }).waitFor();
+}
+
 /** Expands or collapses a sidebar section (pane) by its header title, e.g. "Fresh Files". */
 export async function setPaneExpanded(page, title, expanded) {
   const header = page.locator(".pane-header", { has: page.locator(".title", { hasText: new RegExp(`^${escapeRegExp(title)}$`, "i") }) }).first();
