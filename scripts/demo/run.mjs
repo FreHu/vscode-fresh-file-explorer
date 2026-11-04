@@ -3,10 +3,11 @@
 // Scenes live in scenes/<name>.mjs. Default output: .scratch/claude/demo/shots,
 // pass --out docs/img to replace the README images.
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { encodeGif, verifyGif } from "./encodeGif.mjs";
+import { failureReport } from "./failureReport.mjs";
 import { buildFixtureRepo } from "./fixtureRepo.mjs";
 import { launchVSCode } from "./launchVSCode.mjs";
 
@@ -70,21 +71,8 @@ for (const name of sceneNames) {
   } catch (err) {
     failed++;
     status = "FAILED";
-    const file = join(stateDir, `${name}.failure.png`);
-    await page.screenshot({ path: file }).catch(() => {});
-    console.error(`${name} failed: ${err instanceof Error ? err.message : String(err)}\n  window at failure: ${file}`);
-    // What the scene itself can tell (e.g. terminal text), then the extension's own log.
-    if (scene.diagnose) {
-      const text = await scene.diagnose(page).catch(e => `diagnose failed: ${e}`);
-      console.error(`  scene diagnostics:\n${indent(text)}`);
-    }
-    const extLog = findExtensionLog(join(stateDir, "user-data", "logs"));
-    if (extLog) {
-      const target = join(stateDir, `${name}.failure.log`);
-      copyFileSync(extLog, target);
-      const tail = readFileSync(extLog, "utf8").trimEnd().split("\n").slice(-20).join("\n");
-      console.error(`  extension log (last 20 lines; full copy: ${target}):\n${indent(tail)}`);
-    }
+    console.error(`${name} failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(await failureReport({ page, stateDir, name, diagnose: scene.diagnose }));
   } finally {
     await app.close();
     lap("close");
@@ -105,21 +93,3 @@ if (summary.length > 1) {
 }
 process.exit(failed > 0 ? 1 : 0);
 
-function indent(text) {
-  return String(text).split("\n").map(l => `    ${l}`).join("\n");
-}
-
-/** The extension's output-channel log in this run's profile (the profile is fresh per scene). */
-function findExtensionLog(dir) {
-  if (!existsSync(dir)) { return undefined; }
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const p = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      const found = findExtensionLog(p);
-      if (found) { return found; }
-    } else if (entry.name === "Fresh File Explorer.log") {
-      return p;
-    }
-  }
-  return undefined;
-}
