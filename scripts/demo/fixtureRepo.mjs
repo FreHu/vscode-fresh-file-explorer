@@ -184,6 +184,63 @@ export function buildWorktreeWorkspace(root, worktrees = {}, now = Date.now()) {
   return { root, main, worktrees: paths };
 }
 
+/**
+ * The fixture repo with submodules under `vendor/`:
+ * - `vendor/payments-sdk`: its own history (tag `sdk-v1`) and an uncommitted edit, with
+ *   `vendor/currency-data` nested inside it (a submodule of a submodule);
+ * - `vendor/analytics`: declared in .gitmodules but not checked out.
+ * The submodules' source repos live in `<root>/sources`, outside the returned repo.
+ */
+export function buildSubmoduleWorkspace(root, now = Date.now()) {
+  rmSync(root, { recursive: true, force: true });
+  const sources = join(root, "sources");
+  // Local-path submodules are blocked by default (git 2.38+); allowed for these commands only.
+  // core.autocrlf off for the clones too: set after checkout, CRLF working files would read as modified.
+  const sub = (cwd, args) => git(cwd, ["-c", "protocol.file.allow=always", "-c", "core.autocrlf=false", ...args]);
+  const newRepo = (name, steps) => {
+    const dir = join(sources, name);
+    mkdirSync(dir, { recursive: true });
+    git(dir, ["init", "-q", "-b", "main"]);
+    git(dir, ["config", "core.autocrlf", "false"]);
+    for (const step of steps) {
+      writeFiles(dir, step.files ?? {});
+      if (step.submodule) { sub(dir, ["submodule", "add", "-q", step.submodule.from, step.submodule.path]); }
+      git(dir, ["add", "-A"]);
+      commitAs(dir, step, now);
+      if (step.tag) { git(dir, ["tag", step.tag]); }
+    }
+    return dir.replace(/\\/g, "/");
+  };
+
+  const currencyData = newRepo("currency-data", [
+    { daysAgo: 40, author: "carmen", message: "Exchange rates", files: { "rates.json": '{ "EUR": 1, "USD": 1.08 }\n' } },
+  ]);
+  const paymentsSdk = newRepo("payments-sdk", [
+    { daysAgo: 60, author: "bo", message: "SDK client", files: { "sdk/client.ts": "export function charge() {}\n" } },
+    { daysAgo: 30, author: "bo", message: "Release sdk-v1", tag: "sdk-v1", files: { "sdk/version.ts": 'export const VERSION = "1";\n' } },
+    { daysAgo: 6, author: "carmen", message: "Refunds", files: { "sdk/client.ts": "export function charge() {}\nexport function refund() {}\n" } },
+    { daysAgo: 5, author: "carmen", message: "Vendor currency data", submodule: { from: currencyData, path: "vendor/currency-data" } },
+  ]);
+  const analytics = newRepo("analytics", [
+    { daysAgo: 50, author: "ada", message: "Analytics", files: { "track.ts": "export function track() {}\n" } },
+  ]);
+
+  const main = buildFixtureRepo(join(root, "orbit-shop"), now);
+  sub(main, ["submodule", "add", "-q", paymentsSdk, "vendor/payments-sdk"]);
+  sub(main, ["submodule", "add", "-q", analytics, "vendor/analytics"]);
+  sub(main, ["submodule", "update", "-q", "--init", "--recursive"]);
+  commitAs(main, { author: "ada", daysAgo: 1, message: "Vendor the payments SDK and analytics" }, now,
+    [".gitmodules", "vendor/payments-sdk", "vendor/analytics"]);
+  git(main, ["submodule", "deinit", "-q", "-f", "vendor/analytics"]);
+
+  const sdk = join(main, "vendor", "payments-sdk");
+  git(sdk, ["config", "core.autocrlf", "false"]);
+  git(sdk, ["config", "user.name", AUTHORS.ada.name]);
+  git(sdk, ["config", "user.email", AUTHORS.ada.email]);
+  writeFiles(sdk, { "sdk/client.ts": "export function charge() {}\nexport function refund() {}\nexport function capture() {}\n" });
+  return { main, sdk, nested: join(sdk, "vendor", "currency-data") };
+}
+
 const REMOTE_ONLY = [
   { author: "bo", daysAgo: 0.3, message: "Release notes for 1.1" },
   { author: "carmen", daysAgo: 0.2, message: "Search tuning notes" },

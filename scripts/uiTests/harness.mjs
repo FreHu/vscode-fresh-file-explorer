@@ -47,17 +47,21 @@ export function git(cwd, ...args) {
  */
 export async function treeRows(page, paneTitle) {
   const pane = page.locator(".pane", { has: page.locator(".pane-header .title", { hasText: new RegExp(`^${paneTitle}$`, "i") }) }).first();
-  return pane.locator(".monaco-list-row").evaluateAll(rows => rows.map(r => {
-    const iconEl = r.querySelector(".custom-view-tree-node-item-icon");
-    const icon = [...(iconEl?.classList ?? [])].find(c => c.startsWith("codicon-"))?.slice("codicon-".length);
-    return {
-      level: Number(r.getAttribute("aria-level")),
-      label: r.querySelector(".label-name")?.textContent ?? "",
-      description: r.querySelector(".label-description")?.textContent ?? "",
-      icon,
-      expanded: r.getAttribute("aria-expanded"),
-    };
-  }));
+  // Sorted by data-index: the list reuses row elements, so DOM order isn't display order.
+  return pane.locator(".monaco-list-row").evaluateAll(rows => rows
+    .map(r => {
+      const iconEl = r.querySelector(".custom-view-tree-node-item-icon");
+      const icon = [...(iconEl?.classList ?? [])].find(c => c.startsWith("codicon-"))?.slice("codicon-".length);
+      return {
+        index: Number(r.getAttribute("data-index")),
+        level: Number(r.getAttribute("aria-level")),
+        label: r.querySelector(".label-name")?.textContent ?? "",
+        description: r.querySelector(".label-description")?.textContent ?? "",
+        icon,
+        expanded: r.getAttribute("aria-expanded"),
+      };
+    })
+    .sort((a, b) => a.index - b.index));
 }
 
 /** Top-level rows with the labels of the rows nested under each: { "orbit-shop": ["search.ts", …] }. */
