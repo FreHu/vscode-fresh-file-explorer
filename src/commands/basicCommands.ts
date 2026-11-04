@@ -1,10 +1,11 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
 import * as path from "path";
 
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { BranchCompareProvider } from "../branch-compare/branchCompareProvider";
-import { log, showOutputChannel } from "../extension/logger";
+import { log, showInfo, showOutputChannel } from "../extension/logger";
 import { expandItemRecursively } from "../utils/treeUtils";
 import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../fresh-files/groupingMode";
@@ -14,6 +15,7 @@ import { refreshPendingForFiles, resolveCommandSelection, runQuickPickPromise } 
 import { execGitWithArgs } from "../git/gitOperations";
 import { ConfigService } from "../config/configService";
 import { normalizePath } from "../utils";
+import { nearestExistingPath } from "../utils/nearestExistingPath";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
@@ -164,22 +166,35 @@ export async function handleExpandSubtree(
   }
 }
 
-export function handleRevealInExplorer(item: FreshFileItem, selectedItems?: FreshFileItem[]): void {
+export async function handleRevealInExplorer(item: FreshFileItem, selectedItems?: FreshFileItem[]): Promise<void> {
   const target = item || selectedItems?.[0];
   if (target && target.resourceUri) {
-    log(`Revealing in explorer: ${target.resourceUri.fsPath}`);
-    vscode.commands.executeCommand("revealInExplorer", target.resourceUri);
+    const uri = await revealableUri(target.resourceUri);
+    log(`Revealing in explorer: ${uri.fsPath}`);
+    await vscode.commands.executeCommand("revealInExplorer", uri);
   }
+}
+
+/** A deleted file's URI becomes its nearest existing folder: revealing a missing path does nothing. */
+async function revealableUri(uri: vscode.Uri): Promise<vscode.Uri> {
+  const exists = (p: string) => fs.promises.access(p).then(() => true, () => false);
+  const nearest = await nearestExistingPath(uri.fsPath, exists);
+  if (!nearest || nearest === uri.fsPath) { return uri; }
+  const name = path.basename(uri.fsPath);
+  showInfo(nearest === path.dirname(uri.fsPath)
+    ? `${name} no longer exists, so the folder it was in is shown.`
+    : `${name} and its folder no longer exist, so the nearest folder that does is shown.`);
+  return vscode.Uri.file(nearest);
 }
 
 // Only needs a resourceUri, so it stays type-agnostic about the tree item —
 // works across fresh files, pinned items, and branch compare (whose items are
 // not FreshFileItem but do expose resourceUri).
-export function handleRevealFileInOS(
+export async function handleRevealFileInOS(
   item: vscode.TreeItem | undefined,
   selectedItems?: vscode.TreeItem[],
   treeViews?: ReadonlyArray<Pick<vscode.TreeView<vscode.TreeItem>, "selection">>,
-): void {
+): Promise<void> {
   // Keybinding path: item and selectedItems are undefined — fall back to the
   // focused tree view's current selection.
   let target = item || selectedItems?.[0];
@@ -193,8 +208,9 @@ export function handleRevealFileInOS(
     }
   }
   if (target?.resourceUri) {
-    log(`Revealing in OS file explorer: ${target.resourceUri.fsPath}`);
-    vscode.commands.executeCommand("revealFileInOS", target.resourceUri);
+    const uri = await revealableUri(target.resourceUri);
+    log(`Revealing in OS file explorer: ${uri.fsPath}`);
+    await vscode.commands.executeCommand("revealFileInOS", uri);
   }
 }
 

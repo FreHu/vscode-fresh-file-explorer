@@ -1205,7 +1205,7 @@
         },
         {
           "command": "freshFileExplorer.copyRemoteUrl",
-          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder)$/",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|folder)$/",
           "group": "5_copypath@5"
         },
         {
@@ -1385,7 +1385,7 @@
         },
         {
           "command": "freshFileExplorer.revealInSourceControl",
-          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.file",
           "group": "3_reveal@2"
         },
         {
@@ -1415,7 +1415,7 @@
         },
         {
           "command": "freshFileExplorer.copyRemoteUrl",
-          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder|deletedFile)$/",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder)$/",
           "group": "5_copypath@4"
         },
         {
