@@ -10,6 +10,7 @@
 - With no folder open, the status bar shows "no repos" instead of "Discovering repos…" forever.
 - Expanding Fresh Files a few seconds after startup no longer leaves the repo node collapsed.
 - Branch Compare: an empty comparison says "No commits beyond main yet" for a fresh branch, or how far the target is ahead. It suggests swapping the sides only when that would show something.
+- The Branch Comparisons panel's toolbar wraps on a narrow panel instead of squeezing its labels.
 
 ## [1.16.0]
 

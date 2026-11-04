@@ -223,12 +223,16 @@ export function getBranchCompareSettingsHtml(
     .add-row .auto-follow-row { margin: 12px 0 0 0; }
     .col-repo .keep-btn { margin-left: 4px; vertical-align: middle; opacity: 0.8; }
     .col-repo .keep-btn:hover { opacity: 1; }
+    /* Wraps whole items on a narrow panel: squeezed, each label broke into a column of words. */
     .table-toolbar {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
+      gap: 6px 12px;
       margin-bottom: 8px;
     }
+    .table-toolbar .toolbar-field { display: inline-flex; align-items: center; gap: 6px; }
+    .table-toolbar .link-btn, .table-toolbar label { white-space: nowrap; }
     .table-toolbar .spacer { flex: 1; }
     .link-btn {
       display: inline-flex;
@@ -248,11 +252,11 @@ export function getBranchCompareSettingsHtml(
       background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
     }
     .table-toolbar .field-row { margin: 0; }
-    .table-toolbar > label {
+    .table-toolbar label {
       color: var(--vscode-descriptionForeground);
       font-size: 0.85em;
     }
-    .table-toolbar select { width: auto; min-width: 150px; }
+    .table-toolbar select { width: auto; min-width: 110px; }
     .dup-warning {
       display: none;
       align-items: center;
@@ -376,13 +380,17 @@ export function getBranchCompareSettingsHtml(
       <i class="codicon codicon-list-tree"></i> Show Branch Compare tree
     </button>
     <span class="spacer"></span>
-    <label for="fileIcons">File icons:</label>
-    <select id="fileIcons" title="Icons on Branch Compare file rows (all comparisons)">
-      <option value="fileType">File type</option>
-      <option value="changeType">Change type</option>
-    </select>
-    <label for="batchGrouping">Set grouping for all comparisons:</label>
-    <select id="batchGrouping" title="Apply a grouping mode to every comparison at once"></select>
+    <span class="toolbar-field">
+      <label for="fileIcons">File icons:</label>
+      <select id="fileIcons" title="Icons on Branch Compare file rows (all comparisons)">
+        <option value="fileType">File type</option>
+        <option value="changeType">Change type</option>
+      </select>
+    </span>
+    <span class="toolbar-field">
+      <label for="batchGrouping">Grouping for all:</label>
+      <select id="batchGrouping" title="Apply a grouping mode to every comparison at once"></select>
+    </span>
     <button class="icon-btn" id="refreshBtn" title="Re-fetch branches (pick up refs created since the panel was opened)">
       <i class="codicon codicon-refresh"></i>
     </button>

@@ -38,7 +38,7 @@ for (const name of sceneNames) {
   const { app, page } = await launchVSCode({ repoRoot, workspace, stateDir, settings: scene.settings, window: scene.window });
   try {
     // A scene returns one PNG, or a list of frames that becomes a GIF.
-    const result = await scene.capture(page);
+    const result = await scene.capture(page, { app });
     const bytes = Array.isArray(result) ? await encodeGif(page, result) : result;
     if (Array.isArray(result)) {
       // The frames as stills, for checking each one: image viewers often show only a GIF's first frame.
