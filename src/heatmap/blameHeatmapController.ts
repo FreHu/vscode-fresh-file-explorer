@@ -424,20 +424,20 @@ export class BlameHeatmapController implements vscode.Disposable {
       branches = await getAvailableBranches(repoRoot);
     } catch (err) {
       showError(
-        "Branch blame heatmap: failed to list branches.",
-        `Branch blame heatmap: failed to list branches — ${err}`,
+        "Blame heatmap: couldn't list branches and tags for the baseline.",
+        `Blame heatmap: couldn't list branches and tags for the baseline — ${err}`,
       );
       return undefined;
     }
 
     if (branches.length === 0) {
-      showInfo("Branch blame heatmap: no branches found.");
+      showInfo("Blame heatmap: no branches or tags to use as a baseline.");
       return undefined;
     }
 
     const picked = await vscode.window.showQuickPick(
       branches.map(b => ({ label: b.name, description: b.relativeDate })),
-      { placeHolder: "Select a branch to compare against", title: "Blame Heatmap: Branch Changes" },
+      { placeHolder: "Branch or tag: lines changed since it get colored", title: "Blame Heatmap: Pick a Baseline" },
     );
     return picked?.label;
   }
@@ -566,8 +566,8 @@ export class BlameHeatmapController implements vscode.Disposable {
         mergeBaseSha = await this.baselineService.getMergeBase(repoResult.repoFullPath, baseRef!);
       } catch (err) {
         showInfo(
-          `Branch blame heatmap: could not find a common ancestor with ${baseRef}.`,
-          `Branch blame heatmap: no common ancestor with ${baseRef} — ${err}`,
+          `Blame heatmap: this branch shares no history with the baseline ${baseRef}, so there is nothing to compare.`,
+          `Blame heatmap: no common ancestor with baseline ${baseRef} — ${err}`,
         );
         this.forgetFile(uri.fsPath);
         return;
@@ -591,7 +591,7 @@ export class BlameHeatmapController implements vscode.Disposable {
       getBucket = branchWindow.getBucket;
 
       log(
-        `Branch blame heatmap: baseRef=${baseRef!}, mergeBase=${mergeBaseSha.slice(0, 7)}, branchCommits=${branchCommitShas.size}, branchLinesInFile=${branchWindow.branchLinesInFile}, window=${windowDays.toFixed(1)}d`,
+        `Blame heatmap (baseline): baseRef=${baseRef!}, mergeBase=${mergeBaseSha.slice(0, 7)}, branchCommits=${branchCommitShas.size}, branchLinesInFile=${branchWindow.branchLinesInFile}, window=${windowDays.toFixed(1)}d`,
       );
 
       // Fetch the branch diff once: deletions (gutter badges) + added-line set
