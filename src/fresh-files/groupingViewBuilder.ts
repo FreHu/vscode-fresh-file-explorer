@@ -490,7 +490,7 @@ export class GroupingViewBuilder {
     const item = FreshFileItem.forDirectory(pendingUri, openChangesMode, count, GroupingViewBuilder.groupsExpandByDefault());
     item.label = "(Pending)"; // matches Branch Compare's pending bucket label
     item.description = plural(count, "file");
-    item.tooltip = `Uncommitted changes\n${count} file(s)`;
+    item.tooltip = `Uncommitted changes\n${plural(count, "file")}`;
     item.iconPath = new vscode.ThemeIcon("edit");
     item.contextValue = TreeItemContextValues.PENDING_GROUP;
     results.push(item);

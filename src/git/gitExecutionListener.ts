@@ -5,6 +5,7 @@ import { log } from "../extension/logger";
 import { normalizePath } from "../utils";
 import { NormalizedRepoPath } from "../pathTypes";
 import { BranchName, asBranchName } from "../types";
+import { plural } from "../utils/plural";
 
 /** Minimal repository interface exposed to consumers outside this module. */
 export interface GitRepository {
@@ -51,10 +52,10 @@ export async function setupGitExtensionListener(
       // Check upstream sync status (only if tracking is set up and enabled)
       if (showCurrentBranchSync && head.upstream) {
         if (head.behind && head.behind > 0) {
-          warnings.push(`${repoName}⬇️ ${head.behind} commit(s) behind ${head.upstream.remote}/${head.upstream.name}`);
+          warnings.push(`${repoName}⬇️ ${plural(head.behind, "commit")} behind ${head.upstream.remote}/${head.upstream.name}`);
         }
         if (head.ahead && head.ahead > 0) {
-          warnings.push(`${repoName}⬆️ ${head.ahead} unpushed commit(s)`);
+          warnings.push(`${repoName}⬆️ ${plural(head.ahead, "unpushed commit")}`);
         }
       }
 
@@ -79,7 +80,7 @@ export async function setupGitExtensionListener(
             const aheadRange = `${targetRef}..${head.name}`;
             const aheadCommits = await repo.log({ maxEntries: 100, range: aheadRange });
             if (aheadCommits.length > 0) {
-              warnings.push(`${repoName}⬆️ ${aheadCommits.length} commit(s) ahead of base branch '${displayName}'`);
+              warnings.push(`${repoName}⬆️ ${plural(aheadCommits.length, "commit")} ahead of base branch '${displayName}'`);
             }
 
             // Count commits in base not in current branch (need to merge/rebase)
@@ -87,7 +88,7 @@ export async function setupGitExtensionListener(
             const behindCommits = await repo.log({ maxEntries: 100, range: behindRange });
             if (behindCommits.length > 0) {
               warnings.push(
-                `${repoName}📥 ${behindCommits.length} commit(s) in '${displayName}' not in current branch`,
+                `${repoName}📥 ${plural(behindCommits.length, "commit")} in '${displayName}' not in current branch`,
               );
             }
           }

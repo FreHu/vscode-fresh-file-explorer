@@ -17,7 +17,7 @@ export function buildCommitItems(
     const isPicked = !excludedCommits.has(c.hash);
     return {
       label: `$(git-commit) ${c.hash}`,
-      description: `${repoPart}${c.date.toLocaleDateString()} • ${c.fileCount} file(s) by ${c.author}`,
+      description: `${repoPart}${c.date.toLocaleDateString()} • ${plural(c.fileCount, "file")} by ${c.author}`,
       detail: dotsDots(c.message),
       picked: isPicked,
       hash: c.hash,
@@ -56,7 +56,7 @@ export function buildAuthorItems(
     const isPicked = !excludedAuthors.has(a.author);
     return {
       label: a.author,
-      description: `${a.fileCount} file(s)`,
+      description: `${plural(a.fileCount, "file")}`,
       picked: isPicked,
       author: a.author,
     };

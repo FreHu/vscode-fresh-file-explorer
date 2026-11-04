@@ -1,5 +1,6 @@
 import { CommitHash, FileMetadata } from "../types";
 import { log } from "../extension/logger";
+import { plural } from "../utils/plural";
 
 /**
  * Tri-state filter for AI co-authored changes (commits with a known AI-agent
@@ -32,7 +33,7 @@ export class FilterManager {
    */
   setExcludedAuthors(authors: Set<string>): void {
     this.excludedAuthors = authors;
-    log(`Filter: excluding ${authors.size} author(s): ${Array.from(authors).join(", ")}`);
+    log(`Filter: excluding ${plural(authors.size, "author")}: ${Array.from(authors).join(", ")}`);
     this.onChangeCallback?.();
   }
 
@@ -41,7 +42,7 @@ export class FilterManager {
    */
   setExcludedCommits(commits: Set<CommitHash>): void {
     this.excludedCommits = commits;
-    log(`Filter: excluding ${commits.size} commit(s): ${Array.from(commits).join(", ")}`);
+    log(`Filter: excluding ${plural(commits.size, "commit")}: ${Array.from(commits).join(", ")}`);
     this.onChangeCallback?.();
   }
 
@@ -84,10 +85,10 @@ export class FilterManager {
   getFilterSummary(): string {
     const parts: string[] = [];
     if (this.excludedAuthors.size > 0) {
-      parts.push(`${this.excludedAuthors.size} author(s) hidden`);
+      parts.push(`${plural(this.excludedAuthors.size, "author")} hidden`);
     }
     if (this.excludedCommits.size > 0) {
-      parts.push(`${this.excludedCommits.size} commit(s) hidden`);
+      parts.push(`${plural(this.excludedCommits.size, "commit")} hidden`);
     }
     if (this.aiFilter === "only") {
       parts.push("only AI co-authored");

@@ -7,6 +7,7 @@ import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { normalizePath } from "../utils";
 import { execGitWithArgs, gitProbeSucceeds, fileExists } from "./gitOperations";
 import { ConfigService } from "../config/configService";
+import { plural } from "../utils/plural";
 
 /**
  * Check if a directory is at-or-below a git repository.
@@ -59,7 +60,7 @@ export async function readGitModulesSubmodulePaths(repoPath: string): Promise<st
     }
   }
 
-  log(`Found ${paths.length} submodule(s) in ${repoPath}: ${paths.join(", ")}`);
+  log(`Found ${plural(paths.length, "submodule")} in ${repoPath}: ${paths.join(", ")}`);
   return paths;
 }
 

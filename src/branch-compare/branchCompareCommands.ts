@@ -24,6 +24,7 @@ import { ConfigService } from "../config/configService";
 import { confirmBulkAction } from "../utils/confirmations";
 import { showPathFormatQuickPick } from "../utils/quickPick";
 import { buildFileTree, renderFileTree } from "../commands/copyPathCommands";
+import { plural } from "../utils/plural";
 
 /**
  * Open the click-target for a branch-compare file item:
@@ -407,7 +408,7 @@ export async function handleBranchCompareRestoreFromBaseline(
   }
 
   if (successCount > 0 && errors.length === 0) {
-    showInfo(`Restored ${successCount} file(s) from baseline.`);
+    showInfo(`Restored ${plural(successCount, "file")} from baseline.`);
   } else if (errors.length > 0) {
     showError(`Failed to restore: ${errors.join(", ")}`, true);
   }
@@ -457,7 +458,7 @@ export async function handleBranchCompareCopySubtreeStructure(
   };
   const text = renderFileTree(tree, getLabel);
   await vscode.env.clipboard.writeText(text);
-  showInfo(`Copied subtree structure (${files.length} file(s)).`);
+  showInfo(`Copied subtree structure (${plural(files.length, "file")}).`);
 }
 
 /**
@@ -711,7 +712,7 @@ export async function handleBranchCompareOpenAll(
   const sourceLabel = sourceIsWorkingTree ? "working tree" : sourceRef;
   const title = `${scopeLabel} (${sourceLabel} ↔ ${baseRef}${diffMode === "full" ? ", full" : ""})`;
 
-  log(`branchCompare: opening ${files.length} change(s) in a multi-diff editor for ${scopeLabel}`);
+  log(`branchCompare: opening ${plural(files.length, "change")} in a multi-diff editor for ${scopeLabel}`);
   await vscode.commands.executeCommand("_workbench.openMultiDiffEditor", {
     multiDiffSourceUri,
     title,
@@ -816,7 +817,7 @@ export async function handleBranchCompareOpenDirDifftool(
   if (!sourceIsWorkingTree) { args.push(sourceRef); }
   args.push("--", ...relPaths);
 
-  log(`branchCompare: launching dir-diff for ${relPaths.length} file(s) in ${scopeLabel}`);
+  log(`branchCompare: launching dir-diff for ${plural(relPaths.length, "file")} in ${scopeLabel}`);
   try {
     await execGitWithArgs(args, repoFullPath);
   } catch (err) {

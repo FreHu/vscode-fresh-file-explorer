@@ -41,6 +41,7 @@ import { LoadOrchestrator } from "./loadOrchestrator";
 import { Commands } from "../commands/commandConstants";
 import { TreeItemContextValues } from "./treeItemConstants";
 import { RepoKind, repoKindOf } from "../git/repoKind";
+import { plural } from "../utils/plural";
 
 export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FreshFilesTreeItem | undefined | void>();
@@ -103,7 +104,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     updatePending: (targetRepoPaths) => this.updatePendingFiles(targetRepoPaths),
     onLoadCompleted: (error) => {
       this.errorToShowInTreeView = error;
-      log(`Loaded ${this._freshFiles.size} total fresh file(s) across ${this.discovery.resolvedRepos.length} Git repository(ies)`);
+      log(`Loaded ${plural(this._freshFiles.size, "total fresh file")} across ${plural(this.discovery.resolvedRepos.length, "Git repository", "Git repositories")}`);
       this.heatmapProvider?.fireDidChange();
     },
     ensureDiscovered: () => this.ensureReposDiscovered(),
@@ -1043,7 +1044,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       if (partial.size > 0) {
         this._setFreshFiles(merged);
         this.fireRepoScoped(normalizedRepoPath);
-        log(`Incremental update for ${normalizedRepoPath}: ${partial.size} file(s) at ≤${days}d`);
+        log(`Incremental update for ${normalizedRepoPath}: ${plural(partial.size, "file")} at ≤${days}d`);
       } else log(`Incremental update skipped (no changes at ≤${days}d)`);
 
     };
@@ -1066,7 +1067,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
       if (!repoError && fullData.size > 0) {
         this.historicalCache.setEntry(normalizedRepoPath, fullData, maxDays, this.repoScope.getPathspec(normalizedRepoPath), commitStatsMap);
-        log(`Cached ${fullData.size} file(s) for ${normalizedRepoPath}`);
+        log(`Cached ${plural(fullData.size, "file")} for ${normalizedRepoPath}`);
       }
       if (!repoError) {
         // Slow successful load → suggest a commit-graph (no-op below the threshold).

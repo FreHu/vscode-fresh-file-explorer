@@ -140,14 +140,14 @@ export function buildGroupedItems(
         });
       } else {
         description = plural(fileCount, "file");
-        tooltip = `Pending changes\n${fileCount} file(s)`;
+        tooltip = `Pending changes\n${plural(fileCount, "file")}`;
       }
     } else {
       description = `(${fileCount})`;
       const dateLabel = group.mostRecent.getTime() > 0
         ? `\nMost recent: ${formatRelativeDate(group.mostRecent)}`
         : "";
-      tooltip = `${group.label}\n${fileCount} file(s)${dateLabel}`;
+      tooltip = `${group.label}\n${plural(fileCount, "file")}${dateLabel}`;
     }
 
     // Pending bucket carries working-tree actions; a real commit-hash group

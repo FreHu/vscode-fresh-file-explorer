@@ -13,6 +13,7 @@ import { normalizePath } from "../utils";
 import { asAbsolutePath, AbsolutePath } from "../pathTypes";
 import { log, showInfo, showError } from "../extension/logger";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
+import { plural } from "../utils/plural";
 
 /** Resolve the command argument (tree item or uri from a context menu) to a file uri. */
 function seedUriFromArg(arg: FreshFileItem | vscode.Uri | undefined): vscode.Uri | undefined {
@@ -81,7 +82,7 @@ export async function handleSuggestCochanges(
 
   log(explicitSeed
     ? `Co-change seed: explicit file ${explicitSeed.fsPath}`
-    : `Co-change seed: pending changes across ${seedByRepo.size} repo(s)`);
+    : `Co-change seed: pending changes across ${plural(seedByRepo.size, "repo")}`);
 
   const collected: { path: AbsolutePath; note: string; confidence: number; together: number }[] = [];
   const crossRepoNotes: string[] = [];
@@ -97,11 +98,11 @@ export async function handleSuggestCochanges(
         // A single-file seed still shouldn't suggest files that are already pending.
         satisfiedFiles: pendingByRepo.get(repoFullPath) ?? [],
         onStats: s => log(
-          `Co-change [${repoName}]: seed ${seedFiles.length} file(s); ${s.historyCommits} commits in ${lookbackDays}d ` +
-          `(${s.usableCommits} usable, ${s.ubiquitousItems} ubiquitous item(s) excluded); ` +
-          `${s.pairsObserved} pair(s) observed → below support: ${s.belowSupport}, stale: ${s.droppedAsStale}, ` +
+          `Co-change [${repoName}]: seed ${plural(seedFiles.length, "file")}; ${s.historyCommits} commits in ${lookbackDays}d ` +
+          `(${s.usableCommits} usable, ${plural(s.ubiquitousItems, "ubiquitous item")} excluded); ` +
+          `${plural(s.pairsObserved, "pair")} observed → below support: ${s.belowSupport}, stale: ${s.droppedAsStale}, ` +
           `below confidence: ${s.belowConfidence}, already changed: ${s.alreadySatisfied} → ` +
-          `${s.candidates} candidate(s), ${s.kept} kept after subsumption/cap`,
+          `${plural(s.candidates, "candidate")}, ${s.kept} kept after subsumption/cap`,
         ),
       });
       for (const s of suggestions) {
@@ -148,16 +149,16 @@ export async function handleSuggestCochanges(
         }
       }
       const units = buildWorkUnits(ticketCommits, extraPattern);
-      log(`Co-change cross-repo: ${units.length} ticket work unit(s) across ${historyByRepo.size} repo(s)`);
+      log(`Co-change cross-repo: ${plural(units.length, "ticket work unit")} across ${plural(historyByRepo.size, "repo")}`);
 
       for (const [repoFullPath, seedFiles] of seedByRepo) {
         const sourceName = nameByRepo.get(repoFullPath) ?? path.basename(repoFullPath);
         const nudges = computeCrossRepoPresence(units, { repo: repoFullPath, files: seedFiles }, {
           minLastTogetherAt,
           onStats: s => log(
-            `Co-change cross-repo [${sourceName}]: ${s.unitsWithSourceRepo}/${s.units} unit(s) touch this repo; ` +
+            `Co-change cross-repo [${sourceName}]: ${s.unitsWithSourceRepo}/${plural(s.units, "unit")} touch this repo; ` +
             `base rates ${JSON.stringify(Object.fromEntries(Object.entries(s.baseRates).map(([r, v]) => [nameByRepo.get(r) ?? r, +v.toFixed(2)])))}; ` +
-            `${s.considered} pairing(s) considered, ${s.kept} kept`,
+            `${plural(s.considered, "pairing")} considered, ${s.kept} kept`,
           ),
         });
         for (const n of nudges) {

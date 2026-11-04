@@ -4,6 +4,7 @@ import { DataCollector, RepoInfo } from "./dataCollector";
 import { WorkspaceFolderInfo } from "../types";
 import { AbsolutePath } from "../pathTypes";
 import { log } from "../extension/logger";
+import { plural } from "../utils/plural";
 
 /**
  * Owns repo discovery: the workspace walk, its results (scannable repos plus
@@ -52,7 +53,7 @@ export class RepoDiscovery {
   async discoverRepositories(assertNotCancelled: () => void): Promise<void> {
     // Skip if repos already discovered (soft refresh)
     if (this._reposDiscovered) {
-      log(`Reloading files for ${this._resolvedRepos.length} known Git repository(ies) (skipping discovery)`);
+      log(`Reloading files for ${plural(this._resolvedRepos.length, "known Git repository", "known Git repositories")} (skipping discovery)`);
       return;
     }
 
@@ -97,9 +98,9 @@ export class RepoDiscovery {
     this._resolvedRepos = scannableRepos;
 
     const uninitializedNote = this._uninitializedSubmodules.length > 0
-      ? ` (+${this._uninitializedSubmodules.length} uninitialized submodule(s), display only)`
+      ? ` (+${plural(this._uninitializedSubmodules.length, "uninitialized submodule")}, display only)`
       : "";
-    log(`Discovered ${scannableRepos.length} Git repository(ies) across ${workspaceFolders.length} workspace folder(s)${uninitializedNote}`);
+    log(`Discovered ${plural(scannableRepos.length, "Git repository", "Git repositories")} across ${plural(workspaceFolders.length, "workspace folder")}${uninitializedNote}`);
 
     this._reposDiscovered = true;
     this._onReposReady.fire();

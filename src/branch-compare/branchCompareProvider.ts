@@ -41,6 +41,7 @@ import { DiffMode } from "./branchCompareConstants";
 import { defaultComparisonLabel, displayRef, emptyComparisonMessage } from "./comparisonLabel";
 import { clampHeadOffsetRef } from "../git/gitCommitQueries";
 import { FilesExcludeFilter } from "../fresh-files/filesExcludeFilter";
+import { plural } from "../utils/plural";
 
 /**
  * In-memory state for one rendered comparison. Mirrors the persisted shape
@@ -319,7 +320,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     }
     this.syncComparisonsToService();
     const ids = [...this.comparisons.keys()];
-    log(`branchCompare: refreshAll loading ${ids.length} comparison(s)`);
+    log(`branchCompare: refreshAll loading ${plural(ids.length, "comparison")}`);
     await Promise.all(ids.map(id => this.refreshComparison(id, true)));
     this.fireChange();
   }
@@ -859,7 +860,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
     }
 
     if (cmp.hideReviewed && this.visibleFiles(cmp, cmp.files).length === 0) {
-      return [new BranchCompareMessageItem(`All ${cmp.files.length} changed file(s) reviewed`, "check")];
+      return [new BranchCompareMessageItem(`All ${plural(cmp.files.length, "changed file")} reviewed`, "check")];
     }
 
     switch (cmp.groupingMode) {

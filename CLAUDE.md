@@ -146,6 +146,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 ## Conventions
 
 - An unused positional parameter that must keep its slot (e.g. `selectedItems` in `(item, selectedItems, provider)` command handlers) gets a `_` prefix; `noUnusedParameters` is on. Delete unused *trailing* parameters instead.
+- Counted words go through `plural(n, "file")` (`src/utils/plural.ts`, webview-safe), not `file(s)` or an `n === 1` ternary.
 - No file-header boilerplate ("Pure, vscode-free: tested against …"). A file-level note earns its place only for a constraint someone would otherwise break, e.g. "bundled into the settings webview" (no `vscode` import there).
 
 ## Demo screenshots

@@ -13,6 +13,7 @@ import {
   reconcileFollows,
   RepoHeadState,
 } from "./autoFollow";
+import { plural } from "../utils/plural";
 
 /**
  * Auto-follow: keep one live branch-compare section per diverged repo/worktree,
@@ -123,7 +124,7 @@ export class AutoFollowController implements vscode.Disposable {
     const { toAdd, toRemoveIds } = reconcileFollows(desired, existingAuto);
     if (toAdd.length === 0 && toRemoveIds.length === 0) { return; }
 
-    log(`autoFollow: +${toAdd.length} / -${toRemoveIds.length} follow(s)`);
+    log(`autoFollow: +${toAdd.length} / -${plural(toRemoveIds.length, "follow")}`);
     this.savedComparisons.applyAutoReconcile(
       // Label by branch — the identity of the work across sibling worktrees.
       toAdd.map(d => ({ repoFullPath: d.repoFullPath, target: d.target, label: d.headBranch })),

@@ -11,6 +11,7 @@ import { findRepoForFile } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 import { shortSha } from "../utils/formatUtils";
+import { plural } from "../utils/plural";
 
 /**
  * Open a commit's changes (parent ↔ commit) in VS Code's multi-diff editor.
@@ -144,7 +145,7 @@ export async function openPendingChangesMultiDiff(
     scheme: "fresh-file-explorer-changes",
     path: `/pending/${encodeURIComponent(opts.sourceKey)}`,
   });
-  log(`Opening ${entries.length} pending change(s) in a multi-diff editor: ${opts.title}`);
+  log(`Opening ${plural(entries.length, "pending change")} in a multi-diff editor: ${opts.title}`);
   await vscode.commands.executeCommand("_workbench.openMultiDiffEditor", {
     multiDiffSourceUri,
     title: opts.title,

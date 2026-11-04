@@ -6,6 +6,7 @@ import { log } from "../extension/logger";
 import { collectHistoricalChanges } from "../git/gitLogStream";
 import { collectPendingChanges } from "../git/gitPendingChanges";
 import { discoverGitReposInSubdirs, isGitRepository, isGitRepositoryRoot, isLinkedWorktree, readGitModulesSubmodulePaths } from "../git/gitRepoDiscovery";
+import { plural } from "../utils/plural";
 
 /** Fully-resolved information about a single Git repository within a workspace folder. */
 export interface RepoInfo {
@@ -225,7 +226,7 @@ export class DataCollector {
           for (const removedPath of removedPaths) {
             allRemovedPaths.push(asAbsolutePath(normalizePath(path.join(folder.path, removedPath))));
           }
-          log(`Collected ${files.size} pending file(s) from ${folder.name}/${repoRelativePath || "root"}`);
+          log(`Collected ${plural(files.size, "pending file")} from ${folder.name}/${repoRelativePath || "root"}`);
         } catch (error) {
           log(
             `Failed to get pending changes from ${folder.name}/${repoRelativePath || "root"}: ${String(error)}`,

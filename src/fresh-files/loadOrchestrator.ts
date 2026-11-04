@@ -4,6 +4,7 @@ import { ConfigService } from "../config/configService";
 import { ContextManager } from "../extension/contextManager";
 import { log } from "../extension/logger";
 import { NormalizedRepoPath } from "../pathTypes";
+import { plural } from "../utils/plural";
 
 /**
  * The data-side operations a load needs. All state the orchestrator sequences
@@ -140,7 +141,7 @@ export class LoadOrchestrator {
       return;
     }
     const targetRepoPaths = options?.targetRepoPaths;
-    const scopeDesc = targetRepoPaths ? ` [${targetRepoPaths.length} repo(s)]` : "";
+    const scopeDesc = targetRepoPaths ? ` [${plural(targetRepoPaths.length, "repo")}]` : "";
     log(`Refresh of files${scopeDesc}`);
     this.setDataLoaded(false);
     this._targetRepoPaths = targetRepoPaths;
@@ -227,7 +228,7 @@ export class LoadOrchestrator {
       return;
     }
     this.pendingRefreshVersion++;
-    const scopeDesc = targetRepoPaths ? ` for ${targetRepoPaths.length} repo(s)` : "";
+    const scopeDesc = targetRepoPaths ? ` for ${plural(targetRepoPaths.length, "repo")}` : "";
     log(`Refreshing pending changes only${scopeDesc}`);
     try {
       await this.deps.updatePending(targetRepoPaths);

@@ -94,18 +94,18 @@ suite("FilterManager", () => {
 
     test("should return author count when only author filters are active", () => {
       filterManager.setExcludedAuthors(new Set(["Alice", "Bob"]));
-      assert.strictEqual(filterManager.getFilterSummary(), "2 author(s) hidden");
+      assert.strictEqual(filterManager.getFilterSummary(), "2 authors hidden");
     });
 
     test("should return commit count when only commit filters are active", () => {
       filterManager.setExcludedCommits(new Set([asCommitHash("abc123"), asCommitHash("def456")]));
-      assert.strictEqual(filterManager.getFilterSummary(), "2 commit(s) hidden");
+      assert.strictEqual(filterManager.getFilterSummary(), "2 commits hidden");
     });
 
     test("should return both counts when both filters are active", () => {
       filterManager.setExcludedAuthors(new Set(["Alice"]));
       filterManager.setExcludedCommits(new Set([asCommitHash("abc123")]));
-      assert.strictEqual(filterManager.getFilterSummary(), "1 author(s) hidden, 1 commit(s) hidden");
+      assert.strictEqual(filterManager.getFilterSummary(), "1 author hidden, 1 commit hidden");
     });
 
     test("should describe AI filter modes", () => {

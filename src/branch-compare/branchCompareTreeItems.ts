@@ -116,19 +116,19 @@ export class RepoSectionItem extends vscode.TreeItem {
     }
     tooltipLines.push(
       showReviewedCount
-        ? `${fileCount} changed file(s), ${reviewedCount} reviewed`
-        : `${fileCount} changed file(s)`,
+        ? `${plural(fileCount, "changed file")}, ${reviewedCount} reviewed`
+        : `${plural(fileCount, "changed file")}`,
     );
     if (diffMode === "full") {
       tooltipLines.push("Full diff (against the target ref, not the merge-base)");
     }
     if (availableCommits !== undefined) {
-      tooltipLines.push(`${targetRef} reaches past the first commit; showing all ${availableCommits} commit(s)`);
+      tooltipLines.push(`${targetRef} reaches past the first commit; showing all ${plural(availableCommits, "commit")}`);
     }
     if (mergeCone && mergeCone.total > mergeCone.firstParent) {
       const broughtIn = mergeCone.total - mergeCone.firstParent;
       tooltipLines.push(
-        `${mergeCone.firstParent} commit(s) on this line, ${broughtIn} brought in via merges`,
+        `${plural(mergeCone.firstParent, "commit")} on this line, ${broughtIn} brought in via merges`,
       );
     }
     if (auto) {

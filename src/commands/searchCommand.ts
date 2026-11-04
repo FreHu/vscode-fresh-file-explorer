@@ -9,6 +9,7 @@ import { showPathFormatQuickPick } from "../utils/quickPick";
 import { AbsolutePath } from "../pathTypes";
 import { normalizePath } from "../utils";
 import { confirmBulkAction } from "../utils/confirmations";
+import { plural } from "../utils/plural";
 
 /**
  * Gets the maximum safe length for the include pattern to avoid ENAMETOOLONG errors.
@@ -248,7 +249,7 @@ export async function handleCopyPathsFromSearchResults(): Promise<void> {
   const clipboardText = pathsToCopy.join("\n");
   await vscode.env.clipboard.writeText(clipboardText);
 
-  showInfo(`Copied ${pathsToCopy.length} file path(s) to clipboard`, true);
+  showInfo(`Copied ${plural(pathsToCopy.length, "file path")} to clipboard`, true);
 }
 
 /** * Opens all files from the current search editor's results.
@@ -276,7 +277,7 @@ export async function handleOpenAllFoundFiles(): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   const uris = convertRelativePathsToUris(filePaths, workspaceFolders);
 
-  log(`Opening ${uris.length} file(s) from search results`);
+  log(`Opening ${plural(uris.length, "file")} from search results`);
 
   let openedCount = 0;
   let failedCount = 0;
@@ -295,7 +296,7 @@ export async function handleOpenAllFoundFiles(): Promise<void> {
   }
 
   if (failedCount > 0) {
-    const message = `Opened ${openedCount} file(s)${failedCount > 0 ? ` (${failedCount} failed)` : ""}`;
+    const message = `Opened ${plural(openedCount, "file")}${failedCount > 0 ? ` (${failedCount} failed)` : ""}`;
     showWarning(message);
   }
 }
@@ -322,7 +323,7 @@ export async function handlesearchInFoundFiles(): Promise<void> {
     return;
   }
 
-  log(`Second-order search: Found ${filePaths.length} file(s) in search results`);
+  log(`Second-order search: Found ${plural(filePaths.length, "file")} in search results`);
 
   // Paths from the search editor are already workspace-relative,
   // so we can use them directly as include patterns.
@@ -335,10 +336,10 @@ export async function handlesearchInFoundFiles(): Promise<void> {
 
   if (batches.length === 1) {
     const pattern = optimizeIncludePatterns(batches[0]);
-    log(`Second-order search: ${filePaths.length} file(s), pattern length: ${pattern.length}`);
+    log(`Second-order search: ${plural(filePaths.length, "file")}, pattern length: ${pattern.length}`);
     await openSearchView(pattern);
   } else {
-    log(`Second-order search: Batching ${filePaths.length} file(s) into ${batches.length} search editors`);
+    log(`Second-order search: Batching ${plural(filePaths.length, "file")} into ${batches.length} search editors`);
     for (let i = 0; i < batches.length; i++) {
       const pattern = optimizeIncludePatterns(batches[i]);
       await vscode.commands.executeCommand("search.action.openNewEditor", {
@@ -347,13 +348,13 @@ export async function handlesearchInFoundFiles(): Promise<void> {
         triggerSearch: false,
         showIncludesExcludes: true,
       });
-      log(`Second-order search batch ${i + 1}/${batches.length}: ${batches[i].length} file(s), pattern length: ${pattern.length}`);
+      log(`Second-order search batch ${i + 1}/${batches.length}: ${plural(batches[i].length, "file")}, pattern length: ${pattern.length}`);
     }
 
     const totalFiles = batches.reduce((sum, batch) => sum + batch.length, 0);
     let message = `Opened ${batches.length} search tabs to search ${totalFiles} files`;
     if (oversizedFiles.length > 0) {
-      message += ` (${oversizedFiles.length} file(s) with very long paths may not be included)`;
+      message += ` (${plural(oversizedFiles.length, "file")} with very long paths may not be included)`;
     }
     showInfo(message);
   }
@@ -388,7 +389,7 @@ export async function openSearchWithFiles(
   if (batches.length === 1) {
     // Single batch - respect user's preference for search view vs editor
     const pattern = optimizeIncludePatterns(batches[0]);
-    log(`Search: ${relativePatterns.length} file(s), pattern length: ${pattern.length}`);
+    log(`Search: ${plural(relativePatterns.length, "file")}, pattern length: ${pattern.length}`);
     await openSearchView(pattern);
     
     // Warn about oversized files if any
@@ -396,12 +397,12 @@ export async function openSearchWithFiles(
       const fileList = oversizedFiles.slice(0, 3).join("\n");
       const moreText = oversizedFiles.length > 3 ? `\n...and ${oversizedFiles.length - 3} more` : "";
       showWarning(
-        `${oversizedFiles.length} file(s) may not be searchable due to very long paths:\n${fileList}${moreText}`
+        `${plural(oversizedFiles.length, "file")} may not be searchable due to very long paths:\n${fileList}${moreText}`
       );
     }
   } else {
     // Multiple batches required - always use search editors (multiple search views not possible)
-    log(`Search: Batching ${relativePatterns.length} file(s) into ${batches.length} search editors`);
+    log(`Search: Batching ${plural(relativePatterns.length, "file")} into ${batches.length} search editors`);
     
     for (let i = 0; i < batches.length; i++) {
       const pattern = optimizeIncludePatterns(batches[i]);
@@ -415,7 +416,7 @@ export async function openSearchWithFiles(
         showIncludesExcludes: true,
       });
       
-      log(`Search batch ${batchNumber}/${batches.length}: ${batches[i].length} file(s), pattern length: ${pattern.length}`);
+      log(`Search batch ${batchNumber}/${batches.length}: ${plural(batches[i].length, "file")}, pattern length: ${pattern.length}`);
     }
     
     // Inform the user about the batching and any problematic files
@@ -423,7 +424,7 @@ export async function openSearchWithFiles(
     let message = `Opened ${batches.length} search tabs to search ${totalFiles} files (pattern too long for single search)`;
     
     if (oversizedFiles.length > 0) {
-      message += `\n\nNote: ${oversizedFiles.length} file(s) with very long paths may fail to search. Consider shortening your workspace path or folder structure.`;
+      message += `\n\nNote: ${plural(oversizedFiles.length, "file")} with very long paths may fail to search. Consider shortening your workspace path or folder structure.`;
     }
     
     showInfo(message);

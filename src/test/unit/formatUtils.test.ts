@@ -157,17 +157,17 @@ suite("Format Utils", () => {
   suite("formatRepoTooltip", () => {
     test("should format tooltip with branch name", () => {
       const result = formatRepoTooltip("my-project", "main", 10);
-      assert.strictEqual(result, "my-project (main)\n10 file(s) modified");
+      assert.strictEqual(result, "my-project (main)\n10 files modified");
     });
 
     test("should format tooltip without branch name", () => {
       const result = formatRepoTooltip("my-project", undefined, 5);
-      assert.strictEqual(result, "my-project\n5 file(s) modified");
+      assert.strictEqual(result, "my-project\n5 files modified");
     });
 
     test("should handle singular file count", () => {
       const result = formatRepoTooltip("my-project", "main", 1);
-      assert.strictEqual(result, "my-project (main)\n1 file(s) modified");
+      assert.strictEqual(result, "my-project (main)\n1 file modified");
     });
   });
 
@@ -175,13 +175,13 @@ suite("Format Utils", () => {
     test("should format directory tooltip with count and date", () => {
       const date = new Date("2026-01-28T12:00:00");
       const result = formatDirectoryTooltip(5, date);
-      assert.ok(result.match(/5 file\(s\) modified, most recent: .+/));
+      assert.ok(result.match(/5 files modified, most recent: .+/));
     });
 
     test("should handle singular file count", () => {
       const date = new Date("2026-01-28T12:00:00");
       const result = formatDirectoryTooltip(1, date);
-      assert.ok(result.match(/1 file\(s\) modified, most recent: .+/));
+      assert.ok(result.match(/1 file modified, most recent: .+/));
     });
   });
 

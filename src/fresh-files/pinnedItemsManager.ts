@@ -4,6 +4,7 @@ import { PinnedItem } from "../types";
 import { log } from "../extension/logger";
 import { normalizePath } from "../utils";
 import { normalizeItemId, getItemIdWithNormalizedPath } from "./treeItemConstants";
+import { plural } from "../utils/plural";
 
 /**
  * Manages pinned items (files and notes) for the Fresh File Explorer.
@@ -49,7 +50,7 @@ export class PinnedItemsManager {
       }
     }
     this.persistAndNotify();
-    log(`Pinned ${filePaths.length} file(s)`);
+    log(`Pinned ${plural(filePaths.length, "file")}`);
   }
 
   /**
@@ -60,7 +61,7 @@ export class PinnedItemsManager {
       item => !(item.type === "file" && filePaths.includes(item.id as AbsolutePath))
     );
     this.persistAndNotify();
-    log(`Unpinned ${filePaths.length} file(s)`);
+    log(`Unpinned ${plural(filePaths.length, "file")}`);
   }
 
   /**
@@ -83,7 +84,7 @@ export class PinnedItemsManager {
    * Pin files at a specific position (0 = first)
    */
   pinFilesAtPosition(filePaths: AbsolutePath[], position: number): void {
-    log(`pinFilesAtPosition: Adding ${filePaths.length} file(s) at position ${position}`);
+    log(`pinFilesAtPosition: Adding ${plural(filePaths.length, "file")} at position ${position}`);
     
     const alreadyPinned: AbsolutePath[] = [];
     const newFiles: AbsolutePath[] = [];
@@ -99,7 +100,7 @@ export class PinnedItemsManager {
     if (newFiles.length > 0) {
       const newItems: PinnedItem[] = newFiles.map(path => ({ type: "file" as const, id: path, data: "" }));
       this.pinnedItems.splice(position, 0, ...newItems);
-      log(`pinFilesAtPosition: Added ${newItems.length} new file(s)`);
+      log(`pinFilesAtPosition: Added ${plural(newItems.length, "new file")}`);
     }
     
     if (alreadyPinned.length > 0) {
@@ -118,7 +119,7 @@ export class PinnedItemsManager {
           targetIndex++;
         }
       }
-      log(`pinFilesAtPosition: Reordered ${alreadyPinned.length} already-pinned file(s)`);
+      log(`pinFilesAtPosition: Reordered ${plural(alreadyPinned.length, "already-pinned file")}`);
     }
     
     log(`pinFilesAtPosition: Total pinnedItems=${this.pinnedItems.length}`);
@@ -132,7 +133,7 @@ export class PinnedItemsManager {
   pinFilesAfterItem(filePaths: AbsolutePath[], afterItemId: string): void {
     const normalizedAfterId = normalizeItemId(afterItemId, normalizePath);
     
-    log(`pinFilesAfterItem: Adding ${filePaths.length} file(s) after item ${normalizedAfterId}`);
+    log(`pinFilesAfterItem: Adding ${plural(filePaths.length, "file")} after item ${normalizedAfterId}`);
     
     const afterIndex = this.pinnedItems.findIndex(item => {
       return getItemIdWithNormalizedPath(item, normalizePath) === normalizedAfterId;
@@ -159,7 +160,7 @@ export class PinnedItemsManager {
     if (newFiles.length > 0) {
       const newItems: PinnedItem[] = newFiles.map(path => ({ type: "file" as const, id: path, data: "" }));
       this.pinnedItems.splice(insertPosition, 0, ...newItems);
-      log(`pinFilesAfterItem: Added ${newItems.length} new file(s) after index ${afterIndex}`);
+      log(`pinFilesAfterItem: Added ${plural(newItems.length, "new file")} after index ${afterIndex}`);
       insertPosition += newItems.length;
     }
     
@@ -178,7 +179,7 @@ export class PinnedItemsManager {
           insertPosition++;
         }
       }
-      log(`pinFilesAfterItem: Reordered ${alreadyPinned.length} already-pinned file(s)`);
+      log(`pinFilesAfterItem: Reordered ${plural(alreadyPinned.length, "already-pinned file")}`);
     }
     
     log(`pinFilesAfterItem: Total pinnedItems=${this.pinnedItems.length}`);
@@ -208,7 +209,7 @@ export class PinnedItemsManager {
       this.pinnedItems.push({ type: "file", id: s.path, data: s.note, suggested: true });
     }
     this.persistAndNotify();
-    log(`Added co-change suggestions: ${suggestions.length} item(s)`);
+    log(`Added co-change suggestions: ${plural(suggestions.length, "item")}`);
   }
 
   /**

@@ -42,8 +42,8 @@ export function formatRepoDescription(
 export function formatRepoTooltip(
   repoName: string, branchName: string | undefined, fileCount: number, pathspec?: string, folderScope?: string): string {
   const base = branchName
-    ? `${repoName} (${branchName})\n${fileCount} file(s) modified`
-    : `${repoName}\n${fileCount} file(s) modified`;
+    ? `${repoName} (${branchName})\n${plural(fileCount, "file")} modified`
+    : `${repoName}\n${plural(fileCount, "file")} modified`;
   let result = base;
   if (pathspec) {
     result += `\nPathspec filter: ${pathspec}`;
@@ -63,7 +63,7 @@ export function formatDirectoryTooltip(
   linesAdded?: number,
   linesDeleted?: number,
 ): string {
-  let tooltip = `${fileCount} file(s) modified, most recent: ${formatRelativeDate(mostRecent)}`;
+  let tooltip = `${plural(fileCount, "file")} modified, most recent: ${formatRelativeDate(mostRecent)}`;
   
   const lineChanges = formatLineChanges(linesAdded, linesDeleted);
   if (lineChanges) {

@@ -51,7 +51,7 @@ suite("buildCommitItems", () => {
 
   test("description includes file count and author", () => {
     const items = buildCommitItems(COMMITS);
-    assert.ok(items[0].description!.includes("3 file(s)"));
+    assert.ok(items[0].description!.includes("3 files"));
     assert.ok(items[0].description!.includes("Alice"));
   });
 
@@ -103,8 +103,8 @@ suite("buildAuthorItems", () => {
 
   test("description includes file count", () => {
     const items = buildAuthorItems(AUTHORS);
-    assert.ok(items[0].description!.includes("5 file(s)"));
-    assert.ok(items[1].description!.includes("2 file(s)"));
+    assert.ok(items[0].description!.includes("5 files"));
+    assert.ok(items[1].description!.includes("2 files"));
   });
 
   test("returns empty array for empty input", () => {
