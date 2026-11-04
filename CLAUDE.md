@@ -154,6 +154,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 `npm run demo [scene...] [-- --out docs/img]` launches a real VS Code (pinned version, isolated profile, no other extensions) through Playwright's Electron driver and captures each scene in `scripts/demo/scenes/`. Every scene gets a fresh fixture repo (`scripts/demo/fixtureRepo.mjs`) with commit dates relative to now, so the time windows always have content. Output defaults to `.scratch/claude/demo/shots`; a failing scene saves the whole window next to it.
 
 - Use this to look at UI changes yourself: write or run a scene, then read the PNG.
+- A failed scene prints its window screenshot path, the scene's own `diagnose(page)` output if it has one, and the extension log's tail (full copy saved as `<scene>.failure.log`). Multi-step scenes log each step with `stepLogger`.
 - Each scene reports its wall-clock time by phase (fixture, launch, capture, encode, verify, close); a run of several ends with a table, slowest first.
 - A scene returning a list of `{ png, holdMs, fadeMs? }` frames becomes a GIF (`encodeGif.mjs`; GIF is the one animated format GitHub, the Marketplace and Open VSX all play). Each frame is also saved under `.scratch/claude/demo/frames/<scene>/`: reading a GIF shows only its first frame.
 - `node scripts/demo/shrinkGif.mjs <in> <out> --width 900 --every 3` shrinks a GIF no scene can regenerate (e.g. `codeStonks.gif`, recorded on a real repo).

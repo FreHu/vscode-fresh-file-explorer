@@ -1,5 +1,15 @@
 // Small UI helpers shared by scenes.
 
+/**
+ * A step logger for multi-step scenes: `step("git worktree add")` prints the step and
+ * the seconds since the scene started, so a failure shows where it hung and how long
+ * the steps before it took.
+ */
+export function stepLogger(sceneName) {
+  const start = performance.now();
+  return label => console.log(`  [${sceneName} +${((performance.now() - start) / 1000).toFixed(1)}s] ${label}`);
+}
+
 /** Runs a command by its exact palette label, e.g. "Set Grouping Mode". */
 export async function runCommand(page, label) {
   await page.keyboard.press("F1");
@@ -22,13 +32,21 @@ export const PLAIN_TERMINAL_SETTINGS = {
   "terminal.integrated.fontSize": 13,
   "terminal.integrated.shellIntegration.enabled": false,
   "terminal.integrated.enablePersistentSessions": false,
+  // DOM rendering, not GPU canvas: failure diagnostics read the terminal's text from the page.
+  "terminal.integrated.gpuAcceleration": "off",
+  // No "terminate the running process?" prompt: it held up closing the window for a minute.
+  "terminal.integrated.confirmOnExit": "never",
+  "terminal.integrated.confirmOnKill": "never",
 };
 
 /** Types a command into the integrated terminal (opening it if needed) and runs it. */
 export async function runInTerminal(page, command) {
   const terminal = page.locator(".terminal-wrapper.active .xterm");
   if (!(await terminal.isVisible())) {
-    await runCommand(page, "Terminal: Create New Terminal");
+    // Not "Terminal: Create New Terminal": that one registers only once the terminal
+    // support has loaded, a few seconds after launch, and a fast scene got there first.
+    // Focus on Terminal View is listed from the start and creates a terminal if none exists.
+    await runCommand(page, "Terminal: Focus on Terminal View");
     await terminal.waitFor();
     await page.waitForTimeout(1000); // shell start-up
   }
