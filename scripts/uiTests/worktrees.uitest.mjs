@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { buildWorktreeWorkspace } from "../demo/fixtureRepo.mjs";
 import { pane, selectTimeWindow, setPaneExpanded } from "../demo/vscodeActions.mjs";
-import { childrenByRoot, git, treeRows, withVSCode } from "./harness.mjs";
+import { childrenByRoot, git, treeRows, waitForLog, withVSCode } from "./harness.mjs";
 
 const FLAT_PENDING = {
   "freshFileExplorer.defaultGroupingMode": "Flat List",
@@ -133,7 +133,7 @@ test("W5: auto-follow tracks a worktree from creation to removal", async () => {
       main = ws.main;
       return ws.root;
     },
-  }, async page => {
+  }, async (page, { extensionLog }) => {
     for (const title of ["agents", "Outline", "Timeline", "Fresh Files", "Pinned Items"]) {
       await setPaneExpanded(page, title, false);
     }
@@ -141,6 +141,11 @@ test("W5: auto-follow tracks a worktree from creation to removal", async () => {
     const compare = "Fresh Files - Branch Compare";
     const section = () => rowIn(page, compare, "feature/coupons");
 
+    // Add the worktree only once startup is done. Added before Fresh Files' first scan,
+    // the scan finds it but VS Code's git extension may never open it, and then a
+    // commit there sends no event: a known gap, not what this test is about.
+    await waitForLog(extensionLog, /Discovered 1 Git repository/);
+    await waitForLog(extensionLog, /Git extension opened repository .*\/orbit-shop \(/);
     const dir = join(main, "..", "orbit-shop-coupons");
     git(main, "worktree", "add", "-q", dir, "-b", "feature/coupons");
     await section().waitFor({ timeout: 20000 });

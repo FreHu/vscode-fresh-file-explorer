@@ -35,6 +35,15 @@ export async function withVSCode(name, opts, body) {
   }
 }
 
+/** Waits until the extension log matches `pattern` (e.g. startup steps finished before acting). */
+export async function waitForLog(extensionLog, pattern, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!pattern.test(extensionLog())) {
+    if (Date.now() > deadline) { throw new Error(`extension log never matched ${pattern}`); }
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+
 /** Runs git in `cwd` (fixture changes while VS Code is running). */
 export function git(cwd, ...args) {
   return execFileSync("git", args, { cwd, encoding: "utf8" });
