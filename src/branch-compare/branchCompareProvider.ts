@@ -15,6 +15,7 @@ import {
   ChangedFile,
   fetchCommittedDiff,
   fetchCommitInfoInRange,
+  countCommits,
   fetchMergeConeStats,
   fetchWorkingTreeStatus,
   fetchWorkingTreeNumstat,
@@ -37,7 +38,7 @@ import { normalizePath } from "../utils";
 import { listWorkspaceRepos } from "../utils/pathUtils";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { DiffMode } from "./branchCompareConstants";
-import { defaultComparisonLabel, displayRef } from "./comparisonLabel";
+import { defaultComparisonLabel, displayRef, emptyComparisonMessage } from "./comparisonLabel";
 import { clampHeadOffsetRef } from "../git/gitCommitQueries";
 import { FilesExcludeFilter } from "../fresh-files/filesExcludeFilter";
 
@@ -75,6 +76,8 @@ interface ResolvedComparison {
    * surfaces this so HEAD~N users don't get blindsided by merged-in changes.
    */
   mergeCone: { total: number; firstParent: number } | undefined;
+  /** Commits on target but not source; fetched only when the diff is empty, for its message. */
+  targetOnlyCommits: number | undefined;
   /** Set when the target is a `HEAD~N` past the root commit: the commits that exist (the diff covers all of them). */
   availableCommits?: number;
   /** Per-comparison grouping mode, resolved from the saved record (default applied). */
@@ -337,6 +340,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.error = undefined;
       cmp.invalidRef = false;
       cmp.mergeCone = undefined;
+      cmp.targetOnlyCommits = undefined;
       cmp.availableCommits = undefined;
       this.fireChange();
     }
@@ -384,11 +388,20 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       ]);
       if (this.loadingTokens.get(id) !== myToken) return;
 
-      cmp.rawFiles = buildChangedFiles(cmp.repoFullPath, committed, workingTree, commitInfo, workingTreeNumstat);
-      cmp.files = this.filterExcludedFiles(cmp.repoFullPath, cmp.rawFiles);
+      const rawFiles = buildChangedFiles(cmp.repoFullPath, committed, workingTree, commitInfo, workingTreeNumstat);
+      const files = this.filterExcludedFiles(cmp.repoFullPath, rawFiles);
+      // Only an empty diff needs the reverse count: it decides the empty-section message.
+      const targetOnlyCommits = files.length === 0 && mergeCone?.total === 0
+        ? await countCommits(cmp.repoFullPath, `${sourceRef}..${cmp.target}`)
+        : undefined;
+      if (this.loadingTokens.get(id) !== myToken) return;
+
+      cmp.rawFiles = rawFiles;
+      cmp.files = files;
       cmp.tree = buildFolderTree(cmp.files);
       cmp.error = undefined;
       cmp.mergeCone = mergeCone;
+      cmp.targetOnlyCommits = targetOnlyCommits;
       cmp.availableCommits = clamped.availableCommits;
       cmp.hasCommitInfo = wantsCommitInfo;
       // Drop review marks for files no longer in the diff, and (HEAD-source
@@ -402,6 +415,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       cmp.rawFiles = [];
       cmp.tree = undefined;
       cmp.mergeCone = undefined;
+      cmp.targetOnlyCommits = undefined;
       cmp.availableCommits = undefined;
       cmp.hasCommitInfo = false;
       log(`branchCompare: failed to load comparison ${id} (${cmp.source}..${cmp.target} in ${cmp.repoFullPath}) — ${err}`, "warn");
@@ -677,6 +691,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           existing.error = undefined;
           existing.invalidRef = false;
           existing.mergeCone = undefined;
+          existing.targetOnlyCommits = undefined;
           // A different ref pair is a different diff — stale review checkmarks
           // would be actively misleading, not just outdated.
           this.clearReviewed(sc.id);
@@ -695,6 +710,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           existing.error = undefined;
           existing.invalidRef = false;
           existing.mergeCone = undefined;
+          existing.targetOnlyCommits = undefined;
           // merge vs full is a different file set — same reasoning as a ref change.
           this.clearReviewed(sc.id);
         }
@@ -713,6 +729,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
           error: undefined,
           invalidRef: false,
           mergeCone: undefined,
+          targetOnlyCommits: undefined,
           groupingMode: sc.groupingMode,
           diffMode: sc.diffMode,
           hasCommitInfo: false,
@@ -829,16 +846,11 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       return [new BranchCompareMessageItem("Loading…", "loading~spin")];
     }
     if (cmp.files.length === 0) {
-      // Distinguish "diff is empty because source is at or behind target" from
-      // a real zero-change comparison. When the cone count from `mergeBase..source`
-      // is 0, source has no commits past the merge-base — `git diff` of that
-      // range is empty by construction. Users hit this when they flip refs
-      // expecting a reversed view; explain what's happening and what to do.
+      // Source has no commits past the base, so the diff is empty by construction:
+      // say whether it's the same commit (a fresh branch) or behind the target.
       if (cmp.mergeCone && cmp.mergeCone.total === 0) {
-        return [new BranchCompareMessageItem(
-          `${displayRef(cmp.source)} has nothing new vs ${displayRef(cmp.target)}. Swap source and target to see what ${displayRef(cmp.target)} adds.`,
-          "info",
-        )];
+        const { label, tooltip } = emptyComparisonMessage(cmp.source, cmp.target, cmp.targetOnlyCommits);
+        return [new BranchCompareMessageItem(label, "info", tooltip)];
       }
       return [new BranchCompareMessageItem(
         `No changes (${displayRef(cmp.source)}..${displayRef(cmp.target)})`,

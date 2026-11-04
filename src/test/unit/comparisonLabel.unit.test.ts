@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { defaultComparisonLabel } from "../../branch-compare/comparisonLabel";
+import { defaultComparisonLabel, emptyComparisonMessage } from "../../branch-compare/comparisonLabel";
 import { parseHeadOffset } from "../../git/refSyntax";
 
 suite("comparisonLabel", () => {
@@ -24,5 +24,25 @@ suite("comparisonLabel", () => {
     assert.strictEqual(defaultComparisonLabel("repo", "HEAD", "main"), "repo · HEAD..main");
     assert.strictEqual(defaultComparisonLabel("repo", "feature", "HEAD~2"), "repo · feature..HEAD~2");
     assert.strictEqual(defaultComparisonLabel("repo", "HEAD", ""), "repo · HEAD..?");
+  });
+
+  suite("emptyComparisonMessage", () => {
+    test("same commit: no swap hint, since swapping shows nothing either", () => {
+      const m = emptyComparisonMessage("HEAD", "main", 0);
+      assert.strictEqual(m.label, "No commits beyond main yet");
+      assert.ok(!m.tooltip?.includes("Swap"));
+    });
+
+    test("target ahead: says by how much, and only then suggests swapping", () => {
+      assert.deepStrictEqual(emptyComparisonMessage("HEAD", "main", 3), {
+        label: "Nothing new vs main · main is 3 commits ahead",
+        tooltip: "Swap source and target to see what main adds.",
+      });
+      assert.strictEqual(emptyComparisonMessage("HEAD", "main", 1).label, "Nothing new vs main · main is 1 commit ahead");
+    });
+
+    test("unknown count: plain message, no claim either way", () => {
+      assert.deepStrictEqual(emptyComparisonMessage("HEAD", "main", undefined), { label: "Nothing new vs main" });
+    });
   });
 });

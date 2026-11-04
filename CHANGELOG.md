@@ -9,6 +9,7 @@
 - Compare Files, pinned outlines, the Code Telescope preview and searching untracked files decode files in their own encoding (`files.encoding`, auto-guess, BOM) instead of always UTF-8.
 - With no folder open, the status bar shows "no repos" instead of "Discovering repos…" forever.
 - Expanding Fresh Files a few seconds after startup no longer leaves the repo node collapsed.
+- Branch Compare: an empty comparison says "No commits beyond main yet" for a fresh branch, or how far the target is ahead. It suggests swapping the sides only when that would show something.
 
 ## [1.16.0]
 

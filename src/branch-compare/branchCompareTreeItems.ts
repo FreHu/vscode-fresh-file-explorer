@@ -257,9 +257,10 @@ export class BranchCompareFileItem extends vscode.TreeItem {
 /** Lightweight informational row, e.g. when a repo has zero changes. */
 export class BranchCompareMessageItem extends vscode.TreeItem {
   readonly kind = "message" as const;
-  constructor(message: string, icon?: string) {
+  constructor(message: string, icon?: string, tooltip?: string) {
     super(message, vscode.TreeItemCollapsibleState.None);
     this.contextValue = BranchCompareContextValues.MESSAGE;
+    this.tooltip = tooltip;
     if (icon) {
       this.iconPath = new vscode.ThemeIcon(icon);
     }
