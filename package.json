@@ -1560,37 +1560,130 @@
         }
       ],
       "commandPalette": [
-        { "command": "freshFileExplorer.blameTurnOffChecked", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.collapseSection", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.refreshRepo", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.open", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.openFile", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.openToSide", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.openAtBaseline", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.openAll", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.openDifftool", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.openDirDifftool", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.restoreFromBaseline", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.copySubtreeStructure", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.revealInFreshFiles", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.toggleActive", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.swapSides", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.toggleHideReviewed", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.dismissAutoFollow", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.focusSourceControl", "when": "false" },
-        { "command": "freshFileExplorer.expandSubtree", "when": "false" },
-        { "command": "freshFileExplorer.openChanges", "when": "false" },
-        { "command": "freshFileExplorer.openCommitFromBlame", "when": "false" },
-        { "command": "freshFileExplorer.restoreDeletedLinesAt", "when": "false" },
-        { "command": "freshFileExplorer.copyDeletedLinesAt", "when": "false" },
-        { "command": "freshFileExplorer.openDiffMatch", "when": "false" },
-        { "command": "freshFileExplorer.goToHeading", "when": "false" },
-        { "command": "freshFileExplorer.keepSuggestion", "when": "false" },
-        { "command": "freshFileExplorer.focusSubmoduleRepo", "when": "false" },
-        { "command": "freshFileExplorer.searchInFoundFiles", "when": "activeEditor == 'workbench.editor.searchEditor'" },
-        { "command": "freshFileExplorer.openAllFoundFiles", "when": "activeEditor == 'workbench.editor.searchEditor'" },
-        { "command": "freshFileExplorer.copyPathsFromSearchResults", "when": "activeEditor == 'workbench.editor.searchEditor'" },
-        { "command": "freshFileExplorer.clearDiffSearch", "when": "diffSearchResults.hasResults" },
+        {
+          "command": "freshFileExplorer.blameTurnOffChecked",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.collapseSection",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.refreshRepo",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.open",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openFile",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openToSide",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openAtBaseline",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openAll",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openDifftool",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openDirDifftool",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.restoreFromBaseline",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.copySubtreeStructure",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.revealInFreshFiles",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.toggleActive",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.swapSides",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.toggleHideReviewed",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.dismissAutoFollow",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.focusSourceControl",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.expandSubtree",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openChanges",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openCommitFromBlame",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.restoreDeletedLinesAt",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.copyDeletedLinesAt",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openDiffMatch",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.goToHeading",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.keepSuggestion",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.focusSubmoduleRepo",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.searchInFoundFiles",
+          "when": "activeEditor == 'workbench.editor.searchEditor'"
+        },
+        {
+          "command": "freshFileExplorer.openAllFoundFiles",
+          "when": "activeEditor == 'workbench.editor.searchEditor'"
+        },
+        {
+          "command": "freshFileExplorer.copyPathsFromSearchResults",
+          "when": "activeEditor == 'workbench.editor.searchEditor'"
+        },
+        {
+          "command": "freshFileExplorer.clearDiffSearch",
+          "when": "diffSearchResults.hasResults"
+        },
         {
           "command": "freshFileExplorer.blameApplyAgeChecked",
           "when": "false"
@@ -2193,7 +2286,10 @@
         },
         "freshFileExplorer.freshFileLoading": {
           "type": "string",
-          "enum": ["startup", "manual"],
+          "enum": [
+            "startup",
+            "manual"
+          ],
           "default": "startup",
           "enumDescriptions": [
             "Read git history automatically when the workspace opens.",
@@ -2292,6 +2388,7 @@
     "pretest": "npm run compile && npm run compile:webview && npm run lint && npm run ratchet",
     "lint": "eslint src",
     "ratchet": "node scripts/sizeRatchet.mjs",
+    "demo": "npm run compile && node scripts/demo/run.mjs",
     "tag": "npm test && node scripts/createReleaseTag.mjs",
     "test": "npm run test:unit && npm run test:host",
     "test:unit": "mocha --ui tdd \"out/test/**/*.unit.test.js\"",
@@ -2309,6 +2406,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^9.39.1",
     "npm-run-all2": "^8.0.4",
+    "playwright-core": "1.64.1",
     "rimraf": "^6.1.3",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.46.3"

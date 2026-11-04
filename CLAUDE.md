@@ -148,6 +148,14 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 - An unused positional parameter that must keep its slot (e.g. `selectedItems` in `(item, selectedItems, provider)` command handlers) gets a `_` prefix; `noUnusedParameters` is on. Delete unused *trailing* parameters instead.
 - No file-header boilerplate ("Pure, vscode-free: tested against …"). A file-level note earns its place only for a constraint someone would otherwise break, e.g. "bundled into the settings webview" (no `vscode` import there).
 
+## Demo screenshots
+
+`npm run demo [scene...] [-- --out docs/img]` launches a real VS Code (pinned version, isolated profile, no other extensions) through Playwright's Electron driver and captures each scene in `scripts/demo/scenes/`. Every scene gets a fresh fixture repo (`scripts/demo/fixtureRepo.mjs`) with commit dates relative to now, so the time windows always have content. Output defaults to `.scratch/claude/demo/shots`; a failing scene saves the whole window next to it.
+
+- Use this to look at UI changes yourself: write or run a scene, then read the PNG.
+- The fixture sets its own git identity: pending changes show the current `user.name`, which must never be the real user's in a published image.
+- The launcher strips `ELECTRON_*`/`VSCODE_*` from the environment. Inherited from a VS Code terminal, `ELECTRON_RUN_AS_NODE` makes Code.exe start as plain Node.
+
 ## Useful concepts
 
 - `findRepoForFile(folder, fileRelativePath)` - finds which repo a file belongs to. Critical to not reinvent as it covers tricky submodule scenarios.
