@@ -80,9 +80,13 @@ export class LoadOrchestrator {
    * - `dormant`     — manual scan on and not yet armed; no history has been read.
    * - `discovering` — repo discovery still in flight.
    * - `loading`     — repos discovered, files (pending and/or historical) loading.
-   * - `idle`        — caught up. `totalRepos` may be 0 when the workspace has none.
+   * - `idle`        — caught up, or no workspace folder open. `totalRepos` may be 0.
    */
   getLoadingProgress(): { state: "dormant" | "discovering" | "loading" | "idle"; totalRepos: number; loadedRepos: number } {
+    // Discovery never runs without a folder, so it would read as "discovering" forever.
+    if (!this.deps.hasWorkspaceFolders()) {
+      return { state: "idle", totalRepos: 0, loadedRepos: 0 };
+    }
     const totalRepos = this.discovery.resolvedRepos.length;
     if (this.isScanDormant) {
       // Repo count is only meaningful once discovery has run.

@@ -5,6 +5,7 @@
 ### Fixes
 
 - Compare Files, pinned outlines, the Code Telescope preview and searching untracked files decode files in their own encoding (`files.encoding`, auto-guess, BOM) instead of always UTF-8.
+- With no folder open, the status bar shows "no repos" instead of "Discovering repos…" forever.
 
 ## [1.16.0]
 
