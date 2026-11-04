@@ -15,6 +15,7 @@
 - Branch Compare: an empty comparison says "No commits beyond main yet" for a fresh branch, or how far the target is ahead. It suggests swapping the sides only when that would show something.
 - The Branch Comparisons panel's toolbar wraps on a narrow panel instead of squeezing its labels.
 - The extension ships as a single bundled file: it loads about 4× faster, and the package holds 41 files instead of 193.
+- Sync warnings and branch labels also appear when VS Code's git had the repo open before the extension started but hadn't loaded its state yet (seen on Linux).
 - The base-branch warnings compare against the remote base (e.g. origin/main), so "N commits in 'origin/main' not in current branch" shows before you pull; it compared against the local main.
 - Behind / unpushed warnings appear for a repo that VS Code's git opens after the extension started, instead of only after the next change.
 - A deleted file opened from the tree shows its own name in the tab, without a hash prefix.

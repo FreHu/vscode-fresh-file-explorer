@@ -129,7 +129,9 @@ export async function setupGitExtensionListener(
     }
 
     for (const repo of api.repositories) {
-      repoSnapshots.set(normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath, takeSnapshot(repo));
+      const key = normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath;
+      log(`Git extension had repository ${key} open at start (HEAD ${repo.state.HEAD?.commit?.slice(0, 7) ?? "unknown"})`);
+      repoSnapshots.set(key, takeSnapshot(repo));
     }
 
     // Track the pendingRefreshVersion we last acted on, to avoid duplicate
@@ -184,6 +186,10 @@ export async function setupGitExtensionListener(
                 // No file content changed, so skip git log and just update branch labels / sync warnings.
                 needsBranchOnlyUpdate = true;
               }
+            } else {
+              // First known state of a repo that was open but not yet loaded when snapshotted.
+              // The startup load reads its files; branch labels and sync warnings still need it.
+              needsBranchOnlyUpdate = true;
             }
           } else if (prev.indexLength !== curr.indexLength || prev.workingTreeLength !== curr.workingTreeLength) {
             reposNeedingPendingRefresh.add(key);
