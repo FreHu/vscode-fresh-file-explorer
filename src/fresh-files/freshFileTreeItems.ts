@@ -312,18 +312,30 @@ export class OutlineHeadingItem extends vscode.TreeItem {
  */
 export class SubmoduleEntryItem extends vscode.TreeItem {
   readonly isDirectory = false;
+  /**
+   * @param checkedOut false for a submodule declared but not checked out: there is no
+   *   repo node to focus, so the entry says so and has no click action.
+   */
   constructor(
     public readonly submoduleFsPath: string,
     parentPath: string,
+    checkedOut = true,
   ) {
     const name = path.basename(submoduleFsPath);
     super(name, vscode.TreeItemCollapsibleState.None);
     // ID must be unique across the whole tree — include parent path to distinguish
     // the same submodule appearing under multiple parent repos.
     this.id = `submodule-entry:${parentPath}/${name}`;
+    this.iconPath = new vscode.ThemeIcon(repoKindIcon("submodule"));
+    if (!checkedOut) {
+      const relPath = normalizePath(path.relative(parentPath, submoduleFsPath));
+      this.description = "submodule · not checked out";
+      this.tooltip = `Uninitialized submodule: ${submoduleFsPath}\nRun \`git submodule update --init -- ${relPath}\` to populate it.`;
+      this.contextValue = TreeItemContextValues.UNINITIALIZED_SUBMODULE;
+      return;
+    }
     this.description = "submodule";
     this.tooltip = `Submodule: ${submoduleFsPath}`;
-    this.iconPath = new vscode.ThemeIcon(repoKindIcon("submodule"));
     this.contextValue = TreeItemContextValues.SUBMODULE_ENTRY;
     this.command = {
       command: Commands.FOCUS_SUBMODULE_REPO,

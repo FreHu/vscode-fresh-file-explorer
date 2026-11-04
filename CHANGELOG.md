@@ -10,6 +10,7 @@
 - With no folder open, the status bar shows "no repos" instead of "Discovering repos…" forever.
 - Expanding Fresh Files a few seconds after startup no longer leaves the repo node collapsed.
 - "Loading history…" no longer shows under repos on Pending changes, or once the selected time window has loaded (longer windows keep loading in the background without it).
+- A submodule that isn't checked out shows in its parent's folder view as "submodule · not checked out" (with the init command in the tooltip), not as a plain file.
 - Submodules in the flat list and grouped views: a submodule's files show only under the submodule (they were also listed under the parent), and its own "changed" entry only under the parent.
 - Branch Compare: an empty comparison says "No commits beyond main yet" for a fresh branch, or how far the target is ahead. It suggests swapping the sides only when that would show something.
 - The Branch Comparisons panel's toolbar wraps on a narrow panel instead of squeezing its labels.

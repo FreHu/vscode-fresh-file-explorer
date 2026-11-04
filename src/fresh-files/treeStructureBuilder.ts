@@ -46,6 +46,8 @@ export interface TreeBuildContext {
   workspaceFolders: WorkspaceFolderInfo[];
   /** Normalized absolute paths that are submodule repository roots. */
   submoduleRootPaths: Set<AbsolutePath>;
+  /** Normalized absolute paths of submodules declared but not checked out (never scanned). */
+  uninitializedSubmodulePaths: Set<AbsolutePath>;
   /** Whether a file passes the active per-repo pathspec/folder scope. */
   passesRepoScope: (filePath: string) => boolean;
   sortOrder: SortOrder;
@@ -194,6 +196,10 @@ export function buildTree(
       // Submodule roots are shown as a custom entry (no file URI) to work around weirdness with duplicates in the tree
       if (ctx.submoduleRootPaths.has(childPath)) {
         items.push(new SubmoduleEntryItem(fullPath, parentPath));
+        continue;
+      }
+      if (ctx.uninitializedSubmodulePaths.has(childPath)) {
+        items.push(new SubmoduleEntryItem(fullPath, parentPath, false));
         continue;
       }
 

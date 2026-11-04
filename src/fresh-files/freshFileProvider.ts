@@ -830,6 +830,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       filesExcludeFilter: this.filesExcludeFilter,
       workspaceFolders: this.workspaceFolders,
       submoduleRootPaths: this.submoduleRootPaths,
+      uninitializedSubmodulePaths: new Set(this.discovery.uninitializedSubmodules.map(r => asAbsolutePath(normalizePath(r.repoFullPath)))),
       passesRepoScope: (p) => this.passesRepoScope(p),
       sortOrder: this.sortOrder,
       openChangesMode: this.openChangesMode,

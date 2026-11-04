@@ -128,5 +128,9 @@ test("S5: a commit inside a submodule shows in it, and as a changed submodule in
     assert.ok(!files["orbit-shop"].includes("webhooks.ts"), "not under the parent");
     const entry = rows.find(r => r.label === "payments-sdk" && r.description === "submodule");
     assert.ok(entry, "the parent lists the submodule as one changed entry");
+    const notCheckedOut = rows.find(r => r.label === "analytics");
+    assert.equal(notCheckedOut?.description, "submodule · not checked out",
+      "a submodule that isn't checked out looks like a submodule too, not a plain file");
+    assert.equal(notCheckedOut?.icon, "archive");
   });
 });
