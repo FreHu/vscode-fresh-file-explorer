@@ -163,6 +163,27 @@ export function addDivergedRemote(repo, remoteDir, now = Date.now()) {
   commitAs(repo, { author: "ada", daysAgo: 0.05, message: "Coupon validation" }, now, ["src/cart/coupons.ts"]);
 }
 
+/**
+ * A workspace folder holding the fixture repo and linked worktrees next to it
+ * (`<root>/orbit-shop`, `<root>/orbit-shop-<name>`), the layout parallel agents use.
+ * Each worktree gets its own branch and the given uncommitted files.
+ * @param {Record<string, Record<string, string>>} worktrees name → { path: content }
+ */
+export function buildWorktreeWorkspace(root, worktrees = {}, now = Date.now()) {
+  rmSync(root, { recursive: true, force: true });
+  mkdirSync(root, { recursive: true });
+  const main = buildFixtureRepo(join(root, "orbit-shop"), now);
+  const paths = {};
+  for (const [name, files] of Object.entries(worktrees)) {
+    const dir = join(root, `orbit-shop-${name}`);
+    git(main, ["worktree", "add", "-q", dir, "-b", `feature/${name}`]);
+    git(dir, ["config", "core.autocrlf", "false"]);
+    writeFiles(dir, files);
+    paths[name] = dir;
+  }
+  return { root, main, worktrees: paths };
+}
+
 const REMOTE_ONLY = [
   { author: "bo", daysAgo: 0.3, message: "Release notes for 1.1" },
   { author: "carmen", daysAgo: 0.2, message: "Search tuning notes" },
