@@ -194,6 +194,14 @@ export class LoadOrchestrator {
       return;
     }
     if (this.refreshPromise) { return; }
+    // getChildren renders right after this returns, before runLoad reaches its own
+    // reposLoading seed. Repos discovered earlier (activation) would render as empty
+    // and not expanded, and VS Code keeps that first collapsibleState.
+    if (this.discovery.reposDiscovered && !this._targetRepoPaths) {
+      for (const { normalizedRepoPath } of this.discovery.resolvedRepos) {
+        this.reposLoading.add(normalizedRepoPath);
+      }
+    }
     this.refreshPromise = this.runLoad().finally(() => {
       this.refreshPromise = undefined;
       // Re-check dormancy: entering manual scan mid-load cancels the load, and
