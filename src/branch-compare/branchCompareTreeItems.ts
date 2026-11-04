@@ -99,11 +99,12 @@ export class RepoSectionItem extends vscode.TreeItem {
     const modeSuffix = diffMode === "full" ? " · full" : "";
     // Hiding reviewed files makes the tree show fewer rows than `fileCount` - surface the reviewed count too
     const showReviewedCount = hideReviewed && reviewedCount > 0;
+    const changes = `${fileCount} change${fileCount === 1 ? "" : "s"}`;
     const changesText = fileCount === 0
       ? " · no changes"
       : showReviewedCount
-        ? ` · ${fileCount} changes, ${reviewedCount} reviewed`
-        : ` · ${fileCount} changes`;
+        ? ` · ${changes}, ${reviewedCount} reviewed`
+        : ` · ${changes}`;
     const shortHistory = availableCommits !== undefined
       ? ` · ⚠ only ${availableCommits} commit${availableCommits === 1 ? "" : "s"}`
       : "";
