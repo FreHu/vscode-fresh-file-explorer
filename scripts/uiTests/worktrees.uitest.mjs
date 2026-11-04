@@ -23,6 +23,8 @@ async function showPendingFlat(page) {
   await setPaneExpanded(page, "Fresh Files", true);
   await rowIn(page, "Fresh Files", "orbit-shop").waitFor({ timeout: 20000 });
   await selectTimeWindow(page, "Pending changes");
+  // Committed 4h ago, not pending: once it's gone, the tree shows the new window.
+  await rowIn(page, "Fresh Files", "discounts.ts").waitFor({ state: "detached", timeout: 20000 });
 }
 
 const rowIn = (page, paneTitle, text) => pane(page, paneTitle).locator(".monaco-list-row", { hasText: text }).first();
@@ -145,7 +147,8 @@ test("W5: auto-follow tracks a worktree from creation to removal", async () => {
     // the scan finds it but VS Code's git extension may never open it, and then a
     // commit there sends no event: a known gap, not what this test is about.
     await waitForLog(extensionLog, /Discovered 1 Git repository/);
-    await waitForLog(extensionLog, /Git extension opened repository .*\/orbit-shop \(/);
+    // On Windows the git extension opens the repo after Fresh Files starts; on Linux it is open already.
+    await waitForLog(extensionLog, /Git extension (opened|had) repository .*\/orbit-shop /);
     const dir = join(main, "..", "orbit-shop-coupons");
     git(main, "worktree", "add", "-q", dir, "-b", "feature/coupons");
     await section().waitFor({ timeout: 20000 });

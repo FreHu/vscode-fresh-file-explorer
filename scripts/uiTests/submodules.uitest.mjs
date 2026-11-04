@@ -22,6 +22,10 @@ async function showFreshFiles(page, window) {
   await setPaneExpanded(page, "Fresh Files", true);
   await rowIn(page, SDK).waitFor({ timeout: 20000 });
   await selectTimeWindow(page, window);
+  if (window === "Pending changes") {
+    // Committed 4h ago, not pending: once it's gone, the tree shows the new window.
+    await rowIn(page, "discounts.ts").waitFor({ state: "detached", timeout: 20000 });
+  }
 }
 
 const FLAT = {

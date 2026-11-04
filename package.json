@@ -2396,7 +2396,8 @@
     "test:unit": "mocha --ui tdd \"out/test/**/*.unit.test.js\"",
     "test:host": "vscode-test --ignore \"out/test/**/*.unit.test.js\"",
     "test:coverage": "vscode-test --coverage --ignore \"out/test/**/*.unit.test.js\"",
-    "test:ui": "npm run compile && node --test --test-concurrency=1 \"scripts/uiTests/*.uitest.mjs\""
+    "test:ui": "npm run compile && node --test --test-concurrency=1 \"scripts/uiTests/*.uitest.mjs\"",
+    "test:docker": "node scripts/docker/testInDocker.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.19.17",
