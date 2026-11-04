@@ -139,28 +139,62 @@ function commitAs(repo, { author, daysAgo, message }, now, paths = []) {
  * "behind origin" / "unpushed" warnings at the top of the tree.
  */
 export function addDivergedRemote(repo, remoteDir, now = Date.now()) {
+  addOrigin(repo, remoteDir);
+  pushFromElsewhere(remoteDir, REMOTE_ONLY.map((step, i) => ({
+    ...step, files: { [`docs/release-notes-${i + 1}.md`]: `# ${step.message}\n` },
+  })), now);
+  git(repo, ["fetch", "-q", "origin"]);
+  writeFiles(repo, { "src/cart/coupons.ts": "export function validateCoupon() {}\n" });
+  git(repo, ["add", "src/cart/coupons.ts"]);
+  commitAs(repo, { author: "ada", daysAgo: 0.05, message: "Coupon validation" }, now, ["src/cart/coupons.ts"]);
+}
+
+/**
+ * Gives `repo` an `origin`: a bare clone at `remoteDir` (a local path, no network),
+ * with `main` tracking `origin/main` and `origin/HEAD` set, as after a real clone.
+ */
+export function addOrigin(repo, remoteDir) {
   rmSync(remoteDir, { recursive: true, force: true });
   git(repo, ["clone", "-q", "--bare", ".", remoteDir]);
   git(repo, ["remote", "add", "origin", remoteDir]);
   git(repo, ["fetch", "-q", "origin"]);
   git(repo, ["branch", "-q", "--set-upstream-to=origin/main", "main"]);
+  git(repo, ["remote", "set-head", "origin", "main"]);
+}
 
+/**
+ * Commits `steps` on `branch` in a throwaway clone of the remote and pushes them:
+ * someone else's work, which the fixture repo only sees after a fetch.
+ * Exported for tests that push while VS Code runs.
+ */
+export function pushFromElsewhere(remoteDir, steps, now = Date.now(), branch = "main") {
   const other = `${remoteDir}-clone`;
   rmSync(other, { recursive: true, force: true });
-  git(repo, ["clone", "-q", remoteDir, other]);
-  git(other, ["config", "core.autocrlf", "false"]);
-  for (const [i, step] of REMOTE_ONLY.entries()) {
-    writeFiles(other, { [`docs/release-notes-${i + 1}.md`]: `# ${step.message}\n` });
+  git(process.cwd(), ["clone", "-q", "-c", "core.autocrlf=false", remoteDir, other]);
+  if (branch !== "main") { git(other, ["checkout", "-q", "-b", branch]); }
+  for (const step of steps) {
+    writeFiles(other, step.files);
     git(other, ["add", "-A"]);
     commitAs(other, step, now);
   }
-  git(other, ["push", "-q", "origin", "main"]);
+  git(other, ["push", "-q", "origin", branch]);
   rmSync(other, { recursive: true, force: true });
-  git(repo, ["fetch", "-q", "origin"]);
+}
 
-  writeFiles(repo, { "src/cart/coupons.ts": "export function validateCoupon() {}\n" });
+/**
+ * Checks out `branch` from main and commits on it: a new coupons file and a change to
+ * cart.ts. Created with `checkout -b … main`, so VS Code finds its base (origin/main)
+ * from the reflog, as for a branch made by hand. Pending changes stay as they were.
+ */
+export function startFeatureBranch(repo, branch, now = Date.now()) {
+  git(repo, ["checkout", "-q", "-b", branch, "main"]);
+  writeFiles(repo, {
+    "src/cart/coupons.ts": "export function validateCoupon() {}\n",
+    "src/cart/cart.ts": "export class Cart {\n  total() { return 0; }\n  discount() {}\n  applyCoupon() {}\n}\n",
+  });
   git(repo, ["add", "src/cart/coupons.ts"]);
-  commitAs(repo, { author: "ada", daysAgo: 0.05, message: "Coupon validation" }, now, ["src/cart/coupons.ts"]);
+  commitAs(repo, { author: "ada", daysAgo: 0.1, message: "Coupons" }, now, ["src/cart/coupons.ts"]);
+  commitAs(repo, { author: "ada", daysAgo: 0.05, message: "Apply coupons in the cart" }, now, ["src/cart/cart.ts"]);
 }
 
 /**
