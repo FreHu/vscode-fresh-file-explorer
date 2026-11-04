@@ -1,6 +1,7 @@
 import * as assert from "assert";
 import {
   isPendingChangesMode,
+  showsHistoryLoading,
   buildTimeWindows,
   parseTimeWindowValue,
   DEFAULT_TIME_WINDOWS,
@@ -162,6 +163,29 @@ suite("Time Window Utils", () => {
         return days !== null && days < 1;
       });
       assert.ok(hasSubDay, "expected a sub-day default window");
+    });
+  });
+
+  suite("showsHistoryLoading", () => {
+    const pending: TimeWindow = { type: "pending", label: "Pending changes" };
+    const week: TimeWindow = { type: "historical", label: "1 week", days: 7 };
+
+    test("never on pending changes: that view shows no history", () => {
+      assert.strictEqual(showsHistoryLoading(pending, true, undefined), false);
+    });
+
+    test("while the selected window still waits for history", () => {
+      assert.strictEqual(showsHistoryLoading(week, true, undefined), true, "nothing cached yet");
+      assert.strictEqual(showsHistoryLoading(week, true, 3), true, "cached history falls short of the window");
+    });
+
+    test("not once the selected window is covered, though longer windows keep loading", () => {
+      assert.strictEqual(showsHistoryLoading(week, true, 7), false);
+      assert.strictEqual(showsHistoryLoading(week, true, 30), false);
+    });
+
+    test("not when no history is loading", () => {
+      assert.strictEqual(showsHistoryLoading(week, false, undefined), false);
     });
   });
 });

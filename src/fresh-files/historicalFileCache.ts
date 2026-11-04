@@ -99,6 +99,12 @@ export class HistoricalFileCache {
     }
   }
 
+  /** Days of history cached for a repo under its current pathspec; undefined when nothing usable is cached. */
+  coveredDays(normalizedRepoPath: NormalizedRepoPath, pathspec: string | undefined): number | undefined {
+    const entry = this.cache.get(normalizedRepoPath);
+    return entry && entry.pathspec === pathspec ? entry.maxDays : undefined;
+  }
+
   /** Returns true if every known repo has a cached result that covers `days`. */
   canServeWindow(
     days: number,

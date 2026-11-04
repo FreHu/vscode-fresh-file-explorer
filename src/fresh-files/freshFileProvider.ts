@@ -19,7 +19,7 @@ import {
   CommitDataWithFileCount,
   SortOrder,
 } from "../types";
-import { buildTimeWindows, isPendingChangesMode, TimeWindow } from "./timeWindowUtils";
+import { buildTimeWindows, isPendingChangesMode, showsHistoryLoading, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { log, showWarning } from "../extension/logger";
 import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, commitHashOfGroup, isPendingGroup, isMoonPhaseGroup } from "./freshFileTreeItems";
@@ -749,8 +749,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           : (this.groupingMode === "Flat List" && isRepoNode)
             ? buildFlatList(element.resourceUri.fsPath, this.treeBuildContext)
             : buildTree(element.resourceUri.fsPath, this.treeBuildContext);
-      // If pending is shown but historical is still running, prepend a history spinner
-      if (this.load.reposLoadingHistorical.has(normalizedPath)) {
+      if (showsHistoryLoading(
+        this.currentTimeWindow,
+        this.load.reposLoadingHistorical.has(normalizedPath),
+        this.historicalCache.coveredDays(normalizedPath, this.repoScope.pathspecs.get(normalizedPath)),
+      )) {
         children.unshift(new MessageTreeItem("Loading history…", "loading~spin"));
       }
       return children;

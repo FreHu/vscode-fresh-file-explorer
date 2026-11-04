@@ -12,6 +12,17 @@ export function isPendingChangesMode(tw: TimeWindow): tw is { type: "pending"; l
 }
 
 /**
+ * Whether a repo node shows "Loading history…": only while the selected window still
+ * waits for history. History keeps loading in the background up to the longest
+ * configured window, which pending changes and an already-covered window don't need.
+ * @param coveredDays days of history already cached for the repo (undefined: none yet)
+ */
+export function showsHistoryLoading(tw: TimeWindow, loadingHistorical: boolean, coveredDays: number | undefined): boolean {
+  if (!loadingHistorical || isPendingChangesMode(tw)) { return false; }
+  return coveredDays === undefined || coveredDays < tw.days;
+}
+
+/**
  * A configured time window value: either a bare number (legacy — interpreted as
  * days) or a duration token like "6h", "1d", "2w", "1mo", "1y".
  */

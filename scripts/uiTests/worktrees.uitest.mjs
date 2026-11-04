@@ -42,10 +42,9 @@ test("W1: each worktree is its own repo node, with only its own pending files", 
     await showPendingFlat(page);
     await rowIn(page, "Fresh Files", "giftVoucher.ts").waitFor({ timeout: 20000 });
     await rowIn(page, "Fresh Files", "products.ts").waitFor({ timeout: 20000 });
-    // History keeps loading in the background (for the other time windows), shown as a row.
-    await rowIn(page, "Fresh Files", "Loading history").waitFor({ state: "detached", timeout: 20000 });
-
     const rows = await treeRows(page, "Fresh Files");
+    // History keeps loading in the background for the other windows; pending changes don't wait for it.
+    assert.deepEqual(rows.filter(r => r.label.startsWith("Loading history")), [], "no history spinner on pending changes");
     const icons = Object.fromEntries(rows.filter(r => r.level === 1).map(r => [r.label, r.icon]));
     assert.deepEqual(icons, { "orbit-shop": "repo", "orbit-shop-gift-cards": "worktree", "orbit-shop-search": "worktree" });
 

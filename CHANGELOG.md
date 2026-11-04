@@ -9,6 +9,7 @@
 - Compare Files, pinned outlines, the Code Telescope preview and searching untracked files decode files in their own encoding (`files.encoding`, auto-guess, BOM) instead of always UTF-8.
 - With no folder open, the status bar shows "no repos" instead of "Discovering repos…" forever.
 - Expanding Fresh Files a few seconds after startup no longer leaves the repo node collapsed.
+- "Loading history…" no longer shows under repos on Pending changes, or once the selected time window has loaded (longer windows keep loading in the background without it).
 - Branch Compare: an empty comparison says "No commits beyond main yet" for a fresh branch, or how far the target is ahead. It suggests swapping the sides only when that would show something.
 - The Branch Comparisons panel's toolbar wraps on a narrow panel instead of squeezing its labels.
 - Behind / unpushed warnings appear for a repo that VS Code's git opens after the extension started, instead of only after the next change.
