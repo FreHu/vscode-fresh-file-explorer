@@ -20,6 +20,7 @@ import { normalizePath } from "../utils";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 import { formatFileTooltip } from "../utils/formatUtils";
 import { ConfigService } from "../config/configService";
+import { readEditorText } from "../utils/readEditorText";
 import type { FreshFileProvider } from "./freshFileProvider";
 
 function isDirectory(fsPath: string): boolean {
@@ -118,7 +119,7 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
     const key = normalizePath(uri.fsPath);
     const open = vscode.workspace.textDocuments.find(d => normalizePath(d.uri.fsPath) === key);
     try {
-      const text = open ? open.getText() : new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+      const text = open ? open.getText() : await readEditorText(uri);
       return parseOutline(format, text, depth);
     } catch (err) {
       log(`Pinned outline: could not read ${uri.fsPath} — ${err instanceof Error ? err.message : String(err)}`, "warn");

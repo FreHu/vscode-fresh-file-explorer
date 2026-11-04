@@ -3,6 +3,7 @@ import * as path from "path";
 
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
 import { log } from "../extension/logger";
+import { readEditorText } from "../utils/readEditorText";
 
 interface FilePair {
   original: vscode.Uri;
@@ -20,8 +21,7 @@ export class CompareContentProvider implements vscode.TextDocumentContentProvide
 
   async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
     const realPath = uri.query;
-    const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(realPath));
-    return new TextDecoder().decode(bytes);
+    return readEditorText(vscode.Uri.file(realPath));
   }
 }
 

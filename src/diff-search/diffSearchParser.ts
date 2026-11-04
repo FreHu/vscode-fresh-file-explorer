@@ -1,4 +1,4 @@
-import * as fs from "fs";
+import * as vscode from "vscode";
 import * as path from "path";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { CommitHash, asCommitHash } from "../types";
@@ -10,6 +10,7 @@ import { escapeRegex } from "../utils/formatUtils";
 import { isPathWithinRoot } from "../utils/pathUtils";
 import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
+import { readEditorText } from "../utils/readEditorText";
 
 /**
  * Git config can silently break diff parsing: `diff.noprefix` drops the `b/` we key on
@@ -444,7 +445,7 @@ async function searchUntrackedFiles(
 
     let content: string;
     try {
-      content = await fs.promises.readFile(absPath, "utf8");
+      content = await readEditorText(vscode.Uri.file(absPath));
     } catch (err) {
       log(`Could not read untracked file ${absPath}: ${err}`, "warn");
       continue;

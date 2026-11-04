@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { ConfigService } from "../config/configService";
 import { log } from "../extension/logger";
+import { readEditorText } from "../utils/readEditorText";
 import type { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { handleGetFilesForCodeTelescope } from "../commands/codeTelescopeCommand";
 
@@ -79,8 +80,7 @@ export async function registerCodeTelescopeFinder(
         const file = JSON.parse(item) as { absolutePath: string, relativePath: string };
         let content: string;
         try {
-          const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(file.absolutePath));
-          content = Buffer.from(bytes).toString("utf-8");
+          content = await readEditorText(vscode.Uri.file(file.absolutePath));
         } catch {
           content = `(Could not read file: ${file.absolutePath})`;
         }
