@@ -101,8 +101,9 @@ export class RepoSectionItem extends vscode.TreeItem {
     // Hiding reviewed files makes the tree show fewer rows than `fileCount` - surface the reviewed count too
     const showReviewedCount = hideReviewed && reviewedCount > 0;
     const changes = plural(fileCount, "change");
+    // Empty: the section's own message row says why, so the header doesn't repeat it.
     const changesText = fileCount === 0
-      ? " · no changes"
+      ? ""
       : showReviewedCount
         ? ` · ${changes}, ${reviewedCount} reviewed`
         : ` · ${changes}`;
