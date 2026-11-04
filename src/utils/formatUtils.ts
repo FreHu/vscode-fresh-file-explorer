@@ -1,11 +1,12 @@
 import { FileMetadata, DescriptionFormat } from "../types";
+import { plural } from "./plural";
 
 /**
  * Format a group description with file count and optional line changes
  */
 export function formatGroupDescription(
   fileCount: number, linesAdded?: number, linesDeleted?: number): string {
-  const parts = [`${fileCount} file${fileCount === 1 ? "" : "s"}`];
+  const parts = [plural(fileCount, "file")];
   
   const lineChanges = formatLineChanges(linesAdded, linesDeleted);
   if (lineChanges) {
@@ -120,7 +121,7 @@ export function formatRelativeDateLong(date: Date): string {
   const diffMonths = Math.floor(diffDays / 30);
   const diffYears = Math.floor(diffDays / 365);
 
-  const p = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"} ago`;
+  const p = (n: number, unit: string) => `${plural(n, unit)} ago`;
   if (diffSeconds < 60)  { return "just now"; }
   if (diffMinutes < 60)  { return p(diffMinutes, "minute"); }
   if (diffHours < 24)    { return p(diffHours, "hour"); }
@@ -399,7 +400,7 @@ export function formatCommitGroupHeader(
   if (subject) {
     parts.push(commit.hash);
   }
-  parts.push(`${commit.fileCount} file${commit.fileCount === 1 ? "" : "s"}`);
+  parts.push(plural(commit.fileCount, "file"));
   if (format.showAuthor && commit.author) {
     parts.push(commit.author);
   }
@@ -524,7 +525,7 @@ export function formatDaysLabel(days: number): string {
 export function formatTimeWindowLabel(days: number): string {
   if (days < 1) {
     const hours = Math.round(days * 24);
-    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+    return plural(hours, "hour");
   }
   return formatDaysLabel(days);
 }

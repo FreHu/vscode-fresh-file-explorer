@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { isPendingChangesMode, TimeWindow } from "../fresh-files/timeWindowUtils";
 import { AuthorData, CommitDataWithFileCount, CommitHash } from "../types";
 import { dotsDots } from "./formatUtils";
+import { plural } from "./plural";
 
 export interface CommitQuickPickItem extends vscode.QuickPickItem {
   hash: CommitHash;
@@ -102,9 +103,9 @@ export function buildTimeWindowItems(
   const historicalDescription = (days: number): string => {
     if (days < 1) {
       const hours = Math.round(days * 24);
-      return `Last ${hours} ${hours === 1 ? "hour" : "hours"}`;
+      return `Last ${plural(hours, "hour")}`;
     }
-    return `Last ${days} ${days === 1 ? "day" : "days"}`;
+    return `Last ${plural(days, "day")}`;
   };
 
   return timeWindows.map(tw => ({

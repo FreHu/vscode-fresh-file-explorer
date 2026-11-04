@@ -8,6 +8,7 @@ import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, forma
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
 import { type GroupingMode } from "../fresh-files/groupingMode";
+import { plural } from "../utils/plural";
 
 /**
  * Calculate total line changes from items with metadata.
@@ -488,7 +489,7 @@ export class GroupingViewBuilder {
     const pendingUri = vscode.Uri.from({ scheme: "freshfiles", authority: "pending", path: "/" });
     const item = FreshFileItem.forDirectory(pendingUri, openChangesMode, count, GroupingViewBuilder.groupsExpandByDefault());
     item.label = "(Pending)"; // matches Branch Compare's pending bucket label
-    item.description = `${count} file${count === 1 ? "" : "s"}`;
+    item.description = plural(count, "file");
     item.tooltip = `Uncommitted changes\n${count} file(s)`;
     item.iconPath = new vscode.ThemeIcon("edit");
     item.contextValue = TreeItemContextValues.PENDING_GROUP;

@@ -10,6 +10,7 @@ import { PanController } from "./panController";
 import { html } from "../utils/templateHelpers";
 import { positionTooltip } from "./webviewUtils";
 import { aggregateStonksData as aggregateData, bucketKey } from "./stonksBucketing";
+import { plural } from "../utils/plural";
 
 const vscode = acquireVsCodeApi();
 
@@ -1194,7 +1195,7 @@ function renderActivityHeatmap(
       const opacity = count === 0 ? 0.06 : 0.1 + (count / maxCount) * 0.8;
       const fill = count === 0 ? "var(--vscode-editorWidget-border, #444)" : "var(--vscode-charts-orange, #ffa94d)";
       const clickable = count > 0 ? ` class="heatmap-cell" data-day="${day}" data-hour="${hour}" style="cursor:pointer"` : "";
-      out += `<rect${clickable} x="${(cellX + 1).toFixed(1)}" y="${(cellY + 1).toFixed(1)}" width="${(cellW - 2).toFixed(1)}" height="${(cellH - 2).toFixed(1)}" fill="${fill}" opacity="${opacity.toFixed(2)}" rx="1"><title>${HEATMAP_DAY_LABELS[day]} ${hour}:00 \u2014 ${count} commit${count !== 1 ? "s" : ""} (click to copy hashes)</title></rect>`;
+      out += `<rect${clickable} x="${(cellX + 1).toFixed(1)}" y="${(cellY + 1).toFixed(1)}" width="${(cellW - 2).toFixed(1)}" height="${(cellH - 2).toFixed(1)}" fill="${fill}" opacity="${opacity.toFixed(2)}" rx="1"><title>${HEATMAP_DAY_LABELS[day]} ${hour}:00 \u2014 ${plural(count, "commit")} (click to copy hashes)</title></rect>`;
     }
   }
   // Working-hours overlay: outline Mon\u2013Fri \u00d7 workdayStart..workdayEnd. Cells outside it visually pop as off-hours.
@@ -1264,7 +1265,7 @@ svg.addEventListener("click", (e: Event) => {
     .map(d => d.hash!);
   if (hashes.length === 0) { return; }
   navigator.clipboard.writeText(hashes.join("\n")).then(() => {
-    showToast(`Copied ${hashes.length} hash${hashes.length !== 1 ? "es" : ""} (${HEATMAP_DAY_LABELS[day]} ${hour}:00)`);
+    showToast(`Copied ${plural(hashes.length, "hash", "hashes")} (${HEATMAP_DAY_LABELS[day]} ${hour}:00)`);
   }).catch(() => { /* clipboard unavailable */ });
 });
 svg.addEventListener("mouseenter", (e: Event) => {
@@ -1332,7 +1333,7 @@ svg.addEventListener("mousemove", (e: Event) => {
     tooltipHtml += html`<div class="message">${d.message!}</div>`;
     tooltipHtml += html`<div class="author">${d.author!} · ${dateStr}</div>`;
   } else {
-    tooltipHtml += `<div class="author">${dateStr} · ${d.commitCount} commit${d.commitCount !== 1 ? "s" : ""}</div>`;
+    tooltipHtml += `<div class="author">${dateStr} · ${plural(d.commitCount, "commit")}</div>`;
   }
   tooltipHtml += `<div class="stat">`;
   if (sections.fileCount) {

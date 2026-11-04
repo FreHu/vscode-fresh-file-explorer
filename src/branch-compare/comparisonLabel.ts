@@ -1,5 +1,6 @@
 // Pure, vscode-free: imported by both the extension host and the settings webview bundle.
 import { parseHeadOffset } from "../git/refSyntax";
+import { plural } from "../utils/plural";
 
 /** Display-friendly ref name; empty becomes `"?"`. */
 export function displayRef(ref: string): string {
@@ -24,7 +25,7 @@ export function emptyComparisonMessage(
     return { label: `Nothing new vs ${t}` };
   }
   return {
-    label: `Nothing new vs ${t} · ${t} is ${targetOnlyCommits} commit${targetOnlyCommits === 1 ? "" : "s"} ahead`,
+    label: `Nothing new vs ${t} · ${t} is ${plural(targetOnlyCommits, "commit")} ahead`,
     tooltip: `Swap source and target to see what ${t} adds.`,
   };
 }
@@ -36,7 +37,7 @@ export function emptyComparisonMessage(
 export function defaultComparisonLabel(repoName: string, source: string, target: string): string {
   const offset = source.trim() === "HEAD" ? parseHeadOffset(target) : undefined;
   if (offset !== undefined) {
-    return `${repoName} · last ${offset} commit${offset === 1 ? "" : "s"}`;
+    return `${repoName} · last ${plural(offset, "commit")}`;
   }
   return `${repoName} · ${displayRef(source)}..${displayRef(target)}`;
 }

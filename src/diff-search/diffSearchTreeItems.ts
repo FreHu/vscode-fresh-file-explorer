@@ -6,6 +6,7 @@ import { Commands } from "../commands/commandConstants";
 import { formatRelativeDate, shortSha } from "../utils/formatUtils";
 import { DiffSearchContextValues } from "./diffSearchConstants";
 import { RepoKind, repoKindIcon } from "../git/repoKind";
+import { plural } from "../utils/plural";
 
 /**
  * Tree item representing a file with diff matches
@@ -27,9 +28,9 @@ export class DiffSearchFileItem extends vscode.TreeItem {
     
     super(label, vscode.TreeItemCollapsibleState.Collapsed);
 
-    this.description = `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+    this.description = plural(matchCount, "match", "matches");
     this.tooltip = new vscode.MarkdownString(
-      `**${fileName}**\n\n${dirName}\n\n${matchCount} ${matchCount === 1 ? "match" : "matches"} found`,
+      `**${fileName}**\n\n${dirName}\n\n${plural(matchCount, "match", "matches")} found`,
     );
 
     // Use file icon (don't set resourceUri to avoid conflicts when same file appears in multiple commits)
@@ -114,7 +115,7 @@ export class DiffSearchRepoItem extends vscode.TreeItem {
     super(repoName, matchCount > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 
     this.id = `repo::${repoName}`;
-    this.description = `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+    this.description = plural(matchCount, "match", "matches");
     this.iconPath = new vscode.ThemeIcon(repoKindIcon(kind));
     this.contextValue = DiffSearchContextValues.REPO;
   }
@@ -137,10 +138,10 @@ export class DiffSearchCommitItem extends vscode.TreeItem {
     this.label = `${commitShort} - ${commitMessage}`;
     const relativeDate = formatRelativeDate(commitDate);
     const absoluteDate = commitDate.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-    this.description = `${relativeDate} · ${fileCount} ${fileCount === 1 ? "file" : "files"}, ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+    this.description = `${relativeDate} · ${plural(fileCount, "file")}, ${plural(matchCount, "match", "matches")}`;
     
     this.tooltip = new vscode.MarkdownString(
-      `**${commitShort}** - ${commitMessage}\n\n${relativeDate} (${absoluteDate})\n\n${fileCount} ${fileCount === 1 ? "file" : "files"} with ${matchCount} ${matchCount === 1 ? "match" : "matches"}`,
+      `**${commitShort}** - ${commitMessage}\n\n${relativeDate} (${absoluteDate})\n\n${plural(fileCount, "file")} with ${plural(matchCount, "match", "matches")}`,
     );
 
     this.iconPath = new vscode.ThemeIcon("git-commit");
@@ -165,9 +166,9 @@ export class DiffSearchPendingItem extends vscode.TreeItem {
   ) {
     super("Pending Changes", vscode.TreeItemCollapsibleState.Expanded);
 
-    this.description = `${fileCount} ${fileCount === 1 ? "file" : "files"}, ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+    this.description = `${plural(fileCount, "file")}, ${plural(matchCount, "match", "matches")}`;
     this.tooltip = new vscode.MarkdownString(
-      `Uncommitted changes (staged + unstaged)\n\n${fileCount} ${fileCount === 1 ? "file" : "files"} with ${matchCount} ${matchCount === 1 ? "match" : "matches"}`,
+      `Uncommitted changes (staged + unstaged)\n\n${plural(fileCount, "file")} with ${plural(matchCount, "match", "matches")}`,
     );
     this.iconPath = new vscode.ThemeIcon("git-branch");
     this.contextValue = DiffSearchContextValues.PENDING;

@@ -8,6 +8,7 @@ import { BranchCompareContextValues, DEFAULT_FILE_ICON_STYLE, DiffMode, FileIcon
 import { changeTypeIcon } from "./changeTypeIcon";
 import { formatLineChanges } from "../utils/formatUtils";
 import { RepoKind, repoKindIcon, repoKindLabel } from "../git/repoKind";
+import { plural } from "../utils/plural";
 
 /** Single-letter status badge shown in the description column. */
 function statusBadge(status: ChangeStatus): string {
@@ -99,14 +100,14 @@ export class RepoSectionItem extends vscode.TreeItem {
     const modeSuffix = diffMode === "full" ? " · full" : "";
     // Hiding reviewed files makes the tree show fewer rows than `fileCount` - surface the reviewed count too
     const showReviewedCount = hideReviewed && reviewedCount > 0;
-    const changes = `${fileCount} change${fileCount === 1 ? "" : "s"}`;
+    const changes = plural(fileCount, "change");
     const changesText = fileCount === 0
       ? " · no changes"
       : showReviewedCount
         ? ` · ${changes}, ${reviewedCount} reviewed`
         : ` · ${changes}`;
     const shortHistory = availableCommits !== undefined
-      ? ` · ⚠ only ${availableCommits} commit${availableCommits === 1 ? "" : "s"}`
+      ? ` · ⚠ only ${plural(availableCommits, "commit")}`
       : "";
     this.description = `${changesText}${modeSuffix}${shortHistory}`;
     const tooltipLines = [repoName];

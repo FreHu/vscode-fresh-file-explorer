@@ -7,6 +7,7 @@ import {
   searchCommits, splitByRanges, describeResult,
   type LogLSearchQuery, type LogLSearchResult, type LogLSearchScope, type MatchRange, type HunkLineMatch,
 } from "./logLSearch";
+import { plural } from "../utils/plural";
 
 const vscode = acquireVsCodeApi();
 
@@ -115,7 +116,7 @@ window.addEventListener("message", (event: MessageEvent<GitLogLToWebview>) => {
     focusedIndex = commits.length > 0 ? 0 : -1;
     titleEl.textContent = (msg.mode === "fileHistory" ? "File History: " : "Git Log -L: ") + msg.label;
     subtitleEl.textContent =
-      commits.length + " commit" + (commits.length === 1 ? "" : "s") +
+      plural(commits.length, "commit") +
       " — click a commit to select A / B for comparison";
     if (msg.gitCommand) { gitCommandEl.textContent = msg.gitCommand; }
     renderTimeline();

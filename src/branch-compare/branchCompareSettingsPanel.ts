@@ -20,6 +20,7 @@ import {
   SavedComparisonDTO,
 } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { plural } from "../utils/plural";
 
 /**
  * Webview view (bottom panel) for managing the saved branch comparisons.
@@ -278,7 +279,7 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
         const clamped = await clampHeadOffsetRef(repoFullPath, ref);
         if (clamped.availableCommits !== undefined) {
           const n = clamped.availableCommits;
-          return { valid: true, warning: `Only ${n} commit${n === 1 ? "" : "s"} so far — the comparison shows all of them` };
+          return { valid: true, warning: `Only ${plural(n, "commit")} so far — the comparison shows all of them` };
         }
         const message = String(err).split("\n").find(line => line.trim().length > 0) ?? "Invalid ref";
         return { valid: false, message: message.trim() };

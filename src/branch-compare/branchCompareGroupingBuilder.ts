@@ -7,6 +7,7 @@ import { getMoonPhase } from "../fresh-files/moonPhase";
 import { formatRelativeDate, formatCommitTooltip, formatCommitGroupHeader } from "../utils/formatUtils";
 import { BranchCompareContextValues, PENDING_GROUP_KEY } from "./branchCompareConstants";
 import { collapseEpochSuffix } from "./branchCompareTreeItems";
+import { plural } from "../utils/plural";
 
 /**
  * Tree item for a group header in the Branch Compare view.
@@ -138,7 +139,7 @@ export function buildGroupedItems(
           message: firstCommit.message,
         });
       } else {
-        description = `${fileCount} file${fileCount === 1 ? "" : "s"}`;
+        description = plural(fileCount, "file");
         tooltip = `Pending changes\n${fileCount} file(s)`;
       }
     } else {

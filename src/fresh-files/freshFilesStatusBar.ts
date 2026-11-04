@@ -3,6 +3,7 @@ import { FeatureStatusBar } from "../ui/featureStatusBar";
 import { FreshFileProvider } from "./freshFileProvider";
 import { ConfigService } from "../config/configService";
 import { ConfigKeys } from "../config/configKeyConstants";
+import { plural } from "../utils/plural";
 
 /**
  * Steady status-bar entry that reports Fresh Files' loading progress.
@@ -84,7 +85,7 @@ export class FreshFilesStatusBar implements vscode.Disposable {
     this.statusBar.update({
       kind: "active",
       text: `$(check) Fresh files`,
-      tooltip: `Fresh Files: ${totalRepos} repo${totalRepos === 1 ? "" : "s"} loaded.`,
+      tooltip: `Fresh Files: ${plural(totalRepos, "repo")} loaded.`,
     });
   }
 
