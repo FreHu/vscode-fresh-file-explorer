@@ -447,8 +447,6 @@ Look under `freshfileexplorer.` to see all configurable settings.
 
 Unlike File Explorer, which just needs the files on your disk, Fresh File Explorer must load part of your git history to work. This is done in one streaming pass on startup, after which the results are cached. For the view to become usable, you only wait as long as your configured time window takes to load. The remaining time windows keep loading in the background, so that by the time you need them, they are ready. Reloads happen when switching branches or syncing changes.
 
-![incremental load](docs/img/incremental-load.gif)
-
 Not looking 5 years back in a large repo will go a long way in terms of performance. But you can. Also avoid configuring long time windows you never need - adds pointless startup overhead in the background.
 
 If you mainly use the other features, set `freshFileExplorer.freshFileLoading` to `"manual"`: the history scan then waits for a Refresh (or a feature that needs it), while Branch Compare, the blame heatmap and the rest keep working.
