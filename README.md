@@ -46,7 +46,7 @@ Deleted files appear in the tree where they used to be, ready for necromancy.
 - **Exhume**: Click the file to open it in a temp file
 - **Resurrect**: Restores the file to its original location `(git restore)`
   
-![resurrect](docs/img/resurrect.png)
+![resurrect](docs/img/resurrect-demo.gif)
 
 
 ### Heatmap Coloring
