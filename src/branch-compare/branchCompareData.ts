@@ -238,20 +238,24 @@ export async function fetchMergeConeStats(
   mergeBaseSha: string,
   source: string,
 ): Promise<{ total: number; firstParent: number } | undefined> {
+  const range = `${mergeBaseSha}..${source}`;
+  const [total, firstParent] = await Promise.all([
+    countCommits(repoFullPath, range),
+    countCommits(repoFullPath, range, { firstParent: true }),
+  ]);
+  return total === undefined || firstParent === undefined ? undefined : { total, firstParent };
+}
+
+/** `git rev-list --count <range>`; undefined on failure, since callers use it for hints only. */
+export async function countCommits(
+  repoFullPath: string,
+  range: string,
+  opts: { firstParent?: boolean } = {},
+): Promise<number | undefined> {
   try {
-    const range = `${mergeBaseSha}..${source}`;
-    const [totalOut, fpOut] = await Promise.all([
-      execGitWithArgs(["rev-list", "--count", range], repoFullPath, {
-        timeout: ConfigService.getGitTimeoutMs(),
-      }),
-      execGitWithArgs(["rev-list", "--count", "--first-parent", range], repoFullPath, {
-        timeout: ConfigService.getGitTimeoutMs(),
-      }),
-    ]);
-    const total = parseInt(totalOut.trim(), 10);
-    const firstParent = parseInt(fpOut.trim(), 10);
-    if (Number.isNaN(total) || Number.isNaN(firstParent)) { return undefined; }
-    return { total, firstParent };
+    const args = ["rev-list", "--count", ...(opts.firstParent ? ["--first-parent"] : []), range];
+    const count = parseInt((await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() })).trim(), 10);
+    return Number.isNaN(count) ? undefined : count;
   } catch {
     return undefined;
   }
