@@ -1,4 +1,4 @@
-import { pane, parkMouse, setPaneExpanded, setSidebarWidth, waitForFreshFile } from "../vscodeActions.mjs";
+import { pane, parkMouse, setSidebarWidth, showOnlyFreshFiles } from "../vscodeActions.mjs";
 
 /** The Fresh Files tree of the fixture repo, fully loaded. */
 export default {
@@ -8,11 +8,7 @@ export default {
   },
   async capture(page) {
     await setSidebarWidth(page, 520);
-    for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Fresh Files - Branch Compare"]) {
-      await setPaneExpanded(page, title, false);
-    }
-    await setPaneExpanded(page, "Fresh Files", true);
-    await waitForFreshFile(page, "discounts.ts");
+    await showOnlyFreshFiles(page, "discounts.ts");
     await parkMouse(page);
     await page.waitForTimeout(500); // let the last decorations paint
     // Crop to the rendered rows: the pane itself stretches to fill the sidebar.

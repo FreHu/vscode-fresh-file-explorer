@@ -15,6 +15,16 @@ export async function pickQuickInput(page, label) {
   await page.locator(".quick-input-widget .monaco-list-row", { has: page.getByText(label, { exact: true }) }).first().click();
 }
 
+/** Moves the quick pick's keyboard focus (the bright highlight) to the row labelled `label`. */
+export async function focusQuickInputRow(page, label) {
+  const focused = page.locator(".quick-input-widget .monaco-list-row.focused");
+  for (let i = 0; i < 50; i++) {
+    if ((await focused.getByText(label, { exact: true }).count()) > 0) { return; }
+    await page.keyboard.press("ArrowDown");
+  }
+  throw new Error(`quick pick row "${label}" not reachable`);
+}
+
 /** Opens a workspace file through Quick Open and waits for its editor. */
 export async function openFile(page, fileName) {
   await page.keyboard.press("Control+P");
@@ -47,6 +57,21 @@ export async function setSidebarWidth(page, width) {
 /** The pane (header + body) of a sidebar section, for cropping. */
 export function pane(page, title) {
   return page.locator(".pane", { has: page.locator(".pane-header .title", { hasText: new RegExp(`^${escapeRegExp(title)}$`, "i") }) }).first();
+}
+
+/** Collapses every Explorer section except Fresh Files and waits for its tree to load. */
+export async function showOnlyFreshFiles(page, loadedLabel) {
+  for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Fresh Files - Branch Compare"]) {
+    await setPaneExpanded(page, title, false);
+  }
+  await setPaneExpanded(page, "Fresh Files", true);
+  await waitForFreshFile(page, loadedLabel);
+}
+
+/** Opens the time-window picker from the Fresh Files title bar. */
+export async function openTimeWindowPicker(page) {
+  await page.locator('[id="workbench.view.explorer"] .action-label[aria-label^="Set Time Window"]').click();
+  await page.locator(".quick-input-widget .monaco-list-row").first().waitFor();
 }
 
 /** Waits until the Fresh Files tree shows a row with this label, i.e. history has loaded. */

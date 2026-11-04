@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { encodeGif } from "./encodeGif.mjs";
 import { buildFixtureRepo } from "./fixtureRepo.mjs";
 import { launchVSCode } from "./launchVSCode.mjs";
 
@@ -31,12 +32,20 @@ for (const name of sceneNames) {
   const scene = (await import(pathToFileURL(join(here, "scenes", `${name}.mjs`)).href)).default;
   // One VS Code per scene: scenes can't leak view state, settings or open pickers into each other.
   const workspace = buildFixtureRepo(join(stateDir, "orbit-shop"));
-  const { app, page } = await launchVSCode({ repoRoot, workspace, stateDir, settings: scene.settings });
+  const { app, page } = await launchVSCode({ repoRoot, workspace, stateDir, settings: scene.settings, window: scene.window });
   try {
-    const png = await scene.capture(page);
+    // A scene returns one PNG, or a list of frames that becomes a GIF.
+    const result = await scene.capture(page);
+    const bytes = Array.isArray(result) ? await encodeGif(page, result) : result;
+    if (Array.isArray(result)) {
+      // The frames as stills, for checking each one: image viewers often show only a GIF's first frame.
+      const framesDir = join(stateDir, "frames", name);
+      mkdirSync(framesDir, { recursive: true });
+      result.forEach((f, i) => writeFileSync(join(framesDir, `${i + 1}.png`), f.png));
+    }
     const file = join(outDir, scene.output);
-    writeFileSync(file, png);
-    console.log(`${name} → ${file}`);
+    writeFileSync(file, bytes);
+    console.log(`${name} → ${file} (${Math.round(bytes.length / 1024)} KB)`);
   } catch (err) {
     failed++;
     const file = join(stateDir, `${name}.failure.png`);

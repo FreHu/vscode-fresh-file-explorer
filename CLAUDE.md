@@ -153,6 +153,8 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 `npm run demo [scene...] [-- --out docs/img]` launches a real VS Code (pinned version, isolated profile, no other extensions) through Playwright's Electron driver and captures each scene in `scripts/demo/scenes/`. Every scene gets a fresh fixture repo (`scripts/demo/fixtureRepo.mjs`) with commit dates relative to now, so the time windows always have content. Output defaults to `.scratch/claude/demo/shots`; a failing scene saves the whole window next to it.
 
 - Use this to look at UI changes yourself: write or run a scene, then read the PNG.
+- A scene returning a list of `{ png, holdMs, fadeMs? }` frames becomes a GIF (`encodeGif.mjs`; GIF is the one animated format GitHub, the Marketplace and Open VSX all play). Each frame is also saved under `.scratch/claude/demo/frames/<scene>/`: reading a GIF shows only its first frame.
+- Annotations (`annotate.mjs`) are positioned from live elements (editor lines, gutter, locators), so they follow UI changes on rerun.
 - The fixture sets its own git identity: pending changes show the current `user.name`, which must never be the real user's in a published image.
 - The launcher strips `ELECTRON_*`/`VSCODE_*` from the environment. Inherited from a VS Code terminal, `ELECTRON_RUN_AS_NODE` makes Code.exe start as plain Node.
 

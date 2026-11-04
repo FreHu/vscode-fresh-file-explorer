@@ -9,7 +9,7 @@ import { _electron as electron } from "playwright-core";
 /** Pinned so screenshots don't shift with VS Code releases. */
 export const VSCODE_VERSION = "1.145.0";
 
-const WINDOW = { width: 1280, height: 800 };
+const DEFAULT_WINDOW = { width: 1280, height: 800 };
 
 /** Keeps the chrome quiet and identical between runs. */
 const USER_SETTINGS = {
@@ -41,9 +41,9 @@ function cleanEnv() {
 }
 
 /**
- * @param {{ repoRoot: string, workspace: string, stateDir: string, settings?: Record<string, unknown> }} opts
+ * @param {{ repoRoot: string, workspace: string, stateDir: string, settings?: Record<string, unknown>, window?: { width: number, height: number } }} opts
  */
-export async function launchVSCode({ repoRoot, workspace, stateDir, settings = {} }) {
+export async function launchVSCode({ repoRoot, workspace, stateDir, settings = {}, window = DEFAULT_WINDOW }) {
   const executablePath = await downloadAndUnzipVSCode({ version: VSCODE_VERSION, cachePath: join(repoRoot, ".vscode-test") });
 
   // Fresh profile every run: no restored editors, layout or view state.
@@ -76,7 +76,7 @@ export async function launchVSCode({ repoRoot, workspace, stateDir, settings = {
     win.unmaximize();
     win.setContentSize(size.width, size.height);
     win.center();
-  }, WINDOW));
+  }, window));
   await page.locator(".monaco-workbench").waitFor();
   return { app, page };
 }
