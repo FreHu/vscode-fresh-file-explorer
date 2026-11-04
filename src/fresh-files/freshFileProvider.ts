@@ -765,7 +765,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   /** See {@link scopeFilesByRepo} — narrows `_displayFreshFiles` to one repo. */
   private freshFilesForRepoScope(repoScope?: string): Map<AbsolutePath, FileMetadata> {
-    return scopeFilesByRepo(this._displayFreshFiles, repoScope);
+    return scopeFilesByRepo(this._displayFreshFiles, repoScope, this.submoduleRootPaths);
   }
 
   /** Build a repo node's children in a grouping mode: author/commit/pending groups scoped to that repo. */

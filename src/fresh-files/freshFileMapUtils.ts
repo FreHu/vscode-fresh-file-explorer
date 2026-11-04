@@ -113,12 +113,30 @@ export function computeHistoricalLoadPlan(
  * or the whole map when no scope is given. Used to build a repo's grouped
  * children and to resolve a group header's children/actions to that repo.
  */
-export function scopeFilesByRepo<V>(source: Map<AbsolutePath, V>, repoScope?: string): Map<AbsolutePath, V> {
+export function scopeFilesByRepo<V>(
+  source: Map<AbsolutePath, V>,
+  repoScope?: string,
+  nestedRepoRoots: ReadonlySet<string> = new Set(),
+): Map<AbsolutePath, V> {
   if (!repoScope) { return source; }
-  const prefix = repoScope.endsWith("/") ? repoScope : repoScope + "/";
+  const repo = repoScope.endsWith("/") ? repoScope.slice(0, -1) : repoScope;
   const scoped = new Map<AbsolutePath, V>();
   for (const [p, m] of source) {
-    if (p === repoScope || (p as string).startsWith(prefix)) { scoped.set(p, m); }
+    if (fileBelongsToRepo(p, repo, nestedRepoRoots)) { scoped.set(p, m); }
   }
   return scoped;
+}
+
+/**
+ * Whether a file belongs to the repo at `repoPath`: the deepest repo containing it.
+ * A submodule's files belong to the submodule, not the repo it's nested in, while
+ * the submodule's own path (the parent's "submodule changed" entry) belongs to the
+ * parent. `nestedRepoRoots` are the repo roots (submodules) that may sit inside others.
+ */
+export function fileBelongsToRepo(filePath: string, repoPath: string, nestedRepoRoots: ReadonlySet<string>): boolean {
+  if (!filePath.startsWith(repoPath + "/")) { return false; }
+  for (const root of nestedRepoRoots) {
+    if (root !== repoPath && root.startsWith(repoPath + "/") && filePath.startsWith(root + "/")) { return false; }
+  }
+  return true;
 }

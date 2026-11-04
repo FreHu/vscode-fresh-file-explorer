@@ -126,10 +126,27 @@ suite("scopeFilesByRepo", () => {
     assert.strictEqual(result.size, 0);
   });
 
-  test("matches the repo root path itself", () => {
+  test("leaves out the repo's own path: that entry is its parent's 'submodule changed' record", () => {
     const map = new Map<AbsolutePath, number>([[abs("/work/proj"), 1]]);
     const result = scopeFilesByRepo(map, "/work/proj");
-    assert.strictEqual(result.size, 1);
+    assert.strictEqual(result.size, 0);
+  });
+
+  test("a submodule's files go to the submodule, its own path to the parent", () => {
+    const map = new Map<AbsolutePath, number>([
+      [abs("/work/proj/a.ts"), 1],
+      [abs("/work/proj/vendor/sdk"), 2],
+      [abs("/work/proj/vendor/sdk/client.ts"), 3],
+      [abs("/work/proj/vendor/sdk/vendor/data"), 4],
+      [abs("/work/proj/vendor/sdk/vendor/data/rates.json"), 5],
+    ]);
+    const nested = new Set(["/work/proj/vendor/sdk", "/work/proj/vendor/sdk/vendor/data"]);
+    assert.deepStrictEqual([...scopeFilesByRepo(map, "/work/proj", nested).keys()],
+      [abs("/work/proj/a.ts"), abs("/work/proj/vendor/sdk")]);
+    assert.deepStrictEqual([...scopeFilesByRepo(map, "/work/proj/vendor/sdk", nested).keys()],
+      [abs("/work/proj/vendor/sdk/client.ts"), abs("/work/proj/vendor/sdk/vendor/data")]);
+    assert.deepStrictEqual([...scopeFilesByRepo(map, "/work/proj/vendor/sdk/vendor/data", nested).keys()],
+      [abs("/work/proj/vendor/sdk/vendor/data/rates.json")]);
   });
 });
 

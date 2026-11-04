@@ -32,6 +32,7 @@ import {
   formatGroupDescription,
 } from "../utils/formatUtils";
 import { repoKindOf } from "../git/repoKind";
+import { fileBelongsToRepo } from "./freshFileMapUtils";
 
 /**
  * Everything the structural tree builders need from the provider, passed
@@ -84,7 +85,8 @@ export function buildRepoRootItems(contextValue: string, ctx: RepoViewContext): 
     const p = filePath as string;
     for (const repo of reposBySpecificity) {
       const rp = repo.normalizedRepoPath as string;
-      if (p !== rp && !p.startsWith(rp + "/")) { continue; }
+      // A path equal to a repo root is a submodule's entry in its parent: count it there.
+      if (!p.startsWith(rp + "/")) { continue; }
       // Owning repo found — count it unless out of folder scope or hidden by
       // this folder's files.exclude (keeps the count in step with buildTree).
       const scope = ctx.getFolderScope(repo.normalizedRepoPath);
@@ -263,7 +265,7 @@ export function buildFlatList(repoFsPath: string, ctx: TreeBuildContext): FreshF
     : undefined;
 
   for (const [filePath, metadata] of ctx.freshFiles) {
-    if (!filePath.startsWith(normalizedRepoPath + "/") && filePath !== normalizedRepoPath) {
+    if (!fileBelongsToRepo(filePath, normalizedRepoPath, ctx.submoduleRootPaths)) {
       continue;
     }
     if (!ctx.filterManager.passesFilters(metadata)) { continue; }
