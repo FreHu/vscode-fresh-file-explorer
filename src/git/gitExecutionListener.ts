@@ -6,6 +6,7 @@ import { normalizePath } from "../utils";
 import { NormalizedRepoPath } from "../pathTypes";
 import { BranchName, asBranchName } from "../types";
 import { plural } from "../utils/plural";
+import { baseBranchRef } from "./baseBranchRef";
 
 /** Minimal repository interface exposed to consumers outside this module. */
 export interface GitRepository {
@@ -64,17 +65,10 @@ export async function setupGitExtensionListener(
       if (showBaseBranchSync) {
         try {
           const baseBranch = await repo.getBranchBase(head.name);
-          if (baseBranch?.name && baseBranch.name !== head.name) {
-            // Prefer checking remote tracking branch if available (e.g., origin/main)
-            // This catches updates pushed to remote before you pull locally
-            let targetRef = baseBranch.name;
-            if (baseBranch.upstream) {
-              targetRef = `${baseBranch.upstream.remote}/${baseBranch.upstream.name}`;
-            }
-
-            const displayName = baseBranch.upstream
-              ? `${baseBranch.upstream.remote}/${baseBranch.upstream.name}`
-              : baseBranch.name;
+          // A remote ref (e.g. origin/main) catches work pushed before you pull locally.
+          const targetRef = baseBranch ? baseBranchRef(baseBranch) : undefined;
+          if (baseBranch?.name && targetRef && baseBranch.name !== head.name) {
+            const displayName = targetRef;
 
             // Count commits in current branch not in base (how far ahead we are)
             const aheadRange = `${targetRef}..${head.name}`;
@@ -373,6 +367,8 @@ interface Branch {
   name?: string;
   type?: number; // RefType: 0 = Head (branch), 1 = RemoteHead, 2 = Tag
   commit?: string;
+  /** Set for a remote-tracking branch (Ref.remote in VS Code's git API). */
+  remote?: string;
   upstream?: UpstreamRef;
   ahead?: number;
   behind?: number;
