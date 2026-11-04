@@ -261,6 +261,20 @@ export async function setupGitExtensionListener(
       }, 500);
     };
 
+    // Debounced: the git extension opens repos in a burst at startup.
+    let syncWarningsTimeout: NodeJS.Timeout | undefined;
+    const scheduleSyncWarnings = () => {
+      if (syncWarningsTimeout) {
+        clearTimeout(syncWarningsTimeout);
+      }
+      syncWarningsTimeout = setTimeout(() => {
+        syncWarningsTimeout = undefined;
+        updateSyncWarnings(api).catch(e =>
+          log(`sync warnings update failed: ${e instanceof Error ? e.message : String(e)}`, "error"),
+        );
+      }, 500);
+    };
+
     // Re-run repository discovery when a brand-new repo is opened (e.g. `git worktree add`).
     // Debounced so creating several worktrees at once (or the initial open burst) collapses into a single re-discovery.
     let rediscoverTimeout: NodeJS.Timeout | undefined;
@@ -300,6 +314,10 @@ export async function setupGitExtensionListener(
         context.subscriptions.push(
           repo.state.onDidChange(() => scheduleRefresh()),
         );
+        // The snapshot already holds this repo's ahead/behind counts, so no later state
+        // event reads as a change: a repo the git extension opens after activation would
+        // otherwise never get its sync warnings.
+        scheduleSyncWarnings();
 
         // If FFE has already finished its initial discovery and this is a repo within the
         // workspace that we don't yet track, it's newly created (most often a worktree) — re-run
