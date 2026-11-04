@@ -142,6 +142,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 
 - `npm run pretest` runs compile, lint and `scripts/sizeRatchet.mjs`, which fails when the largest files grow past their line budget. Split a file rather than raising its budget.
 - `@typescript-eslint/no-floating-promises` is an error: fire-and-forget calls need an explicit `void`.
+- The extension ships as one esbuild bundle, `dist/extension.js` (`scripts/buildExtension.mjs`; `main` points there). `npm run compile` builds it along with tsc's `out/`, which the tests import; `out/` isn't packaged. Don't rely on `__dirname`: inside the bundle it is `dist/`, not `out/<folder>/`. Take `context.extensionUri` from `activate()`.
 
 ## Conventions
 

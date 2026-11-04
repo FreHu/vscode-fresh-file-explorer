@@ -39,7 +39,7 @@
     "diff search",
     "pickaxe"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -2376,14 +2376,16 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run compile:webview",
-    "clean": "rimraf out",
-    "compile": "npm run clean && tsc -p ./ && npm run copy:fixtures && npm run copy:codicons",
+    "clean": "rimraf out dist",
+    "compile": "npm run clean && tsc -p ./ && npm run copy:fixtures && npm run copy:codicons && npm run compile:extension",
     "copy:codicons": "copyfiles -u 4 \"node_modules/@vscode/codicons/dist/codicon.css\" \"node_modules/@vscode/codicons/dist/codicon.ttf\" media/codicons",
     "compile:webview": "tsc -p src/webview/tsconfig.json --noEmit && node scripts/buildWebview.mjs",
+    "compile:extension": "node scripts/buildExtension.mjs",
     "copy:fixtures": "copyfiles -u 1 \"src/test/fixtures/**\" out/",
-    "watch": "npm run copy:fixtures && run-p watch:ext watch:webview",
+    "watch": "npm run copy:fixtures && run-p watch:ext watch:bundle watch:webview",
     "watch:ext": "tsc -watch -p ./",
     "watch:webview": "node scripts/buildWebview.mjs --watch",
+    "watch:bundle": "node scripts/buildExtension.mjs --watch",
     "prepare": "git config core.hooksPath .githooks || true",
     "pretest": "npm run compile && npm run compile:webview && npm run lint && npm run ratchet",
     "lint": "eslint src",

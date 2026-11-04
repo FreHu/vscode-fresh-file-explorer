@@ -14,6 +14,7 @@
 - Submodules in the flat list and grouped views: a submodule's files show only under the submodule (they were also listed under the parent), and its own "changed" entry only under the parent.
 - Branch Compare: an empty comparison says "No commits beyond main yet" for a fresh branch, or how far the target is ahead. It suggests swapping the sides only when that would show something.
 - The Branch Comparisons panel's toolbar wraps on a narrow panel instead of squeezing its labels.
+- The extension ships as a single bundled file: it loads about 4× faster, and the package holds 41 files instead of 193.
 - The base-branch warnings compare against the remote base (e.g. origin/main), so "N commits in 'origin/main' not in current branch" shows before you pull; it compared against the local main.
 - Behind / unpushed warnings appear for a repo that VS Code's git opens after the extension started, instead of only after the next change.
 - A deleted file opened from the tree shows its own name in the tab, without a hash prefix.
