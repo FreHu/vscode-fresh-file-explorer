@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { compileFilesExclude, splitGlobAware } from "../../fresh-files/filesExcludeMatcher";
+import { compileFilesExclude, expandBraces, splitGlobAware } from "../../fresh-files/filesExcludeMatcher";
 
 suite("filesExcludeMatcher", () => {
   suite("compileFilesExclude — the issue #3 case", () => {
@@ -111,6 +111,73 @@ suite("filesExcludeMatcher", () => {
 
     test("splits on separator but not inside brackets", () => {
       assert.deepStrictEqual(splitGlobAware("a/[b/c]/d", "/"), ["a", "[b/c]", "d"]);
+    });
+  });
+
+  // Cases mirror VS Code's glob.test.ts "exclude exceptions" suite.
+  suite("exclude exceptions (`!` keys)", () => {
+    function excluded(expression: Record<string, unknown>, paths: string[]): Record<string, boolean> {
+      const isExcluded = compileFilesExclude(expression);
+      return Object.fromEntries(paths.map(p => [p, isExcluded(p)]));
+    }
+
+    test("exceptions carve paths and their children out of excludes", () => {
+      assert.deepStrictEqual(
+        excluded({ "node_modules/*": true, "!node_modules/susa": true }, ["node_modules/a", "node_modules/susa", "node_modules/susa/index.js", "src/a.js"]),
+        { "node_modules/a": true, "node_modules/susa": false, "node_modules/susa/index.js": false, "src/a.js": false });
+      assert.deepStrictEqual(excluded({ "*.js": true, "!gulpfile.js": true }, ["a.js", "gulpfile.js"]), { "a.js": true, "gulpfile.js": false });
+      assert.deepStrictEqual(
+        excluded({ ".*": true, "!.editorconfig": true, "!.gitignore": true }, [".env", ".editorconfig", ".gitignore"]),
+        { ".env": true, ".editorconfig": false, ".gitignore": false });
+      assert.deepStrictEqual(
+        excluded({ "**/.vscode": true, "**/.vscode/*": true, "!**/.vscode/launch.json": true }, ["a/.vscode/settings.json", "a/.vscode/launch.json"]),
+        { "a/.vscode/settings.json": true, "a/.vscode/launch.json": false });
+    });
+
+    test("an exception under a bare excluded folder re-includes its files (the release-notes case)", () => {
+      assert.deepStrictEqual(
+        excluded({ node_modules: true, "!node_modules/@types": true }, ["node_modules/react/index.js", "node_modules/@types/node/index.d.ts"]),
+        { "node_modules/react/index.js": true, "node_modules/@types/node/index.d.ts": false });
+    });
+
+    test("exceptions on their own exclude nothing", () => {
+      assert.deepStrictEqual(excluded({ "!*.js": true, "!*.ts": true }, ["a.js", "a.ts", "a.md"]), { "a.js": false, "a.ts": false, "a.md": false });
+    });
+
+    test("exceptions win over excludes beneath them, regardless of key order", () => {
+      assert.deepStrictEqual(
+        excluded({ "node_modules/*": true, "!node_modules/@types": true, "node_modules/@types/*": true }, ["node_modules/a", "node_modules/@types/node"]),
+        { "node_modules/a": true, "node_modules/@types/node": false });
+    });
+
+    test("disabled, escaped, empty and absolute exception keys", () => {
+      assert.deepStrictEqual(excluded({ "*.js": true, "!gulpfile.js": false }, ["gulpfile.js"]), { "gulpfile.js": true });
+      assert.deepStrictEqual(excluded({ "{!}notes.txt": true }, ["!notes.txt", "notes.txt"]), { "!notes.txt": true, "notes.txt": false });
+      assert.deepStrictEqual(
+        excluded({ "*.js": true, "!": true, "!/workspace/a.js": true, "!C:/workspace/a.js": true }, ["a.js"]),
+        { "a.js": true });
+      assert.deepStrictEqual(excluded({ src: true, "!src/keep/": true, "!src/also/**": true }, ["src/keep/a", "src/also/b", "src/c"]),
+        { "src/keep/a": false, "src/also/b": false, "src/c": true });
+    });
+
+    test("exceptions don't re-include version-control folders unless one names them", () => {
+      assert.deepStrictEqual(
+        excluded({ "**/.git": true, third_party: true, "!third_party/lib": true }, ["third_party/lib/a.js", "third_party/lib/.git/config"]),
+        { "third_party/lib/a.js": false, "third_party/lib/.git/config": true });
+      assert.deepStrictEqual(
+        excluded({ "**/.git": true, "!.git/hooks": true }, [".git/hooks/pre-commit", ".git/config"]),
+        { ".git/hooks/pre-commit": false, ".git/config": true });
+      assert.deepStrictEqual(
+        excluded({ "**/.hg": true, "**/.svn": true, "!{.git,.hg}/hooks": true }, [".hg/hooks/x", ".svn/hooks/x"]),
+        { ".hg/hooks/x": false, ".svn/hooks/x": true });
+    });
+  });
+
+  suite("expandBraces", () => {
+    test("expands each group into its alternatives", () => {
+      assert.deepStrictEqual(expandBraces("{a,b}/c"), ["a/c", "b/c"]);
+      assert.deepStrictEqual(expandBraces("{a,b}/{c,d}"), ["a/c", "a/d", "b/c", "b/d"]);
+      assert.deepStrictEqual(expandBraces("plain"), ["plain"]);
     });
   });
 });

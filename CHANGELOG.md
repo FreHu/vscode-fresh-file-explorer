@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- `files.exclude` exceptions: a `!` key such as `"!node_modules/@types": true` keeps matching files visible, as in the VS Code 1.145 Explorer.
+
 ### Fixes
 
 - Compare Files, pinned outlines, the Code Telescope preview and searching untracked files decode files in their own encoding (`files.encoding`, auto-guess, BOM) instead of always UTF-8.

@@ -65,6 +65,7 @@ The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclud
 - Pure glob matching: [filesExcludeMatcher.ts](src/fresh-files/filesExcludeMatcher.ts) — a faithful port of VS Code's own `vs/base/common/glob.ts` engine (not minimatch). A bare `backend` matches the path *and its ancestor prefixes* (mirrors the Explorer pruning the `backend` dir node); bare patterns stay root-anchored.
 - Per-node application: [FilesExcludeFilter](src/fresh-files/filesExcludeFilter.ts). `isExcludedUnder(path, folder)` is the per-node check used by `buildTree`/`buildFlatList`/`buildRepoRootItems`. `isExcludedByOwner` / `filterByOwner` handle the flat lenses (group-by-author/commit, search) that have no node context.
 - Both are pure/unit-tested; `FilesExcludeFilter` also holds the compiled-glob cache, which the provider invalidates on config change. `when`-clause (sibling) excludes are unsupported.
+- `!`-prefixed keys are exceptions (VS Code 1.145+): they re-include a path and everything under it, whatever the key order. Only the matching half of upstream's `parseExcludeExpression` is ported. Folders here come from the files that survive the filter, so the tree-walk half isn't needed.
 
 ## Path Handling
 

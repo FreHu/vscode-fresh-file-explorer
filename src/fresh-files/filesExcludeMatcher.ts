@@ -257,13 +257,73 @@ export function compileFilesExclude(
     return NEVER_EXCLUDES;
   }
 
+  const excludes: string[] = [];
+  const exceptions: string[] = [];
+  for (const [key, value] of Object.entries(expression)) {
+    if (!isExcludeException(key)) {
+      if (value === true) { excludes.push(key); } // skip disabled (false) and when-clause (object) entries
+      continue;
+    }
+    const pattern = key.trimStart().slice(EXCLUDE_EXCEPTION_PREFIX.length).trim();
+    if (value === true && pattern && !ABSOLUTE_PATH_REGEX.test(pattern)) {
+      exceptions.push(pattern);
+    }
+  }
+
+  const isExcluded = compilePathPredicate(excludes);
+  if (exceptions.length === 0 || isExcluded === NEVER_EXCLUDES) {
+    return isExcluded;
+  }
+  const isExcepted = compilePathPredicate(exceptions);
+  const skippedFolders = foldersSkippedByExceptions(exceptions);
+  return (relativePath: string): boolean => {
+    if (!isExcluded(relativePath)) { return false; }
+    if (!isExcepted(relativePath)) { return true; }
+    return relativePath.split(/[/\\]/).some(segment => skippedFolders.has(segment));
+  };
+}
+
+/*
+ * EXCLUDE EXCEPTIONS (VS Code 1.145+): a `!`-prefixed key re-includes the paths it
+ * matches and everything beneath them, overriding any exclude regardless of key
+ * order. Port of `parseExcludeExpression` in vs/base/common/glob.ts, minus the
+ * tree-walk half (`couldExceptionMatchBeneath`): folders here are derived from the
+ * surviving files, so the folders leading to an exception appear on their own.
+ * Exceptions are folder-relative (absolute ones are ignored) and never look into
+ * version-control folders unless an exception names one.
+ */
+const EXCLUDE_EXCEPTION_PREFIX = "!";
+const VERSION_CONTROL_FOLDERS = [".git", ".svn", ".hg", ".jj"];
+const ABSOLUTE_PATH_REGEX = /^(?:[/\\]|[a-zA-Z]:)/;
+
+function isExcludeException(key: string): boolean {
+  return key.trimStart().startsWith(EXCLUDE_EXCEPTION_PREFIX);
+}
+
+function foldersSkippedByExceptions(exceptions: readonly string[]): Set<string> {
+  const named = new Set(exceptions.flatMap(e => expandBraces(e).flatMap(p => splitGlobAware(p, GLOB_SPLIT))));
+  return new Set(VERSION_CONTROL_FOLDERS.filter(folder => !named.has(folder)));
+}
+
+/** Port of `expandBraces` from vs/base/common/glob.ts: `{a,b}/c` → `a/c`, `b/c`. Braces don't nest. */
+export function expandBraces(pattern: string): string[] {
+  const start = pattern.indexOf("{");
+  const end = start === -1 ? -1 : pattern.indexOf("}", start);
+  if (end === -1) {
+    return [pattern];
+  }
+  const prefix = pattern.substring(0, start);
+  const alternatives = splitGlobAware(pattern.substring(start + 1, end), ",");
+  const suffixes = expandBraces(pattern.substring(end + 1));
+  return (alternatives.length ? alternatives : [""]).flatMap(alt => suffixes.map(suffix => `${prefix}${alt}${suffix}`));
+}
+
+/** Predicate true when a glob matches the path or one of its ancestor folders. */
+function compilePathPredicate(globs: readonly string[]): ExcludePredicate {
   const literals: string[] = []; // bare literal: match self + descendants
   const basenames: string[] = []; // `**/x`: match x as any whole segment (+ descendants)
   const regexes: RegExp[] = []; // general glob: regex + ancestor-prefix rule
-  for (const [glob, value] of Object.entries(expression)) {
-    if (value !== true) {
-      continue; // skip disabled (false) and when-clause (object) entries
-    }
+  for (const glob of globs) {
     const normalized = normalizeExcludeGlob(glob);
     if (!normalized) {
       continue;
