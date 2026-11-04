@@ -2,9 +2,12 @@ import {
   focusQuickInputRow, openTimeWindowPicker, parkMouse, pickQuickInput, setSidebarWidth, showOnlyFreshFiles, waitForFreshFile,
 } from "../vscodeActions.mjs";
 
+// DEMO_FADE_MS=200 crossfades between frames, for comparing against hard cuts.
+const FADE_MS = Number(process.env.DEMO_FADE_MS ?? 0);
+
 /** README hero: the tree grows as the time window widens → docs/img/time-window-switch.gif */
 export default {
-  output: "time-window-switch.gif",
+  output: FADE_MS ? `time-window-switch-fade${FADE_MS}.gif` : "time-window-switch.gif",
   window: { width: 780, height: 760 },
   settings: {
     "freshFileExplorer.autoExpandDepth": 5,
@@ -21,7 +24,7 @@ export default {
     const shot = async holdMs => {
       await page.waitForTimeout(300); // tree rows and decorations settle
       // Right edge just past the picker: the empty editor beyond it carries nothing.
-      frames.push({ png: await page.screenshot({ clip: { x: 0, y: 0, width: 640, height: 760 } }), holdMs });
+      frames.push({ png: await page.screenshot({ clip: { x: 0, y: 0, width: 640, height: 760 } }), holdMs, fadeMs: FADE_MS });
     };
 
     await parkMouse(page);

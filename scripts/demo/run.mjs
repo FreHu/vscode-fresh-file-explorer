@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { encodeGif } from "./encodeGif.mjs";
+import { encodeGif, verifyGif } from "./encodeGif.mjs";
 import { buildFixtureRepo } from "./fixtureRepo.mjs";
 import { launchVSCode } from "./launchVSCode.mjs";
 
@@ -42,6 +42,10 @@ for (const name of sceneNames) {
       const framesDir = join(stateDir, "frames", name);
       mkdirSync(framesDir, { recursive: true });
       result.forEach((f, i) => writeFileSync(join(framesDir, `${i + 1}.png`), f.png));
+      // Read the GIF back: held frames must match their stills (only palette rounding allowed).
+      const check = await verifyGif(page, bytes, result);
+      check.frames.forEach((png, i) => writeFileSync(join(framesDir, `gif-${String(i + 1).padStart(2, "0")}.png`), png));
+      console.log(`  ${check.frameCount} GIF frames; mean error of held frames vs stills (0–255): ${check.keyFrameErrors.join(", ")}`);
     }
     const file = join(outDir, scene.output);
     writeFileSync(file, bytes);
