@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 
 import {
   getCommitSHAsInRange,
-  getAvailableBranches,
   getBranchFileDeletedHunks,
   isFileTracked,
   fileExistsAtRef,
@@ -21,6 +20,7 @@ import {
   type BucketFn,
 } from "./blameHeatmapCompute";
 import { DeletionMarkers, DeletionDecoration } from "./deletionMarkers";
+import { pickBaselineRef } from "./baselineRefPicker";
 import { buildDecorationTypes } from "./heatmapDecorationTypes";
 import { isEditorInDiff } from "./editorDiffDetection";
 import { HeatmapFileState } from "./heatmapFileState";
@@ -414,34 +414,6 @@ export class BlameHeatmapController implements vscode.Disposable {
     this.deletions.disposeFor(editor.document.uri.fsPath);
   }
 
-  /**
-   * Show a quick pick of all local and remote branches and return the selected
-   * ref name, or `undefined` if the user cancelled.
-   */
-  private async pickBaseRef(repoRoot: string): Promise<string | undefined> {
-    let branches;
-    try {
-      branches = await getAvailableBranches(repoRoot);
-    } catch (err) {
-      showError(
-        "Blame heatmap: couldn't list branches and tags for the baseline.",
-        `Blame heatmap: couldn't list branches and tags for the baseline — ${err}`,
-      );
-      return undefined;
-    }
-
-    if (branches.length === 0) {
-      showInfo("Blame heatmap: no branches or tags to use as a baseline.");
-      return undefined;
-    }
-
-    const picked = await vscode.window.showQuickPick(
-      branches.map(b => ({ label: b.name, description: b.relativeDate })),
-      { placeHolder: "Branch or tag: lines changed since it get colored", title: "Blame Heatmap: Pick a Baseline" },
-    );
-    return picked?.label;
-  }
-
   private async applyToEditor(
     editor: vscode.TextEditor,
     mode: BlameHeatmapMode,
@@ -481,7 +453,7 @@ export class BlameHeatmapController implements vscode.Disposable {
         baseRef = this.baselineService.getBaseRef(repoResult.repoFullPath);
       }
       if (!baseRef) {
-        baseRef = await this.pickBaseRef(repoResult.repoFullPath);
+        baseRef = await pickBaselineRef(repoResult.repoFullPath);
         if (!baseRef) {
           this.forgetFile(uri.fsPath);
           return;
@@ -800,7 +772,7 @@ export class BlameHeatmapController implements vscode.Disposable {
 
     let baseRef = this.baselineService.getBaseRef(repoResult.repoFullPath);
     if (!baseRef) {
-      baseRef = await this.pickBaseRef(repoResult.repoFullPath);
+      baseRef = await pickBaselineRef(repoResult.repoFullPath);
       if (!baseRef) { return; } // user cancelled the picker
       this.baselineService.setBaseRef(repoResult.repoFullPath, baseRef);
       this.updateMenuContext(editor);
