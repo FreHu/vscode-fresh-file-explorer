@@ -12,6 +12,7 @@
 - Branch Compare: an empty comparison says "No commits beyond main yet" for a fresh branch, or how far the target is ahead. It suggests swapping the sides only when that would show something.
 - The Branch Comparisons panel's toolbar wraps on a narrow panel instead of squeezing its labels.
 - Behind / unpushed warnings appear for a repo that VS Code's git opens after the extension started, instead of only after the next change.
+- A deleted file opened from the tree shows its own name in the tab, without a hash prefix.
 - Counts read "1 file" / "3 files" everywhere instead of "file(s)" (tooltips, sync warnings, filter summary, notifications).
 
 ## [1.16.0]

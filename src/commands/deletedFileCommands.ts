@@ -42,6 +42,15 @@ async function getDeletedFileContentAsBuffer(
   return { content, relativePath };
 }
 
+/**
+ * Where a deleted file's copy is written: the hash (of its repo-relative path) names a
+ * folder, not the file, so the tab and breadcrumbs show the plain file name while
+ * same-named files from different folders still get separate copies.
+ */
+export function exhumeTempPath(tempDir: string, pathHash: string, fileName: string): string {
+  return path.join(tempDir, pathHash, fileName);
+}
+
 export async function handleExhume(item: FreshFileItem, provider: FreshFileProvider): Promise<void> {
   if (!item || !item.resourceUri || !item.isDeleted) {
     return;
@@ -64,11 +73,10 @@ export async function handleExhume(item: FreshFileItem, provider: FreshFileProvi
     const fs = await import("fs");
     const crypto = await import("crypto");
     const tempDir = path.join(os.tmpdir(), "fresh-file-explorer");
-    await fs.promises.mkdir(tempDir, { recursive: true });
 
-    // Create a short hash of the path for uniqueness without long filenames
     const pathHash = crypto.createHash("md5").update(result.relativePath).digest("hex");
-    const tempFile = path.join(tempDir, `${pathHash}-${fileName}`);
+    const tempFile = exhumeTempPath(tempDir, pathHash, fileName);
+    await fs.promises.mkdir(path.dirname(tempFile), { recursive: true });
     await fs.promises.writeFile(tempFile, result.content);
 
     await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(tempFile));
