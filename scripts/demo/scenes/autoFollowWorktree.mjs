@@ -33,6 +33,8 @@ export default {
     const compare = pane(page, "Fresh Files - Branch Compare");
     const section = compare.locator(".monaco-list-row", { hasText: "feature/gift-cards" }).first();
     const row = name => compare.locator(".monaco-list-row", { hasText: name }).first();
+    // Callouts point at the end of a row's text, not at the row's full width.
+    const rowText = locator => locator.locator(".label-name, .label-description").last();
 
     const frames = [];
     const shot = async (holdMs, notes = []) => {
@@ -57,19 +59,19 @@ export default {
     await runInTerminal(page, "cd orbit-shop && clear");
     await runInTerminal(page, "git worktree add ../orbit-shop-gift-cards -b feature/gift-cards");
     await section.waitFor({ timeout: 20000 });
-    await shot(2500, [{ target: { locator: section }, text: "a worktree appeared: followed automatically", labelX }]);
+    await shot(2500, [{ target: { locator: rowText(section) }, text: "a worktree appeared: followed automatically", labelX }]);
 
     // 3. It commits there.
     await runInTerminal(page, "cd ../orbit-shop-gift-cards");
     await runInTerminal(page, "echo 'export class GiftCard {}' > src/cart/giftCards.ts");
     await runInTerminal(page, "git add -A && git commit -qm 'Gift cards'");
     await row("giftCards.ts").waitFor({ timeout: 20000 });
-    await shot(2500, [{ target: { locator: row("giftCards.ts") }, text: "its commits show up live", labelX }]);
+    await shot(2500, [{ target: { locator: rowText(row("giftCards.ts")) }, text: "its commits show up live", labelX }]);
 
     // 4. Uncommitted work.
     await runInTerminal(page, "echo '// TODO: expiry dates' >> src/cart/cart.ts");
     await row("cart.ts").waitFor({ timeout: 20000 });
-    await shot(2500, [{ target: { locator: row("cart.ts") }, text: "uncommitted changes too", labelX }]);
+    await shot(2500, [{ target: { locator: rowText(row("cart.ts")) }, text: "uncommitted changes too", labelX }]);
 
     // 5. Done: the worktree goes, and so does its section.
     await runInTerminal(page, "cd ../orbit-shop && git worktree remove --force ../orbit-shop-gift-cards");
