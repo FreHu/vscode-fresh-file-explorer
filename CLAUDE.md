@@ -162,6 +162,13 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 - The fixture sets its own git identity: pending changes show the current `user.name`, which must never be the real user's in a published image.
 - The launcher strips `ELECTRON_*`/`VSCODE_*` from the environment. Inherited from a VS Code terminal, `ELECTRON_RUN_AS_NODE` makes Code.exe start as plain Node.
 
+## UI tests
+
+`npm run test:ui` runs `scripts/uiTests/*.uitest.mjs` (Node's `node:test`, one at a time) against a real VS Code, reusing the demo launcher, fixture repo and helpers. They catch what the extension-host tests can't: what VS Code actually renders (gutter icons, menus built from context keys, tree state). Not part of `pretest`: run it after UI work. Assert on text and element state, never on pixels.
+
+- Every UI test must fail with its fix undone; check that before trusting it.
+- If a UI bug only shows up by timing, test it one level down instead: `src/test/repoNodeExpanded.test.ts` checks the collapsed-repo regression deterministically, where the UI version passed with or without the fix.
+
 ## Useful concepts
 
 - `findRepoForFile(folder, fileRelativePath)` - finds which repo a file belongs to. Critical to not reinvent as it covers tricky submodule scenarios.
