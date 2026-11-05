@@ -60,6 +60,15 @@ Two rules keep it from breaking neighbouring features:
 
 **Cancellation:** `RefreshEpochGuard` (`refreshEpochGuard.ts`). `refresh()`, `hardRefresh()` and `cancelInFlight()` call `bump()`; the load path holds a `RefreshToken` and calls `assertLive()` at each async boundary, which throws `RefreshCancelledError` once a newer load started. Keep that check when adding async work to the load path.
 
+### Live updates — the git extension's events, plus our own watchers
+
+Commits, checkouts and pending changes reach Fresh Files and Branch Compare through the git extension's per-repo `state.onDidChange`. It only fires for repos the extension has *open*, and it doesn't open linked worktrees unless `git.detectWorktrees` is on (off by default), repos below `git.repositoryScanMaxDepth`, or anything with auto-detection off. Two watchers of ours cover that:
+
+- [`WorktreeWatcher`](src/git/worktreeWatcher.ts) watches `<common>/worktrees/` for every discovered common dir and calls `scheduleRediscovery` when a worktree inside the workspace appears or a known one goes away.
+- [`UnopenedRepoWatcher`](src/git/unopenedRepoWatcher.ts) watches the repos the git extension doesn't have open (HEAD, index, current branch ref, working tree) and hands a repo back once the extension opens it. Each repo has exactly one event source; don't add a second for repos the extension already reports.
+
+Don't call the git API's `openRepository` to fill the gap: it reopens repos the user closed and overrides `git.detectWorktrees`.
+
 ## `files.exclude` is Per-Node, Not Global
 
 The tree honors VS Code's `files.exclude` (`freshFileExplorer.respectFilesExclude`, default on). The non-obvious part: a glob is evaluated **relative to the workspace folder of the node it's rendered under**, so the *same* absolute file can be hidden under one root and shown under another. The motivating case (issue #3): a repo root added alongside its own `backend/` subfolder, with the root excluding `backend` — `backend/app.js` must vanish under the root node yet remain under the backend node. A single global "display map" cannot express this; don't try to filter `_freshFiles` once and reuse it everywhere.
@@ -171,7 +180,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 `npm run test:ui` runs `scripts/uiTests/*.uitest.mjs` (Node's `node:test`, one at a time) against a real VS Code, reusing the demo launcher, fixture repo and helpers. They catch what the extension-host tests can't: what VS Code actually renders (gutter icons, menus built from context keys, tree state). Not part of `pretest`: run it after UI work. Assert on text and element state, never on pixels.
 
 - Every UI test must fail with its fix undone; check that before trusting it.
-- `npm run test:docker` runs `npm test` and `test:ui` headless in Docker (Linux + xvfb, the CI setup): no windows on the desktop. The repo is copied in, not used in place; failure screenshots and logs come back to `.scratch/claude/docker/`. On Linux, VS Code's git extension opens repos before Fresh Files starts, so startup timing differs from Windows. W5 fails there: the git extension doesn't open a worktree added while running, the known gap where only repos it opened get live updates.
+- `npm run test:docker` runs `npm test` and `test:ui` headless in Docker (Linux + xvfb, the CI setup): no windows on the desktop. The repo is copied in, not used in place; failure screenshots and logs come back to `.scratch/claude/docker/`. On Linux, VS Code's git extension opens repos before Fresh Files starts, so startup timing differs from Windows. It also doesn't open a worktree added while running, so W5 exercises our own watchers there (see below).
 - If a UI bug only shows up by timing, test it one level down instead: `src/test/repoNodeExpanded.test.ts` checks the collapsed-repo regression deterministically, where the UI version passed with or without the fix.
 
 ## Useful concepts
