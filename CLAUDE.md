@@ -181,6 +181,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 
 - Every UI test must fail with its fix undone; check that before trusting it.
 - `npm run test:docker` runs `npm test` and `test:ui` headless in Docker (Linux + xvfb, the CI setup): no windows on the desktop. The repo is copied in, not used in place; failure screenshots and logs come back to `.scratch/claude/docker/`. On Linux, VS Code's git extension opens repos before Fresh Files starts, so startup timing differs from Windows. It also doesn't open a worktree added while running, so W5 exercises our own watchers there (see below).
+- `UI_VSCODE_VERSION=<version>` runs the demo and UI tests against another VS Code build (default: the pinned one in `launchVSCode.mjs`); `test:docker` passes it into the container. Use it for the VS Code base of current Cursor (`vscodeVersion` in Cursor's `resources/app/product.json`): the extension ships to Cursor through Open VSX, and Cursor's backend makes its users update, so its current base is the version that matters there, not `engines.vscode`.
 - If a UI bug only shows up by timing, test it one level down instead: `src/test/repoNodeExpanded.test.ts` checks the collapsed-repo regression deterministically, where the UI version passed with or without the fix.
 
 ## Useful concepts

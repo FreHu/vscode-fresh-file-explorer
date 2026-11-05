@@ -6,8 +6,11 @@ import { join } from "node:path";
 import { downloadAndUnzipVSCode } from "@vscode/test-electron";
 import { _electron as electron } from "playwright-core";
 
-/** Pinned so screenshots don't shift with VS Code releases. */
-export const VSCODE_VERSION = "1.145.0";
+/**
+ * Pinned so screenshots don't shift with VS Code releases. `UI_VSCODE_VERSION` runs the UI
+ * tests against another build, e.g. the VS Code base of current Cursor.
+ */
+export const VSCODE_VERSION = process.env.UI_VSCODE_VERSION || "1.145.0";
 
 const DEFAULT_WINDOW = { width: 1280, height: 800 };
 

@@ -31,6 +31,7 @@ const r = spawnSync("docker", [
   "-v", `${results}:/results`,
   "-v", "fresh-file-explorer-cache:/cache",
   "-v", "fresh-file-explorer-npm:/root/.npm",
+  ...(process.env.UI_VSCODE_VERSION ? ["-e", `UI_VSCODE_VERSION=${process.env.UI_VSCODE_VERSION}`] : []),
   IMAGE, "node", "/src/scripts/docker/inContainer.mjs", ...scripts,
 ], { stdio: "inherit" });
 console.log(`[docker] done in ${((Date.now() - started) / 1000).toFixed(0)} s, exit ${r.status}; failures (if any) in ${results}`);
