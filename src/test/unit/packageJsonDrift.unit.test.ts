@@ -270,20 +270,26 @@ suite("Manifest assets & integrity", () => {
     );
   });
 
-  test("@types/vscode floor does not exceed the engines.vscode floor", () => {
+  test("installed @types/vscode does not exceed the engines.vscode floor", () => {
+    // Types newer than the engines floor let you compile against APIs that don't exist
+    // on the oldest VS Code (or fork) you claim to support → runtime crash there.
+    // The declared range isn't enough: a caret resolves to the newest types.
+    const declared = manifest.devDependencies?.["@types/vscode"] ?? "";
+    assert.match(declared, /^\d+\.\d+\.\d+$/, `pin @types/vscode exactly, not "${declared}"`);
+    const installed = JSON.parse(
+      fs.readFileSync(path.join(manifestDir(), "node_modules", "@types", "vscode", "package.json"), "utf8"),
+    ).version as string;
     const engines = versionFloor(manifest.engines?.vscode);
-    const types = versionFloor(manifest.devDependencies?.["@types/vscode"]);
+    const types = versionFloor(installed);
     assert.ok(engines, "engines.vscode must be a parseable version range");
-    assert.ok(types, "@types/vscode must be a parseable version range");
-    // types newer than the engines floor lets you compile against APIs that
-    // don't exist on the minimum VS Code you claim to support → runtime crash.
+    assert.ok(types, "installed @types/vscode must have a parseable version");
     const exceeds =
       types!.major > engines!.major ||
       (types!.major === engines!.major && types!.minor > engines!.minor) ||
       (types!.major === engines!.major && types!.minor === engines!.minor && types!.patch > engines!.patch);
     assert.ok(
       !exceeds,
-      `@types/vscode floor ${manifest.devDependencies?.["@types/vscode"]} exceeds engines.vscode ${manifest.engines?.vscode}`
+      `installed @types/vscode ${installed} exceeds engines.vscode ${manifest.engines?.vscode}`
     );
   });
 

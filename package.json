@@ -2401,7 +2401,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.17",
-    "@types/vscode": "^1.105.1",
+    "@types/vscode": "1.105.0",
     "@types/vscode-webview": "^1.57.5",
     "@vscode/codicons": "^0.0.45",
     "@vscode/test-cli": "^0.0.15",
