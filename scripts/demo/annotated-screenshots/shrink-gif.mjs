@@ -1,10 +1,11 @@
+// annotated-screenshots v0.1.0 — https://github.com/FreHu/annotated-screenshots
 // Shrinks an existing GIF: scales it down, keeps every Nth frame, and re-encodes it
 // storing only changed pixels. For images that can't be regenerated from a scene.
-// Usage: node scripts/demo/shrinkGif.mjs <in.gif> <out.gif> [--width 1000] [--every 2]
+// Usage: node shrink-gif.mjs <in.gif> <out.gif> [--width 1000] [--every 2]
 
 import { readFileSync, writeFileSync } from "node:fs";
 import omggif from "omggif";
-import { encodeRgbaGif } from "./encodeGif.mjs";
+import { encodeRgbaGif } from "./gif.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {

@@ -1,4 +1,5 @@
-// Joins still PNGs into an animated GIF. GIF because it is the one animated
+// annotated-screenshots v0.1.0 — https://github.com/FreHu/annotated-screenshots
+// Joins stills (PNG or JPEG) into an animated GIF. GIF because it is the one animated
 // format GitHub, the VS Code Marketplace and Open VSX all play.
 
 import gifenc from "gifenc"; // CommonJS: no named exports under Node's ESM loader
@@ -6,8 +7,8 @@ import gifenc from "gifenc"; // CommonJS: no named exports under Node's ESM load
 const { applyPalette, GIFEncoder, quantize } = gifenc;
 
 /**
- * @param {import("playwright-core").Page} page any open page: PNGs are decoded with its canvas, so no image library is needed
- * @param {Array<{ png: Buffer, holdMs: number, fadeMs?: number }>} frames `fadeMs` crossfades into the next frame (default: hard cut)
+ * @param {import("playwright-core").Page} page a page from openCanvasPage (annotate.mjs): stills are decoded with its canvas, so no image library is needed
+ * @param {Array<{ png: Buffer, holdMs: number, fadeMs?: number }>} frames `png`: PNG or JPEG bytes. `fadeMs` crossfades into the next frame (default: hard cut)
  */
 export async function encodeGif(page, frames) {
   const decoded = [];
@@ -87,6 +88,9 @@ export async function verifyGif(page, gifBytes, sourceFrames) {
   const sources = [];
   for (const f of sourceFrames) { sources.push((await decodePng(page, f.png)).rgba); }
   const fadeSteps = sourceFrames.map(f => (f.fadeMs ? Math.max(2, Math.round(f.fadeMs / 40)) - 1 : 0));
+  if (!(await page.evaluate(() => typeof ImageDecoder !== "undefined"))) {
+    throw new Error("verifyGif needs ImageDecoder, which exists only in a secure context: use a page from openCanvasPage (annotate.mjs)");
+  }
   const { frameCount, decoded } = await page.evaluate(async b64 => {
     const data = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     const decoder = new ImageDecoder({ data, type: "image/gif" });
@@ -142,6 +146,6 @@ async function decodePng(page, png) {
     let binary = "";
     for (let i = 0; i < bytes.length; i += 0x8000) { binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); }
     return { width: canvas.width, height: canvas.height, base64: btoa(binary) };
-  }, `data:image/png;base64,${png.toString("base64")}`);
+  }, `data:${png[0] === 0xff && png[1] === 0xd8 ? "image/jpeg" : "image/png"};base64,${png.toString("base64")}`);
   return { width, height, rgba: new Uint8Array(Buffer.from(base64, "base64")) };
 }

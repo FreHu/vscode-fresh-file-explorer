@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { encodeGif, verifyGif } from "./encodeGif.mjs";
+import { encodeGif, verifyGif } from "./annotated-screenshots/gif.mjs";
 import { failureReport } from "./failureReport.mjs";
 import { buildFixtureRepo } from "./fixtureRepo.mjs";
 import { launchVSCode } from "./launchVSCode.mjs";
