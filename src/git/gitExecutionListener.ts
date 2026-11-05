@@ -17,6 +17,7 @@ export interface GitRepository {
 /** Minimal Git API interface passed to external consumers (e.g. BlameHeatmapController). */
 export interface GitApi {
   onDidOpenRepository: vscode.Event<GitRepository>;
+  onDidCloseRepository: vscode.Event<GitRepository>;
   repositories: readonly GitRepository[];
 }
 

@@ -190,8 +190,8 @@ export function parseWorktreeProbe(output: string): boolean {
   return dirs !== undefined && dirs.gitDir !== dirs.commonDir;
 }
 
-/** Whether `dirPath` is a linked worktree, and its git common dir. Undefined on error. */
-export async function probeGitDirs(dirPath: string): Promise<{ isWorktree: boolean; commonDir: string } | undefined> {
+/** Whether `dirPath` is a linked worktree, with its git dir and common dir. Undefined on error. */
+export async function probeGitDirs(dirPath: string): Promise<{ isWorktree: boolean; gitDir: string; commonDir: string } | undefined> {
   try {
     const out = await execGitWithArgs(
       ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
@@ -199,7 +199,7 @@ export async function probeGitDirs(dirPath: string): Promise<{ isWorktree: boole
       { timeout: ConfigService.getGitTimeoutMs() },
     );
     const dirs = parseGitDirsProbe(out);
-    return dirs && { isWorktree: dirs.gitDir !== dirs.commonDir, commonDir: dirs.commonDir };
+    return dirs && { isWorktree: dirs.gitDir !== dirs.commonDir, ...dirs };
   } catch {
     return undefined;
   }

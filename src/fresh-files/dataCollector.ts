@@ -24,6 +24,8 @@ export interface RepoInfo {
   isUninitialized?: boolean;
   /** True for a linked worktree (`git worktree add`) — its `.git` is a file pointing into the main checkout. */
   isWorktree?: boolean;
+  /** Git dir (normalized): `<root>/.git`, or `<common>/worktrees/<name>` for a linked worktree. Unset for submodules. */
+  gitDir?: string;
   /** Git common dir (normalized). Shared by a main checkout and its linked worktrees; unset for submodules. */
   commonDir?: string;
 }
@@ -58,6 +60,7 @@ export class DataCollector {
         result.push({
           folder, repoRelPath, repoFullPath, normalizedRepoPath: asNormalizedRepoPath(repoFullPath),
           isWorktree: dirs?.isWorktree ?? false,
+          gitDir: dirs?.gitDir,
           commonDir: dirs?.commonDir,
         });
         await DataCollector.collectSubmoduleRepos(folder, repoFullPath, repoRelPath, result);

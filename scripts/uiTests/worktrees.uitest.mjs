@@ -126,6 +126,36 @@ test("W4: a worktree with a stale .git link is skipped with a warning naming it"
   });
 });
 
+test("W6: a worktree the git extension never opens still updates live", async () => {
+  let ws;
+  await withVSCode("w6-worktree-unopened", {
+    // The git extension opens no repos at all: every update has to come from Fresh Files' own watcher.
+    settings: { ...FLAT_PENDING, "git.autoRepositoryDetection": false },
+    workspace: ({ stateDir }) => {
+      ws = buildWorktreeWorkspace(join(stateDir, "agents"), {
+        "gift-cards": { "src/cart/giftVoucher.ts": "export class GiftVoucher {}\n" },
+      });
+      return ws.root;
+    },
+  }, async (page, { extensionLog }) => {
+    await showPendingFlat(page);
+    await rowIn(page, "Fresh Files", "giftVoucher.ts").waitFor({ timeout: 20000 });
+    await waitForLog(extensionLog, /Live updates for .*\/orbit-shop-gift-cards: watching it directly/);
+    const dir = ws.worktrees["gift-cards"];
+
+    writeFileSync(join(dir, "src", "cart", "wallet.ts"), "export class Wallet {}\n");
+    await rowIn(page, "Fresh Files", "wallet.ts").waitFor({ timeout: 20000 });
+
+    git(dir, "add", "-A");
+    git(dir, "-c", "user.name=Ada Okafor", "-c", "user.email=ada@example.com", "commit", "-q", "-m", "Gift cards");
+    await rowIn(page, "Fresh Files", "giftVoucher.ts").waitFor({ state: "detached", timeout: 20000 });
+    await rowIn(page, "Fresh Files", "wallet.ts").waitFor({ state: "detached", timeout: 20000 });
+    await waitForLog(extensionLog, /Live updates for .*\/orbit-shop-gift-cards: HEAD moved to \w+ on feature\/gift-cards/);
+    assert.doesNotMatch(extensionLog(), /Git extension (opened|had) repository .*orbit-shop-gift-cards/,
+      "the git extension stayed out of it");
+  });
+});
+
 test("W5: auto-follow tracks a worktree from creation to removal", async () => {
   let main;
   await withVSCode("w5-auto-follow", {
@@ -143,9 +173,8 @@ test("W5: auto-follow tracks a worktree from creation to removal", async () => {
     const compare = "Fresh Files - Branch Compare";
     const section = () => rowIn(page, compare, "feature/coupons");
 
-    // Add the worktree only once startup is done. Added before Fresh Files' first scan,
-    // the scan finds it but VS Code's git extension may never open it, and then a
-    // commit there sends no event: a known gap, not what this test is about.
+    // Add the worktree once startup is done, so this test covers creation (a worktree
+    // there from the start is W6).
     await waitForLog(extensionLog, /Discovered 1 Git repository/);
     // On Windows the git extension opens the repo after Fresh Files starts; on Linux it is open already.
     await waitForLog(extensionLog, /Git extension (opened|had) repository .*\/orbit-shop /);

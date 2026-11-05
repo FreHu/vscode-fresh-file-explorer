@@ -26,6 +26,7 @@ import { handleExhume, handleResurrect } from "./commands/deletedFileCommands";
 import { FreshFileProvider } from "./fresh-files/freshFileProvider";
 import { setupGitExtensionListener } from "./git/gitExecutionListener";
 import { WorktreeWatcher } from "./git/worktreeWatcher";
+import { UnopenedRepoWatcher } from "./git/unopenedRepoWatcher";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleCreateFileNextTo, handleCreateFileInside } from "./commands/fileCreationCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
@@ -336,10 +337,25 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Listen for git state changes (commits, checkouts, etc.)
   // The git extension exposes an API we can use
+  // Repos the git extension hasn't opened get the same refreshes from our own watcher.
+  const unopenedRepoWatcher = new UnopenedRepoWatcher({
+    onReposReady: freshFileProvider.onReposReady,
+    getRepos: () => freshFileProvider.getDiscoveredRepos(),
+    onHeadChanged: repoPath => {
+      freshFileProvider.refresh({ targetRepoPaths: [repoPath] });
+      baselineService.invalidateMergeBaseCache(repoPath);
+    },
+    onPendingChanged: repoPath => {
+      void freshFileProvider.refreshPending([repoPath]);
+      baselineService.invalidateMergeBaseCache(repoPath);
+    },
+  });
+  context.subscriptions.push(unopenedRepoWatcher);
   void setupGitExtensionListener(context, freshFileProvider, api => {
     baselineService.connectGitApi(api);
     blameHeatmapController.connectGitApi(api);
-  });
+    unopenedRepoWatcher.connect(api);
+  }).then(() => unopenedRepoWatcher.connect(undefined)); // no-op once connected; covers a missing git extension
 
   log("Fresh File Explorer activated");
 }
