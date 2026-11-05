@@ -275,20 +275,6 @@ export async function setupGitExtensionListener(
       }, 500);
     };
 
-    // Re-run repository discovery when a brand-new repo is opened (e.g. `git worktree add`).
-    // Debounced so creating several worktrees at once (or the initial open burst) collapses into a single re-discovery.
-    let rediscoverTimeout: NodeJS.Timeout | undefined;
-    const scheduleRediscover = () => {
-      if (rediscoverTimeout) {
-        clearTimeout(rediscoverTimeout);
-      }
-      rediscoverTimeout = setTimeout(() => {
-        rediscoverTimeout = undefined;
-        log("New git repository/worktree detected — re-running discovery");
-        freshFileProvider.hardRefresh();
-      }, 500);
-    };
-
     // Listen for git API state changes (extension init/deinit).
     // We intentionally do NOT force here — the initial git extension activation fires
     // this event before any repo state is populated, which would cancel the in-flight
@@ -330,7 +316,7 @@ export async function setupGitExtensionListener(
           freshFileProvider.isWithinWorkspace(key) &&
           !freshFileProvider.knowsRepoPath(key)
         ) {
-          scheduleRediscover();
+          freshFileProvider.scheduleRediscovery(`git extension opened ${key}`);
         }
       }),
     );
@@ -342,7 +328,7 @@ export async function setupGitExtensionListener(
         const key = normalizePath(repo.rootUri.fsPath) as NormalizedRepoPath;
         repoSnapshots.delete(key);
         if (freshFileProvider.areReposReady && freshFileProvider.knowsRepoPath(key)) {
-          scheduleRediscover();
+          freshFileProvider.scheduleRediscovery(`git extension closed ${key}`);
         }
       }),
     );

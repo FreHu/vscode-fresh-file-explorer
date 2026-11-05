@@ -173,30 +173,41 @@ export async function discoverGitReposInSubdirs(rootPath: string, relativePrefix
 }
 
 /**
- * Decide from `git rev-parse --path-format=absolute --git-dir --git-common-dir`
- * output whether the cwd is a linked worktree. Line 1 is the git dir, line 2 the
- * common dir; they coincide for the main checkout (and for submodules, whose
- * git dir under `.git/modules/` is its own common dir) and diverge only for a
- * linked worktree, whose git dir lives under `<common>/worktrees/<name>`.
+ * Parse `git rev-parse --path-format=absolute --git-dir --git-common-dir`.
+ * Line 1 is the git dir, line 2 the common dir; they coincide for the main
+ * checkout (and for submodules, whose git dir under `.git/modules/` is its own
+ * common dir) and diverge only for a linked worktree, whose git dir lives under
+ * `<common>/worktrees/<name>`.
  */
-export function parseWorktreeProbe(output: string): boolean {
+export function parseGitDirsProbe(output: string): { gitDir: string; commonDir: string } | undefined {
   const [gitDir, commonDir] = output.split(/\r?\n/).map(l => normalizePath(l.trim()));
-  if (!gitDir || !commonDir) { return false; }
-  return gitDir !== commonDir;
+  if (!gitDir || !commonDir) { return undefined; }
+  return { gitDir, commonDir };
 }
 
-/** True when `dirPath` is a linked worktree (`git worktree add`), false for the main checkout or on error. */
-export async function isLinkedWorktree(dirPath: string): Promise<boolean> {
+export function parseWorktreeProbe(output: string): boolean {
+  const dirs = parseGitDirsProbe(output);
+  return dirs !== undefined && dirs.gitDir !== dirs.commonDir;
+}
+
+/** Whether `dirPath` is a linked worktree, and its git common dir. Undefined on error. */
+export async function probeGitDirs(dirPath: string): Promise<{ isWorktree: boolean; commonDir: string } | undefined> {
   try {
     const out = await execGitWithArgs(
       ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
       dirPath,
       { timeout: ConfigService.getGitTimeoutMs() },
     );
-    return parseWorktreeProbe(out);
+    const dirs = parseGitDirsProbe(out);
+    return dirs && { isWorktree: dirs.gitDir !== dirs.commonDir, commonDir: dirs.commonDir };
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+/** True when `dirPath` is a linked worktree (`git worktree add`), false for the main checkout or on error. */
+export async function isLinkedWorktree(dirPath: string): Promise<boolean> {
+  return (await probeGitDirs(dirPath))?.isWorktree ?? false;
 }
 
 export interface RepoInfo {

@@ -296,6 +296,20 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this.load.hardRefresh();
   }
 
+  private rediscoverTimeout: NodeJS.Timeout | undefined;
+  /**
+   * Hard refresh after the repo list changed on disk (worktree added or removed).
+   * Debounced so several triggers, or several worktrees created at once, cost one rediscovery.
+   */
+  scheduleRediscovery(reason: string): void {
+    log(`Re-running discovery: ${reason}`);
+    clearTimeout(this.rediscoverTimeout);
+    this.rediscoverTimeout = setTimeout(() => {
+      this.rediscoverTimeout = undefined;
+      this.hardRefresh();
+    }, 500);
+  }
+
   /** Evicts file data for a refresh — the data half of LoadOrchestrator.refresh/hardRefresh. */
   private resetDataForRefresh(opts: { hard: boolean; targetRepoPaths?: NormalizedRepoPath[]; preserveHistoricalCache?: boolean }): void {
     if (opts.hard) {
@@ -491,6 +505,16 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   /** Get per-commit file-change stats for a given repo, from the historical cache. */
   getCommitStats(normalizedRepoPath: NormalizedRepoPath): Map<string, CommitStats> | undefined {
     return this.historicalCache.getCommitStats(normalizedRepoPath);
+  }
+
+  /** Discovered, scannable repos. */
+  getDiscoveredRepos(): readonly RepoInfo[] {
+    return this.discovery.resolvedRepos;
+  }
+
+  /** Absolute paths of the workspace folders discovery walks. */
+  getWorkspaceFolderPaths(): string[] {
+    return this.workspaceFolders.map(f => f.path);
   }
 
   /** Get discovered repos as {name, normalizedPath} pairs for external consumers. */

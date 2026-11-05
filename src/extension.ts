@@ -25,6 +25,7 @@ import {
 import { handleExhume, handleResurrect } from "./commands/deletedFileCommands";
 import { FreshFileProvider } from "./fresh-files/freshFileProvider";
 import { setupGitExtensionListener } from "./git/gitExecutionListener";
+import { WorktreeWatcher } from "./git/worktreeWatcher";
 import { handleDiscardChanges } from "./commands/discardChangesCommand";
 import { handleCreateFileNextTo, handleCreateFileInside } from "./commands/fileCreationCommand";
 import { handleOpenChanges } from "./commands/openChangesCommand";
@@ -187,6 +188,13 @@ export async function activate(context: vscode.ExtensionContext) {
   // Discover repos up front rather than leaving it to the first Fresh Files render.
   // Branch compare, auto-follow and the blame heatmap all wait on onReposReady, and
   // with manualScan on (or the view hidden) nothing else would ever trigger it.
+  context.subscriptions.push(new WorktreeWatcher({
+    onReposReady: freshFileProvider.onReposReady,
+    areReposReady: () => freshFileProvider.areReposReady,
+    getRepos: () => freshFileProvider.getDiscoveredRepos(),
+    getWorkspaceRoots: () => freshFileProvider.getWorkspaceFolderPaths(),
+    scheduleRediscovery: reason => freshFileProvider.scheduleRediscovery(reason),
+  }));
   void freshFileProvider.ensureReposDiscovered();
 
   // Initial load — fire after a tick so VS Code finishes constructing the view.
