@@ -89,6 +89,7 @@ export interface FileMetadata {
   renameSource?: string; // For renames: repo-relative path of the old file
   aiCoAuthored?: boolean; // True if the originating commit has a known AI-agent Co-authored-by trailer
   aiTools?: readonly string[]; // Display names of detected AI agents (for badge/tooltip)
+  generated?: boolean; // Marked linguist-generated / gitlab-generated in .gitattributes
 }
 
 /**

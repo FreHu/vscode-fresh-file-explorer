@@ -159,6 +159,11 @@
         "title": "Open in Default App"
       },
       {
+        "command": "freshFileExplorer.toggleGeneratedFiles",
+        "title": "Show / Hide Generated Files",
+        "category": "Fresh Files"
+      },
+      {
         "command": "freshFileExplorer.openFile",
         "title": "Open"
       },
@@ -999,6 +1004,11 @@
           "command": "freshFileExplorer.toggleHeatmap",
           "when": "view == freshFileExplorer",
           "group": "1_actions@3"
+        },
+        {
+          "command": "freshFileExplorer.toggleGeneratedFiles",
+          "when": "view == freshFileExplorer || view == freshFileExplorer.branchCompare",
+          "group": "1_actions@5"
         },
         {
           "command": "freshFileExplorer.openStonksPanel",
@@ -2181,6 +2191,11 @@
           "type": "boolean",
           "default": true,
           "description": "Hide files matching each workspace folder's `files.exclude` setting, mirroring the VS Code Explorer. Per-folder settings are honored, so a folder added as its own workspace root can exclude its subprojects. Sibling (`when`-clause) excludes are not supported. Turn off to show every changed file regardless of `files.exclude`."
+        },
+        "freshFileExplorer.hideGeneratedFiles": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide files the repo marks as generated in `.gitattributes` (`linguist-generated` or `gitlab-generated`), such as lockfiles and generated code, from Fresh Files and Branch Compare. When shown, they're labelled \"generated\"."
         },
         "freshFileExplorer.aiCoAuthorEmails": {
           "type": "array",

@@ -36,6 +36,7 @@ export const Commands = {
   REVEAL_IN_EXPLORER: "freshFileExplorer.revealInExplorer",
   REVEAL_FILE_IN_OS: "freshFileExplorer.revealFileInOS",
   OPEN_IN_DEFAULT_APP: "freshFileExplorer.openInDefaultApp",
+  TOGGLE_GENERATED_FILES: "freshFileExplorer.toggleGeneratedFiles",
   OPEN_FILE: "freshFileExplorer.openFile",
   OPEN_CHANGES: "freshFileExplorer.openChanges",
   OPEN_TO_SIDE: "freshFileExplorer.openToSide",

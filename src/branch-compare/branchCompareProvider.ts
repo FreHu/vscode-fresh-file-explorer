@@ -229,6 +229,10 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       }),
     );
 
+    this.subscriptions.push(
+      this.freshFileProvider.generatedFiles.onDidChange(() => this.applyFileFilterChange()),
+    );
+
     // Re-render section tooltips when fresh-files branch info changes.
     this.subscriptions.push(
       this.freshFileProvider.onDidChangeTreeData(() => {
@@ -390,7 +394,9 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       if (this.loadingTokens.get(id) !== myToken) return;
 
       const rawFiles = buildChangedFiles(cmp.repoFullPath, committed, workingTree, commitInfo, workingTreeNumstat);
-      const files = this.filterExcludedFiles(cmp.repoFullPath, rawFiles);
+      void this.freshFileProvider.generatedFiles.classify(
+        normalizePath(cmp.repoFullPath), rawFiles.map(f => normalizePath(`${cmp.repoFullPath}/${f.pathInRepo}`)));
+      const files = this.filterHiddenFiles(cmp.repoFullPath, rawFiles);
       // Only an empty diff needs the reverse count: it decides the empty-section message.
       const targetOnlyCommits = files.length === 0 && mergeCone?.total === 0
         ? await countCommits(cmp.repoFullPath, `${sourceRef}..${cmp.target}`)
@@ -469,31 +475,34 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   // ── files.exclude ────────────────────────────────────────────────────────
 
   /**
-   * Drop files hidden by their owning workspace folder's `files.exclude`.
-   * Each comparison is rooted at one repo, so — unlike the Fresh Files tree,
-   * which renders the same file under multiple overlapping-root nodes — a
-   * file here has exactly one owning folder, making this the owner-based
-   * check rather than a per-node one.
+   * Label generated files, and drop files hidden by their owning workspace
+   * folder's `files.exclude` or by hideGeneratedFiles. Each comparison is rooted
+   * at one repo, so — unlike the Fresh Files tree, which renders the same file
+   * under multiple overlapping-root nodes — a file here has exactly one owning
+   * folder, making this the owner-based check rather than a per-node one.
    */
-  private filterExcludedFiles(repoFullPath: AbsolutePath, files: ChangedFile[]): ChangedFile[] {
-    if (!this.filesExcludeFilter.enabled) { return files; }
+  private filterHiddenFiles(repoFullPath: AbsolutePath, files: ChangedFile[]): ChangedFile[] {
+    const generated = this.freshFileProvider.generatedFiles;
+    const hideGenerated = ConfigService.getHideGeneratedFiles();
     const folders = this.freshFileProvider.workspaceFolders;
-    return files.filter(f => !this.filesExcludeFilter.isExcludedByOwner(
-      normalizePath(`${repoFullPath}/${f.pathInRepo}`),
-      folders,
-    ));
+    return files.filter(f => {
+      const absPath = normalizePath(`${repoFullPath}/${f.pathInRepo}`);
+      f.generated = generated.isGenerated(absPath) || undefined;
+      if (f.generated && hideGenerated) { return false; }
+      return !(this.filesExcludeFilter.enabled && this.filesExcludeFilter.isExcludedByOwner(absPath, folders));
+    });
   }
 
   /**
-   * React to a `files.exclude` or respect-toggle change: drop compiled
-   * matchers and re-derive each comparison's filtered files/tree from the
-   * cached raw diff — no git I/O.
+   * React to a change in what's hidden (`files.exclude`, its respect toggle,
+   * hideGeneratedFiles, a file's generated status): drop compiled matchers and
+   * re-derive each comparison's filtered files/tree from the cached raw diff — no git I/O.
    */
-  applyFilesExcludeChange(): void {
+  applyFileFilterChange(): void {
     this.filesExcludeFilter.invalidate();
     for (const cmp of this.comparisons.values()) {
       if (cmp.rawFiles === undefined) { continue; }
-      cmp.files = this.filterExcludedFiles(cmp.repoFullPath, cmp.rawFiles);
+      cmp.files = this.filterHiddenFiles(cmp.repoFullPath, cmp.rawFiles);
       cmp.tree = buildFolderTree(cmp.files);
     }
     this.fireChange();

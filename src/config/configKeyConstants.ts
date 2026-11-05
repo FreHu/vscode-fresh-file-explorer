@@ -78,6 +78,9 @@ export const ConfigKeys = {
   // Hide files matching each workspace folder's `files.exclude` setting
   RESPECT_FILES_EXCLUDE: "freshFileExplorer.respectFilesExclude",
 
+  // Hide files .gitattributes marks linguist-generated / gitlab-generated
+  HIDE_GENERATED_FILES: "freshFileExplorer.hideGeneratedFiles",
+
   // Additional Co-authored-by emails to treat as AI agents (in-house/custom agents)
   AI_COAUTHOR_EMAILS: "freshFileExplorer.aiCoAuthorEmails",
 

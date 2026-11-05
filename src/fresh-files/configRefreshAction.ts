@@ -70,6 +70,7 @@ const CONFIG_ACTIONS: Record<keyof typeof ConfigKeys, RefreshAction> = {
   // Display-only — recompute the exclude-filtered view; the provider rebuilds the
   // matcher cache + display map before the treeOnly refresh fires.
   RESPECT_FILES_EXCLUDE:           "treeOnly",
+  HIDE_GENERATED_FILES:            "treeOnly", // Branch Compare re-renders from extension.ts
   AI_COAUTHOR_EMAILS:              "hard", // re-parse git log: changes which co-author trailers count as AI
 };
 

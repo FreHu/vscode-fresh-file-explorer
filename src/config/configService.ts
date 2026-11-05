@@ -411,6 +411,17 @@ export class ConfigService {
     return ConfigService.cfg().get<boolean>(ConfigKeys.RESPECT_FILES_EXCLUDE, true);
   }
 
+  /** Hide files .gitattributes marks generated (they're labelled either way). Default off. */
+  static getHideGeneratedFiles(): boolean {
+    return ConfigService.cfg().get<boolean>(ConfigKeys.HIDE_GENERATED_FILES, false);
+  }
+
+  static setHideGeneratedFiles(value: boolean): Thenable<void> {
+    return vscode.workspace.getConfiguration().update(
+      ConfigKeys.HIDE_GENERATED_FILES, value, vscode.ConfigurationTarget.Global,
+    );
+  }
+
   /**
    * VS Code's own `files.exclude` expression, resolved at the given folder's
    * scope (so per-folder `.vscode/settings.json` overrides are honored). Read

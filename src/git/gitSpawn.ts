@@ -69,6 +69,8 @@ export interface SpawnGitHandlers<T> {
   onFinish?(): void;
   /** Builds the resolved value. Called only when git exited 0. */
   onSuccess(): T;
+  /** Written to git's stdin, which is then closed (for `--stdin` commands). */
+  stdin?: string;
 }
 
 /**
@@ -89,6 +91,11 @@ export function spawnGitSettled<T>(
     const child = cp.spawn("git", args, { cwd, timeout });
     let stderr = "";
 
+    if (handlers.stdin !== undefined) {
+      // git exiting before reading all of stdin surfaces as EPIPE here; its exit code tells the story.
+      child.stdin.on("error", () => {});
+      child.stdin.end(handlers.stdin);
+    }
     child.stdout.on("data", (data: Buffer) => handlers.onStdout(data));
     child.stderr.on("data", (data: Buffer) => {
       stderr += data.toString();

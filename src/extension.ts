@@ -275,7 +275,7 @@ export async function activate(context: vscode.ExtensionContext) {
       // No-op when the feature is off, so it stays inert for users who don't use it.
       if (e.affectsConfiguration("files.exclude") && ConfigService.getRespectFilesExclude()) {
         freshFileProvider.applyFilesExcludeChange();
-        branchCompareProvider.applyFilesExcludeChange();
+        branchCompareProvider.applyFileFilterChange();
       }
 
       if (e.affectsConfiguration("git.ignoredRepositories")) {
@@ -295,9 +295,9 @@ export async function activate(context: vscode.ExtensionContext) {
           branchCompareProvider.rerender();
         }
 
-        // Branch Compare shares files.exclude support — recompute its filtered view too.
-        if (e.affectsConfiguration(ConfigKeys.RESPECT_FILES_EXCLUDE)) {
-          branchCompareProvider.applyFilesExcludeChange();
+        // Branch Compare shares the display filters (files.exclude, generated files) — recompute its view too.
+        if (e.affectsConfiguration(ConfigKeys.RESPECT_FILES_EXCLUDE) || e.affectsConfiguration(ConfigKeys.HIDE_GENERATED_FILES)) {
+          branchCompareProvider.applyFileFilterChange();
         }
 
         // If heatmap setting changed, refresh decorations
@@ -443,6 +443,8 @@ function registerCommands(
   register(Commands.REVEAL_FILE_IN_OS, (item: vscode.TreeItem, selectedItems?: vscode.TreeItem[]) =>
     handleRevealFileInOS(item, selectedItems, [treeView, pinnedItemsTreeView, branchCompareTreeView]),
   );
+
+  register(Commands.TOGGLE_GENERATED_FILES, () => ConfigService.setHideGeneratedFiles(!ConfigService.getHideGeneratedFiles()));
 
   register(Commands.OPEN_IN_DEFAULT_APP, (arg?: vscode.Uri | vscode.TreeItem, selected?: (vscode.Uri | vscode.TreeItem)[]) =>
     handleOpenInDefaultApp(arg, selected, [treeView, pinnedItemsTreeView, branchCompareTreeView]),

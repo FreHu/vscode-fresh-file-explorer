@@ -36,6 +36,7 @@ import { FilesExcludeFilter } from "./filesExcludeFilter";
 import { buildTree, buildFlatList, buildRepoRootItems, type TreeBuildContext, type RepoViewContext } from "./treeStructureBuilder";
 import { resolveConfigRefreshAction } from "./configRefreshAction";
 import { RepoHealthNotifier } from "./repoHealthNotifier";
+import { GeneratedFilesStore } from "./generatedFilesStore";
 import { RepoDiscovery } from "./repoDiscovery";
 import { LoadOrchestrator } from "./loadOrchestrator";
 import { Commands } from "../commands/commandConstants";
@@ -90,6 +91,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   workspaceFolders: WorkspaceFolderInfo[] = [];
   private errorToShowInTreeView: string | undefined;
   private readonly repoHealth = new RepoHealthNotifier();
+  /** Files .gitattributes marks generated; Branch Compare reads it too. */
+  readonly generatedFiles = new GeneratedFilesStore(() => this._freshFiles, () => this.resolvedRepos.map(r => r.normalizedRepoPath), () => this.refreshTreeOnly());
   // Repo discovery: workspace walk, results, in-flight dedup, onReposReady.
   private readonly discovery = new RepoDiscovery({
     getWorkspaceFolders: () => this.workspaceFolders,
@@ -312,6 +315,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   /** Evicts file data for a refresh — the data half of LoadOrchestrator.refresh/hardRefresh. */
   private resetDataForRefresh(opts: { hard: boolean; targetRepoPaths?: NormalizedRepoPath[]; preserveHistoricalCache?: boolean }): void {
+    this.generatedFiles.clear();
     if (opts.hard) {
       this._repoItemCache.clear();
       this._setFreshFiles(new Map());
@@ -471,10 +475,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   /**
-   * Returns true if the file passes the folder scope filter for its repo.
-   * When no scope is active for the repo, all files pass.
+   * Returns true if the file passes the folder scope filter for its repo (all
+   * files pass when none is set), and isn't a generated file being hidden.
    */
   private passesRepoScope(normalizedFilePath: string): boolean {
+    if (ConfigService.getHideGeneratedFiles() && this.generatedFiles.isGenerated(normalizedFilePath)) { return false; }
     return this.repoScope.passesScope(normalizedFilePath, this.resolvedRepos);
   }
 
@@ -1147,6 +1152,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   private _setFreshFiles(map: Map<AbsolutePath, FileMetadata>): void {
     this._freshFiles = map;
+    this.generatedFiles.update();
     // The flat lenses (group-by-author/commit, search) have no folder-node
     // context, so they get an owner-filtered view. The File Structure / Flat
     // List trees evaluate files.exclude PER NODE at render time (see buildTree /

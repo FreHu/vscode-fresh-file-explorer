@@ -15,13 +15,14 @@ const gitPathEncoder = new TextEncoder();
  * @param options Optional settings: timeout (ms)
  * @returns The command output as a string
  */
-export function execGitWithArgs(args: string[], cwd: string, options: { timeout?: number } = {}): Promise<string> {
+export function execGitWithArgs(args: string[], cwd: string, options: { timeout?: number; stdin?: string } = {}): Promise<string> {
   let stdout = "";
   return spawnGitSettled(args, cwd, options.timeout, {
     onStdout: data => {
       stdout += data.toString();
     },
     onSuccess: () => stdout,
+    stdin: options.stdin,
   });
 }
 

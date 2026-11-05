@@ -338,6 +338,10 @@ export function formatTooltipLineChanges(linesAdded?: number, linesDeleted?: num
 export function formatFileDescription(metadata: FileMetadata, format: DescriptionFormat): string {
   const parts: string[] = [];
 
+  if (metadata.generated) {
+    parts.push("generated");
+  }
+
   // Pending entries are skipped:
   // VS Code's native git decoration already badges them
   if (format.showStatus && metadata.status && !metadata.isPending) {

@@ -29,6 +29,8 @@ export interface ChangedFile {
   status: ChangeStatus;
   /** Source path for renames (committed-only). Undefined otherwise. */
   renameSource?: string;
+  /** Marked linguist-generated / gitlab-generated in .gitattributes; set by the provider's display filter. */
+  generated?: boolean;
   /** True when the entry came from the working-tree status, not the committed range. */
   isPending: boolean;
   /**

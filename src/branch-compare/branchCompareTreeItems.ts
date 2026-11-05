@@ -227,7 +227,7 @@ export class BranchCompareFileItem extends vscode.TreeItem {
     const pendingMark = file.isPending ? "•" : "";
     // Line deltas exist only for pending entries (tracked working-tree changes).
     const lineChanges = formatLineChanges(file.linesAdded, file.linesDeleted);
-    this.description = `${badge}${pendingMark}${lineChanges ? ` ${lineChanges}` : ""}`;
+    this.description = `${file.generated ? "generated " : ""}${badge}${pendingMark}${lineChanges ? ` ${lineChanges}` : ""}`;
     this.tooltip = `${file.pathInRepo}\n${statusTooltip(file.status, file.isPending)}`
       + (lineChanges ? `\n${lineChanges}` : "")
       + (file.renameSource ? `\nfrom: ${file.renameSource}` : "")
