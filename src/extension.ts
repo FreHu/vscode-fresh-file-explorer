@@ -13,6 +13,7 @@ import {
   handleRefresh,
   handleRevealInExplorer,
   handleRevealFileInOS,
+  handleOpenInDefaultApp,
   handleRevealInSourceControl,
   handleSetTimeWindow,
   handleSetGroupingMode,
@@ -441,6 +442,10 @@ function registerCommands(
 
   register(Commands.REVEAL_FILE_IN_OS, (item: vscode.TreeItem, selectedItems?: vscode.TreeItem[]) =>
     handleRevealFileInOS(item, selectedItems, [treeView, pinnedItemsTreeView, branchCompareTreeView]),
+  );
+
+  register(Commands.OPEN_IN_DEFAULT_APP, (arg?: vscode.Uri | vscode.TreeItem, selected?: (vscode.Uri | vscode.TreeItem)[]) =>
+    handleOpenInDefaultApp(arg, selected, [treeView, pinnedItemsTreeView, branchCompareTreeView]),
   );
 
   register(

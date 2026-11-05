@@ -155,6 +155,10 @@
         "title": "Reveal in File Explorer"
       },
       {
+        "command": "freshFileExplorer.openInDefaultApp",
+        "title": "Open in Default App"
+      },
+      {
         "command": "freshFileExplorer.openFile",
         "title": "Open"
       },
@@ -870,6 +874,11 @@
       ],
       "explorer/context": [
         {
+          "command": "freshFileExplorer.openInDefaultApp",
+          "when": "!explorerResourceIsFolder && resourceScheme == file && !remoteName",
+          "group": "navigation@21"
+        },
+        {
           "command": "freshFileExplorer.pinFile",
           "when": "!explorerResourceIsFolder",
           "group": "2_workspace@100"
@@ -1124,6 +1133,11 @@
           "group": "3_reveal@1.5"
         },
         {
+          "command": "freshFileExplorer.openInDefaultApp",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile)$/ && !remoteName",
+          "group": "3_reveal@1.6"
+        },
+        {
           "command": "freshFileExplorer.revealInSourceControl",
           "when": "view == freshFileExplorer && viewItem == pendingFile",
           "group": "3_reveal@2"
@@ -1294,6 +1308,11 @@
           "group": "3_reveal@1.5"
         },
         {
+          "command": "freshFileExplorer.openInDefaultApp",
+          "when": "view == pinnedItems && viewItem == pinnedFile && !remoteName",
+          "group": "3_reveal@1.6"
+        },
+        {
           "command": "freshFileExplorer.revealInSourceControl",
           "when": "view == pinnedItems && viewItem == pinnedFile",
           "group": "3_reveal@2"
@@ -1382,6 +1401,11 @@
           "command": "freshFileExplorer.revealFileInOS",
           "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|folder|deletedFile)$/",
           "group": "3_reveal@1.5"
+        },
+        {
+          "command": "freshFileExplorer.openInDefaultApp",
+          "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.file && !remoteName",
+          "group": "3_reveal@1.6"
         },
         {
           "command": "freshFileExplorer.revealInSourceControl",
@@ -1559,7 +1583,15 @@
           "group": "1_open@2"
         }
       ],
+      "editor/title/context": [
+        {
+          "command": "freshFileExplorer.openInDefaultApp",
+          "when": "resourceScheme == file && !remoteName",
+          "group": "2_files@1"
+        }
+      ],
       "commandPalette": [
+        { "command": "freshFileExplorer.openInDefaultApp", "when": "resourceScheme == file && !remoteName" },
         {
           "command": "freshFileExplorer.blameTurnOffChecked",
           "when": "false"

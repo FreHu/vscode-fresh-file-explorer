@@ -214,6 +214,35 @@ export async function handleRevealFileInOS(
   }
 }
 
+/**
+ * Open files with the OS's default app for their type, like a double-click in the
+ * OS file manager. Called with a Uri (Explorer, editor tab) or a tree item; with
+ * neither (keybinding, palette), uses the focused tree's selection, then the active editor.
+ */
+export async function handleOpenInDefaultApp(
+  arg: vscode.Uri | vscode.TreeItem | undefined,
+  selected: ReadonlyArray<vscode.Uri | vscode.TreeItem> | undefined,
+  treeViews: ReadonlyArray<Pick<vscode.TreeView<vscode.TreeItem>, "selection">>,
+): Promise<void> {
+  const toUri = (x: vscode.Uri | vscode.TreeItem) => x instanceof vscode.Uri ? x : x.resourceUri;
+  let uris = (selected?.length ? selected : arg ? [arg] : []).map(toUri);
+  if (uris.length === 0) {
+    uris = treeViews.map(tv => tv.selection.map(i => i.resourceUri)).find(sel => sel.some(u => u)) ?? [];
+  }
+  if (uris.length === 0) {
+    uris = [vscode.window.activeTextEditor?.document.uri];
+  }
+  for (const uri of uris) {
+    if (uri?.scheme !== "file") { continue; }
+    if (!fs.existsSync(uri.fsPath)) {
+      void vscode.window.showWarningMessage(`${path.basename(uri.fsPath)} no longer exists.`);
+      continue;
+    }
+    log(`Opening in the default app: ${uri.fsPath}`);
+    await vscode.env.openExternal(uri);
+  }
+}
+
 export async function handleOpenFile(
   item: FreshFileItem,
   selectedItems?: FreshFileItem[],
