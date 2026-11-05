@@ -5,6 +5,8 @@ import { WorkspaceFolderInfo } from "../types";
 import { AbsolutePath } from "../pathTypes";
 import { log } from "../extension/logger";
 import { plural } from "../utils/plural";
+import { ConfigService } from "../config/configService";
+import { isIgnoredRepository } from "../git/ignoredRepositories";
 
 /**
  * Owns repo discovery: the workspace walk, its results (scannable repos plus
@@ -76,8 +78,9 @@ export class RepoDiscovery {
 
   private async runDiscovery(assertNotCancelled: () => void): Promise<void> {
     const workspaceFolders = this.deps.getWorkspaceFolders();
-    const { repos: discoveredRepos, brokenWorktrees } = await DataCollector.discoverAllRepos(workspaceFolders);
+    const { repos: allRepos, brokenWorktrees } = await DataCollector.discoverAllRepos(workspaceFolders);
     assertNotCancelled();
+    const discoveredRepos = withoutIgnoredRepos(allRepos, workspaceFolders.map(f => f.path));
 
     // Surface broken worktrees (gitdir link stale, e.g. after a move). These silently failed to
     // load as repos; without a nudge the user just sees a too-short repo list.
@@ -105,4 +108,21 @@ export class RepoDiscovery {
     this._reposDiscovered = true;
     this._onReposReady.fire();
   }
+}
+
+/**
+ * Drop repos listed in `git.ignoredRepositories`, and the submodules inside them:
+ * VS Code finds submodules through their parent, so it never opens those either.
+ */
+function withoutIgnoredRepos(repos: RepoInfo[], workspaceFolders: string[]): RepoInfo[] {
+  const ignored = ConfigService.getGitIgnoredRepositories();
+  if (ignored.length === 0) { return repos; }
+  const caseInsensitive = process.platform === "win32" || process.platform === "darwin";
+  const ignoredRoots = repos
+    .filter(r => isIgnoredRepository({ repoRoot: r.repoFullPath, ignored, workspaceFolders, caseInsensitive }))
+    .map(r => r.normalizedRepoPath);
+  if (ignoredRoots.length === 0) { return repos; }
+  log(`Skipping ${plural(ignoredRoots.length, "repository", "repositories")} in git.ignoredRepositories: ${ignoredRoots.join(", ")}`);
+  return repos.filter(r => !ignoredRoots.some(root =>
+    r.normalizedRepoPath === root || (r.isSubmodule && r.normalizedRepoPath.startsWith(root + "/"))));
 }

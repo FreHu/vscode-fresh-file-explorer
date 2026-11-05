@@ -398,6 +398,11 @@ export class ConfigService {
     return vscode.workspace.getConfiguration("workbench.editor").get<boolean>("revealIfOpen", false);
   }
 
+  /** VS Code's `git.ignoredRepositories`: repo roots, absolute or relative to a workspace folder. */
+  static getGitIgnoredRepositories(): string[] {
+    return vscode.workspace.getConfiguration("git").get<string[]>("ignoredRepositories", []);
+  }
+
   /**
    * Whether the tree should hide files matching each workspace folder's
    * `files.exclude` setting (mirrors the VS Code Explorer). Default on.

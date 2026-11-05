@@ -9,8 +9,9 @@ const NO_RAW_CONFIG = {
 // Hand-rolled git calls drifted apart and missed the timeout and GitError
 // handling. Any call taking the literal "git" as its first argument — spawn,
 // execFile, a promisified alias — goes through spawnGitSettled / execGitWithArgs instead.
+// getConfiguration("git") reads the git extension's settings and spawns nothing.
 const NO_RAW_GIT = {
-    selector: "CallExpression[arguments.0.value='git']",
+    selector: "CallExpression[arguments.0.value='git']:not([callee.property.name='getConfiguration'])",
     message: "Run git through execGitWithArgs / spawnGitSettled (src/git/), not child_process directly (see CLAUDE.md).",
 };
 

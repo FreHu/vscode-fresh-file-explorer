@@ -183,6 +183,23 @@ test("W7: switching a worktree the git extension never opens to its baseline bra
   });
 });
 
+test("W8: a repo in git.ignoredRepositories gets no node", async () => {
+  await withVSCode("w8-ignored-repo", {
+    // Relative to the workspace folder, as VS Code resolves it.
+    settings: { ...FLAT_PENDING, "git.ignoredRepositories": ["orbit-shop-gift-cards"] },
+    workspace: ({ stateDir }) => buildWorktreeWorkspace(join(stateDir, "agents"), {
+      "gift-cards": { "src/cart/giftVoucher.ts": "export class GiftVoucher {}\n" },
+      search: { "src/catalog/products.ts": "export const products = [];\n" },
+    }).root,
+  }, async (page, { extensionLog }) => {
+    await showPendingFlat(page);
+    await rowIn(page, "Fresh Files", "products.ts").waitFor({ timeout: 20000 });
+    const roots = (await treeRows(page, "Fresh Files")).filter(r => r.level === 1).map(r => r.label);
+    assert.deepEqual(roots, ["orbit-shop", "orbit-shop-search"]);
+    assert.match(extensionLog(), /Skipping 1 repository in git\.ignoredRepositories: .*\/orbit-shop-gift-cards/);
+  });
+});
+
 test("W5: auto-follow tracks a worktree from creation to removal", async () => {
   let main;
   await withVSCode("w5-auto-follow", {

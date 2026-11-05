@@ -277,6 +277,11 @@ export async function activate(context: vscode.ExtensionContext) {
         branchCompareProvider.applyFilesExcludeChange();
       }
 
+      if (e.affectsConfiguration("git.ignoredRepositories")) {
+        log("git.ignoredRepositories changed, re-discovering repositories");
+        freshFileProvider.hardRefresh();
+      }
+
       if (e.affectsConfiguration("freshFileExplorer")) {
         freshFileProvider.onConfigurationChanged(e);
 
