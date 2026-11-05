@@ -11,6 +11,8 @@
 2. Add targeted logging and ask the developer to reproduce and share the output
 3. If nothing is working as expected, look at the relevant VS Code source (cloned for you in `../vscode`)
 
+**Read logs from disk, don't ask for a paste.** VS Code writes every window's output channels to `%APPDATA%\Code\logs\<session>\window<N>\exthost\`. The F5 Extension Development Host shares the main instance's user data, so it is just another `window<N>`. Ours is `frehu.fresh-file-explorer\Fresh File Explorer.log`; VS Code's git extension is `vscode.git\Git.log` in the same window folder (trace-level only once Git's log level is set to Trace). The installed copy of the extension logs under the same name in other windows, so take the newest: `ls -t "$APPDATA"/Code/logs/*/window*/exthost/frehu.fresh-file-explorer/*.log | head -1`.
+
 **Unit-testable logic:** Create pure functions. A large part of the functionality relies on hard-to-automate scenarios - specific workspace setups or git history being a certain way. Make sure it at least operates on testable inputs and outputs.
 
 ## Non-Obvious Architecture
