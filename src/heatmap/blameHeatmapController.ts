@@ -698,43 +698,50 @@ export class BlameHeatmapController implements vscode.Disposable {
     this.statusBar.update(editor);
   }
 
-  /** Watch branch switches to flip the baseline when needed ({@link flippedBaseRef}). */
+  /**
+   * A repo's checkout moved from one branch to another: flip the baseline when
+   * needed ({@link flippedBaseRef}) and re-apply it to that repo's open editors.
+   */
+  async handleBranchSwitch(repoPath: string, from: string | undefined, to: string | undefined): Promise<void> {
+    const key = normalizePath(repoPath);
+    const newBaseRef = flippedBaseRef({
+      from,
+      to,
+      mode: this.lastUsedMode,
+      baseRef: this.baselineService.getBaseRef(repoPath),
+    });
+    if (!newBaseRef) return;
+    this.baselineService.setBaseRef(repoPath, newBaseRef);
+    this.updateMenuContext(vscode.window.activeTextEditor);
+
+    // Re-apply to all visible editors in this repo that are in branch mode.
+    for (const editor of vscode.window.visibleTextEditors) {
+      const editorFsPath = editor.document.uri.fsPath;
+      if (this.files.getMode(editorFsPath) !== "branch") continue;
+      const editorRepo = findRepoForAbsolutePath(
+        this.freshFileProvider.workspaceFolders,
+        editorFsPath,
+      );
+      if (!editorRepo || normalizePath(editorRepo.repoFullPath) !== key) continue;
+      this.deletions.disposeFor(editorFsPath);
+      this.files.invalidateCache(editorFsPath);
+      await this.applyToEditor(editor, "branch", { baseRef: newBaseRef });
+    }
+  }
+
+  /** Watch branch switches in the repos the git extension has open. */
   connectGitApi(api: GitApi): void {
     /** Track the last-known branch per repo (keyed by normalized root path). */
     const prevBranchByRepo = new Map<string, string | undefined>();
 
-    const handleRepoChange = async (repo: GitRepository) => {
+    // Merge-base cache invalidation is handled by `baselineService.connectGitApi`
+    // — every consumer subscribed to onDidChange picks it up there.
+    const handleRepoChange = (repo: GitRepository) => {
       const key = normalizePath(repo.rootUri.fsPath);
-      // Merge-base cache invalidation is handled by `baselineService.connectGitApi`
-      // — every consumer subscribed to onDidChange picks it up there.
-
       const newBranch = repo.state.HEAD?.name;
       const prevBranch = prevBranchByRepo.get(key);
       prevBranchByRepo.set(key, newBranch);
-
-      const newBaseRef = flippedBaseRef({
-        from: prevBranch,
-        to: newBranch,
-        mode: this.lastUsedMode,
-        baseRef: this.baselineService.getBaseRef(repo.rootUri.fsPath),
-      });
-      if (!newBaseRef) return;
-      this.baselineService.setBaseRef(repo.rootUri.fsPath, newBaseRef);
-      this.updateMenuContext(vscode.window.activeTextEditor);
-
-      // Re-apply to all visible editors in this repo that are in branch mode.
-      for (const editor of vscode.window.visibleTextEditors) {
-        const editorFsPath = editor.document.uri.fsPath;
-        if (this.files.getMode(editorFsPath) !== "branch") continue;
-        const editorRepo = findRepoForAbsolutePath(
-          this.freshFileProvider.workspaceFolders,
-          editorFsPath,
-        );
-        if (!editorRepo || normalizePath(editorRepo.repoFullPath) !== key) continue;
-        this.deletions.disposeFor(editorFsPath);
-        this.files.invalidateCache(editorFsPath);
-        await this.applyToEditor(editor, "branch", { baseRef: newBaseRef });
-      }
+      return this.handleBranchSwitch(repo.rootUri.fsPath, prevBranch, newBranch);
     };
 
     const subscribeToRepo = (repo: GitRepository) => {

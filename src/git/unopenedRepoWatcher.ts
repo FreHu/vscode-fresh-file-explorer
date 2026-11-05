@@ -41,7 +41,7 @@ export class UnopenedRepoWatcher implements vscode.Disposable {
   constructor(private readonly deps: {
     onReposReady: vscode.Event<void>;
     getRepos(): readonly DiscoveredRepo[];
-    onHeadChanged(repoPath: NormalizedRepoPath): void;
+    onHeadChanged(repoPath: NormalizedRepoPath, branch: { from: string | undefined; to: string | undefined }): void;
     onPendingChanged(repoPath: NormalizedRepoPath): void;
   }) {
     this.subscriptions.push(deps.onReposReady(() => this.sync()));
@@ -123,12 +123,13 @@ export class UnopenedRepoWatcher implements vscode.Disposable {
     if (kinds.has("head")) {
       const branch = readBranch(w.dirs.gitDir);
       const commit = await resolveHead(repoPath);
-      const moved = commit !== w.commit || branch !== w.dirs.branch;
+      const from = w.dirs.branch;
+      const moved = commit !== w.commit || branch !== from;
       w.dirs.branch = branch;
       w.commit = commit;
       if (moved) {
         log(`Live updates for ${repoPath}: HEAD moved to ${commit?.slice(0, 7) ?? "unknown"}${branch ? ` on ${branch}` : ""}`);
-        this.deps.onHeadChanged(repoPath);
+        this.deps.onHeadChanged(repoPath, { from, to: branch });
         return;
       }
     }

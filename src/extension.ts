@@ -341,9 +341,12 @@ export async function activate(context: vscode.ExtensionContext) {
   const unopenedRepoWatcher = new UnopenedRepoWatcher({
     onReposReady: freshFileProvider.onReposReady,
     getRepos: () => freshFileProvider.getDiscoveredRepos(),
-    onHeadChanged: repoPath => {
+    onHeadChanged: (repoPath, branch) => {
       freshFileProvider.refresh({ targetRepoPaths: [repoPath] });
       baselineService.invalidateMergeBaseCache(repoPath);
+      if (branch.from !== branch.to) {
+        void blameHeatmapController.handleBranchSwitch(repoPath, branch.from, branch.to);
+      }
     },
     onPendingChanged: repoPath => {
       void freshFileProvider.refreshPending([repoPath]);

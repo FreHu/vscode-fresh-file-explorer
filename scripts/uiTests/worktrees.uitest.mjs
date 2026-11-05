@@ -6,7 +6,7 @@ import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { buildWorktreeWorkspace } from "../demo/fixtureRepo.mjs";
-import { pane, selectTimeWindow, setPaneExpanded } from "../demo/vscodeActions.mjs";
+import { openFile, pane, pickQuickInput, runCommand, selectTimeWindow, setPaneExpanded } from "../demo/vscodeActions.mjs";
 import { childrenByRoot, git, treeRows, waitForLog, withVSCode } from "./harness.mjs";
 
 const FLAT_PENDING = {
@@ -153,6 +153,33 @@ test("W6: a worktree the git extension never opens still updates live", async ()
     await waitForLog(extensionLog, /Live updates for .*\/orbit-shop-gift-cards: HEAD moved to \w+ on feature\/gift-cards/);
     assert.doesNotMatch(extensionLog(), /Git extension (opened|had) repository .*orbit-shop-gift-cards/,
       "the git extension stayed out of it");
+  });
+});
+
+test("W7: switching a worktree the git extension never opens to its baseline branch flips the heatmap", async () => {
+  let ws;
+  await withVSCode("w7-heatmap-flip-unopened", {
+    settings: { "git.autoRepositoryDetection": false, "typescript.validate.enable": false },
+    workspace: ({ stateDir }) => {
+      ws = buildWorktreeWorkspace(join(stateDir, "agents"), {
+        "gift-cards": { "src/cart/giftVoucher.ts": "export class GiftVoucher {}\n" },
+      });
+      const dir = ws.worktrees["gift-cards"];
+      git(dir, "add", "-A");
+      git(dir, "-c", "user.name=Ada Okafor", "-c", "user.email=ada@example.com", "commit", "-q", "-m", "Gift cards");
+      git(dir, "branch", "release");
+      return ws.root;
+    },
+  }, async (page, { extensionLog }) => {
+    await waitForLog(extensionLog, /Live updates for .*\/orbit-shop-gift-cards: watching it directly/);
+    await openFile(page, "giftVoucher.ts");
+    await runCommand(page, "Blame Heatmap");
+    await pickQuickInput(page, "Baseline");
+    await pickQuickInput(page, "release");
+    await page.locator(".statusbar-item", { hasText: "Heatmap: vs release" }).waitFor({ timeout: 10000 });
+
+    git(ws.worktrees["gift-cards"], "checkout", "-q", "release");
+    await page.locator(".statusbar-item", { hasText: "Heatmap: vs feature/gift-cards" }).waitFor({ timeout: 20000 });
   });
 });
 

@@ -62,7 +62,7 @@ Two rules keep it from breaking neighbouring features:
 
 ### Live updates — the git extension's events, plus our own watchers
 
-Commits, checkouts and pending changes reach Fresh Files and Branch Compare through the git extension's per-repo `state.onDidChange`. It only fires for repos the extension has *open*, and it doesn't open linked worktrees unless `git.detectWorktrees` is on (off by default), repos below `git.repositoryScanMaxDepth`, or anything with auto-detection off. Two watchers of ours cover that:
+Commits, checkouts and pending changes reach Fresh Files, Branch Compare and the heatmap's baseline flip through the git extension's per-repo `state.onDidChange`. It only fires for repos the extension has *open*, and it doesn't open linked worktrees unless `git.detectWorktrees` is on (off by default), repos below `git.repositoryScanMaxDepth`, or anything with auto-detection off. Two watchers of ours cover that:
 
 - [`WorktreeWatcher`](src/git/worktreeWatcher.ts) watches `<common>/worktrees/` for every discovered common dir and calls `scheduleRediscovery` when a worktree inside the workspace appears or a known one goes away.
 - [`UnopenedRepoWatcher`](src/git/unopenedRepoWatcher.ts) watches the repos the git extension doesn't have open (HEAD, index, current branch ref, working tree) and hands a repo back once the extension opens it. Each repo has exactly one event source; don't add a second for repos the extension already reports.
