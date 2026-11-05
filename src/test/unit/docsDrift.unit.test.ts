@@ -10,8 +10,8 @@ import { manifestDir } from "../manifest";
 
 const DOCS = ["CLAUDE.md"];
 
-/** Paths naming sources outside this repo (e.g. vscode's own tree). */
-const EXTERNAL_PATHS = new Set(["vs/base/common/glob.ts"]);
+/** Paths naming files outside this repo (vscode's own tree, Cursor's install). */
+const EXTERNAL_PATHS = new Set(["vs/base/common/glob.ts", "resources/app/product.json"]);
 
 const root = manifestDir();
 
