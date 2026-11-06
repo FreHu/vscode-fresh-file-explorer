@@ -2,13 +2,13 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { execGitWithArgs } from "../git/gitOperations";
 import { openCommitByHash } from "../commands/openCommitCommand";
-import { buildStonksData } from "./stonksDataCollector";
+import { buildStonksData, commitsInWindow } from "./stonksDataCollector";
 import { getWebviewHtml } from "./stonksPanelUI";
 import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 import type { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import type { NormalizedRepoPath } from "../pathTypes";
-import type { StonksFromWebview, StonksRepoSeries, StonksRepoTicker, StonksTimeWindowOption, StonksToWebview } from "../webview/messages";
+import type { StonksDataPoint, StonksFromWebview, StonksRepoSeries, StonksRepoTicker, StonksTimeWindowOption, StonksToWebview } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 
@@ -206,56 +206,46 @@ export class StonksPanel {
     }
     this._post({ command: "setLoading", loading: true });
 
-    // Filter stats to the panel's own time window (decoupled from the provider)
-    let statsArray = Array.from(commitStatsMap.values());
-    if (this._selectedDays !== undefined) {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - this._selectedDays);
-      statsArray = statsArray.filter(s => s.commit.date >= cutoff);
-    }
-    if (statsArray.length === 0) {
+    // The panel's own time window, decoupled from the provider's.
+    const range = commitsInWindow(commitStatsMap.values(), this._selectedDays);
+    if (!range) {
       this._post({ command: "setData", data: [] });
       this._post({ command: "setLoading", loading: false });
       return;
     }
 
-    // Baseline: count files at parent of oldest commit in range.
-    const oldest = statsArray.reduce((a, b) => a.commit.date < b.commit.date ? a : b);
+    void StonksPanel._seriesData(repoPath, range).then(data => {
+      this._post({ command: "setData", data });
+      this._post({ command: "setLoading", loading: false });
+    });
+  }
 
-    void execGitWithArgs(["ls-tree", "-r", "--name-only", `${oldest.commit.hash}~1`], repoPath, { timeout: ConfigService.getGitTimeoutMs() })
-      .then(output => output.trim() ? output.trim().split("\n").length : 0)
-      .catch(() => 0) // no parent = initial commit, baseline 0
-      .then(baseline => {
-        const data = buildStonksData(statsArray, baseline);
-        this._post({ command: "setData", data });
-        this._post({ command: "setLoading", loading: false });
-      });
+  /** Chart data on top of the file count at the parent of the window's oldest commit. */
+  private static async _seriesData(
+    repoPath: string,
+    range: NonNullable<ReturnType<typeof commitsInWindow>>,
+  ): Promise<StonksDataPoint[]> {
+    let baseline = 0;
+    try {
+      const output = await execGitWithArgs(["ls-tree", "-r", "--name-only", `${range.oldest.commit.hash}~1`], repoPath, { timeout: ConfigService.getGitTimeoutMs() });
+      baseline = output.trim() ? output.trim().split("\n").length : 0;
+    } catch { /* no parent = initial commit, baseline 0 */ }
+    return buildStonksData(range.stats, baseline);
   }
 
   private async _loadAllReposData() {
     const repos = this._provider.getRepoList();
     if (repos.length === 0) { return; }
 
-    const cutoff = this._selectedDays !== undefined ? new Date() : undefined;
-    if (cutoff && this._selectedDays !== undefined) { cutoff.setDate(cutoff.getDate() - this._selectedDays); }
-
     const series: StonksRepoSeries[] = [];
     await Promise.all(repos.map(async (repo) => {
       const commitStatsMap = this._provider.getCommitStats(repo.path);
       if (!commitStatsMap || commitStatsMap.size === 0) { return; }
 
-      let statsArray = Array.from(commitStatsMap.values());
-      if (cutoff) { statsArray = statsArray.filter(s => s.commit.date >= cutoff); }
-      if (statsArray.length === 0) { return; }
+      const range = commitsInWindow(commitStatsMap.values(), this._selectedDays);
+      if (!range) { return; }
 
-      const oldest = statsArray.reduce((a, b) => a.commit.date < b.commit.date ? a : b);
-      let baseline = 0;
-      try {
-        const output = await execGitWithArgs(["ls-tree", "-r", "--name-only", `${oldest.commit.hash}~1`], repo.path, { timeout: ConfigService.getGitTimeoutMs() });
-        baseline = output.trim() ? output.trim().split("\n").length : 0;
-      } catch { /* initial commit → baseline 0 */ }
-
-      series.push({ repoName: repo.name, repoPath: repo.path, data: buildStonksData(statsArray, baseline) });
+      series.push({ repoName: repo.name, repoPath: repo.path, data: await StonksPanel._seriesData(repo.path, range) });
     }));
 
     this._post({ command: "setCompareData", series });

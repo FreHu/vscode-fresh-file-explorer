@@ -4,6 +4,27 @@ import type { StonksDataPoint } from "../webview/messages";
 export { aggregateStonksData } from "../webview/stonksBucketing";
 
 /**
+ * The commits from the last `days` calendar days (all of them when undefined),
+ * and the oldest of those, whose parent's tree is the chart's baseline.
+ * Undefined when no commit falls in the window.
+ */
+export function commitsInWindow(
+  stats: Iterable<CommitStats>,
+  days: number | undefined,
+  now: Date = new Date(),
+): { stats: CommitStats[]; oldest: CommitStats } | undefined {
+  let inWindow = Array.from(stats);
+  if (days !== undefined) {
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - days);
+    inWindow = inWindow.filter(s => s.commit.date >= cutoff);
+  }
+  if (inWindow.length === 0) { return undefined; }
+  const oldest = inWindow.reduce((a, b) => a.commit.date < b.commit.date ? a : b);
+  return { stats: inWindow, oldest };
+}
+
+/**
  * Build the stonks chart data from pre-collected per-commit stats.
  * Walks commits oldest-first, computing cumulative file count on top of a baseline.
  */
