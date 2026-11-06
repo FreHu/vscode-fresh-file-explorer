@@ -124,11 +124,11 @@ export async function searchHistoricalDiffs(
     // Filter final results (for the returned array)
     const filtered = filterMatchesByPattern(allMatches, pattern, searchRegex, caseInsensitive);
     return filtered;
-  } catch (error: any) {
+  } catch (error) {
     // A git-side regex compile failure must surface, not masquerade as "no matches".
     // (streamGitDiffOutput rejects with git's stderr string; the child 'error' event
     // rejects with a message string.)
-    const msg = typeof error === "string" ? error : error?.message ?? String(error);
+    const msg = typeof error === "string" ? error : error instanceof Error ? error.message : String(error);
     if (isRegex && isGitRegexError(msg)) {
       throw new DiffSearchPatternError(msg.trim());
     }
@@ -527,7 +527,7 @@ export async function searchPendingDiffs(
     } catch (err) {
       log(`Untracked files search error: ${err}`, "warn");
     }
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof DiffSearchPatternError) { throw error; } // bubble up to the panel
     log(`Pending diff search error: ${error}`, "error");
   }

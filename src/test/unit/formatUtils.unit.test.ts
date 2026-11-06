@@ -15,7 +15,7 @@ import {
   getStatusLetter,
   AI_COAUTHOR_BADGE,
 } from "../../utils/formatUtils";
-import { DescriptionFormat } from "../../types";
+import { DescriptionFormat, FileMetadata } from "../../types";
 
 const STATUS_ONLY_FORMAT: DescriptionFormat = {
   showDate: false, showAuthor: false, showCommitHash: false,
@@ -25,12 +25,12 @@ const STATUS_ONLY_FORMAT: DescriptionFormat = {
 suite("Format Utils", () => {
   suite("formatFileDescription status letter", () => {
     test("committed file shows the status letter", () => {
-      const desc = formatFileDescription({ date: new Date(), status: "M" } as any, STATUS_ONLY_FORMAT);
+      const desc = formatFileDescription({ date: new Date(), status: "M" } as FileMetadata, STATUS_ONLY_FORMAT);
       assert.strictEqual(desc, "M");
     });
 
     test("pending file omits the letter (git's native right-side badge covers it)", () => {
-      const desc = formatFileDescription({ date: new Date(), status: " M", isPending: true } as any, STATUS_ONLY_FORMAT);
+      const desc = formatFileDescription({ date: new Date(), status: " M", isPending: true } as FileMetadata, STATUS_ONLY_FORMAT);
       assert.strictEqual(desc, "");
     });
   });
@@ -193,10 +193,11 @@ suite("Format Utils", () => {
     const hoursAgo = (h: number) => new Date(now.getTime() - h * 60 * 60 * 1000);
     const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
 
+    const originalDate = Date;
+
     setup(() => {
       // Mock Date.now() to return our test date
-      const originalDate = Date;
-      (global as any).Date = class extends originalDate {
+      globalThis.Date = class extends originalDate {
         constructor(...args: [] | [string | number | Date]) {
           if (args.length === 0) {
             super(now.getTime());
@@ -207,12 +208,11 @@ suite("Format Utils", () => {
         static override now() {
           return now.getTime();
         }
-      };
+      } as unknown as DateConstructor;
     });
 
     teardown(() => {
-      // Restore original Date
-      (global as any).Date = Date;
+      globalThis.Date = originalDate;
     });
 
     test("should format very recent times as 'now'", () => {

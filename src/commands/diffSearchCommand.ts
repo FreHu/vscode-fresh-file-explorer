@@ -112,8 +112,8 @@ export async function handleOpenDiffMatch(matchItem: DiffSearchMatchItem): Promi
       });
     }
 
-  } catch (error: any) {
-    showError(`Failed to open diff: ${error.message || error}`);
+  } catch (error) {
+    showError(`Failed to open diff: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

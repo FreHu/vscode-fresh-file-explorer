@@ -11,7 +11,9 @@ export async function handleViewOptions(freshFileProvider: FreshFileProvider): P
   await showViewOptionsMenu(freshFileProvider);
 }
 
-const options = [
+type ViewOption = vscode.QuickPickItem & { action: "grouping" | "sort" | "filterAuthor" | "filterCommit" | "filterAi" };
+
+const options: ViewOption[] = [
   {
     label: "$(group-by-ref-type) Set Grouping Mode",
     description: "Change how files are organized (by structure, author, commit, etc.)",
@@ -45,14 +47,14 @@ const options = [
 async function showViewOptionsMenu(freshFileProvider: FreshFileProvider): Promise<void> {
   log("View options command triggered");
 
-  const quickPick = vscode.window.createQuickPick();
+  const quickPick = vscode.window.createQuickPick<ViewOption>();
   quickPick.title = "View Options";
   quickPick.placeholder = "Select a view option to configure";
 
   quickPick.items = options;
 
   quickPick.onDidAccept(async () => {
-    const selected = quickPick.selectedItems[0] as any;
+    const selected = quickPick.selectedItems[0] as ViewOption | undefined;
     quickPick.hide();
 
     if (!selected) {

@@ -63,6 +63,10 @@ export default [{
         // lint in every switch that handles it, instead of being dropped silently.
         "@typescript-eslint/switch-exhaustiveness-check": "error",
 
+        // `any` switches off every type-aware rule above for the value it touches. Use
+        // `unknown` and narrow, or the real type (command handlers declare their arguments).
+        "@typescript-eslint/no-explicit-any": "error",
+
         // Disable the base rule — the TS-aware version handles everything below
         "no-unused-vars": "off",
         "@typescript-eslint/no-unused-vars": ["warn", {

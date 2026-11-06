@@ -132,7 +132,7 @@ export class PerfBenchmarkPanel {
       const inputSets = expandMultiParams(msg.inputs, multiParams.map(p => p.name));
       const allRows = (await Promise.all(inputSets.map(inputs => benchmark.run(inputs)))).flat();
       this._post({ command: "results", columns: benchmark.outputSpec.columns, rows: allRows });
-    } catch (err: any) {
+    } catch (err) {
       this._post({ command: "error", message: String(err) });
     }
   }
@@ -174,7 +174,7 @@ export class PerfBenchmarkPanel {
       }
 
       return { repoLabel: repo.name, repoPath: repo.path, commitCount, oldestCommitDate, authorCount, currentBranch, hasCommitGraph, commitGraphPath };
-    } catch (err: any) {
+    } catch (err) {
       return { repoLabel: repo.name, repoPath: repo.path, commitCount: null, oldestCommitDate: null, authorCount: null, currentBranch: null, hasCommitGraph, commitGraphPath, error: String(err) };
     }
   }
@@ -189,7 +189,7 @@ export class PerfBenchmarkPanel {
     try {
       const stats = this._getCacheStats();
       this._post({ command: "cacheStats", stats });
-    } catch (err: any) {
+    } catch (err) {
       this._post({ command: "cacheStatsError", message: String(err) });
     }
   }

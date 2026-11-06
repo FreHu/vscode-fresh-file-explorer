@@ -8,6 +8,7 @@ import {
   DiffSearchRepoItem,
   DiffSearchCommitItem,
   DiffSearchPendingItem,
+  DiffSearchMessageItem,
   DiffSearchTreeItem,
 } from "./diffSearchTreeItems";
 import { AbsolutePath, normalizePath } from "../pathTypes";
@@ -176,9 +177,7 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
       const label = filteredAway
         ? `No ${this.changeTypeFilter} lines (filter active)`
         : "No matches found";
-      const item = new vscode.TreeItem(label);
-      item.iconPath = new vscode.ThemeIcon("info");
-      return [item as any];
+      return [new DiffSearchMessageItem(label)];
     }
 
     // Root level - always show repos for consistency

@@ -52,8 +52,7 @@ export async function openDiff(
       const hasModified = typeof input === 'object' && input !== null && 'modified' in input;
 
       if (hasOriginal && hasModified) {
-        const orig = (input as any).original;
-        const mod = (input as any).modified;
+        const { original: orig, modified: mod } = input as { original: unknown; modified: unknown };
 
         // The original and modified ARE the Uri objects themselves, not wrapped in {uri: ...}
         const isOrigUri = orig && typeof orig === 'object' && 'scheme' in orig;

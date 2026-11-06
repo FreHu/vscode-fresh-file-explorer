@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { GroupingViewBuilder } from "../fresh-files/groupingViewBuilder";
-import { FileMetadata } from "../types";
+import { FileMetadata, SortOrder, asCommitAuthor } from "../types";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 
 suite("GroupingViewBuilder", () => {
@@ -52,15 +52,15 @@ suite("GroupingViewBuilder", () => {
         const filesList = [
           {
             filePath: asAbsolutePath("/repo/charlie.ts"),
-            metadata: { date: new Date(), author: "Charlie" as any } as FileMetadata,
+            metadata: { date: new Date(), author: asCommitAuthor("Charlie") } as FileMetadata,
           },
           {
             filePath: asAbsolutePath("/repo/alice.ts"),
-            metadata: { date: new Date(), author: "Alice" as any } as FileMetadata,
+            metadata: { date: new Date(), author: asCommitAuthor("Alice") } as FileMetadata,
           },
           {
             filePath: asAbsolutePath("/repo/bob.ts"),
-            metadata: { date: new Date(), author: "Bob" as any } as FileMetadata,
+            metadata: { date: new Date(), author: asCommitAuthor("Bob") } as FileMetadata,
           },
         ];
 
@@ -75,15 +75,15 @@ suite("GroupingViewBuilder", () => {
         const filesList = [
           {
             filePath: asAbsolutePath("/repo/zebra.ts"),
-            metadata: { date: new Date(), author: "Alice" as any } as FileMetadata,
+            metadata: { date: new Date(), author: asCommitAuthor("Alice") } as FileMetadata,
           },
           {
             filePath: asAbsolutePath("/repo/apple.ts"),
-            metadata: { date: new Date(), author: "Alice" as any } as FileMetadata,
+            metadata: { date: new Date(), author: asCommitAuthor("Alice") } as FileMetadata,
           },
           {
             filePath: asAbsolutePath("/repo/mango.ts"),
-            metadata: { date: new Date(), author: "Alice" as any } as FileMetadata,
+            metadata: { date: new Date(), author: asCommitAuthor("Alice") } as FileMetadata,
           },
         ];
 
@@ -98,7 +98,7 @@ suite("GroupingViewBuilder", () => {
         const filesList = [
           {
             filePath: asAbsolutePath("/repo/file1.ts"),
-            metadata: { date: new Date(), author: "Bob" as any } as FileMetadata,
+            metadata: { date: new Date(), author: asCommitAuthor("Bob") } as FileMetadata,
           },
           {
             filePath: asAbsolutePath("/repo/file2.ts"),
@@ -106,7 +106,7 @@ suite("GroupingViewBuilder", () => {
           },
           {
             filePath: asAbsolutePath("/repo/file3.ts"),
-            metadata: { date: new Date(), author: "Alice" as any } as FileMetadata,
+            metadata: { date: new Date(), author: asCommitAuthor("Alice") } as FileMetadata,
           },
         ];
 
@@ -202,7 +202,7 @@ suite("GroupingViewBuilder", () => {
           },
         ];
 
-        GroupingViewBuilder.sortFilesList(filesList, "invalid" as any);
+        GroupingViewBuilder.sortFilesList(filesList, "invalid" as unknown as SortOrder);
 
         assert.ok(filesList[0].filePath.includes("apple.ts"));
         assert.ok(filesList[1].filePath.includes("zebra.ts"));

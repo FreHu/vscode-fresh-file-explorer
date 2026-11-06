@@ -72,7 +72,8 @@ import { SavedComparisonsService } from "./branch-compare/savedComparisonsServic
 import { BranchCompareProvider } from "./branch-compare/branchCompareProvider";
 import { BranchCompareGroupItem } from "./branch-compare/branchCompareGroupingBuilder";
 import { BranchCompareSettingsPanel } from "./branch-compare/branchCompareSettingsPanel";
-import { BranchCompareFileItem, BranchCompareFolderItem } from "./branch-compare/branchCompareTreeItems";
+import { BranchCompareFileItem, BranchCompareFolderItem, RepoSectionItem } from "./branch-compare/branchCompareTreeItems";
+import { DiffSearchCommitItem, DiffSearchFileItem, DiffSearchMatchItem, DiffSearchRepoItem } from "./diff-search/diffSearchTreeItems";
 import { collectFilesIn } from "./branch-compare/branchCompareData";
 import {
   handleBranchCompareOpen,
@@ -387,8 +388,9 @@ function registerCommands(
   branchCompareTreeView: vscode.TreeView<vscode.TreeItem>,
   savedComparisons: SavedComparisonsService,
 ): void {
-  function register(name: string, handler: (...args: any[]) => any) {
-    context.subscriptions.push(vscode.commands.registerCommand(name, handler));
+  // VS Code passes untyped arguments; each handler declares what its menus pass it.
+  function register<A extends unknown[]>(name: string, handler: (...args: A) => unknown) {
+    context.subscriptions.push(vscode.commands.registerCommand(name, handler as (...args: unknown[]) => unknown));
   }
 
   register(Commands.REFRESH, () => handleRefresh(freshFileProvider));
@@ -514,9 +516,9 @@ function registerCommands(
 
   register(Commands.ADD_NOTE, () => handleAddNote(pinnedItemsProvider));
 
-  register(Commands.EDIT_NOTE, (item: any) => handleEditNote(item, pinnedItemsProvider));
+  register(Commands.EDIT_NOTE, (item: NoteTreeItem) => handleEditNote(item, pinnedItemsProvider));
 
-  register(Commands.DELETE_NOTE, (item: any) => handleDeleteNote(item, pinnedItemsProvider));
+  register(Commands.DELETE_NOTE, (item: NoteTreeItem) => handleDeleteNote(item, pinnedItemsProvider));
 
   register(Commands.CLEAR_ALL_PINNED, () => handleClearAllPinned(pinnedItemsProvider));
 
@@ -579,7 +581,7 @@ function registerCommands(
     DiffSearchPanel.createOrShow(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])
   );
 
-  register(Commands.OPEN_DIFF_MATCH, (item: any) => handleOpenDiffMatch(item));
+  register(Commands.OPEN_DIFF_MATCH, (item: DiffSearchMatchItem) => handleOpenDiffMatch(item));
 
   register(Commands.CLEAR_DIFF_SEARCH, () => handleClearDiffSearch(diffSearchResultProvider));
 
@@ -589,10 +591,10 @@ function registerCommands(
   register(Commands.DIFF_SEARCH_SHOWING_REMOVED, () => diffSearchResultProvider.setChangeFilter("all"));
 
   // Result-item context-menu copies.
-  register(Commands.DIFF_SEARCH_COPY_COMMIT_SHA, (item: any) => handleCopyDiffCommitSha(item));
-  register(Commands.DIFF_SEARCH_COPY_LINE, (item: any) => handleCopyDiffMatchLine(item));
-  register(Commands.DIFF_SEARCH_COPY_PATH, (item: any) => handleCopyDiffPath(item));
-  register(Commands.DIFF_SEARCH_EXPAND_ALL, (item: any) => handleDiffSearchExpandAll(diffSearchTreeView, item));
+  register(Commands.DIFF_SEARCH_COPY_COMMIT_SHA, (item: DiffSearchCommitItem) => handleCopyDiffCommitSha(item));
+  register(Commands.DIFF_SEARCH_COPY_LINE, (item: DiffSearchMatchItem) => handleCopyDiffMatchLine(item));
+  register(Commands.DIFF_SEARCH_COPY_PATH, (item: DiffSearchFileItem | DiffSearchMatchItem) => handleCopyDiffPath(item));
+  register(Commands.DIFF_SEARCH_EXPAND_ALL, (item: DiffSearchRepoItem | DiffSearchCommitItem) => handleDiffSearchExpandAll(diffSearchTreeView, item));
 
   register(Commands.GIT_PICKAXE, () =>
     handleGitPickaxe(context.extensionUri, diffSearchResultProvider, vscode.workspace.workspaceFolders || [])
@@ -667,33 +669,33 @@ function registerCommands(
   );
 
   // Branch compare commands
-  register(Commands.BRANCH_COMPARE_OPEN, (item: any) => handleBranchCompareOpen(item));
-  register(Commands.BRANCH_COMPARE_OPEN_FILE, (item: any) => handleBranchCompareOpenFile(item));
-  register(Commands.BRANCH_COMPARE_OPEN_TO_SIDE, (item: any) => handleBranchCompareOpenToSide(item));
-  register(Commands.BRANCH_COMPARE_OPEN_AT_BASELINE, (item: any) => handleBranchCompareOpenAtBaseline(item));
+  register(Commands.BRANCH_COMPARE_OPEN, (item: BranchCompareFileItem | undefined) => handleBranchCompareOpen(item));
+  register(Commands.BRANCH_COMPARE_OPEN_FILE, (item: BranchCompareFileItem | undefined) => handleBranchCompareOpenFile(item));
+  register(Commands.BRANCH_COMPARE_OPEN_TO_SIDE, (item: BranchCompareFileItem | undefined) => handleBranchCompareOpenToSide(item));
+  register(Commands.BRANCH_COMPARE_OPEN_AT_BASELINE, (item: BranchCompareFileItem | undefined) => handleBranchCompareOpenAtBaseline(item));
   register(Commands.BRANCH_COMPARE_REFRESH, () => handleBranchCompareRefresh(branchCompareProvider));
-  register(Commands.BRANCH_COMPARE_REFRESH_REPO, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_REFRESH_REPO, (arg: RepoSectionItem | undefined) =>
     handleBranchCompareRefreshRepo(arg, branchCompareProvider),
   );
-  register(Commands.BRANCH_COMPARE_COLLAPSE_SECTION, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_COLLAPSE_SECTION, (arg: RepoSectionItem | undefined) =>
     handleBranchCompareCollapseSection(arg, branchCompareProvider),
   );
-  register(Commands.BRANCH_COMPARE_SET_BASELINE, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_SET_BASELINE, (arg: RepoSectionItem | undefined) =>
     handleSetBaseline(arg, baselineService, freshFileProvider, savedComparisons),
   );
-  register(Commands.BRANCH_COMPARE_CLEAR_BASELINE, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_CLEAR_BASELINE, (arg: RepoSectionItem | undefined) =>
     handleClearBaseline(arg, baselineService, freshFileProvider),
   );
-  register(Commands.BRANCH_COMPARE_OPEN_ALL, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_OPEN_ALL, (arg: RepoSectionItem | BranchCompareFolderItem | undefined) =>
     handleBranchCompareOpenAll(arg, branchCompareProvider),
   );
-  register(Commands.BRANCH_COMPARE_RESTORE_FROM_BASELINE, (item: any, selectedItems: any) =>
+  register(Commands.BRANCH_COMPARE_RESTORE_FROM_BASELINE, (item: BranchCompareFileItem | undefined, selectedItems: BranchCompareFileItem[] | undefined) =>
     handleBranchCompareRestoreFromBaseline(item, selectedItems, branchCompareProvider, baselineService),
   );
-  register(Commands.BRANCH_COMPARE_COPY_SUBTREE_STRUCTURE, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_COPY_SUBTREE_STRUCTURE, (arg: BranchCompareFolderItem | RepoSectionItem | undefined) =>
     handleBranchCompareCopySubtreeStructure(arg, branchCompareProvider),
   );
-  register(Commands.BRANCH_COMPARE_REVEAL_IN_FRESH_FILES, (item: any) =>
+  register(Commands.BRANCH_COMPARE_REVEAL_IN_FRESH_FILES, (item: BranchCompareFileItem | undefined) =>
     handleBranchCompareRevealInFreshFiles(item, freshFileProvider),
   );
   context.subscriptions.push(
@@ -703,13 +705,13 @@ function registerCommands(
     ),
   );
   register(Commands.BRANCH_COMPARE_OPEN_SETTINGS, () => BranchCompareSettingsPanel.show());
-  register(Commands.BRANCH_COMPARE_TOGGLE_ACTIVE, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_TOGGLE_ACTIVE, (arg: RepoSectionItem | undefined) =>
     handleBranchCompareToggleActive(arg, savedComparisons),
   );
-  register(Commands.BRANCH_COMPARE_SWAP_SIDES, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_SWAP_SIDES, (arg: RepoSectionItem | undefined) =>
     handleBranchCompareSwapSides(arg, savedComparisons),
   );
-  register(Commands.BRANCH_COMPARE_TOGGLE_HIDE_REVIEWED, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_TOGGLE_HIDE_REVIEWED, (arg: RepoSectionItem | undefined) =>
     handleBranchCompareToggleHideReviewed(arg, savedComparisons),
   );
   register(Commands.BRANCH_COMPARE_FOCUS_SOURCE_CONTROL, () => handleBranchCompareFocusSourceControl());
@@ -717,11 +719,11 @@ function registerCommands(
   register(Commands.BRANCH_COMPARE_OPEN_PENDING_CHANGES, (item: BranchCompareGroupItem) => handleBranchCompareOpenPendingChanges(item));
   register(Commands.BRANCH_COMPARE_OPEN_MODE_CHANGES, () => branchCompareProvider.setOpenMode(true));
   register(Commands.BRANCH_COMPARE_OPEN_MODE_FILE, () => branchCompareProvider.setOpenMode(false));
-  register(Commands.BRANCH_COMPARE_DISMISS_AUTO_FOLLOW, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_DISMISS_AUTO_FOLLOW, (arg: RepoSectionItem | undefined) =>
     handleBranchCompareDismissAutoFollow(arg, savedComparisons),
   );
-  register(Commands.BRANCH_COMPARE_OPEN_DIFFTOOL, (item: any) => handleBranchCompareOpenDifftool(item));
-  register(Commands.BRANCH_COMPARE_OPEN_DIR_DIFFTOOL, (arg: any) =>
+  register(Commands.BRANCH_COMPARE_OPEN_DIFFTOOL, (item: BranchCompareFileItem | undefined) => handleBranchCompareOpenDifftool(item));
+  register(Commands.BRANCH_COMPARE_OPEN_DIR_DIFFTOOL, (arg: RepoSectionItem | BranchCompareFolderItem | BranchCompareGroupItem | undefined) =>
     handleBranchCompareOpenDirDifftool(arg, branchCompareProvider),
   );
 }

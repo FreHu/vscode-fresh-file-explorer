@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { FilterManager } from "../fresh-files/freshFileFilterManager";
-import { FileMetadata, asCommitHash } from "../types";
+import { FileMetadata, asCommitAuthor, asCommitHash } from "../types";
 
 suite("FilterManager", () => {
   let filterManager: FilterManager;
@@ -56,8 +56,8 @@ suite("FilterManager", () => {
   });
 
   suite("AI co-authorship filter", () => {
-    const aiFile: FileMetadata = { date: new Date(), author: "Alice" as any, aiCoAuthored: true };
-    const humanFile: FileMetadata = { date: new Date(), author: "Bob" as any, aiCoAuthored: false };
+    const aiFile: FileMetadata = { date: new Date(), author: asCommitAuthor("Alice"), aiCoAuthored: true };
+    const humanFile: FileMetadata = { date: new Date(), author: asCommitAuthor("Bob"), aiCoAuthored: false };
     const pendingFile: FileMetadata = { date: new Date(), isPending: true };
 
     test("mode 'all' passes both AI and human changes", () => {
@@ -120,7 +120,7 @@ suite("FilterManager", () => {
     test("should return true when no filters are active", () => {
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
         commitHash: asCommitHash("abc123"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), true);
@@ -130,7 +130,7 @@ suite("FilterManager", () => {
       filterManager.setExcludedAuthors(new Set(["Alice"]));
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
         commitHash: asCommitHash("abc123"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), false);
@@ -140,7 +140,7 @@ suite("FilterManager", () => {
       filterManager.setExcludedAuthors(new Set(["Bob"]));
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
         commitHash: asCommitHash("abc123"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), true);
@@ -150,7 +150,7 @@ suite("FilterManager", () => {
       filterManager.setExcludedCommits(new Set([asCommitHash("abc123")]));
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
         commitHash: asCommitHash("abc123"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), false);
@@ -160,7 +160,7 @@ suite("FilterManager", () => {
       filterManager.setExcludedCommits(new Set([asCommitHash("def456")]));
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
         commitHash: asCommitHash("abc123"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), true);
@@ -187,7 +187,7 @@ suite("FilterManager", () => {
       filterManager.setExcludedCommits(new Set([asCommitHash("abc123")]));
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), true);
     });
@@ -197,7 +197,7 @@ suite("FilterManager", () => {
       filterManager.setExcludedCommits(new Set([asCommitHash("abc123")]));
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
         commitHash: asCommitHash("abc123"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), false);
@@ -208,7 +208,7 @@ suite("FilterManager", () => {
       filterManager.setExcludedCommits(new Set([asCommitHash("def456")]));
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
         commitHash: asCommitHash("abc123"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), false);
@@ -219,7 +219,7 @@ suite("FilterManager", () => {
       filterManager.setExcludedCommits(new Set([asCommitHash("abc123")]));
       const metadata: FileMetadata = {
         date: new Date(),
-        author: "Alice" as any,
+        author: asCommitAuthor("Alice"),
         commitHash: asCommitHash("abc123"),
       };
       assert.strictEqual(filterManager.passesFilters(metadata), false);

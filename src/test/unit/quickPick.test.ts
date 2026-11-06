@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { buildCommitItems, buildAuthorItems, buildTimeWindowItems } from "../../utils/quickPick";
-import { asCommitHash } from "../../types";
+import { asCommitAuthor, asCommitHash, asCommitMessage } from "../../types";
 import type { CommitDataWithFileCount, AuthorData } from "../../types";
 import type { TimeWindow } from "../../fresh-files/timeWindowUtils";
 
@@ -10,13 +10,13 @@ const HASH_A = asCommitHash("aaa0000");
 const HASH_B = asCommitHash("bbb1111");
 
 const COMMITS: CommitDataWithFileCount[] = [
-  { hash: HASH_A, message: "feat: add foo" as any, author: "Alice" as any, date: new Date("2025-01-01"), fileCount: 3 },
-  { hash: HASH_B, message: "fix: remove bar" as any, author: "Bob" as any, date: new Date("2025-01-02"), repoName: "backend", fileCount: 1 },
+  { hash: HASH_A, message: asCommitMessage("feat: add foo"), author: asCommitAuthor("Alice"), date: new Date("2025-01-01"), fileCount: 3 },
+  { hash: HASH_B, message: asCommitMessage("fix: remove bar"), author: asCommitAuthor("Bob"), date: new Date("2025-01-02"), repoName: "backend", fileCount: 1 },
 ];
 
 const AUTHORS: AuthorData[] = [
-  { author: "Alice" as any, fileCount: 5 },
-  { author: "Bob" as any, fileCount: 2 },
+  { author: asCommitAuthor("Alice"), fileCount: 5 },
+  { author: asCommitAuthor("Bob"), fileCount: 2 },
 ];
 
 const TW_PENDING: TimeWindow = { type: "pending", label: "Pending" };

@@ -13,12 +13,12 @@ export function raw(value: string): { [RAW]: string } {
  * Escapes values to prevent HTML injection attacks.
  * Values wrapped with raw() are passed through without escaping.
  */
-export function html(strings: TemplateStringsArray, ...values: any[]): string {
+export function html(strings: TemplateStringsArray, ...values: unknown[]): string {
   let result = strings[0];
   for (let i = 0; i < values.length; i++) {
     const val = values[i];
     result += (val && typeof val === "object" && RAW in val)
-      ? val[RAW]
+      ? String(val[RAW])
       : escapeHtml(String(val));
     result += strings[i + 1];
   }
@@ -29,7 +29,7 @@ export function html(strings: TemplateStringsArray, ...values: any[]): string {
  * CSS tagged template literal helper
  * Returns CSS content as-is (no escaping needed for style content)
  */
-export function css(strings: TemplateStringsArray, ...values: any[]): string {
+export function css(strings: TemplateStringsArray, ...values: unknown[]): string {
   let result = strings[0];
   for (let i = 0; i < values.length; i++) {
     result += String(values[i]) + strings[i + 1];

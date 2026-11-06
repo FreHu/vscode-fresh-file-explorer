@@ -3,7 +3,7 @@ import * as path from "path";
 
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { FreshFileItem } from "../fresh-files/freshFileTreeItems";
-import { findRepoForFile, isPathWithinRoot, findWorkspaceFolderForPath } from "../utils/pathUtils";
+import { findRepoForFile, isPathWithinRoot, findWorkspaceFolderForPath, RepoLocationResult } from "../utils/pathUtils";
 import { discardFileChanges, discardAllFileChanges, discardRename, unstageFile } from "../git/gitMutations";
 import { hasStagedChanges, hasUnstagedChanges } from "../git/gitStatusPredicates";
 import { normalizePath } from "../utils";
@@ -114,7 +114,7 @@ async function promptStagedConfirmation(
  * Restores the file to HEAD state (both index and working tree).
  */
 async function executeDiscardEverything(
-  repoLocation: any,
+  repoLocation: RepoLocationResult,
   status: string,
   filePath: string,
   renameSource?: string,
@@ -144,7 +144,7 @@ async function executeDiscardEverything(
  * Restores working-tree changes, preserving staged changes.
  */
 async function executeDiscardUnstagedOnly(
-  repoLocation: any,
+  repoLocation: RepoLocationResult,
   status: string,
   filePath: string,
   fileDisplayPath: string,
@@ -167,7 +167,7 @@ async function executeDiscardUnstagedOnly(
  * Moves staged changes back to the working tree.
  */
 async function executeUnstageOnly(
-  repoLocation: any,
+  repoLocation: RepoLocationResult,
   status: string,
   filePath: string,
   fileDisplayPath: string,
@@ -189,7 +189,7 @@ async function executeUnstageOnly(
  */
 async function executeDiscardAction(
   fileItem: FreshFileItem,
-  repoLocation: any,
+  repoLocation: RepoLocationResult,
   action: DiscardAction,
 ): Promise<boolean> {
   const status = fileItem.status ?? "";

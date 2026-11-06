@@ -176,6 +176,14 @@ export class DiffSearchPendingItem extends vscode.TreeItem {
   }
 }
 
+/** An info line in place of results ("No matches found"). */
+export class DiffSearchMessageItem extends vscode.TreeItem {
+  constructor(label: string) {
+    super(label);
+    this.iconPath = new vscode.ThemeIcon("info");
+  }
+}
+
 /**
  * Union type for all diff search tree items
  */
@@ -184,4 +192,5 @@ export type DiffSearchTreeItem =
   | DiffSearchMatchItem
   | DiffSearchRepoItem
   | DiffSearchCommitItem
-  | DiffSearchPendingItem;
+  | DiffSearchPendingItem
+  | DiffSearchMessageItem;

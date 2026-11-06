@@ -225,7 +225,7 @@ constructor(
  * Tree item for displaying info/error messages in the tree view
  */
 export class MessageTreeItem extends vscode.TreeItem {
-  constructor(message: string, icon?: string, action?: { command: string; title: string; args?: any[] }) {
+  constructor(message: string, icon?: string, action?: { command: string; title: string; args?: unknown[] }) {
     super(message, vscode.TreeItemCollapsibleState.None);
     this.contextValue = TreeItemContextValues.MESSAGE;
     if (icon) {

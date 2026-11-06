@@ -181,8 +181,8 @@ export class DiffSearchPanel {
     if (isRegex) {
       try {
         new RegExp(pattern);
-      } catch (error: any) {
-        showError(`Invalid regex: ${error.message}`);
+      } catch (error) {
+        showError(`Invalid regex: ${error instanceof Error ? error.message : String(error)}`);
         return;
       }
     }
@@ -333,11 +333,12 @@ export class DiffSearchPanel {
           gitCommand: buildSearchGitCommand(searchData),
         });
       }
-    } catch (error: any) {
-      showError(`Search failed: ${error.message || error}`, `Diff search error: ${error}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showError(`Search failed: ${message}`, `Diff search error: ${String(error)}`);
       this._post({
         command: "searchComplete",
-        message: `Error: ${error.message || error}`,
+        message: `Error: ${message}`,
         count: 0,
       });
     }
