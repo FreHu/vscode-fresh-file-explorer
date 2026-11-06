@@ -73,37 +73,41 @@ export function formatDirectoryTooltip(
   return tooltip;
 }
 
+export type RelativeAgeUnit = "now" | "minute" | "hour" | "day" | "week" | "month" | "year";
+
 /**
- * Formats a date as a concise relative time string
- * @param date The date to format
- * @returns A string like "now", "5m", "1h", "2d", "1w", "1mo", "1y"
+ * How long ago `date` was, in the largest unit that fits: under a minute is
+ * "now", weeks cover 7–29 days, months count 30-day blocks.
  */
-export function formatRelativeDate(date: Date): string {
-  const now = new Date();
+export function relativeAge(date: Date, now: Date = new Date()): { unit: RelativeAgeUnit; count: number } {
   const diffMs = now.getTime() - date.getTime();
   const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const diffMonths = Math.floor(diffDays / 30);
-  const diffYears = Math.floor(diffDays / 365);
 
-  if (diffSeconds < 60) {
-    return "now";
-  } else if (diffMinutes < 60) {
-    return `${diffMinutes}m`;
-  } else if (diffHours < 24) {
-    return `${diffHours}h`;
-  } else if (diffDays < 7) {
-    return `${diffDays}d`;
-  } else if (diffDays < 30) {
-    const weeks = Math.floor(diffDays / 7);
-    return `${weeks}w`;
-  } else if (diffMonths < 12) {
-    return `${diffMonths}mo`;
-  } else {
-    return `${diffYears}y`;
-  }
+  if (diffSeconds < 60) { return { unit: "now", count: 0 }; }
+  if (diffMinutes < 60) { return { unit: "minute", count: diffMinutes }; }
+  if (diffHours < 24) { return { unit: "hour", count: diffHours }; }
+  if (diffDays < 7) { return { unit: "day", count: diffDays }; }
+  if (diffDays < 30) { return { unit: "week", count: Math.floor(diffDays / 7) }; }
+  if (diffMonths < 12) { return { unit: "month", count: diffMonths }; }
+  return { unit: "year", count: Math.floor(diffDays / 365) };
+}
+
+const SHORT_AGE_SUFFIX: Record<Exclude<RelativeAgeUnit, "now">, string> = {
+  minute: "m", hour: "h", day: "d", week: "w", month: "mo", year: "y",
+};
+
+/**
+ * Formats a date as a concise relative time string
+ * @param date The date to format
+ * @returns A string like "now", "5m", "1h", "2d", "1w", "1mo", "1y"
+ */
+export function formatRelativeDate(date: Date): string {
+  const { unit, count } = relativeAge(date);
+  return unit === "now" ? "now" : `${count}${SHORT_AGE_SUFFIX[unit]}`;
 }
 
 /**
@@ -111,24 +115,8 @@ export function formatRelativeDate(date: Date): string {
  * Suitable for tooltips where space is not a concern.
  */
 export function formatRelativeDateLong(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const diffWeeks = Math.floor(diffDays / 7);
-  const diffMonths = Math.floor(diffDays / 30);
-  const diffYears = Math.floor(diffDays / 365);
-
-  const p = (n: number, unit: string) => `${plural(n, unit)} ago`;
-  if (diffSeconds < 60)  { return "just now"; }
-  if (diffMinutes < 60)  { return p(diffMinutes, "minute"); }
-  if (diffHours < 24)    { return p(diffHours, "hour"); }
-  if (diffDays < 7)      { return p(diffDays, "day"); }
-  if (diffDays < 30)     { return p(diffWeeks, "week"); }
-  if (diffMonths < 12)   { return p(diffMonths, "month"); }
-  return p(diffYears, "year");
+  const { unit, count } = relativeAge(date);
+  return unit === "now" ? "just now" : `${plural(count, unit)} ago`;
 }
 
 /**
