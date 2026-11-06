@@ -3,6 +3,12 @@ export function normalizePath(path: string): string {
   return path.replace(/\\/g, "/");
 }
 
+/** Parent of a forward-slash path, or undefined when there is none (no slash, or only a leading one). */
+export function parentDir<T extends string>(path: T): T | undefined {
+  const idx = path.lastIndexOf("/");
+  return idx > 0 ? path.substring(0, idx) as T : undefined;
+}
+
 /**
  * Branded type for absolute file system paths
  * Used to distinguish absolute paths from relative paths at compile time

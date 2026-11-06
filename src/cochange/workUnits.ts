@@ -16,7 +16,7 @@
  * Pure and vscode-free.
  */
 
-import { parentDir } from "./cochangeEngine";
+import { parentDir } from "../pathTypes";
 
 /** One commit with enough context to join and aggregate. */
 export interface TicketCommit {

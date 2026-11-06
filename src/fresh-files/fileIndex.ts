@@ -1,4 +1,4 @@
-import { AbsolutePath } from "../pathTypes";
+import { AbsolutePath, parentDir } from "../pathTypes";
 import { FileMetadata } from "../types";
 
 export interface DirStats {
@@ -32,22 +32,16 @@ export class FileIndex {
     const index = new Map<AbsolutePath, Set<AbsolutePath>>();
 
     for (const filePath of files.keys()) {
-      const normalized = filePath;
-
       // Register the file in its immediate parent.
-      const fileSlash = normalized.lastIndexOf("/");
-      if (fileSlash <= 0) { continue; }
-      const immediateParent = normalized.substring(0, fileSlash) as AbsolutePath;
+      const immediateParent = parentDir(filePath);
+      if (immediateParent === undefined) { continue; }
       if (!index.has(immediateParent)) { index.set(immediateParent, new Set()); }
-      index.get(immediateParent)!.add(normalized);
+      index.get(immediateParent)!.add(filePath);
 
       // Walk up the chain, registering each dir in its parent.
       // Stop as soon as an ancestor is already present (all higher ones are done too).
       let child = immediateParent;
-      while (true) {
-        const sl = child.lastIndexOf("/");
-        if (sl <= 0) { break; }
-        const parent = child.substring(0, sl) as AbsolutePath;
+      for (let parent = parentDir(child); parent !== undefined; parent = parentDir(child)) {
         if (!index.has(parent)) { index.set(parent, new Set()); }
         const parentSet = index.get(parent)!;
         if (parentSet.has(child)) { break; }
@@ -100,11 +94,7 @@ export class FileIndex {
       if (!passesScope(normalizedFile)) { continue; }
 
       // Propagate this file's contribution up every ancestor directory.
-      let current: AbsolutePath = normalizedFile;
-      while (true) {
-        const sl = current.lastIndexOf("/");
-        if (sl <= 0) { break; }
-        const dir = current.substring(0, sl) as AbsolutePath;
+      for (let dir = parentDir(normalizedFile); dir !== undefined; dir = parentDir(dir)) {
         let stats = cache.get(dir);
         if (!stats) {
           stats = { count: 0, mostRecent: undefined, linesAdded: 0, linesDeleted: 0 };
@@ -116,7 +106,6 @@ export class FileIndex {
           stats.linesAdded += metadata.linesAdded ?? 0;
           stats.linesDeleted += metadata.linesDeleted ?? 0;
         }
-        current = dir;
       }
     }
 

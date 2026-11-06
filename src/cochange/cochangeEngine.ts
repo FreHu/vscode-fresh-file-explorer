@@ -1,3 +1,5 @@
+import { parentDir } from "../pathTypes";
+
 /**
  * Co-change suggestion engine ("forgotten file" hints).
  *
@@ -100,12 +102,6 @@ const DEFAULTS: Required<Omit<CochangeOptions, "minLastTogetherAt" | "satisfiedF
   minConfidence: 0.5,
   maxSuggestions: 8,
 };
-
-/** Immediate parent directory, or undefined at the repo root (too broad to be a unit). */
-export function parentDir(file: string): string | undefined {
-  const idx = file.lastIndexOf("/");
-  return idx > 0 ? file.substring(0, idx) : undefined;
-}
 
 function isWithin(path: string, dir: string): boolean {
   return path === dir || path.startsWith(dir + "/");
