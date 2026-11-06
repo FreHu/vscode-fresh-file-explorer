@@ -1,8 +1,8 @@
 import type { CommitData, GitLogLToWebview, GitLogLFromWebview } from "./messages";
-import { renderAddedRemovedBars, renderYAxisFromRange, renderDateXAxis, type ChartPadding } from "./svgChartPrimitives";
+import { renderAddedRemovedBars, renderYAxisFromRange, renderDateXAxis, renderCommitTooltipHeader, formatTooltipDate, type ChartPadding } from "./svgChartPrimitives";
 import { PanController } from "./panController";
 import { html, raw } from "../utils/templateHelpers";
-import { positionTooltip } from "./webviewUtils";
+import { hideCrosshair, positionTooltip, showCrosshair } from "./webviewUtils";
 import {
   searchCommits, splitByRanges, describeResult,
   type LogLSearchQuery, type LogLSearchResult, type LogLSearchScope, type MatchRange, type HunkLineMatch,
@@ -532,28 +532,16 @@ function onChartMouseMove(e: Event): void {
   const localIdx = idx - chartPageStart;
   const x = CHART_PAD.left + localIdx * chartXStep;
 
-  // Crosshair
-  const crosshair = document.getElementById("chartCrosshair");
-  if (crosshair) {
-    crosshair.setAttribute("x1", String(x));
-    crosshair.setAttribute("x2", String(x));
-    crosshair.style.display = "";
-  }
+  showCrosshair("chartCrosshair", x);
 
-  // Tooltip
-  const date = new Date(c.date);
-  const dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   chartTooltip.innerHTML =
-    html`<div class="hash">${c.shortHash}</div>` +
-    html`<div class="message">${c.message || "(no message)"}</div>` +
-    html`<div class="author">${c.author} · ${dateStr}</div>` +
+    renderCommitTooltipHeader(c.shortHash, c.message || "(no message)", c.author, formatTooltipDate(c.date)) +
     html`<div class="stat"><span class="added">+${c.added}</span> <span class="deleted">-${c.removed}</span></div>`;
   positionTooltip(chartTooltip, chartContainer, me.clientX, me.clientY);
 }
 
 function onChartMouseLeave(): void {
-  const crosshair = document.getElementById("chartCrosshair");
-  if (crosshair) { crosshair.style.display = "none"; }
+  hideCrosshair("chartCrosshair");
   chartTooltip.style.display = "none";
 }
 

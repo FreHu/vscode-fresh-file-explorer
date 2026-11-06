@@ -4,6 +4,8 @@
  * Used by both stonksPanel and gitLogLPanel webviews.
  */
 
+import { html } from "../utils/templateHelpers";
+
 export interface ChartPadding {
   top: number;
   right: number;
@@ -185,4 +187,18 @@ export function renderDateXAxis(
     out += `<text x="${x}" y="${labelY}" text-anchor="${anchor}" fill="var(--vscode-descriptionForeground)" font-size="10">${label}</text>`;
   }
   return out;
+}
+
+// ── Hover tooltip ─────────────────────────────────────────────────────────────
+
+/** Date as shown in chart tooltips, e.g. "Mar 5, 2026". */
+export function formatTooltipDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+/** The hash, message and "author · date" lines that open a commit's tooltip. */
+export function renderCommitTooltipHeader(hash: string, message: string, author: string, dateStr: string): string {
+  return html`<div class="hash">${hash}</div>` +
+    html`<div class="message">${message}</div>` +
+    html`<div class="author">${author} · ${dateStr}</div>`;
 }

@@ -35,3 +35,19 @@ export function showStatusFor(el: HTMLElement, message: string, type: "info" | "
 export function hideStatusFor(el: HTMLElement): void {
   el.style.display = "none";
 }
+
+/** Move the chart's vertical crosshair line (`<line id=...>`) to `x` and show it. */
+export function showCrosshair(id: string, x: number): void {
+  const line = document.getElementById(id);
+  if (line) {
+    line.setAttribute("x1", String(x));
+    line.setAttribute("x2", String(x));
+    line.style.display = "";
+  }
+}
+
+/** Hide the chart's crosshair line. */
+export function hideCrosshair(id: string): void {
+  const line = document.getElementById(id);
+  if (line) { line.style.display = "none"; }
+}

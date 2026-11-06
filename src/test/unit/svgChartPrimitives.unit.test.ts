@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { ADDED_FILL, renderBar, renderDateXAxis, xAxisLabelIndices } from "../../webview/svgChartPrimitives";
+import { ADDED_FILL, formatTooltipDate, renderBar, renderCommitTooltipHeader, renderDateXAxis, xAxisLabelIndices } from "../../webview/svgChartPrimitives";
 
 const PAD = { top: 10, right: 10, bottom: 10, left: 40 };
 
@@ -18,6 +18,19 @@ suite("xAxisLabelIndices", () => {
 
   test("a single point gets one label", () => {
     assert.deepStrictEqual(xAxisLabelIndices(1, 1), [0]);
+  });
+});
+
+suite("renderCommitTooltipHeader", () => {
+  test("hash, message and author/date lines, escaped", () => {
+    assert.strictEqual(
+      renderCommitTooltipHeader("abc1234", "fix <b>", "Ann", "Mar 5, 2026"),
+      `<div class="hash">abc1234</div><div class="message">fix &lt;b&gt;</div><div class="author">Ann · Mar 5, 2026</div>`,
+    );
+  });
+
+  test("formatTooltipDate includes the year", () => {
+    assert.ok(formatTooltipDate("2026-03-05T12:00:00Z").includes("2026"));
   });
 });
 

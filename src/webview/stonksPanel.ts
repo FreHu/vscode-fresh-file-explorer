@@ -7,12 +7,14 @@ import {
   renderYAxisFromRange as _renderYAxisFromRange,
   renderDateXAxis,
   renderBar,
+  renderCommitTooltipHeader,
+  formatTooltipDate,
   ADDED_FILL,
   DELETED_FILL,
 } from "./svgChartPrimitives";
 import { PanController } from "./panController";
 import { html } from "../utils/templateHelpers";
-import { positionTooltip } from "./webviewUtils";
+import { hideCrosshair, positionTooltip, showCrosshair } from "./webviewUtils";
 import { aggregateStonksData as aggregateData, bucketKey } from "./stonksBucketing";
 import { plural } from "../utils/plural";
 
@@ -1299,21 +1301,13 @@ svg.addEventListener("mousemove", (e: Event) => {
   const x = PADDING.left + idx * chartXStep;
   const d = renderVisibleData[idx];
 
-  const crosshairLine = document.getElementById("crosshair");
-  if (crosshairLine) {
-    crosshairLine.setAttribute("x1", String(x));
-    crosshairLine.setAttribute("x2", String(x));
-    crosshairLine.style.display = "";
-  }
+  showCrosshair("crosshair", x);
 
-  const date = new Date(d.date);
-  const dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const dateStr = formatTooltipDate(d.date);
 
   let tooltipHtml = "";
   if (xAxisMode === "commit") {
-    tooltipHtml += html`<div class="hash">${d.hash}</div>`;
-    tooltipHtml += html`<div class="message">${d.message!}</div>`;
-    tooltipHtml += html`<div class="author">${d.author!} · ${dateStr}</div>`;
+    tooltipHtml += renderCommitTooltipHeader(d.hash!, d.message!, d.author!, dateStr);
   } else {
     tooltipHtml += `<div class="author">${dateStr} · ${plural(d.commitCount, "commit")}</div>`;
   }
@@ -1343,8 +1337,7 @@ svg.addEventListener("mousemove", (e: Event) => {
 
 svg.addEventListener("mouseleave", () => {
   if (!isDragging) {
-    const crosshairLine = document.getElementById("crosshair");
-    if (crosshairLine) { crosshairLine.style.display = "none"; }
+    hideCrosshair("crosshair");
     tooltip.style.display = "none";
   }
 });
@@ -1385,9 +1378,8 @@ document.addEventListener("mouseup", (e: Event) => {
   const lo = Math.min(dragStartIdx, endIdx);
   const hi = Math.max(dragStartIdx, endIdx);
   const overlay = document.getElementById("selectOverlay");
-  const crosshair = document.getElementById("crosshair");
   if (overlay) { overlay.style.display = "none"; }
-  if (crosshair) { crosshair.style.display = "none"; }
+  hideCrosshair("crosshair");
   tooltip.style.display = "none";
   dragStartIdx = null;
 
