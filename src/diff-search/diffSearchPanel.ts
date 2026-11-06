@@ -6,7 +6,7 @@ import { AbsolutePath } from "../pathTypes";
 import { log, showError, showWarning } from "../extension/logger";
 import { formatGitCommand, escapeRegex } from "../utils/formatUtils";
 import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
-import { DiffSearchParams, DiffSearchHistoryEntry, DiffSearchToWebview, DiffSearchFromWebview } from "../webview/messages";
+import { DiffSearchHistoryEntry, DiffSearchToWebview, DiffSearchFromWebview } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { parseTimeWindowValue } from "../fresh-files/timeWindowUtils";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
@@ -126,16 +126,7 @@ export class DiffSearchPanel {
   }
 
   private _saveParams(searchData: SearchRequest): void {
-    const params: DiffSearchParams = {
-      pattern: searchData.pattern,
-      isRegex: searchData.isRegex,
-      caseInsensitive: searchData.caseInsensitive,
-      includePattern: searchData.includePattern,
-      excludePattern: searchData.excludePattern,
-      pendingOnly: searchData.pendingOnly,
-      window: searchData.window,
-      includeMerges: searchData.includeMerges,
-    };
+    const { command: _command, ...params } = searchData;
     WorkspaceStateManager.setDiffSearchParams(params);
 
     // Build human-readable label

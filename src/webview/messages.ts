@@ -169,17 +169,7 @@ export type DiffSearchToWebview =
 export type DiffSearchFromWebview =
   | { command: "ready" }
   | { command: "clearHistory" }
-  | {
-      command: "search";
-      pattern: string;
-      isRegex: boolean;
-      caseInsensitive: boolean;
-      includePattern: string;
-      excludePattern: string;
-      pendingOnly: boolean;
-      window: string;
-      includeMerges: boolean;
-    };
+  | ({ command: "search" } & DiffSearchParams);
 
 // ── Stonks panel ──────────────────────────────────────────────────────────────
 
