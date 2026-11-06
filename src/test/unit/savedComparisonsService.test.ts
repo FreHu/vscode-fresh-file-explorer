@@ -1,37 +1,9 @@
 import * as assert from "assert";
-import * as vscode from "vscode";
 
 import { SavedComparisonsService, HEAD_SOURCE } from "../../branch-compare/savedComparisonsService";
 import { WorkspaceStateManager } from "../../extension/workspaceStateManager";
+import { makeFakeContext } from "../helpers/fakeExtensionContext";
 import { asNormalizedRepoPath } from "../../pathTypes";
-
-/**
- * Fabricate a minimal `vscode.ExtensionContext` whose `workspaceState` is
- * backed by an in-memory map. Lets us exercise `SavedComparisonsService` and
- * its migration path without an actual extension host.
- */
-function makeFakeContext(seed?: Record<string, unknown>): vscode.ExtensionContext {
-  const store = new Map<string, unknown>(Object.entries(seed ?? {}));
-  return {
-    workspaceState: {
-      get(key: string, fallback?: unknown) {
-        return store.has(key) ? store.get(key) : fallback;
-      },
-      update(key: string, value: unknown): Thenable<void> {
-        if (value === undefined) {
-          store.delete(key);
-        } else {
-          store.set(key, value);
-        }
-        return Promise.resolve();
-      },
-      keys(): readonly string[] {
-        return [...store.keys()];
-      },
-      setKeysForSync() { /* no-op */ },
-    },
-  } as unknown as vscode.ExtensionContext;
-}
 
 const REPO_A = "/repos/alpha";
 const REPO_B = "/repos/bravo";
