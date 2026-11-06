@@ -111,17 +111,19 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
 window.addEventListener("message", (event: MessageEvent<GitLogLToWebview>) => {
   const msg = event.data;
   console.log("[gitLogL] received message:", msg.command, msg);
-  if (msg.command === "setCommits") {
-    commits = msg.commits;
-    focusedIndex = commits.length > 0 ? 0 : -1;
-    titleEl.textContent = (msg.mode === "fileHistory" ? "File History: " : "Git Log -L: ") + msg.label;
-    subtitleEl.textContent =
-      plural(commits.length, "commit") +
-      " — click a commit to select A / B for comparison";
-    if (msg.gitCommand) { gitCommandEl.textContent = msg.gitCommand; }
-    renderTimeline();
-    renderChart();
-    window.focus();
+  switch (msg.command) {
+    case "setCommits":
+      commits = msg.commits;
+      focusedIndex = commits.length > 0 ? 0 : -1;
+      titleEl.textContent = (msg.mode === "fileHistory" ? "File History: " : "Git Log -L: ") + msg.label;
+      subtitleEl.textContent =
+        plural(commits.length, "commit") +
+        " — click a commit to select A / B for comparison";
+      if (msg.gitCommand) { gitCommandEl.textContent = msg.gitCommand; }
+      renderTimeline();
+      renderChart();
+      window.focus();
+      break;
   }
 });
 

@@ -103,15 +103,20 @@ export class PerfBenchmarkPanel {
   }
 
   private async _handleMessage(message: PerfBenchmarkFromWebview) {
-    if (message.command === "ready") {
-      // Webview signals it is ready; re-send specs (handles reloads / first load race)
-      this._sendBenchmarkSpecs();
-    } else if (message.command === "run") {
-      await this._runBenchmark(message);
-    } else if (message.command === "getStats") {
-      await this._sendStats();
-    } else if (message.command === "getCacheStats") {
-      this._sendCacheStats();
+    switch (message.command) {
+      case "ready":
+        // Webview signals it is ready; re-send specs (handles reloads / first load race)
+        this._sendBenchmarkSpecs();
+        break;
+      case "run":
+        await this._runBenchmark(message);
+        break;
+      case "getStats":
+        await this._sendStats();
+        break;
+      case "getCacheStats":
+        this._sendCacheStats();
+        break;
     }
   }
 

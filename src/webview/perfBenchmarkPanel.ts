@@ -115,54 +115,52 @@ cacheStatsBtn.addEventListener("click", () => {
 
 window.addEventListener("message", (event: MessageEvent<PerfBenchmarkToWebview>) => {
   const msg = event.data;
-  if (msg.command === "benchmarks") {
-    benchmarks = msg.benchmarks;
-    benchmarkSelect.innerHTML = "";
-    if (benchmarks.length === 0) {
-      const opt = document.createElement("option");
-      opt.textContent = "No benchmarks defined";
-      opt.disabled = true;
-      opt.selected = true;
-      benchmarkSelect.appendChild(opt);
-      inputFormDiv.innerHTML = `<p class="help-text" style="font-style:italic;">No benchmarks are currently defined. Add a <code>Benchmark</code> to <code>PerfBenchmarkPanel._initialize()</code> to run one here.</p>`;
-    } else {
-      for (const bm of benchmarks) {
+  switch (msg.command) {
+    case "benchmarks":
+      benchmarks = msg.benchmarks;
+      benchmarkSelect.innerHTML = "";
+      if (benchmarks.length === 0) {
         const opt = document.createElement("option");
-        opt.value = bm.name;
-        opt.textContent = bm.name;
+        opt.textContent = "No benchmarks defined";
+        opt.disabled = true;
+        opt.selected = true;
         benchmarkSelect.appendChild(opt);
+        inputFormDiv.innerHTML = `<p class="help-text" style="font-style:italic;">No benchmarks are currently defined. Add a <code>Benchmark</code> to <code>PerfBenchmarkPanel._initialize()</code> to run one here.</p>`;
+      } else {
+        for (const bm of benchmarks) {
+          const opt = document.createElement("option");
+          opt.value = bm.name;
+          opt.textContent = bm.name;
+          benchmarkSelect.appendChild(opt);
+        }
+        renderInputForm(benchmarks[0]);
+        runBtn.disabled = false;
       }
-      renderInputForm(benchmarks[0]);
+      break;
+    case "error":
+      showStatus(msg.message, "error");
       runBtn.disabled = false;
-    }
-    return;
-  }
-  if (msg.command === "error") {
-    showStatus(msg.message, "error");
-    runBtn.disabled = false;
-    return;
-  }
-  if (msg.command === "results") {
-    renderResults(msg.columns, msg.rows);
-    runBtn.disabled = false;
-    return;
-  }
-  if (msg.command === "statsError") {
-    showStatsStatus(msg.message, "error");
-    statsBtn.disabled = false;
-    return;
-  }
-  if (msg.command === "stats") {
-    renderStats(msg.stats);
-    statsBtn.disabled = false;
-  }
-  if (msg.command === "cacheStatsError") {
-    showCacheStatsStatus(msg.message, "error");
-    cacheStatsBtn.disabled = false;
-  }
-  if (msg.command === "cacheStats") {
-    renderCacheStats(msg.stats);
-    cacheStatsBtn.disabled = false;
+      break;
+    case "results":
+      renderResults(msg.columns, msg.rows);
+      runBtn.disabled = false;
+      break;
+    case "statsError":
+      showStatsStatus(msg.message, "error");
+      statsBtn.disabled = false;
+      break;
+    case "stats":
+      renderStats(msg.stats);
+      statsBtn.disabled = false;
+      break;
+    case "cacheStatsError":
+      showCacheStatsStatus(msg.message, "error");
+      cacheStatsBtn.disabled = false;
+      break;
+    case "cacheStats":
+      renderCacheStats(msg.stats);
+      cacheStatsBtn.disabled = false;
+      break;
   }
 });
 

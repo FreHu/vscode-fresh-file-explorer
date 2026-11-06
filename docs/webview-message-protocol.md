@@ -43,7 +43,10 @@ message listener as `MessageEvent<XToWebview>`.
 re-opens the `any` hole, and a renamed or dropped field ships green and renders
 `undefined` / `NaN` at runtime. Always go through `_post`.
 
-Branch Compare settings and Git Log -L end their inbound `switch` with an
-exhaustive `never` check, which turns "forgot to handle a new command" into a
-compile error. Copy that pattern when adding commands; Perf Benchmark still uses
-an `if` chain without it.
+Every inbound handler, on both sides, dispatches with `switch (msg.command)`.
+Lint's `@typescript-eslint/switch-exhaustiveness-check` fails a switch that misses
+a member of its union, so a command added to `XToWebview` or `XFromWebview`
+fails lint until every handler covers it. The rule only sees `switch`
+statements: an `if (msg.command === …)` chain is invisible to it, so don't
+dispatch that way. A `default: { const unhandled: never = msg; }` arm (Branch
+Compare settings, Git Log -L) also makes it a compile error; it's optional.

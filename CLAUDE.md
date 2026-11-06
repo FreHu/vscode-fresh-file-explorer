@@ -154,6 +154,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 - `npm run pretest` runs compile, lint and `scripts/sizeRatchet.mjs`, which fails when the largest files grow past their line budget. Split a file rather than raising its budget.
 - `.githooks/pre-push` (enabled by `npm install`'s `prepare` script) runs compile, lint, the size ratchet and `npm run test:unit`: the only gate on an ordinary push. Tests named `*.unit.test.ts` run there under plain mocha; any other `*.test.ts` runs only in the extension host (`test:host`), so name a test `.unit` when it doesn't load `vscode`.
 - `@typescript-eslint/no-floating-promises` is an error: fire-and-forget calls need an explicit `void`.
+- `@typescript-eslint/switch-exhaustiveness-check` is an error: a switch over a union must cover every member (a `default` doesn't count). It sees only `switch`, so dispatch host↔webview messages with `switch (msg.command)`, never an `if` chain (docs/webview-message-protocol.md).
 - The extension ships as one esbuild bundle, `dist/extension.js` (`scripts/buildExtension.mjs`; `main` points there). `npm run compile` builds it along with tsc's `out/`, which the tests import; `out/` isn't packaged. Don't rely on `__dirname`: inside the bundle it is `dist/`, not `out/<folder>/`. Take `context.extensionUri` from `activate()`.
 
 ## Conventions
