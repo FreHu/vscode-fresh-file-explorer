@@ -15,12 +15,12 @@ export interface LoadDelegate {
   hasWorkspaceFolders(): boolean;
   /** Evict file data for a refresh. `hard` also clears discovery-derived caches (repo items). */
   resetData(opts: { hard: boolean; targetRepoPaths?: NormalizedRepoPath[]; preserveHistoricalCache?: boolean }): void;
-  /** Phases 2+3: load pending + historical files for the current target scope. Returns the tree-level error, if any. */
-  loadFiles(assertNotCancelled: () => void): Promise<string | undefined>;
+  /** Phases 2+3: load pending + historical files for the current target scope. */
+  loadFiles(assertNotCancelled: () => void): Promise<void>;
   /** Re-run git status only and merge onto the cached historical baseline. */
   updatePending(targetRepoPaths?: NormalizedRepoPath[]): Promise<void>;
-  /** A full load finished: record the error for the tree and refresh dependents (heatmap). */
-  onLoadCompleted(error: string | undefined): void;
+  /** A full load finished: refresh dependents (heatmap). */
+  onLoadCompleted(): void;
   /** Public discovery entry that also initializes workspace folders when needed. */
   ensureDiscovered(): Promise<void>;
   fireTree(): void;
@@ -302,9 +302,9 @@ export class LoadOrchestrator {
       }
 
       // --- Phase 2: Load files per repository (pending first, then historical) ---
-      const errorToShow = await this.deps.loadFiles(assertNotCancelled);
+      await this.deps.loadFiles(assertNotCancelled);
 
-      this.deps.onLoadCompleted(errorToShow);
+      this.deps.onLoadCompleted();
       this.setDataLoaded(true);
       this._targetRepoPaths = undefined;
     } catch (e) {

@@ -156,7 +156,6 @@ export class DataCollector {
     commitStatsMap?: Map<string, CommitStats>,
   ): Promise<{ error: { message: string; isPathspecError: boolean } | undefined; fullData: Map<AbsolutePath, FileMetadata> }> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
-    const filesBefore = targetMap.size;
 
     // Wrap the caller's onThresholdCrossed to convert workspace-relative paths to AbsolutePaths.
     const wrappedOnThreshold = onThresholdCrossed
@@ -201,12 +200,10 @@ export class DataCollector {
           `Failed to get historical changes from ${folder.name}/${repoRelativePath || "root"}: ${errorMessage}`,
           "warn",
         );
-        if (targetMap.size === filesBefore) {
-          return {
-            error: { message: `Git error: ${errorMessage}`, isPathspecError: pathspec !== undefined },
-            fullData: new Map(),
-          };
-        }
+        return {
+          error: { message: `Git error: ${errorMessage}`, isPathspecError: pathspec !== undefined },
+          fullData: new Map(),
+        };
       }
     }
     return { error: undefined, fullData: new Map() };

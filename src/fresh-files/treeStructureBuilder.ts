@@ -64,6 +64,8 @@ export interface RepoViewContext {
   repoBranches: Map<NormalizedRepoPath, BranchName>;
   reposLoading: Set<NormalizedRepoPath>;
   reposLoadingHistorical: Set<NormalizedRepoPath>;
+  /** Repos whose history failed to load in the last load: the git error. */
+  historyErrors: ReadonlyMap<NormalizedRepoPath, string>;
   openChangesMode: boolean;
 }
 
@@ -125,7 +127,8 @@ export function buildRepoRootItems(contextValue: string, ctx: RepoViewContext): 
     // locks in collapsibleState by item id, so a "Collapsed during load,
     // Expanded after" sequence leaves the repo permanently collapsed. During
     // loading we expand under the assumption that data is coming.
-    const expectFiles = fileCount > 0 || isLoading || isLoadingHistorical;
+    const historyError = ctx.historyErrors.get(normalizedRepoPath);
+    const expectFiles = fileCount > 0 || isLoading || isLoadingHistorical || historyError !== undefined;
     const shouldExpand = ConfigService.getAutoExpandDepth() > 0 && expectFiles;
 
     const repoItem = FreshFileItem.forRepository(
@@ -142,6 +145,10 @@ export function buildRepoRootItems(contextValue: string, ctx: RepoViewContext): 
       isLoadingHistorical,
       repoKindOf(repo),
     );
+    if (historyError !== undefined && !isLoading && !isLoadingHistorical) {
+      repoItem.iconPath = new vscode.ThemeIcon("error", new vscode.ThemeColor("errorForeground"));
+      repoItem.tooltip = `${repoItem.tooltip ?? repoName}\n\n${historyError}`;
+    }
     items.push(repoItem);
   }
   return items;

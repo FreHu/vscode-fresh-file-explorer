@@ -89,7 +89,8 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   currentTimeWindow: TimeWindow;
   timeWindows: TimeWindow[];
   workspaceFolders: WorkspaceFolderInfo[] = [];
-  private errorToShowInTreeView: string | undefined;
+  /** Per repo, so one failing repo doesn't hide the others. */
+  private readonly historyErrors = new Map<NormalizedRepoPath, string>();
   private readonly repoHealth = new RepoHealthNotifier();
   /** Files .gitattributes marks generated; Branch Compare reads it too. */
   readonly generatedFiles = new GeneratedFilesStore(() => this._freshFiles, () => this.resolvedRepos.map(r => r.normalizedRepoPath), () => this.refreshTreeOnly());
@@ -105,8 +106,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     resetData: (opts) => this.resetDataForRefresh(opts),
     loadFiles: (assertNotCancelled) => this.loadPendingAndHistoricalFiles(assertNotCancelled),
     updatePending: (targetRepoPaths) => this.updatePendingFiles(targetRepoPaths),
-    onLoadCompleted: (error) => {
-      this.errorToShowInTreeView = error;
+    onLoadCompleted: () => {
       log(`Loaded ${plural(this._freshFiles.size, "total fresh file")} across ${plural(this.discovery.resolvedRepos.length, "Git repository", "Git repositories")}`);
       this.heatmapProvider?.fireDidChange();
     },
@@ -676,11 +676,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         return [];
       }
 
-      // Check for errors - this would be shown in the view as the only message in case we can't recover at all
-      if (this.errorToShowInTreeView) {
-        return [new MessageTreeItem(this.errorToShowInTreeView, "error")];
-      }
-
       // Collect results: sync warnings, then files or empty message
       const results: FreshFilesTreeItem[] = [];
 
@@ -785,6 +780,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       )) {
         children.unshift(new MessageTreeItem("Loading history…", "loading~spin"));
       }
+      const historyError = isRepoNode ? this.historyErrors.get(normalizedPath) : undefined;
+      if (historyError !== undefined) {
+        const item = new MessageTreeItem(historyError, "error");
+        item.tooltip = historyError;
+        children.unshift(item);
+      }
       return children;
     }
 
@@ -822,6 +823,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       repoBranches: this.repoBranches,
       reposLoading: this.load.reposLoading,
       reposLoadingHistorical: this.load.reposLoadingHistorical,
+      historyErrors: this.historyErrors,
       openChangesMode: this.openChangesMode,
     };
   }
@@ -945,13 +947,12 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     this._onDidChangeTreeData.fire(); // repo nodes can render now
   }
 
-  private async loadPendingAndHistoricalFiles(assertNotCancelled: () => void): Promise<string | undefined> {
+  private async loadPendingAndHistoricalFiles(assertNotCancelled: () => void): Promise<void> {
     // When refreshing only specific repos, seed the accumulator maps with the surviving
     // data from non-target repos so their entries are preserved in the final result.
     const targetRepoPaths = this.load.targetRepoPaths;
     const newFiles = new Map<AbsolutePath, FileMetadata>(targetRepoPaths ? this._freshFiles : []);
     const newHistoricalFiles = new Map<AbsolutePath, FileMetadata>(targetRepoPaths ? this.historicalCache.historicalFiles : []);
-    let errorToShow: string | undefined;
     const pendingOnly = isPendingChangesMode(this.currentTimeWindow);
     const histDays = this.currentTimeWindow.type === "historical" ? this.currentTimeWindow.days : 0;
 
@@ -969,6 +970,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       if (targetRepoPaths && !targetRepoPaths.includes(normalizedRepoPath)) {
         continue;
       }
+      this.historyErrors.delete(normalizedRepoPath);
 
       // Phase 2a: Load pending changes
       const pendingError = await this.loadPendingForRepo(folder, repoRelPath, normalizedRepoPath, newFiles, pendingOnly);
@@ -1001,13 +1003,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
           showWarning(`Invalid pathspec "${badPathspec}" was cleared. The tree will reload without it.`, true);
           this.refresh({ targetRepoPaths: [normalizedRepoPath] });
           throw new RefreshCancelledError();
-        } else if (!errorToShow) {
-          errorToShow = repoError.message;
         }
+        this.historyErrors.set(normalizedRepoPath, repoError.message);
+        this._onDidChangeTreeData.fire(); // the repo node's icon changes too
       }
     }
-
-    return errorToShow;
   }
 
   private async loadPendingForRepo(
