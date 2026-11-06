@@ -148,24 +148,35 @@ export function renderAddedRemovedBars(
 
 // ── X-axis labels ─────────────────────────────────────────────────────────────
 
-export function renderDateXAxis(
-  dates: string[], n: number, xStep: number, svgHeight: number,
-  pad: ChartPadding, maxLabels = 8,
-): string {
-  const step = Math.max(1, Math.floor(n / maxLabels));
+/**
+ * Which of `n` points get an x-axis label: every `step`th from the first,
+ * plus the last when it is more than half a step past the previous label.
+ */
+export function xAxisLabelIndices(n: number, step: number): number[] {
   const indices: number[] = [];
   for (let i = 0; i < n; i += step) { indices.push(i); }
   const lastIdx = indices[indices.length - 1];
   if (lastIdx !== n - 1 && (n - 1) - lastIdx > step * 0.5) {
     indices.push(n - 1);
   }
+  return indices;
+}
+
+/**
+ * Short date labels at height `labelY` for the points {@link xAxisLabelIndices}
+ * picks; the first label is anchored at its start, the last at its end.
+ */
+export function renderDateXAxis(
+  dates: string[], n: number, xStep: number, labelY: number,
+  pad: ChartPadding, step: number,
+): string {
   let out = "";
-  for (const i of indices) {
+  for (const i of xAxisLabelIndices(n, step)) {
     const x = pad.left + i * xStep;
     const date = new Date(dates[i]);
     const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
     const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
-    out += `<text x="${x}" y="${svgHeight - 4}" text-anchor="${anchor}" fill="var(--vscode-descriptionForeground)" font-size="10">${label}</text>`;
+    out += `<text x="${x}" y="${labelY}" text-anchor="${anchor}" fill="var(--vscode-descriptionForeground)" font-size="10">${label}</text>`;
   }
   return out;
 }

@@ -489,7 +489,7 @@ function renderChart(): void {
 
   // X-axis date labels
   svg += renderDateXAxis(
-    pageCommits.map(c => c.date), n, chartXStep, svgH, CHART_PAD, 8,
+    pageCommits.map(c => c.date), n, chartXStep, svgH - 4, CHART_PAD, Math.max(1, Math.floor(n / 8)),
   );
 
   // Crosshair

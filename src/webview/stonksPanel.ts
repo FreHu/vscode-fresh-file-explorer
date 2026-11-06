@@ -5,6 +5,7 @@ import {
   renderLineArea as _renderLineArea,
   renderYAxis as _renderYAxis,
   renderYAxisFromRange as _renderYAxisFromRange,
+  renderDateXAxis,
 } from "./svgChartPrimitives";
 import { PanController } from "./panController";
 import { html } from "../utils/templateHelpers";
@@ -1065,27 +1066,12 @@ const panCtrl = new PanController(
 
 // ── Section rendering helpers ─────────────────────────────────────────────────
 
+/** Up to 10 date labels along the top of the chart. */
 function renderXAxis(data: StonksDataPoint[], n: number, xStep: number): string {
   if (n < 2) { return ""; }
   const MAX_LABELS = 10;
   const step = Math.max(1, Math.floor((n - 1) / (MAX_LABELS - 1)));
-  const indices: number[] = [];
-  for (let i = 0; i < n; i += step) { indices.push(i); }
-  // Only add the last label if it's at least half a step away from the previous
-  const lastIdx = indices[indices.length - 1];
-  if (lastIdx !== n - 1 && (n - 1) - lastIdx > step * 0.5) {
-    indices.push(n - 1);
-  }
-  let out = "";
-  for (const i of indices) {
-    const x = PADDING.left + i * xStep;
-    const date = new Date(data[i].date);
-    const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    // Anchor first label to start, last to end, rest centered
-    const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
-    out += `<text x="${x}" y="14" text-anchor="${anchor}" fill="var(--vscode-descriptionForeground)" font-size="10">${label}</text>`;
-  }
-  return out;
+  return renderDateXAxis(data.map(d => d.date), n, xStep, 14, PADDING, step);
 }
 
 // ── Section rendering helpers (delegate to shared primitives with local PADDING) ─
