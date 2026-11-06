@@ -106,7 +106,7 @@ export function pane(page, title) {
 
 /** Collapses every Explorer section except Fresh Files and waits for its tree to load. */
 export async function showOnlyFreshFiles(page, loadedLabel) {
-  for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Fresh Files - Branch Compare"]) {
+  for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Branch Compare"]) {
     await setPaneExpanded(page, title, false);
   }
   await setPaneExpanded(page, "Fresh Files", true);

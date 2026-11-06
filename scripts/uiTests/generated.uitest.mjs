@@ -33,7 +33,7 @@ test("G1: a generated file is labelled in Fresh Files, and the toggle hides it",
       return repo;
     },
   }, async page => {
-    for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Fresh Files - Branch Compare"]) {
+    for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Branch Compare"]) {
       await setPaneExpanded(page, title, false);
     }
     await setPaneExpanded(page, "Fresh Files", true);
@@ -70,9 +70,9 @@ test("G2: a generated file is labelled in Branch Compare", async () => {
     for (const title of ["orbit-shop", "Outline", "Timeline", "Fresh Files", "Pinned Items"]) {
       await setPaneExpanded(page, title, false);
     }
-    await setPaneExpanded(page, "Fresh Files - Branch Compare", true);
+    await setPaneExpanded(page, "Branch Compare", true);
     await waitForLog(extensionLog, /checked files changed generated status/);
-    const compare = "Fresh Files - Branch Compare";
+    const compare = "Branch Compare";
     await rowIn(page, compare, "client.generated.ts").locator(".label-description", { hasText: "generated" }).waitFor({ timeout: 20000 });
     assert.doesNotMatch(await rowIn(page, compare, "handwritten.ts").locator(".label-description").innerText(), /generated/);
   });

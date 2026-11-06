@@ -2,7 +2,7 @@ import { html, css, raw } from "../utils/templateHelpers";
 import { getNonce } from "../utils/webviewUtils";
 
 /**
- * HTML / CSS scaffolding for the Branch Comparisons settings panel. The
+ * HTML / CSS scaffolding for the Branch Compare settings panel. The
  * webview script (`media/branchCompareSettings.js`, bundled from
  * `src/webview/branchCompareSettings.ts`) wires the table behavior and
  * message passing.
@@ -370,7 +370,7 @@ export function getBranchCompareSettingsHtml(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}'; font-src ${cspSource};">
-  <title>Branch Comparisons</title>
+  <title>Branch Compare</title>
   <link rel="stylesheet" href="${raw(codiconCssUri)}">
   <style>${raw(styles)}</style>
 </head>

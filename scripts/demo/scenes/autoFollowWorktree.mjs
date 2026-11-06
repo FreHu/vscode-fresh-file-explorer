@@ -19,7 +19,7 @@ export default {
   /** On failure: what the terminal printed and what Branch Compare showed. */
   async diagnose(page) {
     const terminal = await page.locator(".terminal-wrapper.active .xterm-rows").innerText().catch(() => "(no terminal)");
-    const rows = await pane(page, "Fresh Files - Branch Compare").locator(".monaco-list-row").allInnerTexts().catch(() => []);
+    const rows = await pane(page, "Branch Compare").locator(".monaco-list-row").allInnerTexts().catch(() => []);
     const tabs = await page.locator(".part.panel .action-item.checked .action-label").allInnerTexts().catch(() => []);
     return [
       `active panel tab: ${tabs.join(", ") || "(none)"}`,
@@ -42,8 +42,8 @@ export default {
     for (const title of ["agents", "Outline", "Timeline", "Fresh Files", "Pinned Items"]) {
       await setPaneExpanded(page, title, false);
     }
-    await setPaneExpanded(page, "Fresh Files - Branch Compare", true);
-    const compare = pane(page, "Fresh Files - Branch Compare");
+    await setPaneExpanded(page, "Branch Compare", true);
+    const compare = pane(page, "Branch Compare");
     const section = compare.locator(".monaco-list-row", { hasText: "feature/gift-cards" }).first();
     const row = name => compare.locator(".monaco-list-row", { hasText: name }).first();
     // Callouts point at the end of a row's text, not at the row's full width.
@@ -61,7 +61,7 @@ export default {
 
     // 1. The setting, visibly on.
     step("open settings, check auto-follow");
-    await runCommand(page, "Branch Compare: Open Comparisons Settings…");
+    await runCommand(page, "Open Branch Compare Settings…");
     await parkMouse(page); // the palette row sat where the panel tabs open: its tooltip would show
     const checkbox = page.frameLocator("iframe.webview.ready").frameLocator("#active-frame").locator("#autoFollow");
     await checkbox.waitFor();

@@ -13,10 +13,10 @@ export default {
     for (const title of ["orbit-shop", "Outline", "Timeline", "Fresh Files", "Pinned Items"]) {
       await setPaneExpanded(page, title, false);
     }
-    await setPaneExpanded(page, "Fresh Files - Branch Compare", true);
+    await setPaneExpanded(page, "Branch Compare", true);
     const frame = await openComparisonsPanel(page);
     await addComparisons(page, frame, ["v1.0.0", "HEAD~3"]);
-    const compare = page.locator(".pane", { has: page.locator(".pane-header .title", { hasText: /^Fresh Files - Branch Compare$/i }) });
+    const compare = page.locator(".pane", { has: page.locator(".pane-header .title", { hasText: /^Branch Compare$/i }) });
     await compare.locator(".monaco-list-row", { hasText: "payment.ts" }).first().waitFor();
     // Collapse the second section so both sections fit.
     const second = compare.locator(".monaco-list-row", { hasText: "last 3 commits" }).first();
@@ -24,6 +24,6 @@ export default {
     await page.keyboard.press("Control+1"); // focus leaves the tree: no focus outline on the row
     await parkMouse(page);
     await page.waitForTimeout(600);
-    return page.screenshot({ clip: await paneClip(page, "Fresh Files - Branch Compare") });
+    return page.screenshot({ clip: await paneClip(page, "Branch Compare") });
   },
 };

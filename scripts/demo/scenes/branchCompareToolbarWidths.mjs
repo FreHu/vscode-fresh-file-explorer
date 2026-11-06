@@ -1,7 +1,7 @@
 import { runCommand } from "../vscodeActions.mjs";
 
 /**
- * Layout check, not a docs image: the Branch Comparisons settings toolbar at a wide,
+ * Layout check, not a docs image: the Branch Compare settings toolbar at a wide,
  * medium and narrow panel, stacked into one PNG.
  */
 export default {
@@ -13,7 +13,7 @@ export default {
   },
   async capture(page, { app }) {
     await runCommand(page, "View: Close Primary Side Bar");
-    await runCommand(page, "Branch Compare: Open Comparisons Settings…");
+    await runCommand(page, "Open Branch Compare Settings…");
     const frame = page.frameLocator("iframe.webview.ready").frameLocator("#active-frame");
     const toolbar = frame.locator(".table-toolbar");
     await toolbar.waitFor();

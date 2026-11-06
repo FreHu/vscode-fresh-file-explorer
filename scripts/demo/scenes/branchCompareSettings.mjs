@@ -5,9 +5,9 @@ export const BRANCH_COMPARE_SETTINGS = {
   "workbench.panel.opensMaximized": "always",
 };
 
-/** Opens the Branch Comparisons panel; returns its webview frame. */
+/** Opens the Branch Compare panel; returns its webview frame. */
 export async function openComparisonsPanel(page) {
-  await runCommand(page, "Branch Compare: Open Comparisons Settings…");
+  await runCommand(page, "Open Branch Compare Settings…");
   const frame = page.frameLocator("iframe.webview.ready").frameLocator("#active-frame");
   await frame.locator("#addBtn").waitFor();
   return frame;
@@ -26,7 +26,7 @@ export async function addComparisons(page, frame, targets) {
   }
 }
 
-/** The Branch Comparisons panel with two comparisons, one driving the heatmap → docs/img/branch-comparison-settings.png */
+/** The Branch Compare panel with two comparisons, one driving the heatmap → docs/img/branch-comparison-settings.png */
 export default {
   output: "branch-comparison-settings.png",
   window: { width: 1300, height: 700 },

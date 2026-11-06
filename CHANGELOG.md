@@ -1,28 +1,60 @@
 # Change Log
 
-## [Unreleased]
+## [1.17.0]
 
-- `files.exclude` exceptions: a `!` key such as `"!node_modules/@types": true` keeps matching files visible, as in the VS Code 1.145 Explorer.
+### New
+
+- **Open in Default App** on files in the Explorer, editor tabs, Fresh Files, Pinned Items and Branch Compare: opens the file the way a double-click in the OS would (e.g. an `.xlsx` in Excel). Not offered in remote windows.
+- Worktrees update live even when VS Code's git doesn't open them (`git.detectWorktrees` is off by default): new and removed worktrees appear and disappear, and commits, checkouts and file changes in them show up in Fresh Files, Branch Compare and the heatmap baseline.
+- Files `.gitattributes` marks generated (`linguist-generated` or `gitlab-generated`, e.g. lockfiles) are labelled "generated" in Fresh Files and Branch Compare. *Show / Hide Generated Files* in the view menu (setting `hideGeneratedFiles`) hides them.
+- Respects vscode setting `git.ignoredRepositories` (and submodules inside them).
+- `files.exclude` added support for the `!` key such as `"!node_modules/@types": true`, introduced in VS Code 1.145.
+- The extension ships as a single bundled file: it is smaller and loads about 4× faster (120ms->30ms on my machine).
+
+### Docs
+- READMEs were updated to show the current UI in screenshots and GIFs. The process was automated so they won't go stale again.
+
+### UI Tests
+- Is essentially what also makes the screenshots. Adding them revealed a bunch of small bugs, listed below.
 
 ### Fixes
 
-- Compare Files, pinned outlines, the Code Telescope preview and searching untracked files decode files in their own encoding (`files.encoding`, auto-guess, BOM) instead of always UTF-8.
+#### Fresh Files
+
+- The repo node no longer stays collapsed when the view is expanded shortly after startup.
+- "Loading history…" no longer shows on Pending changes, or once the selected time window has loaded.
 - With no folder open, the status bar shows "no repos" instead of "Discovering repos…" forever.
-- Expanding Fresh Files a few seconds after startup no longer leaves the repo node collapsed.
-- "Loading history…" no longer shows under repos on Pending changes, or once the selected time window has loaded (longer windows keep loading in the background without it).
-- A submodule that isn't checked out shows in its parent's folder view as "submodule · not checked out" (with the init command in the tooltip), not as a plain file.
-- Submodules in the flat list and grouped views: a submodule's files show only under the submodule (they were also listed under the parent), and its own "changed" entry only under the parent.
-- Branch Compare: an empty comparison says "No commits beyond main yet" for a fresh branch, or how far the target is ahead. It suggests swapping the sides only when that would show something.
-- The Branch Comparisons panel's toolbar wraps on a narrow panel instead of squeezing its labels.
-- The extension ships as a single bundled file: it loads about 4× faster, and the package holds 41 files instead of 193.
-- Sync warnings and branch labels also appear when VS Code's git had the repo open before the extension started but hadn't loaded its state yet (seen on Linux).
-- The base-branch warnings compare against the remote base (e.g. origin/main), so "N commits in 'origin/main' not in current branch" shows before you pull; it compared against the local main.
-- Behind / unpushed warnings appear for a repo that VS Code's git opens after the extension started, instead of only after the next change.
-- A deleted file opened from the tree shows its own name in the tab, without a hash prefix.
-- Deleted files: Reveal in Explorer View / File Explorer shows the folder they were in, with a note saying so (it did nothing before). Copy Remote URL and Reveal in Source Control are no longer offered for them.
-- Baseline heatmap: lines deleted right next to an edited line get a badge too (git reports them inside the edit). Its menu offers Copy only: restoring would duplicate the edit.
-- The blame heatmap's baseline picker and its messages say "baseline" and mention tags, not "branch changes".
-- Counts read "1 file" / "3 files" everywhere instead of "file(s)" (tooltips, sync warnings, filter summary, notifications).
+- Compare Files, pinned outlines, the Code Telescope preview and untracked-file search read files in their own encoding instead of always UTF-8.
+
+#### Submodules
+
+- A submodule's files show only under the submodule, not also under its parent.
+- A submodule that isn't checked out shows as "submodule · not checked out", not as a plain file.
+
+#### Sync warnings
+
+- Base-branch warnings compare against the remote base (e.g. `origin/main`), so new commits there show before you pull.
+- Warnings also appear for repos VS Code's git opens or loads after the extension started.
+
+#### Branch Compare
+
+- An empty comparison says why ("No commits beyond main yet", or how far the target is ahead), and suggests swapping sides only when that would help.
+- The Branch Compare panel's toolbar wraps on a narrow panel.
+
+#### Blame heatmap
+
+- Baseline: lines deleted next to an edited line get a badge too (Copy only).
+- The baseline picker says "baseline" and mentions tags.
+
+#### Deleted files
+
+- A deleted file's tab shows its own name, without a hash prefix.
+- Reveal in Explorer View / File Explorer shows the folder it was in; Copy Remote URL and Reveal in Source Control are no longer offered.
+
+#### Other
+
+- Counts read "1 file" / "3 files" instead of "file(s)".
+- Naming: every command is listed under "Fresh File Explorer" in the command palette. The Branch Compare view and its settings panel are both called "Branch Compare". Views moved out of the Explorer keep a plain title ("Fresh Files", not "Fresh File Explorer: Fresh Files").
 
 ## [1.16.0]
 
@@ -41,7 +73,7 @@
 
 ### Blame heatmap
 
-- One **Off / Age / Baseline** choice in the editor menu, status bar and Branch Comparisons panel. *Branch / Tag* mode is now *Baseline*.
+- One **Off / Age / Baseline** choice in the editor menu, status bar and Branch Compare panel. *Branch / Tag* mode is now *Baseline*.
 
 ### Other
 

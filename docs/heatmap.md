@@ -32,7 +32,7 @@ Colors files in the Fresh Files view, File Explorer and editor tabs by their las
 
 ![file heatmap](img/heatmap.png)
 
-Toggle from the Fresh Files view (`...` menu, or *Toggle Heatmap Coloring* command), or the Branch Comparisons panel. The coloring uses your active time window:
+Toggle from the Fresh Files view (`...` menu, or *Toggle Heatmap Coloring* command), or the Branch Compare panel. The coloring uses your active time window:
 
 - Within the window: bucketed across `age1..age7`.
 - Older than the window: lumped into `age8` ("even older than that"), kept distinct so you can tell within-window-but-old apart from really-out-of-window.
@@ -58,7 +58,7 @@ Use it to answer:
 
 - **Status bar** (bottom-left, `Heatmap: …`) — click to open the rich picker. Shows current mode, saved baseline ref, and warnings inline (`not in a git repo`, `no blame data`, etc.). Hide it with `freshFileExplorer.statusBar.heatmap`.
 - **Right-click on the line numbers** — `Blame Heatmap >` submenu: Off / Age / Baseline for this file (the active one checked), then *Change baseline…*, *Diff with saved baseline* and *Clear saved baseline* once a baseline is set. Baseline changes apply to the whole repo.
-- **Branch Comparisons panel** — Off / Age / Baseline for newly opened files. Marking a comparison as heatmap baseline (the heatmap icon in its row) picks Baseline.
+- **Branch Compare panel** — Off / Age / Baseline for newly opened files. Marking a comparison as heatmap baseline (the heatmap icon in its row) picks Baseline.
 - **Right-click on a deletion badge** — `Copy baseline lines` / `Restore from baseline` (right-click, since left-click area is owned by the breakpoint glyph).
 - **Right-click in the editor** — `Diff with baseline…` opens a regular diff editor against the baseline. Prompts for a ref on first use; saves it for reuse.
 

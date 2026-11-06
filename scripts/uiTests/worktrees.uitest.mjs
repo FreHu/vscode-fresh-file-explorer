@@ -17,7 +17,7 @@ const FLAT_PENDING = {
 
 /** Fresh Files on its own, on pending changes, flat: each repo node lists its uncommitted files. */
 async function showPendingFlat(page) {
-  for (const title of ["agents", "Outline", "Timeline", "Pinned Items", "Fresh Files - Branch Compare"]) {
+  for (const title of ["agents", "Outline", "Timeline", "Pinned Items", "Branch Compare"]) {
     await setPaneExpanded(page, title, false);
   }
   await setPaneExpanded(page, "Fresh Files", true);
@@ -213,8 +213,8 @@ test("W5: auto-follow tracks a worktree from creation to removal", async () => {
     for (const title of ["agents", "Outline", "Timeline", "Fresh Files", "Pinned Items"]) {
       await setPaneExpanded(page, title, false);
     }
-    await setPaneExpanded(page, "Fresh Files - Branch Compare", true);
-    const compare = "Fresh Files - Branch Compare";
+    await setPaneExpanded(page, "Branch Compare", true);
+    const compare = "Branch Compare";
     const section = () => rowIn(page, compare, "feature/coupons");
 
     // Add the worktree once startup is done, so this test covers creation (a worktree

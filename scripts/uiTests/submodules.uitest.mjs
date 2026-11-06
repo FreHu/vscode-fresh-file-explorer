@@ -16,7 +16,7 @@ const rowIn = (page, text) => pane(page, "Fresh Files").locator(".monaco-list-ro
 
 /** Fresh Files on its own, expanded, in the given time window. */
 async function showFreshFiles(page, window) {
-  for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Fresh Files - Branch Compare"]) {
+  for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Branch Compare"]) {
     await setPaneExpanded(page, title, false);
   }
   await setPaneExpanded(page, "Fresh Files", true);

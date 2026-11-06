@@ -16,7 +16,7 @@
     "url": "https://github.com/FreHu/vscode-fresh-file-explorer/issues"
   },
   "qna": false,
-  "version": "1.16.0",
+  "version": "1.17.0",
   "icon": "icons/extension.png",
   "engines": {
     "vscode": "^1.105.1"
@@ -54,7 +54,7 @@
       "panel": [
         {
           "id": "freshFileExplorerPanel",
-          "title": "Branch Comparisons",
+          "title": "Branch Compare",
           "icon": "$(git-compare)"
         }
       ]
@@ -63,7 +63,7 @@
       "freshFileExplorerPanel": [
         {
           "id": "freshFileExplorer.branchCompareSettings",
-          "name": "Branch Comparisons",
+          "name": "Branch Compare",
           "type": "webview",
           "icon": "$(git-compare)"
         }
@@ -74,7 +74,7 @@
           "name": "Fresh Files",
           "type": "tree",
           "icon": "icons/fresh-files.svg",
-          "contextualTitle": "Fresh File Explorer",
+          "contextualTitle": "Fresh Files",
           "group": "freshfileexplorer@1"
         },
         {
@@ -95,9 +95,10 @@
         },
         {
           "id": "freshFileExplorer.branchCompare",
-          "name": "Fresh Files - Branch Compare",
+          "name": "Branch Compare",
           "type": "tree",
           "icon": "$(git-compare)",
+          "contextualTitle": "Branch Compare",
           "group": "freshfileexplorer@3"
         }
       ]
@@ -106,264 +107,305 @@
       {
         "command": "freshFileExplorer.refresh",
         "title": "Refresh",
+        "category": "Fresh File Explorer",
         "icon": "$(refresh)"
       },
       {
         "command": "freshFileExplorer.setTimeWindow",
         "title": "Set Time Window",
+        "category": "Fresh File Explorer",
         "icon": "$(calendar)"
       },
       {
         "command": "freshFileExplorer.viewOptions",
         "title": "View Options",
+        "category": "Fresh File Explorer",
         "icon": "$(filter)"
       },
       {
         "command": "freshFileExplorer.setGroupingMode",
         "title": "Set Grouping Mode",
+        "category": "Fresh File Explorer",
         "icon": "$(group-by-ref-type)"
       },
       {
         "command": "freshFileExplorer.setSortOrder",
         "title": "Set Sort Order",
+        "category": "Fresh File Explorer",
         "icon": "$(sort-precedence)"
       },
       {
         "command": "freshFileExplorer.openSettings",
         "title": "Open Settings",
+        "category": "Fresh File Explorer",
         "icon": "$(gear)"
       },
       {
         "command": "freshFileExplorer.showOutput",
-        "title": "Fresh Files: Show Output Log"
+        "title": "Show Output Log",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.expandAll",
         "title": "Expand All",
+        "category": "Fresh File Explorer",
         "icon": "$(expand-all)"
       },
       {
         "command": "freshFileExplorer.expandSubtree",
-        "title": "Expand Subtree"
+        "title": "Expand Subtree",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.revealInExplorer",
-        "title": "Reveal in Explorer View"
+        "title": "Reveal in Explorer View",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.revealFileInOS",
-        "title": "Reveal in File Explorer"
+        "title": "Reveal in File Explorer",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.openInDefaultApp",
-        "title": "Open in Default App"
+        "title": "Open in Default App",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.toggleGeneratedFiles",
         "title": "Show / Hide Generated Files",
-        "category": "Fresh Files"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.openFile",
-        "title": "Open"
+        "title": "Open",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.openChanges",
-        "title": "Open Changes"
+        "title": "Open Changes",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.openCommit",
-        "title": "Open Commit"
+        "title": "Open Commit",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.openCommitGroup",
         "title": "Open Commit",
+        "category": "Fresh File Explorer",
         "icon": "$(git-compare)"
       },
       {
         "command": "freshFileExplorer.openPendingGroup",
         "title": "Open Changes",
+        "category": "Fresh File Explorer",
         "icon": "$(git-compare)"
       },
       {
         "command": "freshFileExplorer.openCommitFromBlame",
-        "title": "Open Commit (from Blame)"
+        "title": "Open Commit (from Blame)",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.restoreDeletedLinesAt",
-        "title": "Restore from baseline"
+        "title": "Restore from baseline",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.copyDeletedLinesAt",
-        "title": "Copy baseline lines"
+        "title": "Copy baseline lines",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameDiffBaseline",
-        "title": "Diff with baseline…"
+        "title": "Diff with baseline…",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameDiffBaselineConfigured",
-        "title": "Diff with saved baseline"
+        "title": "Diff with saved baseline",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.openToSide",
-        "title": "Open to the Side"
+        "title": "Open to the Side",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.openMode.changes",
         "title": "Open Changes on Click",
-        "icon": "$(git-compare)",
-        "category": "Fresh Files"
+        "category": "Fresh File Explorer",
+        "icon": "$(git-compare)"
       },
       {
         "command": "freshFileExplorer.openMode.file",
         "title": "Open File on Click",
-        "icon": "$(go-to-file)",
-        "category": "Fresh Files"
+        "category": "Fresh File Explorer",
+        "icon": "$(go-to-file)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openMode.changes",
         "title": "Open Changes on Click",
-        "icon": "$(git-compare)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(git-compare)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openMode.file",
         "title": "Open File on Click",
-        "icon": "$(go-to-file)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(go-to-file)"
       },
       {
         "command": "freshFileExplorer.exhume",
         "title": "View Deleted File",
+        "category": "Fresh File Explorer",
         "icon": "$(eye)"
       },
       {
         "command": "freshFileExplorer.resurrect",
         "title": "Resurrect Deleted File",
+        "category": "Fresh File Explorer",
         "icon": "$(history)"
       },
       {
         "command": "freshFileExplorer.discardChanges",
         "title": "Discard Changes",
+        "category": "Fresh File Explorer",
         "icon": "$(discard)"
       },
       {
         "command": "freshFileExplorer.deleteFile",
         "title": "Delete",
+        "category": "Fresh File Explorer",
         "icon": "$(trash)"
       },
       {
         "command": "freshFileExplorer.renameFile",
         "title": "Rename",
+        "category": "Fresh File Explorer",
         "icon": "$(edit)"
       },
       {
         "command": "freshFileExplorer.createFileNextTo",
         "title": "New File Here",
+        "category": "Fresh File Explorer",
         "icon": "$(new-file)"
       },
       {
         "command": "freshFileExplorer.createFileInside",
         "title": "New File Inside",
+        "category": "Fresh File Explorer",
         "icon": "$(new-file)"
       },
       {
         "command": "freshFileExplorer.revealInSourceControl",
-        "title": "Reveal in Source Control View"
+        "title": "Reveal in Source Control View",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.filterByAuthor",
         "title": "Filter by Author",
+        "category": "Fresh File Explorer",
         "icon": "$(person)"
       },
       {
         "command": "freshFileExplorer.filterByCommit",
         "title": "Filter by Commit",
+        "category": "Fresh File Explorer",
         "icon": "$(git-commit)"
       },
       {
         "command": "freshFileExplorer.filterAiAuthored",
         "title": "Filter by AI Co-authorship",
+        "category": "Fresh File Explorer",
         "icon": "$(sparkle)"
       },
       {
         "command": "freshFileExplorer.clearFilters",
         "title": "Clear Filters",
+        "category": "Fresh File Explorer",
         "icon": "$(clear-all)"
       },
       {
         "command": "freshFileExplorer.toggleHeatmap",
         "title": "Toggle Heatmap Coloring",
+        "category": "Fresh File Explorer",
         "icon": "$(color-mode)"
       },
       {
         "command": "freshFileExplorer.blameHeatmapPicker",
         "title": "Blame Heatmap",
+        "category": "Fresh File Explorer",
         "icon": "$(color-mode)"
       },
       {
         "command": "freshFileExplorer.blameApplyAge",
         "title": "Age",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameApplyAgeChecked",
         "title": "✓ Age",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameApplyBranchSaved",
         "title": "Baseline",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameApplyBranchSavedChecked",
         "title": "✓ Baseline",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blamePickBranch",
         "title": "Change baseline…",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameTurnOff",
         "title": "Off",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameTurnOffChecked",
         "title": "✓ Off",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameClearBaseline",
         "title": "Clear saved baseline",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.blameToggleAutoApply",
         "title": "Auto-apply",
-        "category": "Blame Heatmap"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.searchInFreshFiles",
         "title": "Search in Fresh Files",
+        "category": "Fresh File Explorer",
         "icon": "$(search)"
       },
       {
         "command": "freshFileExplorer.openDiffSearchPanel",
         "title": "Open Diff Search",
+        "category": "Fresh File Explorer",
         "icon": "$(search)"
       },
       {
         "command": "freshFileExplorer.openDiffMatch",
-        "title": "Open Diff"
+        "title": "Open Diff",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.clearDiffSearch",
         "title": "Clear Diff Search Results",
+        "category": "Fresh File Explorer",
         "icon": "$(clear-all)"
       },
       {
@@ -407,15 +449,18 @@
       },
       {
         "command": "freshFileExplorer.gitLogFile",
-        "title": "File History"
+        "title": "File History",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.gitLogL",
-        "title": "Line/Function History"
+        "title": "Line/Function History",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.gitPickaxe",
-        "title": "Search Diffs for Selection"
+        "title": "Search Diffs for Selection",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.perfBenchmark",
@@ -430,270 +475,299 @@
       },
       {
         "command": "freshFileExplorer.copyFile",
-        "title": "Copy"
+        "title": "Copy",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.cutFile",
-        "title": "Cut"
+        "title": "Cut",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.pasteFile",
-        "title": "Paste"
+        "title": "Paste",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.copyAbsolutePath",
-        "title": "Copy Absolute Path"
+        "title": "Copy Absolute Path",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.copyRelativePath",
-        "title": "Copy Relative Path"
+        "title": "Copy Relative Path",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.copyFilename",
-        "title": "Copy Filename"
+        "title": "Copy Filename",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.copySubtreeStructure",
-        "title": "Copy Subtree Structure"
+        "title": "Copy Subtree Structure",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.copyRemoteUrl",
-        "title": "Copy Remote URL"
+        "title": "Copy Remote URL",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.setRepoPathspec",
-        "title": "Set Pathspec Filter"
+        "title": "Set Pathspec Filter",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.scopeToFolder",
-        "title": "Scope to This Folder"
+        "title": "Scope to This Folder",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.clearFolderScope",
-        "title": "Clear Folder Scope"
+        "title": "Clear Folder Scope",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.revealActiveFile",
         "title": "Reveal Active File in Fresh Files",
+        "category": "Fresh File Explorer",
         "icon": "$(target)"
       },
       {
         "command": "freshFileExplorer.searchInFoundFiles",
         "title": "Search in Found Files",
+        "category": "Fresh File Explorer",
         "icon": "$(search-fuzzy)"
       },
       {
         "command": "freshFileExplorer.openAllFoundFiles",
         "title": "Open All Found Files",
+        "category": "Fresh File Explorer",
         "icon": "$(files)"
       },
       {
         "command": "freshFileExplorer.copyPathsFromSearchResults",
         "title": "Copy File Paths",
+        "category": "Fresh File Explorer",
         "icon": "$(copy)"
       },
       {
         "command": "freshFileExplorer.quickPickFile",
-        "title": "Fresh Files: Quick Open",
+        "title": "Quick Open",
+        "category": "Fresh File Explorer",
         "icon": "$(list-selection)"
       },
       {
         "command": "freshFileExplorer.pinFile",
         "title": "Pin File",
+        "category": "Fresh File Explorer",
         "icon": "$(pin)"
       },
       {
         "command": "freshFileExplorer.unpinFile",
         "title": "Unpin File",
+        "category": "Fresh File Explorer",
         "icon": "$(pinned)"
       },
       {
         "command": "freshFileExplorer.suggestCochanges",
         "title": "Find Files Modified Together",
+        "category": "Fresh File Explorer",
         "icon": "$(lightbulb)"
       },
       {
         "command": "freshFileExplorer.keepSuggestion",
         "title": "Keep as Pin",
+        "category": "Fresh File Explorer",
         "icon": "$(pin)"
       },
       {
         "command": "freshFileExplorer.goToHeading",
         "title": "Go to Heading",
+        "category": "Fresh File Explorer",
         "icon": "$(go-to-file)"
       },
       {
         "command": "freshFileExplorer.clearSuggestions",
-        "title": "Clear Suggestions"
+        "title": "Clear Suggestions",
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.addNote",
         "title": "Add Note",
+        "category": "Fresh File Explorer",
         "icon": "$(add)"
       },
       {
         "command": "freshFileExplorer.editNote",
         "title": "Edit Note",
+        "category": "Fresh File Explorer",
         "icon": "$(edit)"
       },
       {
         "command": "freshFileExplorer.deleteNote",
         "title": "Delete Note",
+        "category": "Fresh File Explorer",
         "icon": "$(trash)"
       },
       {
         "command": "freshFileExplorer.clearAllPinned",
         "title": "Clear All Pinned Items",
+        "category": "Fresh File Explorer",
         "icon": "$(clear-all)"
       },
       {
         "command": "freshFileExplorer.clearCompleted",
         "title": "Clear Completed",
+        "category": "Fresh File Explorer",
         "icon": "$(checklist)"
       },
       {
         "command": "freshFileExplorer.focusSubmoduleRepo",
         "title": "Focus Submodule Repo",
+        "category": "Fresh File Explorer",
         "when": "false"
       },
       {
         "command": "freshFileExplorer.compareSelected",
         "title": "Compare Selected",
+        "category": "Fresh File Explorer",
         "icon": "$(git-compare)"
       },
       {
         "command": "freshFileExplorer.branchCompare.open",
         "title": "Open Changes",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.branchCompare.openFile",
         "title": "Open File",
-        "icon": "$(go-to-file)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(go-to-file)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openToSide",
         "title": "Open Changes to Side",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.branchCompare.openAtBaseline",
         "title": "Open File at Baseline",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.branchCompare.refresh",
-        "title": "Refresh",
-        "icon": "$(refresh)",
-        "category": "Branch Compare"
+        "title": "Refresh Branch Compare",
+        "category": "Fresh File Explorer",
+        "icon": "$(refresh)"
       },
       {
         "command": "freshFileExplorer.branchCompare.refreshRepo",
         "title": "Refresh This Comparison",
-        "icon": "$(refresh)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(refresh)"
       },
       {
         "command": "freshFileExplorer.branchCompare.collapseSection",
         "title": "Collapse All",
-        "icon": "$(collapse-all)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(collapse-all)"
       },
       {
         "command": "freshFileExplorer.branchCompare.setBaseline",
-        "title": "Set Baseline…",
-        "icon": "$(git-branch)",
-        "category": "Branch Compare"
+        "title": "Set Heatmap Baseline…",
+        "category": "Fresh File Explorer",
+        "icon": "$(git-branch)"
       },
       {
         "command": "freshFileExplorer.branchCompare.clearBaseline",
-        "title": "Clear Baseline",
-        "icon": "$(close)",
-        "category": "Branch Compare"
+        "title": "Clear Heatmap Baseline",
+        "category": "Fresh File Explorer",
+        "icon": "$(close)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openAll",
         "title": "Open All Changes",
-        "icon": "$(git-compare)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(git-compare)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openDifftool",
         "title": "Open in External Diff Tool",
-        "icon": "$(diff)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(diff)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openDirDifftool",
         "title": "Open All in External Diff Tool",
-        "icon": "$(diff)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(diff)"
       },
       {
         "command": "freshFileExplorer.branchCompare.restoreFromBaseline",
         "title": "Restore from Baseline",
-        "icon": "$(discard)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(discard)"
       },
       {
         "command": "freshFileExplorer.branchCompare.copySubtreeStructure",
         "title": "Copy Subtree Structure",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer"
       },
       {
         "command": "freshFileExplorer.branchCompare.revealInFreshFiles",
         "title": "Reveal in Fresh Files",
-        "icon": "$(target)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(target)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openSettings",
-        "title": "Open Comparisons Settings…",
-        "icon": "$(settings-gear)",
-        "category": "Branch Compare"
+        "title": "Open Branch Compare Settings…",
+        "category": "Fresh File Explorer",
+        "icon": "$(settings-gear)"
       },
       {
         "command": "freshFileExplorer.branchCompare.toggleActive",
         "title": "Hide from Tree",
-        "icon": "$(eye-closed)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(eye-closed)"
       },
       {
         "command": "freshFileExplorer.branchCompare.swapSides",
         "title": "Swap Sides",
-        "icon": "$(arrow-swap)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(arrow-swap)"
       },
       {
         "command": "freshFileExplorer.branchCompare.toggleHideReviewed",
         "title": "Toggle Hide Reviewed Files",
-        "icon": "$(filter)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(filter)"
       },
       {
         "command": "freshFileExplorer.branchCompare.dismissAutoFollow",
         "title": "Stop Following",
-        "icon": "$(eye-closed)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(eye-closed)"
       },
       {
         "command": "freshFileExplorer.branchCompare.focusSourceControl",
         "title": "Focus Source Control",
-        "icon": "$(source-control)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(source-control)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openCommit",
         "title": "Open Commit",
-        "icon": "$(git-compare)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(git-compare)"
       },
       {
         "command": "freshFileExplorer.branchCompare.openPendingChanges",
         "title": "Open Changes",
-        "icon": "$(git-compare)",
-        "category": "Branch Compare"
+        "category": "Fresh File Explorer",
+        "icon": "$(git-compare)"
       }
     ],
     "keybindings": [
@@ -1602,6 +1676,16 @@
       ],
       "commandPalette": [
         { "command": "freshFileExplorer.openInDefaultApp", "when": "resourceScheme == file && !remoteName" },
+        { "command": "freshFileExplorer.openMode.changes", "when": "false" },
+        { "command": "freshFileExplorer.openMode.file", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.openMode.changes", "when": "false" },
+        { "command": "freshFileExplorer.branchCompare.openMode.file", "when": "false" },
+        { "command": "freshFileExplorer.blameApplyAge", "when": "false" },
+        { "command": "freshFileExplorer.blameApplyBranchSaved", "when": "false" },
+        { "command": "freshFileExplorer.blamePickBranch", "when": "false" },
+        { "command": "freshFileExplorer.blameTurnOff", "when": "false" },
+        { "command": "freshFileExplorer.blameClearBaseline", "when": "false" },
+        { "command": "freshFileExplorer.blameToggleAutoApply", "when": "false" },
         {
           "command": "freshFileExplorer.blameTurnOffChecked",
           "when": "false"
@@ -2311,7 +2395,7 @@
         "freshFileExplorer.blameHeatmap.autoApply": {
           "type": "boolean",
           "default": true,
-          "description": "Color newly opened editor tabs with the last used blame heatmap mode (Age or Baseline). The Branch Comparisons panel shows this as its Off / Age / Baseline choice. Baseline mode reuses each repo's saved baseline and skips repos without one instead of prompting. Each file runs git blame in the background, so tabs open as fast as before and the colors follow shortly after."
+          "description": "Color newly opened editor tabs with the last used blame heatmap mode (Age or Baseline). The Branch Compare panel shows this as its Off / Age / Baseline choice. Baseline mode reuses each repo's saved baseline and skips repos without one instead of prompting. Each file runs git blame in the background, so tabs open as fast as before and the colors follow shortly after."
         },
         "freshFileExplorer.blameHeatmap.backgroundOpacity": {
           "type": "number",
@@ -2416,7 +2500,7 @@
             "Your file icon theme's icon for each file.",
             "One icon per change kind (added, modified, deleted, renamed, untracked), in the Source Control view's colors."
           ],
-          "description": "Icons on Branch Compare file rows. Also settable from the Branch Comparisons panel."
+          "description": "Icons on Branch Compare file rows. Also settable from the Branch Compare panel."
         }
       }
     }

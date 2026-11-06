@@ -12,7 +12,7 @@ import { git, withVSCode } from "./harness.mjs";
 const rowIn = (page, paneTitle, text) => pane(page, paneTitle).locator(".monaco-list-row", { hasText: text }).first();
 
 async function showFreshFiles(page) {
-  for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Fresh Files - Branch Compare"]) {
+  for (const title of ["orbit-shop", "Outline", "Timeline", "Pinned Items", "Branch Compare"]) {
     await setPaneExpanded(page, title, false);
   }
   await setPaneExpanded(page, "Fresh Files", true);
@@ -108,8 +108,8 @@ test("R4: auto-follow finds the base from origin/HEAD when there is no local mai
     for (const title of ["orbit-shop", "Outline", "Timeline", "Fresh Files", "Pinned Items"]) {
       await setPaneExpanded(page, title, false);
     }
-    await setPaneExpanded(page, "Fresh Files - Branch Compare", true);
-    const compare = "Fresh Files - Branch Compare";
+    await setPaneExpanded(page, "Branch Compare", true);
+    const compare = "Branch Compare";
     await rowIn(page, compare, "feature/coupons").waitFor({ timeout: 20000 });
     // The branch's own commits, diffed against origin/main: the base was resolved.
     await rowIn(page, compare, "coupons.ts").waitFor({ timeout: 20000 });
@@ -144,9 +144,9 @@ test("R5: Branch Compare suggests and compares against remote branches", async (
     for (const title of ["orbit-shop", "Outline", "Timeline", "Fresh Files", "Pinned Items"]) {
       await setPaneExpanded(page, title, false);
     }
-    await setPaneExpanded(page, "Fresh Files - Branch Compare", true);
-    await rowIn(page, "Fresh Files - Branch Compare", "HEAD..origin/main").waitFor({ timeout: 20000 });
-    await rowIn(page, "Fresh Files - Branch Compare", "coupons.ts").waitFor({ timeout: 20000 });
+    await setPaneExpanded(page, "Branch Compare", true);
+    await rowIn(page, "Branch Compare", "HEAD..origin/main").waitFor({ timeout: 20000 });
+    await rowIn(page, "Branch Compare", "coupons.ts").waitFor({ timeout: 20000 });
   });
 });
 
