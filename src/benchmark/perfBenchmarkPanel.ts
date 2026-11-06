@@ -6,7 +6,7 @@ import { discoverReposInWorkspace, RepoInfo } from "../git/gitRepoDiscovery";
 import { getWebviewHtml } from "./perfBenchmarkPanelUI";
 import { Benchmark, BenchmarkInputValues } from "../benchmark/benchmark";
 import { createBranchCompareRefreshBenchmark } from "../branch-compare/branchCompareRefreshBenchmark";
-import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
+import { getWebviewAssetUris, webviewOptions } from "../utils/webviewPanelOptions";
 import type { CacheRepoStats, PerfBenchmarkFromWebview, PerfBenchmarkToWebview, RepoStats } from "../webview/messages";
 
 /**
@@ -53,10 +53,9 @@ export class PerfBenchmarkPanel {
       "Git Perf Benchmark",
       column,
       {
-        enableScripts: true,
+        ...webviewOptions(extensionUri),
         retainContextWhenHidden: true,
         enableFindWidget: true,
-        localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );
 
@@ -177,9 +176,7 @@ export class PerfBenchmarkPanel {
 
   private _getHtml(): string {
     const webview = this._panel.webview;
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "media", "perfBenchmarkPanel.js"),
-    ).toString();
+    const { scriptUri } = getWebviewAssetUris(webview, this._extensionUri, "perfBenchmarkPanel.js");
     return getWebviewHtml(webview.cspSource, scriptUri);
   }
 

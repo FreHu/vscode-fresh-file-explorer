@@ -8,7 +8,7 @@ import { CommitData, GitLogLToWebview, GitLogLFromWebview } from "../webview/mes
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
 import { log, showError } from "../extension/logger";
 import { normalizePath } from "../utils";
-import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
+import { getWebviewAssetUris, webviewOptions } from "../utils/webviewPanelOptions";
 import { BoundedMap } from "../utils/collectionUtils";
 
 /**
@@ -54,9 +54,8 @@ export class GitLogLPanel {
       tabTitle,
       column,
       {
-        enableScripts: true,
+        ...webviewOptions(extensionUri),
         retainContextWhenHidden: true,
-        localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );
 
@@ -82,12 +81,7 @@ export class GitLogLPanel {
     this._gitCommand = gitCommand;
     this._mode = mode;
 
-    const scriptUri = panel.webview
-      .asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "gitLogLPanel.js"))
-      .toString();
-    const codiconCssUri = panel.webview
-      .asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "codicons", "codicon.css"))
-      .toString();
+    const { scriptUri, codiconCssUri } = getWebviewAssetUris(panel.webview, extensionUri, "gitLogLPanel.js");
     this._panel.webview.html = getGitLogLPanelHtml(this._panel.webview.cspSource, scriptUri, codiconCssUri);
 
     this._panel.onDidDispose(() => {

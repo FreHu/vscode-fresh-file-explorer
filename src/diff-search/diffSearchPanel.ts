@@ -9,7 +9,7 @@ import { getWebviewHtml } from "../diff-search/diffSearchPanelUI";
 import { DiffSearchHistoryEntry, DiffSearchToWebview, DiffSearchFromWebview } from "../webview/messages";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { parseTimeWindowValue } from "../fresh-files/timeWindowUtils";
-import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
+import { getWebviewAssetUris, webviewOptions } from "../utils/webviewPanelOptions";
 const MAX_HISTORY = 25;
 
 /** The `search` request variant of the inbound message union. */
@@ -46,10 +46,9 @@ export class DiffSearchPanel {
       "Diff Search",
       column || vscode.ViewColumn.One,
       {
-        enableScripts: true,
+        ...webviewOptions(extensionUri),
         retainContextWhenHidden: true,
         enableFindWidget: true,
-        localResourceRoots: getLocalResourceRoots(extensionUri),
       },
     );
 
@@ -346,9 +345,7 @@ export class DiffSearchPanel {
 
   private _update() {
     const webview = this._panel.webview;
-    const scriptUri = webview
-      .asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "media", "diffSearchPanel.js"))
-      .toString();
+    const { scriptUri } = getWebviewAssetUris(webview, this._extensionUri, "diffSearchPanel.js");
     webview.html = getWebviewHtml(webview.cspSource, scriptUri);
   }
 

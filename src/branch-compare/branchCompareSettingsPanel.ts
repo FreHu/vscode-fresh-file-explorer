@@ -7,7 +7,7 @@ import { clampHeadOffsetRef, getAvailableBranches } from "../git/gitCommitQuerie
 import { ConfigService } from "../config/configService";
 import { log } from "../extension/logger";
 import { normalizePath } from "../utils";
-import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
+import { getWebviewAssetUris, webviewOptions } from "../utils/webviewPanelOptions";
 import { NormalizedRepoPath } from "../pathTypes";
 import { listWorkspaceRepos } from "../utils/pathUtils";
 import { getBranchCompareSettingsHtml } from "./branchCompareSettingsPanelUI";
@@ -73,16 +73,8 @@ export class BranchCompareSettingsPanel implements vscode.WebviewViewProvider, v
     this._disposeView();
     this._view = view;
 
-    view.webview.options = {
-      enableScripts: true,
-      localResourceRoots: getLocalResourceRoots(this.extensionUri),
-    };
-    const scriptUri = view.webview
-      .asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "branchCompareSettings.js"))
-      .toString();
-    const codiconCssUri = view.webview
-      .asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "codicons", "codicon.css"))
-      .toString();
+    view.webview.options = webviewOptions(this.extensionUri);
+    const { scriptUri, codiconCssUri } = getWebviewAssetUris(view.webview, this.extensionUri, "branchCompareSettings.js");
     view.webview.html = getBranchCompareSettingsHtml(
       view.webview.cspSource,
       scriptUri,
