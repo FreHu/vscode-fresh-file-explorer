@@ -71,6 +71,11 @@ export class ConfigService {
     return ConfigService._cfg;
   }
 
+  /** Every setting the extension writes goes to user (Global) scope. */
+  private static setGlobal(key: string, value: unknown): Thenable<void> {
+    return vscode.workspace.getConfiguration().update(key, value, vscode.ConfigurationTarget.Global);
+  }
+
   /**
    * Get the description format configuration
    */
@@ -182,35 +187,19 @@ export class ConfigService {
   }
 
   static setBlameHeatmapAutoApply(value: boolean): Thenable<void> {
-    return vscode.workspace.getConfiguration().update(
-      ConfigKeys.BLAME_HEATMAP_AUTO_APPLY,
-      value,
-      vscode.ConfigurationTarget.Global,
-    );
+    return ConfigService.setGlobal(ConfigKeys.BLAME_HEATMAP_AUTO_APPLY, value);
   }
 
   static setHeatmapEnabled(value: boolean): Thenable<void> {
-    return vscode.workspace.getConfiguration().update(
-      ConfigKeys.HEATMAP_ENABLED,
-      value,
-      vscode.ConfigurationTarget.Global,
-    );
+    return ConfigService.setGlobal(ConfigKeys.HEATMAP_ENABLED, value);
   }
 
   static setAutoFollow(value: boolean): Thenable<void> {
-    return vscode.workspace.getConfiguration().update(
-      ConfigKeys.AUTO_FOLLOW,
-      value,
-      vscode.ConfigurationTarget.Global,
-    );
+    return ConfigService.setGlobal(ConfigKeys.AUTO_FOLLOW, value);
   }
 
   static setBranchCompareEnableDirDiffTool(value: boolean): Thenable<void> {
-    return vscode.workspace.getConfiguration().update(
-      ConfigKeys.BRANCH_COMPARE_ENABLE_DIR_DIFFTOOL,
-      value,
-      vscode.ConfigurationTarget.Global,
-    );
+    return ConfigService.setGlobal(ConfigKeys.BRANCH_COMPARE_ENABLE_DIR_DIFFTOOL, value);
   }
 
   static getBlameHeatmapBackgroundOpacity(): number {
@@ -319,11 +308,7 @@ export class ConfigService {
   }
 
   static setBranchCompareFileIcons(value: FileIconStyle): Thenable<void> {
-    return vscode.workspace.getConfiguration().update(
-      ConfigKeys.BRANCH_COMPARE_FILE_ICONS,
-      value,
-      vscode.ConfigurationTarget.Global,
-    );
+    return ConfigService.setGlobal(ConfigKeys.BRANCH_COMPARE_FILE_ICONS, value);
   }
 
   /** Whether the multi-file "Open in External Diff Tool" (`git difftool --dir-diff`) action is enabled. */
@@ -359,11 +344,7 @@ export class ConfigService {
 
   /** "Don't ask again" on the commit-graph toast — global, like the toast's advice. */
   static setWarnMissingCommitGraph(value: boolean): Thenable<void> {
-    return vscode.workspace.getConfiguration().update(
-      ConfigKeys.WARN_MISSING_COMMIT_GRAPH,
-      value,
-      vscode.ConfigurationTarget.Global,
-    );
+    return ConfigService.setGlobal(ConfigKeys.WARN_MISSING_COMMIT_GRAPH, value);
   }
 
   /** How far back the co-change suggestion command reads git history (days). */
@@ -419,9 +400,7 @@ export class ConfigService {
   }
 
   static setHideGeneratedFiles(value: boolean): Thenable<void> {
-    return vscode.workspace.getConfiguration().update(
-      ConfigKeys.HIDE_GENERATED_FILES, value, vscode.ConfigurationTarget.Global,
-    );
+    return ConfigService.setGlobal(ConfigKeys.HIDE_GENERATED_FILES, value);
   }
 
   /**
