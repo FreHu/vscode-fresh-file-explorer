@@ -1,4 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
+import { PRIMARY_BUTTON, INPUT_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
 import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 /**
@@ -92,8 +93,7 @@ export function getBranchCompareSettingsHtml(
       color: var(--vscode-inputOption-activeForeground, var(--vscode-button-foreground));
     }
     .icon-toggle button:focus-visible {
-      outline: 1px solid var(--vscode-focusBorder);
-      outline-offset: -1px;
+      ${FOCUS_OUTLINE}
     }
     .icon-toggle[aria-disabled="true"] { opacity: 0.5; }
     .icon-toggle[aria-disabled="true"] button { cursor: default; }
@@ -116,15 +116,10 @@ export function getBranchCompareSettingsHtml(
     input[type="text"], select {
       width: 100%;
       padding: 4px 6px;
-      background: var(--vscode-input-background);
-      color: var(--vscode-input-foreground);
-      border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
+      ${INPUT_CONTROL}
     }
     input[type="text"]:focus, select:focus {
-      outline: 1px solid var(--vscode-focusBorder);
-      outline-offset: -1px;
+      ${FOCUS_OUTLINE}
     }
     .ref-input-wrapper {
       position: relative;
@@ -202,13 +197,7 @@ export function getBranchCompareSettingsHtml(
     button.add-btn {
       margin-top: 12px;
       padding: 6px 14px;
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      border: none;
-      cursor: pointer;
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      font-weight: 600;
+      ${PRIMARY_BUTTON}
     }
     button.add-btn:hover { background: var(--vscode-button-hoverBackground); }
 

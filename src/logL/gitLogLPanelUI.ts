@@ -1,4 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
+import { PRIMARY_BUTTON, INPUT_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
 import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codiconCssUri: string): string {
@@ -59,13 +60,7 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codico
     }
     button {
       padding: 5px 12px;
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      border: none;
-      cursor: pointer;
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      font-weight: 600;
+      ${PRIMARY_BUTTON}
     }
     button:hover { background: var(--vscode-button-hoverBackground); }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -82,15 +77,10 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codico
       min-width: 160px;
       max-width: 420px;
       padding: 4px 8px;
-      background: var(--vscode-input-background);
-      color: var(--vscode-input-foreground);
-      border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
+      ${INPUT_CONTROL}
     }
     .search-bar input[type="text"]:focus {
-      outline: 1px solid var(--vscode-focusBorder);
-      outline-offset: -1px;
+      ${FOCUS_OUTLINE}
     }
     .search-bar input.invalid { border-color: var(--vscode-inputValidation-errorBorder, #f85149); }
     button.toggle {

@@ -1,4 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
+import { DROPDOWN_CONTROL } from "../utils/webviewBaseStyles";
 import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getWebviewHtml(cspSource: string, scriptUri: string, codiconCssUri: string): string {
@@ -51,11 +52,7 @@ export function getWebviewHtml(cspSource: string, scriptUri: string, codiconCssU
     }
     select {
       padding: 4px 8px;
-      background: var(--vscode-dropdown-background);
-      color: var(--vscode-dropdown-foreground);
-      border: 1px solid var(--vscode-dropdown-border);
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
+      ${DROPDOWN_CONTROL}
       min-width: 100px;
     }
     #zoomSelect {

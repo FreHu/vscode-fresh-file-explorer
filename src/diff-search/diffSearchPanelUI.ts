@@ -1,4 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
+import { PRIMARY_BUTTON, DROPDOWN_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
 import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getWebviewHtml(cspSource: string, scriptUri: string): string {
@@ -26,40 +27,26 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
     input[type="text"] {
       width: 100%;
       padding: 6px 8px;
-      background: var(--vscode-dropdown-background);
-      color: var(--vscode-dropdown-foreground);
-      border: 1px solid var(--vscode-dropdown-border);
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
+      ${DROPDOWN_CONTROL}
       box-sizing: border-box;
     }
     input[type="text"]:focus {
-      outline: 1px solid var(--vscode-focusBorder);
-      outline-offset: -1px;
+      ${FOCUS_OUTLINE}
     }
     select {
       width: 100%;
       padding: 6px 8px;
-      background: var(--vscode-dropdown-background);
-      color: var(--vscode-dropdown-foreground);
-      border: 1px solid var(--vscode-dropdown-border);
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
+      ${DROPDOWN_CONTROL}
       box-sizing: border-box;
     }
     input[type="number"] {
       width: 80px;
       padding: 6px 8px;
-      background: var(--vscode-dropdown-background);
-      color: var(--vscode-dropdown-foreground);
-      border: 1px solid var(--vscode-dropdown-border);
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
+      ${DROPDOWN_CONTROL}
       box-sizing: border-box;
     }
     input[type="number"]:focus {
-      outline: 1px solid var(--vscode-focusBorder);
-      outline-offset: -1px;
+      ${FOCUS_OUTLINE}
     }
     input[type="number"]:disabled {
       opacity: 0.4;
@@ -83,13 +70,7 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
     }
     button {
       padding: 8px 16px;
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      border: none;
-      cursor: pointer;
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      font-weight: 600;
+      ${PRIMARY_BUTTON}
     }
     button:hover {
       background: var(--vscode-button-hoverBackground);
