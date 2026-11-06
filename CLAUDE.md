@@ -177,7 +177,7 @@ When a command is triggered via keybinding, `item` and `selectedItems` arguments
 
 ## UI tests
 
-`npm run test:ui` runs `scripts/uiTests/*.uitest.mjs` (Node's `node:test`, one at a time) against a real VS Code, reusing the demo launcher, fixture repo and helpers. They catch what the extension-host tests can't: what VS Code actually renders (gutter icons, menus built from context keys, tree state). Not part of `pretest`: run it after UI work. Assert on text and element state, never on pixels.
+`npm run test:ui` runs `scripts/uiTests/*.uitest.mjs` (Node's `node:test`, one at a time) against a real VS Code, reusing the demo launcher, fixture repo and helpers. They catch what the extension-host tests can't: what VS Code actually renders (gutter icons, menus built from context keys, tree state). Not part of `pretest` or the pre-push hook: run it after UI work. The release workflow's test job runs it (under xvfb) before a tag can publish. Assert on text and element state, never on pixels.
 
 - Every UI test must fail with its fix undone; check that before trusting it.
 - `npm run test:docker` runs `npm test` and `test:ui` headless in Docker (Linux + xvfb, the CI setup): no windows on the desktop. The repo is copied in, not used in place; failure screenshots and logs come back to `.scratch/claude/docker/`. On Linux, VS Code's git extension opens repos before Fresh Files starts, so startup timing differs from Windows. It also doesn't open a worktree added while running, so W5 exercises our own watchers there (see below).

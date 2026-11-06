@@ -34,6 +34,10 @@ jobs:
       - name: Run tests
         run: xvfb-run -a npm test
 
+      # Drives a real VS Code window, so what it renders is checked before a publish.
+      - name: Run UI tests
+        run: xvfb-run -a npm run test:ui
+
   # Single gated job that does BOTH the GitHub Release and the marketplace /
   # OpenVSX publish. Runs only on a manual workflow_dispatch (never on a tag
   # push — a tag push runs `test` and stops). It references the
