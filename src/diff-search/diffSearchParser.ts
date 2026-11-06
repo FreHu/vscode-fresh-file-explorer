@@ -12,14 +12,6 @@ import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 import { readEditorText } from "../utils/readEditorText";
 
-/**
- * Git config can silently break diff parsing: `diff.noprefix` drops the `b/` we key on
- * (→ zero matches), `diff.mnemonicPrefix` swaps it for `w/`/`i/`, and `log.showSignature`
- * interleaves GPG lines. Force the formats this parser expects regardless of the user's
- * global config. (`log.date` is overridden per-call with `--date=default`.)
- */
-const DIFF_PREFIX_FLAGS = ["-c", "diff.noprefix=false", "-c", "diff.mnemonicPrefix=false"];
-const LOG_CONFIG_FLAGS = [...DIFF_PREFIX_FLAGS, "-c", "log.showSignature=false"];
 
 /**
  * Thrown when the search pattern compiles in JS but git's regex engine rejects it.
@@ -570,7 +562,8 @@ export interface HistoricalSearchArgsOptions {
  * deterministic given `nowMs`, so the flag/cutoff logic is unit-testable without git.
  *
  * Notes baked in here:
- * - LOG_CONFIG_FLAGS + `--date=default` neutralize user git config that would break parsing.
+ * - User git config that would break parsing (diff prefixes, signatures, dates) is pinned by
+ *   spawnGitSettled for every git call (GIT_OUTPUT_CONFIG in gitSpawn.ts).
  * - Always `-G` (line-based: matched a changed line), never `-S` (net occurrence count) —
  *   `-S` would miss a same-line edit like `foo(1)`→`foo(2)` whose count is unchanged, which
  *   the line filter would otherwise show. A literal pattern is regex-escaped so `-G` matches
@@ -582,10 +575,8 @@ export interface HistoricalSearchArgsOptions {
  */
 export function buildHistoricalSearchArgs(o: HistoricalSearchArgsOptions): string[] {
   const args = [
-    ...LOG_CONFIG_FLAGS,
     "log",
     "-p",
-    "--date=default",
     ...(o.includeMerges ? ["--diff-merges=first-parent"] : []),
     ...(o.caseInsensitive ? ["-i"] : []),
     "-G",
@@ -634,7 +625,6 @@ export function buildPendingSearchArgs(o: PendingSearchArgsOptions): string[] {
   const pathspecs = buildPathspecs(o.includePattern, o.excludePattern);
   const pathspecTail = pathspecs.length > 0 ? ["--", ...pathspecs] : [];
   return [
-    ...DIFF_PREFIX_FLAGS,
     "diff",
     ...(o.staged ? ["--staged"] : []),
     ...pickaxe,

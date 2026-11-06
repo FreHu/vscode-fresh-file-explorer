@@ -2,6 +2,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import { parseDiffOutput, filterMatchesByPattern, isGitRegexError, buildHistoricalSearchArgs, buildPendingSearchArgs } from "../../diff-search/diffSearchParser";
+import { GIT_OUTPUT_CONFIG } from "../../git/gitSpawn";
 
 const fixture = fs.readFileSync(path.join(__dirname, "..", "fixtures", "pickaxe.txt"), "utf-8");
 const CWD = "/repo";
@@ -91,12 +92,10 @@ suite("buildHistoricalSearchArgs - git log argument construction", () => {
     assert.ok(buildHistoricalSearchArgs({ ...base, isRegex: true, pattern: "a.*b" }).includes("a.*b"));
   });
 
-  test("config-neutralizing flags are always present", () => {
-    const args = buildHistoricalSearchArgs(base);
-    assert.ok(args.includes("diff.noprefix=false"));
-    assert.ok(args.includes("diff.mnemonicPrefix=false"));
-    assert.ok(args.includes("log.showSignature=false"));
-    assert.ok(args.includes("--date=default"));
+  test("the config the parser depends on is pinned for every git call", () => {
+    for (const setting of ["diff.noprefix=false", "diff.mnemonicPrefix=false", "log.showSignature=false", "log.date=default"]) {
+      assert.ok(GIT_OUTPUT_CONFIG.includes(setting), setting);
+    }
   });
 
   test("regex + case-insensitive: -G and -i", () => {
@@ -165,11 +164,6 @@ suite("buildPendingSearchArgs - git diff pre-filter for pending changes", () => 
     assert.ok(buildPendingSearchArgs({ ...base, caseInsensitive: true }).includes("-i"));
   });
 
-  test("config-neutralizing prefix flags are present", () => {
-    const args = buildPendingSearchArgs(base);
-    assert.ok(args.includes("diff.noprefix=false"));
-    assert.ok(args.includes("diff.mnemonicPrefix=false"));
-  });
 
   test("include/exclude become pathspecs after a -- separator", () => {
     const args = buildPendingSearchArgs({ ...base, includePattern: "*.ts", excludePattern: "dist/**" });

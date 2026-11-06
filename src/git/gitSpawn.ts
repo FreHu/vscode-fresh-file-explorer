@@ -14,6 +14,27 @@ import * as cp from "child_process";
 export const GIT_TIMEOUT_SETTING = "freshFileExplorer.gitTimeout";
 
 /**
+ * Git config that changes git's default output, pinned to the defaults every parser here expects, and passed
+ * to every git call. Each one would otherwise break parsing for a user who sets it: short hashes in
+ * `commit <sha>` headers (log.abbrevCommit), a different default format (format.pretty), unparseable dates
+ * (log.date), ref names after the hash (log.decorate), signature lines in log output (log.showSignature),
+ * missing or renamed `a/` `b/` diff prefixes (diff.noprefix, diff.mnemonicPrefix), colour codes in piped output
+ * (color.ui), and `log -- <file>` silently following renames (log.follow). An explicit flag such as `--format`
+ * or `--follow` still wins over these.
+ */
+export const GIT_OUTPUT_CONFIG = [
+  "log.abbrevCommit=false",
+  "format.pretty=medium",
+  "log.date=default",
+  "log.decorate=no",
+  "log.showSignature=false",
+  "diff.noprefix=false",
+  "diff.mnemonicPrefix=false",
+  "color.ui=never",
+  "log.follow=false",
+].flatMap(setting => ["-c", setting]);
+
+/**
  * A failed git invocation, carrying the parts callers need to act on.
  *
  * `toString()` returns the bare message rather than Node's `"Error: <message>"`.
@@ -88,7 +109,7 @@ export function spawnGitSettled<T>(
   handlers: SpawnGitHandlers<T>,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const child = cp.spawn("git", args, { cwd, timeout });
+    const child = cp.spawn("git", [...GIT_OUTPUT_CONFIG, ...args], { cwd, timeout });
     let stderr = "";
 
     if (handlers.stdin !== undefined) {

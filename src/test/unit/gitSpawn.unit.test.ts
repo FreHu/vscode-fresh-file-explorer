@@ -2,6 +2,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import { GitError, GIT_TIMEOUT_SETTING, spawnGitSettled } from "../../git/gitSpawn";
+import { parseGitLogL } from "../../git/gitLogLParser";
 import { createTempRepo, TempGitRepo } from "../helpers/tempGitRepo";
 
 // Spawns real `git` against a throwaway repo. These are the regression guards
@@ -127,5 +128,52 @@ suite("spawnGitSettled", () => {
       () => true,
     );
     assert.strictEqual(finished, true, "onFinish must fire even when git exits non-zero");
+  });
+});
+
+// A user's git config changes git's default output; every parser expects the defaults.
+suite("spawnGitSettled ignores git config that would break parsing", () => {
+  let hostile: TempGitRepo;
+
+  suiteSetup(() => {
+    hostile = createTempRepo("ffe-gitconfig-");
+    fs.writeFileSync(path.join(hostile.dir, "a.txt"), "one\n");
+    hostile.git("add", "a.txt");
+    hostile.git("commit", "-qm", "first");
+    fs.writeFileSync(path.join(hostile.dir, "a.txt"), "two\n");
+    hostile.git("commit", "-qam", "second");
+    for (const [key, value] of [
+      ["log.abbrevCommit", "true"],
+      ["format.pretty", "oneline"],
+      ["log.date", "relative"],
+      ["log.decorate", "full"],
+      ["diff.noprefix", "true"],
+      ["color.ui", "always"],
+    ]) {
+      hostile.git("config", key, value);
+    }
+  });
+
+  suiteTeardown(() => hostile.dispose());
+
+  const run = (...args: string[]) => spawnGitSettled(args, hostile.dir, undefined, collect());
+
+  test("git log keeps full-hash headers, absolute dates, no decorations or colour", async () => {
+    const out = await run("log", "-1");
+    assert.match(out, /^commit [0-9a-f]{40}\n/);
+    assert.match(out, /^Date: {3}\w{3} \w{3} \d+ /m);
+    assert.doesNotMatch(out, /\x1b\[|\(HEAD|ago/);
+  });
+
+  test("git log -L output parses into every commit", async () => {
+    const out = await run("log", "--use-mailmap", "-L", "1,1:a.txt");
+    const commits = parseGitLogL(out);
+    assert.deepStrictEqual(commits.map(c => c.message.trim()), ["second", "first"]);
+    assert.ok(commits.every(c => /^[0-9a-f]{40}$/.test(c.hash) && !Number.isNaN(c.date.getTime())));
+  });
+
+  test("git diff keeps the a/ and b/ prefixes", async () => {
+    const out = await run("diff", "HEAD~1", "HEAD");
+    assert.match(out, /^diff --git a\/a\.txt b\/a\.txt$/m);
   });
 });
