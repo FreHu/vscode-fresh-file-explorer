@@ -11,7 +11,7 @@ import { createTimeWindowQuickPick } from "../utils/quickPick";
 import { GROUPING_MODE_OPTIONS, GroupingMode } from "../fresh-files/groupingMode";
 import { SortOrder } from "../types";
 import { findRepoForAbsolutePath } from "../utils/pathUtils";
-import { refreshPendingForFiles, resolveCommandSelection, runQuickPickPromise } from "./commandUtils";
+import { pickCurrentOption, refreshPendingForFiles, resolveCommandSelection, runQuickPickPromise } from "./commandUtils";
 import { execGitWithArgs } from "../git/gitOperations";
 import { ConfigService } from "../config/configService";
 import { normalizePath } from "../utils";
@@ -56,65 +56,35 @@ export async function handleSetTimeWindow(freshFileProvider: FreshFileProvider):
 export async function handleSetGroupingMode(freshFileProvider: FreshFileProvider): Promise<boolean> {
   log("Set grouping mode command triggered");
 
-  const quickPick = vscode.window.createQuickPick();
-  quickPick.title = "Select Grouping Mode";
-  quickPick.placeholder = "Choose how to organize files in the tree";
-
-  quickPick.items = GROUPING_MODE_OPTIONS.map(option => ({
-    label: `${option.icon} ${option.label}`,
-    description: option.description,
-    mode: option.mode,
-    // Mark current mode with check mark
-    picked: option.mode === freshFileProvider.groupingMode,
-  }));
-
-  return runQuickPickPromise(quickPick, (qp) => {
-    const selected = qp.selectedItems[0] as any;
-    if (selected && selected.mode !== freshFileProvider.groupingMode) {
-      freshFileProvider.setGroupingMode(selected.mode as GroupingMode);
-    }
+  return pickCurrentOption<GroupingMode>({
+    title: "Select Grouping Mode",
+    placeholder: "Choose how to organize files in the tree",
+    options: GROUPING_MODE_OPTIONS.map(option => ({
+      label: `${option.icon} ${option.label}`,
+      description: option.description,
+      value: option.mode,
+    })),
+    getCurrent: () => freshFileProvider.groupingMode,
+    onSelect: (mode) => freshFileProvider.setGroupingMode(mode),
   });
 }
 
 export async function handleSetSortOrder(freshFileProvider: FreshFileProvider, branchCompareProvider?: BranchCompareProvider): Promise<boolean> {
   log("Set sort order command triggered");
 
-  const quickPick = vscode.window.createQuickPick();
-  quickPick.title = "Select Sort Order";
-  quickPick.placeholder = "Choose how to sort files within folders";
-
-  const sortOptions = [
-    {
-      label: "$(symbol-text) Name (A-Z)",
-      description: "Sort alphabetically by filename",
-      order: "name" as SortOrder,
-    },
-    {
-      label: "$(calendar) Date (Newest First)",
-      description: "Sort by commit date, most recent first",
-      order: "date" as SortOrder,
-    },
-    {
-      label: "$(person) Author (A-Z)",
-      description: "Sort alphabetically by commit author",
-      order: "author" as SortOrder,
-    },
-  ];
-
-  quickPick.items = sortOptions.map(option => ({
-    label: option.label,
-    description: option.description,
-    order: option.order,
-    // Mark current sort order with check mark
-    picked: option.order === freshFileProvider.sortOrder,
-  }));
-
-  return runQuickPickPromise(quickPick, (qp) => {
-    const selected = qp.selectedItems[0] as any;
-    if (selected && selected.order !== freshFileProvider.sortOrder) {
-      freshFileProvider.setSortOrder(selected.order as SortOrder);
+  return pickCurrentOption<SortOrder>({
+    title: "Select Sort Order",
+    placeholder: "Choose how to sort files within folders",
+    options: [
+      { label: "$(symbol-text) Name (A-Z)", description: "Sort alphabetically by filename", value: "name" },
+      { label: "$(calendar) Date (Newest First)", description: "Sort by commit date, most recent first", value: "date" },
+      { label: "$(person) Author (A-Z)", description: "Sort alphabetically by commit author", value: "author" },
+    ],
+    getCurrent: () => freshFileProvider.sortOrder,
+    onSelect: (order) => {
+      freshFileProvider.setSortOrder(order);
       branchCompareProvider?.rerender();
-    }
+    },
   });
 }
 

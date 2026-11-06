@@ -57,3 +57,28 @@ export async function pickOne<T extends vscode.QuickPickItem>(quickPick: vscode.
   const accepted = await runQuickPickPromise(quickPick, (qp) => { picked = qp.selectedItems[0]; });
   return accepted ? picked : undefined;
 }
+
+/**
+ * Picker over a setting's options with the current one checked. `onSelect`
+ * runs only when the accepted option differs from `getCurrent()`.
+ * Resolves like {@link runQuickPickPromise}.
+ */
+export function pickCurrentOption<T>(opts: {
+  title: string;
+  placeholder: string;
+  options: { label: string; description?: string; value: T }[];
+  getCurrent: () => T;
+  onSelect: (value: T) => void;
+}): Promise<boolean> {
+  const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { value: T }>();
+  quickPick.title = opts.title;
+  quickPick.placeholder = opts.placeholder;
+  const current = opts.getCurrent();
+  quickPick.items = opts.options.map(option => ({ ...option, picked: option.value === current }));
+  return runQuickPickPromise(quickPick, (qp) => {
+    const selected = qp.selectedItems[0];
+    if (selected && selected.value !== opts.getCurrent()) {
+      opts.onSelect(selected.value);
+    }
+  });
+}
