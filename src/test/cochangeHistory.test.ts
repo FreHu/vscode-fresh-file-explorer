@@ -1,10 +1,9 @@
 import * as assert from "assert";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
-import { execFileSync } from "child_process";
 
 import { collectCochangeHistory } from "../cochange/cochangeHistory";
+import { createTempRepo, TempGitRepo } from "./helpers/tempGitRepo";
 
 /**
  * The collector's message/file disambiguation against real git output —
@@ -12,16 +11,13 @@ import { collectCochangeHistory } from "../cochange/cochangeHistory";
  * the parse is the risky part, not the git invocation.
  */
 suite("cochange history collector", () => {
+  let repo: TempGitRepo;
   let tmpDir: string;
 
-  const git = (...args: string[]) =>
-    execFileSync("git", args, { cwd: tmpDir, encoding: "utf8" });
-
   suiteSetup(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ffe-cochange-"));
-    git("init", "-q");
-    git("config", "user.email", "test@example.invalid");
-    git("config", "user.name", "Test");
+    repo = createTempRepo("ffe-cochange-");
+    tmpDir = repo.dir;
+    const git = repo.git;
 
     fs.mkdirSync(path.join(tmpDir, "src"));
     fs.writeFileSync(path.join(tmpDir, "src", "a.ts"), "a");
@@ -36,18 +32,7 @@ suite("cochange history collector", () => {
     git("commit", "-q", "-m", "AB-77 tweak the widget"); // subject-only reference, no body
   });
 
-  suiteTeardown(() => {
-    // Git object files are read-only; on Windows rmSync's force doesn't clear
-    // the attribute, so chmod everything writable first.
-    const makeWritable = (dir: string): void => {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const p = path.join(dir, entry.name);
-        if (entry.isDirectory()) { makeWritable(p); } else { fs.chmodSync(p, 0o666); }
-      }
-    };
-    makeWritable(tmpDir);
-    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-  });
+  suiteTeardown(() => repo.dispose());
 
   test("captures subject and body as the message, files as files", async () => {
     const commits = await collectCochangeHistory(tmpDir, 365);

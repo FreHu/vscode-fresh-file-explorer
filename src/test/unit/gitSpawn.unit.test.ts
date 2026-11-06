@@ -1,15 +1,15 @@
 import * as assert from "assert";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
-import { execFileSync } from "child_process";
 import { GitError, GIT_TIMEOUT_SETTING, spawnGitSettled } from "../../git/gitSpawn";
+import { createTempRepo, TempGitRepo } from "../helpers/tempGitRepo";
 
 // Spawns real `git` against a throwaway repo. These are the regression guards
 // for two defects the old per-file spawn wrappers shared: a timeout kill
 // reported as "exited with code null", and rejections that were bare strings
 // (so `error.message` rendered the literal "undefined" in user-facing toasts).
 
+let tempRepo: TempGitRepo;
 let repo: string;
 
 function collect(): { onStdout(c: Buffer): void; onSuccess(): string } {
@@ -24,19 +24,14 @@ function collect(): { onStdout(c: Buffer): void; onSuccess(): string } {
 
 suite("spawnGitSettled", () => {
   suiteSetup(() => {
-    repo = fs.mkdtempSync(path.join(os.tmpdir(), "ffe-gitspawn-"));
-    const run = (...args: string[]) => execFileSync("git", args, { cwd: repo, stdio: "ignore" });
-    run("init", "-q");
-    run("config", "user.email", "test@example.com");
-    run("config", "user.name", "Test");
+    tempRepo = createTempRepo("ffe-gitspawn-");
+    repo = tempRepo.dir;
     fs.writeFileSync(path.join(repo, "a.txt"), "hello\n");
-    run("add", "a.txt");
-    run("commit", "-qm", "first");
+    tempRepo.git("add", "a.txt");
+    tempRepo.git("commit", "-qm", "first");
   });
 
-  suiteTeardown(() => {
-    fs.rmSync(repo, { recursive: true, force: true });
-  });
+  suiteTeardown(() => tempRepo.dispose());
 
   test("resolves with accumulated stdout on exit 0", async () => {
     const out = await spawnGitSettled(["rev-parse", "--is-inside-work-tree"], repo, undefined, collect());

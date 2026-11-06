@@ -1,26 +1,22 @@
 import * as assert from "assert";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
-import { execFileSync } from "child_process";
 
 import { clampHeadOffsetRef, getMergeBase } from "../git/gitCommitQueries";
 import { fetchCommittedDiff } from "../branch-compare/branchCompareData";
+import { createTempRepo, TempGitRepo } from "./helpers/tempGitRepo";
 
 const EMPTY_TREE_SHA1 = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 /** `HEAD~N` in a repo with N or fewer commits means "all of history". */
 suite("HEAD~N past the root commit", () => {
+  let repo: TempGitRepo;
   let tmpDir: string;
 
-  const git = (...args: string[]) =>
-    execFileSync("git", args, { cwd: tmpDir, encoding: "utf8" });
-
   suiteSetup(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ffe-headoffset-"));
-    git("init", "-q");
-    git("config", "user.email", "test@example.invalid");
-    git("config", "user.name", "Test");
+    repo = createTempRepo("ffe-headoffset-");
+    tmpDir = repo.dir;
+    const git = repo.git;
     for (const n of [1, 2, 3]) {
       fs.writeFileSync(path.join(tmpDir, `f${n}.txt`), String(n));
       git("add", ".");
@@ -28,17 +24,7 @@ suite("HEAD~N past the root commit", () => {
     }
   });
 
-  suiteTeardown(() => {
-    // Git object files are read-only; on Windows rmSync's force doesn't clear the attribute.
-    const makeWritable = (dir: string): void => {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const p = path.join(dir, entry.name);
-        if (entry.isDirectory()) { makeWritable(p); } else { fs.chmodSync(p, 0o666); }
-      }
-    };
-    makeWritable(tmpDir);
-    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-  });
+  suiteTeardown(() => repo.dispose());
 
   test("HEAD~N beyond the root clamps to the empty tree", async () => {
     assert.deepStrictEqual(await clampHeadOffsetRef(tmpDir, "HEAD~10"), { ref: EMPTY_TREE_SHA1, availableCommits: 3 });
