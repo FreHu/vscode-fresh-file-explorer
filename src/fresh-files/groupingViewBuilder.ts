@@ -47,6 +47,34 @@ export class GroupingViewBuilder {
   }
 
   /**
+   * Bucket the files that pass `filterPredicate` under a group key.
+   * A file whose `keyOf` returns undefined is left out of every group.
+   */
+  private static groupFilesBy<K>(
+    freshFiles: Map<AbsolutePath, FileMetadata>,
+    filterPredicate: (metadata: FileMetadata) => boolean,
+    keyOf: (metadata: FileMetadata) => K | undefined,
+  ): Map<K, { files: AbsolutePath[]; metadata: FileMetadata }[]> {
+    const groups = new Map<K, { files: AbsolutePath[]; metadata: FileMetadata }[]>();
+    for (const [filePath, metadata] of freshFiles) {
+      if (!filterPredicate(metadata)) {
+        continue;
+      }
+      const key = keyOf(metadata);
+      if (key === undefined) {
+        continue;
+      }
+      let group = groups.get(key);
+      if (!group) {
+        group = [];
+        groups.set(key, group);
+      }
+      group.push({ files: [filePath], metadata });
+    }
+    return groups;
+  }
+
+  /**
    * Build view grouped by author
    */
   static buildAuthorGroupedView(
@@ -56,22 +84,12 @@ export class GroupingViewBuilder {
     openChangesMode: boolean,
     results: FreshFilesTreeItem[],
   ): FreshFilesTreeItem[] {
-    const authorGroups = new Map<string, { files: AbsolutePath[]; metadata: FileMetadata }[]>();
-
-    for (const [filePath, metadata] of freshFiles) {
-      if (!filterPredicate(metadata)) {
-        continue;
-      }
-
-      // Get author name - use "Unknown" for files without author (pending changes)
-      const authorName = metadata.author || "(No author)";
-
-      if (!authorGroups.has(authorName)) {
-        authorGroups.set(authorName, []);
-      }
-
-      authorGroups.get(authorName)!.push({ files: [filePath], metadata });
-    }
+    // Pending changes have no author.
+    const authorGroups = GroupingViewBuilder.groupFilesBy(
+      freshFiles,
+      filterPredicate,
+      (metadata) => metadata.author || "(No author)",
+    );
 
     const sortedAuthors = sortOrder === "date"
       ? Array.from(authorGroups.entries())
@@ -189,26 +207,12 @@ export class GroupingViewBuilder {
     openChangesMode: boolean,
     results: FreshFilesTreeItem[],
   ): FreshFilesTreeItem[] {
-    const commitGroups = new Map<string, { files: AbsolutePath[]; metadata: FileMetadata }[]>();
-
-    for (const [filePath, metadata] of freshFiles) {
-      if (!filterPredicate(metadata)) {
-        continue;
-      }
-
-      // Skip pending files (no commit hash)
-      if (metadata.isPending || !metadata.commitHash) {
-        continue;
-      }
-
-      const commitHash = metadata.commitHash;
-
-      if (!commitGroups.has(commitHash)) {
-        commitGroups.set(commitHash, []);
-      }
-
-      commitGroups.get(commitHash)!.push({ files: [filePath], metadata });
-    }
+    // Pending files have no commit and get no group.
+    const commitGroups = GroupingViewBuilder.groupFilesBy(
+      freshFiles,
+      filterPredicate,
+      (metadata) => (metadata.isPending || !metadata.commitHash ? undefined : metadata.commitHash),
+    );
 
     const sortedCommits = Array.from(commitGroups.entries()).sort((a, b) => {
       const dateA = mostRecentDateInGroup(a[1]);
@@ -302,23 +306,11 @@ export class GroupingViewBuilder {
     openChangesMode: boolean,
     results: FreshFilesTreeItem[],
   ): FreshFilesTreeItem[] {
-    const phaseGroups = new Map<MoonPhase, { files: AbsolutePath[]; metadata: FileMetadata }[]>();
-
-    for (const [filePath, metadata] of freshFiles) {
-      if (!filterPredicate(metadata)) {
-        continue;
-      }
-
-      // Get moon phase for this file's date
-      const moonPhaseInfo = getMoonPhase(metadata.date);
-      const phaseName = moonPhaseInfo.name;
-
-      if (!phaseGroups.has(phaseName)) {
-        phaseGroups.set(phaseName, []);
-      }
-
-      phaseGroups.get(phaseName)!.push({ files: [filePath], metadata });
-    }
+    const phaseGroups = GroupingViewBuilder.groupFilesBy(
+      freshFiles,
+      filterPredicate,
+      (metadata) => getMoonPhase(metadata.date).name,
+    );
 
     // Define phase order (new moon to waning crescent)
     const phaseOrder: MoonPhase[] = [
