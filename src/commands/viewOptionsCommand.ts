@@ -52,6 +52,7 @@ async function showViewOptionsMenu(freshFileProvider: FreshFileProvider): Promis
   quickPick.placeholder = "Select a view option to configure";
 
   quickPick.items = options;
+  quickPick.onDidHide(() => quickPick.dispose());
 
   quickPick.onDidAccept(async () => {
     const selected = quickPick.selectedItems[0] as ViewOption | undefined;
