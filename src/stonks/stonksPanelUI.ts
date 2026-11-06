@@ -1,5 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
-import { getNonce } from "../utils/webviewUtils";
+import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getWebviewHtml(cspSource: string, scriptUri: string, codiconCssUri: string): string {
   const nonce = getNonce();
@@ -420,13 +420,7 @@ export function getWebviewHtml(cspSource: string, scriptUri: string, codiconCssU
 
   return html`<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${raw(cspSource)} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; font-src ${raw(cspSource)};">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="${raw(codiconCssUri)}">
-  <style nonce="${nonce}">${raw(styles)}</style>
-</head>
+${raw(webviewHead({ cspSource, nonce, styles, codiconCssUri, inlineStyles: false }))}
 <body>
   <div class="header">
     <h2>📈 CodeStonks</h2>

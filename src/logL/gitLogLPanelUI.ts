@@ -1,5 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
-import { getNonce } from "../utils/webviewUtils";
+import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codiconCssUri: string): string {
   const nonce = getNonce();
@@ -385,14 +385,7 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codico
 
   return html`<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}'; font-src ${cspSource};">
-  <title>Git Log -L</title>
-  <link rel="stylesheet" href="${raw(codiconCssUri)}">
-  <style>${raw(styles)}</style>
-</head>
+${raw(webviewHead({ cspSource, nonce, styles, title: "Git Log -L", codiconCssUri }))}
 <body>
   <div class="sticky-header">
     <h2 id="title">Git Log -L</h2>

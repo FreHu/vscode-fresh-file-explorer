@@ -1,5 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
-import { getNonce } from "../utils/webviewUtils";
+import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getWebviewHtml(cspSource: string, scriptUri: string): string {
   const nonce = getNonce();
@@ -172,13 +172,7 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
 
   return html`<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}';">
-  <title>Fresh File Explorer - Git Performance Benchmark</title>
-  <style>${raw(styles)}</style>
-</head>
+${raw(webviewHead({ cspSource, nonce, styles, title: "Fresh File Explorer - Git Performance Benchmark" }))}
 <body>
   <div class="container">
     <h2>Fresh File Explorer - Git Performance Benchmark</h2>

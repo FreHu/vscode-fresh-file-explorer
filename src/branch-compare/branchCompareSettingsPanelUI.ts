@@ -1,5 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
-import { getNonce } from "../utils/webviewUtils";
+import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 /**
  * HTML / CSS scaffolding for the Branch Compare settings panel. The
@@ -366,14 +366,7 @@ export function getBranchCompareSettingsHtml(
 
   return html`<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}'; font-src ${cspSource};">
-  <title>Branch Compare</title>
-  <link rel="stylesheet" href="${raw(codiconCssUri)}">
-  <style>${raw(styles)}</style>
-</head>
+${raw(webviewHead({ cspSource, nonce, styles, title: "Branch Compare", codiconCssUri }))}
 <body>
   <div class="table-toolbar">
     <button class="link-btn" id="showTreeBtn" title="Reveal the Branch Compare tree in the Explorer side bar">

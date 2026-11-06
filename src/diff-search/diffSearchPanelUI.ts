@@ -1,5 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
-import { getNonce } from "../utils/webviewUtils";
+import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getWebviewHtml(cspSource: string, scriptUri: string): string {
   const nonce = getNonce();
@@ -236,13 +236,7 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
 
   return html`<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}';">
-  <title>Diff Search</title>
-  <style>${raw(styles)}</style>
-</head>
+${raw(webviewHead({ cspSource, nonce, styles, title: "Diff Search" }))}
 <body>
   <div class="search-container">
     <h2>Search in Diffs</h2>
