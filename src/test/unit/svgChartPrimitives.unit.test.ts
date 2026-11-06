@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { renderDateXAxis, xAxisLabelIndices } from "../../webview/svgChartPrimitives";
+import { ADDED_FILL, renderBar, renderDateXAxis, xAxisLabelIndices } from "../../webview/svgChartPrimitives";
 
 const PAD = { top: 10, right: 10, bottom: 10, left: 40 };
 
@@ -18,6 +18,20 @@ suite("xAxisLabelIndices", () => {
 
   test("a single point gets one label", () => {
     assert.deepStrictEqual(xAxisLabelIndices(1, 1), [0]);
+  });
+});
+
+suite("renderBar", () => {
+  test("centred on its point, standing on the base line", () => {
+    assert.strictEqual(
+      renderBar(2, 10, PAD, 100, 30, ADDED_FILL),
+      `<rect x="57" y="70" width="6" height="30" fill="${ADDED_FILL}" opacity="0.7"/>`,
+    );
+  });
+
+  test("width stays between 1 and 12px", () => {
+    assert.ok(renderBar(0, 1, PAD, 0, 1, "red").includes(`width="1"`));
+    assert.ok(renderBar(0, 100, PAD, 0, 1, "red").includes(`width="12"`));
   });
 });
 

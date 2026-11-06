@@ -6,6 +6,9 @@ import {
   renderYAxis as _renderYAxis,
   renderYAxisFromRange as _renderYAxisFromRange,
   renderDateXAxis,
+  renderBar,
+  ADDED_FILL,
+  DELETED_FILL,
 } from "./svgChartPrimitives";
 import { PanController } from "./panController";
 import { html } from "../utils/templateHelpers";
@@ -1102,17 +1105,10 @@ function renderVolumeBars(
   _plotW: number, n: number, xStep: number,
 ): string {
   const maxVol = Math.max(...volumes, 1);
-  const barWidth = Math.max(1, Math.min(xStep * 0.6, 12));
   let bars = "";
   for (let i = 0; i < n; i++) {
-    const x = PADDING.left + i * xStep - barWidth / 2;
-    const barH = (volumes[i] / maxVol) * bandH;
-    const y = top + bandH - barH;
     const netAdd = data[i].filesAdded - data[i].filesDeleted;
-    const fill = netAdd >= 0
-      ? "var(--vscode-gitDecoration-addedResourceForeground, #73c991)"
-      : "var(--vscode-gitDecoration-deletedResourceForeground, #c74e39)";
-    bars += `<rect x="${x}" y="${y}" width="${barWidth}" height="${barH}" fill="${fill}" opacity="0.7"/>`;
+    bars += renderBar(i, xStep, PADDING, top + bandH, (volumes[i] / maxVol) * bandH, netAdd >= 0 ? ADDED_FILL : DELETED_FILL);
   }
   return bars;
 }

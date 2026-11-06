@@ -116,6 +116,18 @@ export interface AddedRemovedPoint {
   removed: number;
 }
 
+export const ADDED_FILL = "var(--vscode-gitDecoration-addedResourceForeground, #73c991)";
+export const DELETED_FILL = "var(--vscode-gitDecoration-deletedResourceForeground, #c74e39)";
+
+/** One translucent bar centred on point `i`, standing on `baseY`; 60% of the point spacing wide, 1–12px. */
+export function renderBar(
+  i: number, xStep: number, pad: ChartPadding, baseY: number, height: number, fill: string,
+): string {
+  const width = Math.max(1, Math.min(xStep * 0.6, 12));
+  const x = pad.left + i * xStep - width / 2;
+  return `<rect x="${x}" y="${baseY - height}" width="${width}" height="${height}" fill="${fill}" opacity="0.7"/>`;
+}
+
 /**
  * Render stacked bars: green (added) grows up from baseline,
  * red (removed) also grows up stacked behind it (total height = added + removed).
@@ -125,22 +137,16 @@ export function renderAddedRemovedBars(
   _plotW: number, n: number, xStep: number, pad: ChartPadding,
 ): string {
   const maxTotal = Math.max(...data.map(d => d.added + d.removed), 1);
-  const barWidth = Math.max(1, Math.min(xStep * 0.6, 12));
   let bars = "";
   for (let i = 0; i < n; i++) {
-    const x = pad.left + i * xStep - barWidth / 2;
     const total = data[i].added + data[i].removed;
     // Total bar (removed = red behind)
-    const totalH = (total / maxTotal) * bandH;
-    const totalY = top + bandH - totalH;
     if (data[i].removed > 0) {
-      bars += `<rect x="${x}" y="${totalY}" width="${barWidth}" height="${totalH}" fill="var(--vscode-gitDecoration-deletedResourceForeground, #c74e39)" opacity="0.7"/>`;
+      bars += renderBar(i, xStep, pad, top + bandH, (total / maxTotal) * bandH, DELETED_FILL);
     }
     // Added bar (green in front, stacked from bottom)
-    const addedH = (data[i].added / maxTotal) * bandH;
     if (data[i].added > 0) {
-      const addedY = top + bandH - addedH;
-      bars += `<rect x="${x}" y="${addedY}" width="${barWidth}" height="${addedH}" fill="var(--vscode-gitDecoration-addedResourceForeground, #73c991)" opacity="0.7"/>`;
+      bars += renderBar(i, xStep, pad, top + bandH, (data[i].added / maxTotal) * bandH, ADDED_FILL);
     }
   }
   return bars;
