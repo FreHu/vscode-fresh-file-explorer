@@ -1,11 +1,12 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { execGitWithArgs, gitUri } from "../git/gitOperations";
-import { getCommitParent, getCommitChanges, getCommitSubject } from "../git/gitCommitQueries";
+import { getCommitParent, getCommitChanges } from "../git/gitCommitQueries";
+import { openCommitByHash } from "../commands/openCommitCommand";
 import { GitLogLCommit } from "../git/gitLogLParser";
 import { CommitData, GitLogLToWebview, GitLogLFromWebview } from "../webview/messages";
 import { getGitLogLPanelHtml } from "./gitLogLPanelUI";
-import { log, showError, showInfo } from "../extension/logger";
+import { log, showError } from "../extension/logger";
 import { normalizePath } from "../utils";
 import { getLocalResourceRoots } from "../utils/webviewPanelOptions";
 import { BoundedMap } from "../utils/collectionUtils";
@@ -161,7 +162,7 @@ export class GitLogLPanel {
         await this._openSingle(msg.hash);
         break;
       case "openCommit":
-        await this._openCommit(msg.hash);
+        await openCommitByHash(msg.hash, this._repoRoot);
         break;
       case "openFileDiff":
         await this._openFileDiff(msg.hash);
@@ -210,59 +211,6 @@ export class GitLogLPanel {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       showError(`Could not open diff: ${message}`, `git log -L diff error: ${message}`);
-    }
-  }
-
-  private async _openCommit(hash: string) {
-    try {
-      const parentHash = await getCommitParent(this._repoRoot, hash);
-      const commitSubject = await getCommitSubject(this._repoRoot, hash);
-      const shortHash = hash.slice(0, 7);
-      const title = `${shortHash} - ${commitSubject}`;
-
-      const changes = await getCommitChanges(this._repoRoot, hash);
-      if (changes.length === 0) {
-        showInfo(`No changes found in commit ${shortHash}.`);
-        return;
-      }
-
-      const resources: { originalUri?: vscode.Uri; modifiedUri?: vscode.Uri }[] = [];
-      for (const change of changes) {
-        const fileUri = vscode.Uri.file(path.join(this._repoRoot, change.filePath));
-        switch (change.status) {
-          case "A":
-            resources.push({ originalUri: undefined, modifiedUri: gitUri(fileUri, hash) });
-            break;
-          case "D":
-            resources.push({ originalUri: gitUri(fileUri, parentHash ?? hash), modifiedUri: undefined });
-            break;
-          case "R":
-          case "C": {
-            const origUri = vscode.Uri.file(path.join(this._repoRoot, change.originalFilePath!));
-            resources.push({ originalUri: gitUri(origUri, parentHash ?? hash), modifiedUri: gitUri(fileUri, hash) });
-            break;
-          }
-          case "M":
-          case "T":
-            resources.push({ originalUri: gitUri(fileUri, parentHash ?? hash), modifiedUri: gitUri(fileUri, hash) });
-            break;
-        }
-      }
-
-      const parentId = parentHash ?? "root";
-      const multiDiffSourceUri = vscode.Uri.from({
-        scheme: "scm-history-item",
-        path: `${this._repoRoot}/${parentId}..${hash}`,
-      });
-
-      await vscode.commands.executeCommand("_workbench.openMultiDiffEditor", {
-        multiDiffSourceUri,
-        title,
-        resources,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      showError(`Failed to open commit: ${message}`, `git log -L open commit error: ${message}`);
     }
   }
 

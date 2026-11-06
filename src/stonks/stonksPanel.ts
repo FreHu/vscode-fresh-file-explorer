@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { execGitWithArgs, gitUri } from "../git/gitOperations";
-import { getCommitParent, getCommitSubject, getCommitChanges } from "../git/gitCommitQueries";
+import { execGitWithArgs } from "../git/gitOperations";
+import { openCommitByHash } from "../commands/openCommitCommand";
 import { buildStonksData } from "./stonksDataCollector";
 import { getWebviewHtml } from "./stonksPanelUI";
-import { log, showError } from "../extension/logger";
+import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 import type { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import type { NormalizedRepoPath } from "../pathTypes";
@@ -169,7 +169,7 @@ export class StonksPanel {
         break;
       case "openCommit":
         if (this._selectedRepo) {
-          void this._openCommit(message.hash);
+          void openCommitByHash(message.hash, this._selectedRepo);
         }
         break;
       case "updateConfig":
@@ -270,57 +270,6 @@ export class StonksPanel {
       .asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "media", "codicons", "codicon.css"))
       .toString();
     webview.html = getWebviewHtml(webview.cspSource, scriptUri, codiconCssUri);
-  }
-
-  private async _openCommit(commitHash: string) {
-    const repoRoot = this._selectedRepo!;
-    try {
-      const parentHash = await getCommitParent(repoRoot, commitHash);
-      const commitSubject = await getCommitSubject(repoRoot, commitHash);
-      const shortHash = commitHash.substring(0, 7);
-      const title = `${shortHash} - ${commitSubject}`;
-
-      const changes = await getCommitChanges(repoRoot, commitHash);
-      if (changes.length === 0) { return; }
-
-      const resources: { originalUri?: vscode.Uri; modifiedUri?: vscode.Uri }[] = [];
-      for (const change of changes) {
-        const fileUri = vscode.Uri.file(path.join(repoRoot, change.filePath));
-        switch (change.status) {
-          case "A":
-            resources.push({ modifiedUri: gitUri(fileUri, commitHash) });
-            break;
-          case "D":
-            resources.push({ originalUri: gitUri(fileUri, parentHash ?? commitHash) });
-            break;
-          case "R":
-          case "C": {
-            const origUri = vscode.Uri.file(path.join(repoRoot, change.originalFilePath!));
-            resources.push({ originalUri: gitUri(origUri, parentHash ?? commitHash), modifiedUri: gitUri(fileUri, commitHash) });
-            break;
-          }
-          case "M":
-          case "T":
-            resources.push({ originalUri: gitUri(fileUri, parentHash ?? commitHash), modifiedUri: gitUri(fileUri, commitHash) });
-            break;
-        }
-      }
-
-      const parentId = parentHash ?? "root";
-      const multiDiffSourceUri = vscode.Uri.from({
-        scheme: "scm-history-item",
-        path: `${repoRoot}/${parentId}..${commitHash}`,
-      });
-
-      await vscode.commands.executeCommand("_workbench.openMultiDiffEditor", {
-        multiDiffSourceUri,
-        title,
-        resources,
-      });
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      showError(`Failed to open commit: ${reason}`, `Failed to open commit ${commitHash}: ${reason}`);
-    }
   }
 
   public dispose() {
