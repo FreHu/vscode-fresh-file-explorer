@@ -1,4 +1,7 @@
-import { normalizePath } from "./utils";
+/** Normalize path separators to forward slashes. */
+export function normalizePath(path: string): string {
+  return path.replace(/\\/g, "/");
+}
 
 /**
  * Branded type for absolute file system paths

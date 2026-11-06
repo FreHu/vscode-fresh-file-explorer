@@ -1,12 +1,9 @@
+import { normalizePath } from "../pathTypes";
 import { compileFilesExclude, ExcludePredicate } from "./filesExcludeMatcher";
 
 /** Minimal shape of a workspace folder this filter needs. */
 export interface FolderPath {
   path: string;
-}
-
-function toForwardSlash(p: string): string {
-  return p.replace(/\\/g, "/");
 }
 
 /**
@@ -20,7 +17,7 @@ export function findOwningFolder<T extends FolderPath>(
 ): T | undefined {
   let owner: T | undefined;
   for (const folder of folders) {
-    const fp = toForwardSlash(folder.path);
+    const fp = normalizePath(folder.path);
     if (normalizedAbsPath === fp || normalizedAbsPath.startsWith(fp + "/")) {
       if (!owner || folder.path.length > owner.path.length) {
         owner = folder;
@@ -81,8 +78,8 @@ export class FilesExcludeFilter {
     if (!this.enabled) {
       return false;
     }
-    const folderPath = toForwardSlash(folder.path);
-    const normalized = toForwardSlash(absPath);
+    const folderPath = normalizePath(folder.path);
+    const normalized = normalizePath(absPath);
     if (normalized !== folderPath && !normalized.startsWith(folderPath + "/")) {
       return false;
     }
@@ -98,7 +95,7 @@ export class FilesExcludeFilter {
     if (!this.enabled) {
       return false;
     }
-    const owner = findOwningFolder(toForwardSlash(absPath), folders);
+    const owner = findOwningFolder(normalizePath(absPath), folders);
     return owner ? this.isExcludedUnder(absPath, owner) : false;
   }
 

@@ -1,4 +1,5 @@
 import * as path from "path";
+import { normalizePath } from "../pathTypes";
 
 /**
  * Whether `repoRoot` is listed in `git.ignoredRepositories`, matched the way
@@ -14,7 +15,7 @@ export function isIgnoredRepository(opts: {
   caseInsensitive: boolean;
 }): boolean {
   const norm = (p: string) => {
-    const n = path.posix.normalize(p.replace(/\\/g, "/")).replace(/(.)\/$/, "$1");
+    const n = path.posix.normalize(normalizePath(p)).replace(/(.)\/$/, "$1");
     return opts.caseInsensitive ? n.toLowerCase() : n;
   };
   const isAbsolute = (p: string) => /^([a-zA-Z]:[\\/]|\\\\|\/)/.test(p);

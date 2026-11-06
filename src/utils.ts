@@ -1,10 +1,7 @@
 import * as vscode from "vscode";
 import { ConfigService } from "./config/configService";
 
-/** Helper to normalize path separators to forward slashes */
-export function normalizePath(path: string): string {
-  return path.replace(/\\/g, "/");
-}
+export { normalizePath } from "./pathTypes";
 
 /**
  * Opens a diff editor, but if the same diff is already open in any tab, focuses that tab instead of creating a duplicate.

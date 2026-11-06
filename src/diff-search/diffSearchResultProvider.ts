@@ -10,7 +10,7 @@ import {
   DiffSearchPendingItem,
   DiffSearchTreeItem,
 } from "./diffSearchTreeItems";
-import { AbsolutePath } from "../pathTypes";
+import { AbsolutePath, normalizePath } from "../pathTypes";
 import { CommitHash } from "../types";
 import { log } from "../extension/logger";
 import { ContextManager } from "../extension/contextManager";
@@ -247,8 +247,8 @@ export class DiffSearchResultProvider implements vscode.TreeDataProvider<DiffSea
     // Try to find which repo this file belongs to by checking if the file path starts with any repo path
     for (const [repoPath] of this.repoNames) {
       // Normalize paths for comparison (handle forward/backslash differences)
-      const normalizedFilePath = filePath.replace(/\\/g, '/').toLowerCase();
-      const normalizedRepoPath = repoPath.replace(/\\/g, '/').toLowerCase();
+      const normalizedFilePath = normalizePath(filePath).toLowerCase();
+      const normalizedRepoPath = normalizePath(repoPath).toLowerCase();
       
       // Ensure repo path ends with / for proper matching
       const repoPathWithSlash = normalizedRepoPath.endsWith('/') ? normalizedRepoPath : normalizedRepoPath + '/';

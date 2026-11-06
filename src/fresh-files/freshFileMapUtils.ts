@@ -1,14 +1,7 @@
 import * as path from "path";
 
-import type { AbsolutePath } from "../pathTypes";
+import { normalizePath, type AbsolutePath } from "../pathTypes";
 import type { WorkspaceFolderInfo } from "../types";
-
-// Inlined rather than imported from "../utils" — that module has a top-level
-// `import vscode`, which would drag this otherwise vscode-free, directly
-// unit-testable module into needing the extension host to even load.
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, "/");
-}
 
 /** Checks whether `normalizedFilePath` belongs to any of the given normalized repo paths. */
 export function fileInTargetRepo(normalizedFilePath: string, targetRepoPaths: string[]): boolean {

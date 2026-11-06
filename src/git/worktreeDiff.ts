@@ -1,6 +1,8 @@
+import { normalizePath } from "../pathTypes";
+
 /** Worktree root from the contents of `<common>/worktrees/<name>/gitdir`, which holds `<worktree>/.git`. */
 export function worktreePathFromGitdirFile(content: string): string | undefined {
-  const gitFile = content.trim().replace(/\\/g, "/");
+  const gitFile = normalizePath(content.trim());
   return gitFile.endsWith("/.git") ? gitFile.slice(0, -"/.git".length) : undefined;
 }
 
