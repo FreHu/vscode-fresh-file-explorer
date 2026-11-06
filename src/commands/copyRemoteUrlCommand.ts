@@ -131,7 +131,7 @@ export function buildRemoteFileUrl(
       const filePath = filePathInRepo ? `/${encodedPath}` : "/";
       return `${normalizedRemoteUrl}?path=${filePath}&version=GB${encodedBranch}`;
     }
-    default:
+    case "unknown":
       return undefined;
   }
 }

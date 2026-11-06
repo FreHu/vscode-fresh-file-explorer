@@ -15,7 +15,7 @@ export function repoKindIcon(kind: RepoKind): string {
   switch (kind) {
     case "worktree": return "worktree";
     case "submodule": return "archive";
-    default: return "repo";
+    case "repo": return "repo";
   }
 }
 
@@ -24,6 +24,6 @@ export function repoKindLabel(kind: RepoKind): string | undefined {
   switch (kind) {
     case "worktree": return "Linked worktree";
     case "submodule": return "Submodule";
-    default: return undefined;
+    case "repo": return undefined;
   }
 }

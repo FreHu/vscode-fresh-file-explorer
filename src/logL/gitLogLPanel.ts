@@ -242,7 +242,8 @@ export class GitLogLPanel {
             resources.push({ originalUri: gitUri(origUri, parentHash ?? hash), modifiedUri: gitUri(fileUri, hash) });
             break;
           }
-          default:
+          case "M":
+          case "T":
             resources.push({ originalUri: gitUri(fileUri, parentHash ?? hash), modifiedUri: gitUri(fileUri, hash) });
             break;
         }

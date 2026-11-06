@@ -69,8 +69,9 @@ function groupKeyFor(file: ChangedFile, mode: GroupingMode): { key: string; labe
       const label = `${phase.emoji} ${phase.name}`;
       return { key: phase.name, label, icon: "circle-filled" };
     }
-    default:
-      // Should not be called for File Structure / Flat List
+    case "File Structure":
+    case "Flat List":
+      // Not called for these: they don't group by key.
       return { key: "", label: "", icon: "folder" };
   }
 }

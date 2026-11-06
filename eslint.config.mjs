@@ -59,6 +59,10 @@ export default [{
         "@typescript-eslint/no-floating-promises": "error",
         "@typescript-eslint/no-misused-promises": "error",
 
+        // Host↔webview messages are discriminated unions: a command added to a union must fail
+        // lint in every switch that handles it, instead of being dropped silently.
+        "@typescript-eslint/switch-exhaustiveness-check": "error",
+
         // Disable the base rule — the TS-aware version handles everything below
         "no-unused-vars": "off",
         "@typescript-eslint/no-unused-vars": ["warn", {

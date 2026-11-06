@@ -299,7 +299,8 @@ export class StonksPanel {
             resources.push({ originalUri: gitUri(origUri, parentHash ?? commitHash), modifiedUri: gitUri(fileUri, commitHash) });
             break;
           }
-          default:
+          case "M":
+          case "T":
             resources.push({ originalUri: gitUri(fileUri, parentHash ?? commitHash), modifiedUri: gitUri(fileUri, commitHash) });
             break;
         }

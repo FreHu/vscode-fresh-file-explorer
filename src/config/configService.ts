@@ -15,6 +15,8 @@ function pickDefault(defaults: Record<string, string>): string {
     case vscode.ColorThemeKind.Light:             return defaults.light ?? defaults.dark ?? "#000000";
     case vscode.ColorThemeKind.HighContrast:      return defaults.highContrast ?? defaults.dark ?? "#000000";
     case vscode.ColorThemeKind.HighContrastLight: return defaults.highContrastLight ?? defaults.light ?? "#000000";
+    // VS Code's enum, so a kind added in a later VS Code falls back to dark.
+    case vscode.ColorThemeKind.Dark:
     default:                                       return defaults.dark ?? "#000000";
   }
 }
