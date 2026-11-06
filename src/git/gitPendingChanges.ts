@@ -4,7 +4,8 @@ import * as fs from "fs";
 import { log } from "../extension/logger";
 import { FileMetadata, asCommitAuthor } from "../types";
 import { ConfigService } from "../config/configService";
-import { execGitWithArgs, decodeGitPath, fileExists } from "./gitOperations";
+import { execGitWithArgs, fileExists } from "./gitOperations";
+import { parseStatusZ, STATUS_Z_ARGS } from "./statusPorcelainZ";
 import { streamGitDiffNumstat } from "./gitLogStream";
 
 /**
@@ -38,29 +39,16 @@ export async function collectPendingChanges(
     log(`Could not get git user.name for pending changes: ${error}`);
   }
 
-  // Get all modified, added, deleted, and untracked files using git status
-  // --porcelain gives machine-readable output
-  // -uall shows individual untracked files (not just directories)
   log(`Executing git status in ${repoRelativePath || "root"}`);
 
-  const output = await execGitWithArgs(["status", "--porcelain", "-uall"], repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
-  const lines = output.split("\n").filter(line => line.length > 0);
+  const output = await execGitWithArgs(STATUS_Z_ARGS, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   const now = new Date();
 
   // Collect all tracked file paths (non-untracked, non-deleted) for batch diff
   const trackedFiles: string[] = [];
   const filePathMap = new Map<string, { status: string; relativePath: string; renameSourceInRepo?: string }>();
 
-  for (const line of lines) {
-    // Format: XY filename (where XY is the status code)
-    // Examples: " M file.txt", "?? newfile.txt", "A  staged.txt", "MM both.txt", " D deleted.txt"
-    if (line.length < 4) {
-      continue;
-    }
-
-    const statusCode = line.substring(0, 2);
-    let filePath = decodeGitPath(line.substring(3));
-
+  for (const { xy: statusCode, pathInRepo: filePath, renameSource } of parseStatusZ(output)) {
     // A path of "." or "" names the repo root itself, never a real file. Seen from a corrupt
     // index (git misreads a truncated entry table as the CWD being added/deleted) — skip rather
     // than let it render as a bogus tree row for the repo folder.
@@ -77,19 +65,11 @@ export async function collectPendingChanges(
       continue;
     }
 
-    // Handle renamed files: "R  old -> new"
-    // Track the old path for removal so it doesn't linger in the tree from historical data.
-    // Also store the old repo-relative path so discard can properly undo the rename.
-    let renameSourceInRepo: string | undefined;
-    if (statusCode.startsWith("R")) {
-      const arrowIndex = filePath.indexOf(" -> ");
-      if (arrowIndex !== -1) {
-        const oldFilePath = filePath.substring(0, arrowIndex);
-        renameSourceInRepo = oldFilePath;
-        const oldRelativePath = repoRelativePath ? repoRelativePath + "/" + oldFilePath : oldFilePath;
-        removedPaths.push(oldRelativePath);
-        filePath = filePath.substring(arrowIndex + 4);
-      }
+    // A rename's old path is removed from the tree so it doesn't linger from historical data;
+    // discard uses it to undo the rename. A copy's source stays.
+    const renameSourceInRepo = statusCode.startsWith("R") ? renameSource : undefined;
+    if (renameSourceInRepo !== undefined) {
+      removedPaths.push(repoRelativePath ? repoRelativePath + "/" + renameSourceInRepo : renameSourceInRepo);
     }
 
     // Build full path relative to workspace root

@@ -1,6 +1,7 @@
 import * as path from "path";
 
-import { execGitWithArgs, decodeGitPath } from "../git/gitOperations";
+import { execGitWithArgs } from "../git/gitOperations";
+import { parseStatusZ, STATUS_Z_ARGS } from "../git/statusPorcelainZ";
 import { COMMIT_NAME_STATUS_PRETTY, streamGitDiffNumstat, streamGitLogNameStatus } from "../git/gitLogStream";
 import { ConfigService } from "../config/configService";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
@@ -107,12 +108,12 @@ export function parseDiffNameStatusZ(output: string): Array<{
       const src = fields[i++];
       const dst = fields[i++];
       if (src && dst) {
-        out.push({ status, pathInRepo: decodeGitPath(dst), renameSource: decodeGitPath(src) });
+        out.push({ status, pathInRepo: dst, renameSource: src });
       }
     } else {
       const p = fields[i++];
       if (p) {
-        out.push({ status, pathInRepo: decodeGitPath(p) });
+        out.push({ status, pathInRepo: p });
       }
     }
   }
@@ -138,69 +139,22 @@ export function parseStatusPorcelainZ(output: string): Array<{
   pathInRepo: string;
   renameSource?: string;
 }> {
-  if (!output) return [];
-  const stripped = output.endsWith("\0") ? output.slice(0, -1) : output;
-  if (!stripped) return [];
-
   const out: Array<{ status: ChangeStatus; pathInRepo: string; renameSource?: string }> = [];
-  // Split into entries. `git status -z` emits `XY<space>path\0`, or for
-  // renames/copies `XY<space>new\0old\0`. We need a small state machine.
-  const fields = stripped.split("\0");
-  let i = 0;
-  while (i < fields.length) {
-    const entry = fields[i++];
-    if (!entry) continue;
-    const xy = entry.slice(0, 2);
-    // entry[2] is the space separator; the path begins at index 3.
-    const pathField = entry.slice(3);
-
-    if (xy === "!!") {
-      // ignored — skip (rename source still needs to be consumed if present)
-      continue;
-    }
+  for (const { xy, pathInRepo, renameSource } of parseStatusZ(output)) {
     if (xy === "??") {
-      // A trailing slash on an untracked entry means git refused to descend into
-      // a nested git boundary (worktree / submodule / nested repo). With `-uall`
-      // ordinary untracked dirs are already expanded to files, so this is never a
-      // plain directory — drop it so nested worktrees don't appear as phantom
-      // changed files.
-      const p = decodeGitPath(pathField);
-      if (!p.endsWith("/")) {
-        out.push({ status: "U", pathInRepo: p });
-      }
+      // A trailing slash is a git boundary (nested worktree / submodule / repo): with
+      // `-uall` plain untracked dirs are expanded to files. Dropped so it doesn't show
+      // up as a phantom changed file.
+      if (!pathInRepo.endsWith("/")) out.push({ status: "U", pathInRepo });
       continue;
     }
-
-    const x = xy[0];
-    const y = xy[1];
-    let renameSource: string | undefined;
-    // Renames / copies: a second field follows with the original path. The
-    // marker can be in either column (index rename: R*, worktree rename: *R).
-    if (x === "R" || x === "C" || y === "R" || y === "C") {
-      const src = fields[i++];
-      if (src) {
-        renameSource = decodeGitPath(src);
-      }
-    }
-
-    let status: ChangeStatus;
-    if (x === "D" || y === "D") {
-      status = "D";
-    } else if (renameSource) {
-      status = "R";
-    } else if (x === "A" || y === "A") {
-      status = "A";
-    } else if (x === "T" || y === "T") {
-      status = "T";
-    } else {
-      // M, U (unmerged), and any other change → modified.
-      status = "M";
-    }
-    if (renameSource !== undefined) {
-      out.push({ status, pathInRepo: decodeGitPath(pathField), renameSource });
-    } else {
-      out.push({ status, pathInRepo: decodeGitPath(pathField) });
-    }
+    const status: ChangeStatus =
+      xy.includes("D") ? "D"
+      : renameSource ? "R"
+      : xy.includes("A") ? "A"
+      : xy.includes("T") ? "T"
+      : "M"; // M, U (unmerged) and any other change
+    out.push(renameSource ? { status, pathInRepo, renameSource } : { status, pathInRepo });
   }
   return out;
 }
@@ -273,8 +227,7 @@ export async function fetchWorkingTreeStatus(
   // With it, a surviving trailing-slash `??` entry is unambiguously a boundary
   // and parseStatusPorcelainZ drops it (see there) — otherwise a worktree nested
   // in the repo shows up as a phantom changed "file".
-  const args = ["status", "--porcelain=v1", "-z", "-uall"];
-  const out = await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+  const out = await execGitWithArgs(STATUS_Z_ARGS, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
   return parseStatusPorcelainZ(out);
 }
 

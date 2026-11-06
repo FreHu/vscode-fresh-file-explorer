@@ -1,6 +1,6 @@
 import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
-import { execGitWithArgs, execGitWithArgsBuffer, gitProbeSucceeds, decodeGitPath } from "./gitOperations";
+import { execGitWithArgs, execGitWithArgsBuffer, gitProbeSucceeds } from "./gitOperations";
 import { parseHeadOffset } from "./refSyntax";
 import { DiffStatus, toDiffStatus } from "./diffStatus";
 
@@ -87,8 +87,8 @@ export async function getCommitChanges(repoFullPath: string, commitHash: string)
       if (i + 2 < parts.length) {
         changes.push({
           status: statusChar,
-          originalFilePath: decodeGitPath(parts[i + 1]),
-          filePath: decodeGitPath(parts[i + 2]),
+          originalFilePath: parts[i + 1],
+          filePath: parts[i + 2],
         });
         i += 3;
       } else {
@@ -99,7 +99,7 @@ export async function getCommitChanges(repoFullPath: string, commitHash: string)
       if (i + 1 < parts.length) {
         changes.push({
           status: statusChar,
-          filePath: decodeGitPath(parts[i + 1]),
+          filePath: parts[i + 1],
         });
         i += 2;
       } else {
