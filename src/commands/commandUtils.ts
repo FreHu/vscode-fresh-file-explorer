@@ -47,3 +47,13 @@ export function runQuickPickPromise<T extends vscode.QuickPickItem>(
     quickPick.show();
   });
 }
+
+/**
+ * Show a single-select picker and resolve with the accepted item, or
+ * undefined when it was dismissed.
+ */
+export async function pickOne<T extends vscode.QuickPickItem>(quickPick: vscode.QuickPick<T>): Promise<T | undefined> {
+  let picked: T | undefined;
+  const accepted = await runQuickPickPromise(quickPick, (qp) => { picked = qp.selectedItems[0]; });
+  return accepted ? picked : undefined;
+}

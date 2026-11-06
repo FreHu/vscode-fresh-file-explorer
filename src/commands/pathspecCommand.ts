@@ -7,6 +7,7 @@ import { normalizePath } from "../utils";
 import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { pickOne } from "./commandUtils";
 
 /**
  * Prompt the user to set (or clear) a git log pathspec for the given repo node.
@@ -65,17 +66,7 @@ export async function handleSetRepoPathspec(
   quickPick.matchOnDescription = true;
   quickPick.matchOnDetail = true;
 
-  const selected = await new Promise<vscode.QuickPickItem | undefined>(resolve => {
-    quickPick.onDidAccept(() => {
-      resolve(quickPick.selectedItems[0]);
-      quickPick.hide();
-    });
-    quickPick.onDidHide(() => {
-      resolve(undefined);
-      quickPick.dispose();
-    });
-    quickPick.show();
-  });
+  const selected = await pickOne(quickPick);
 
   // Handle selection
   if (!selected) {

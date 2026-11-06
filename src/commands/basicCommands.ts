@@ -39,8 +39,7 @@ export async function handleSetTimeWindow(freshFileProvider: FreshFileProvider):
   const originalTimeWindow = freshFileProvider.currentTimeWindow;
   const quickPick = createTimeWindowQuickPick(freshFileProvider.timeWindows, freshFileProvider.currentTimeWindow);
 
-  let accepted = false;
-
+  // Moving through the list previews each window; dismissing restores the original.
   quickPick.onDidChangeActive(items => {
     const item = items[0];
     if (item && item.timeWindow !== freshFileProvider.currentTimeWindow) {
@@ -48,19 +47,10 @@ export async function handleSetTimeWindow(freshFileProvider: FreshFileProvider):
     }
   });
 
-  quickPick.onDidAccept(() => {
-    accepted = true;
-    quickPick.hide();
-  });
-
-  quickPick.onDidHide(() => {
-    if (!accepted) {
-      freshFileProvider.setTimeWindow(originalTimeWindow);
-    }
-    quickPick.dispose();
-  });
-
-  quickPick.show();
+  const accepted = await runQuickPickPromise(quickPick, () => { /* the previewed window stays */ });
+  if (!accepted) {
+    freshFileProvider.setTimeWindow(originalTimeWindow);
+  }
 }
 
 export async function handleSetGroupingMode(freshFileProvider: FreshFileProvider): Promise<boolean> {
