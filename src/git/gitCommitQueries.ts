@@ -2,6 +2,7 @@ import { log } from "../extension/logger";
 import { ConfigService } from "../config/configService";
 import { execGitWithArgs, execGitWithArgsBuffer, gitProbeSucceeds, decodeGitPath } from "./gitOperations";
 import { parseHeadOffset } from "./refSyntax";
+import { DiffStatus, toDiffStatus } from "./diffStatus";
 
 /**
  * Get the content of a file from git history as a Buffer (for binary/non-UTF8 files)
@@ -42,10 +43,6 @@ export async function fileExistsAtRef(
   return gitProbeSucceeds(["cat-file", "-e", `${ref}:${fileRelativePath}`], repoFullPath);
 }
 
-/**
- * Status codes from git diff-tree --name-status
- */
-type DiffStatus = "A" | "D" | "M" | "R" | "C" | "T";
 
 export interface CommitChange {
   status: DiffStatus;
@@ -83,7 +80,7 @@ export async function getCommitChanges(repoFullPath: string, commitHash: string)
   while (i < parts.length) {
     const statusField = parts[i];
     // Status can be e.g. "M", "A", "D", "R100", "C100"
-    const statusChar = statusField[0] as DiffStatus;
+    const statusChar = toDiffStatus(statusField);
 
     if (statusChar === "R" || statusChar === "C") {
       // Rename/copy: status, original path, new path
