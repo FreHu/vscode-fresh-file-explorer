@@ -49,6 +49,7 @@ import { findRepoForAbsolutePath } from "./utils/pathUtils";
 import { normalizePath } from "./utils";
 import { NormalizedRepoPath, asAbsolutePath } from "./pathTypes";
 import { Commands } from "./commands/commandConstants";
+import { GROUPING_MODE_OPTIONS } from "./fresh-files/groupingMode";
 import { ConfigKeys } from "./config/configKeyConstants";
 import { createFreshFilesDragAndDropController, createPinnedDragAndDropController } from "./commands/dragDropController";
 import { HeatmapDecorationProvider } from "./heatmap/heatmapDecorationProvider";
@@ -95,6 +96,8 @@ import {
   handleBranchCompareToggleActive,
   handleBranchCompareSwapSides,
   handleBranchCompareToggleHideReviewed,
+  handleBranchCompareSetGroupingMode,
+  BRANCH_COMPARE_GROUP_BY_COMMANDS,
   handleBranchCompareDismissAutoFollow,
   handleBranchCompareOpenDifftool,
   handleBranchCompareOpenDirDifftool,
@@ -714,6 +717,10 @@ function registerCommands(
   register(Commands.BRANCH_COMPARE_TOGGLE_HIDE_REVIEWED, (arg: RepoSectionItem | undefined) =>
     handleBranchCompareToggleHideReviewed(arg, savedComparisons),
   );
+  for (const { mode } of GROUPING_MODE_OPTIONS) {
+    register(BRANCH_COMPARE_GROUP_BY_COMMANDS[mode], (arg: RepoSectionItem | undefined) =>
+      handleBranchCompareSetGroupingMode(arg, mode, savedComparisons));
+  }
   register(Commands.BRANCH_COMPARE_FOCUS_SOURCE_CONTROL, () => handleBranchCompareFocusSourceControl());
   register(Commands.BRANCH_COMPARE_OPEN_COMMIT, (item: BranchCompareGroupItem) => handleBranchCompareOpenCommit(item));
   register(Commands.BRANCH_COMPARE_OPEN_PENDING_CHANGES, (item: BranchCompareGroupItem) => handleBranchCompareOpenPendingChanges(item));

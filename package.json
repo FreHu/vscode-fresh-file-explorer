@@ -746,6 +746,31 @@
         "icon": "$(filter)"
       },
       {
+        "command": "freshFileExplorer.branchCompare.groupBy.fileStructure",
+        "title": "Folder Structure",
+        "category": "Fresh File Explorer"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.groupBy.flatList",
+        "title": "Flat List",
+        "category": "Fresh File Explorer"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.groupBy.author",
+        "title": "Author",
+        "category": "Fresh File Explorer"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.groupBy.commitHash",
+        "title": "Commit Hash",
+        "category": "Fresh File Explorer"
+      },
+      {
+        "command": "freshFileExplorer.branchCompare.groupBy.moonPhase",
+        "title": "Moon Phase",
+        "category": "Fresh File Explorer"
+      },
+      {
         "command": "freshFileExplorer.branchCompare.dismissAutoFollow",
         "title": "Stop Following",
         "category": "Fresh File Explorer",
@@ -815,6 +840,10 @@
       {
         "id": "freshFileExplorer.blameHeatmap.gutter",
         "label": "Blame Heatmap"
+      },
+      {
+        "id": "freshFileExplorer.branchCompare.groupBy",
+        "label": "Group By"
       }
     ],
     "menus": {
@@ -851,6 +880,13 @@
           "when": "editorLineNumber in freshFileExplorer.blameHeatmap.restorableDeletionLines",
           "group": "z_freshfiles@2"
         }
+      ],
+      "freshFileExplorer.branchCompare.groupBy": [
+        { "command": "freshFileExplorer.branchCompare.groupBy.fileStructure", "group": "1_modes@1" },
+        { "command": "freshFileExplorer.branchCompare.groupBy.flatList", "group": "1_modes@2" },
+        { "command": "freshFileExplorer.branchCompare.groupBy.author", "group": "1_modes@3" },
+        { "command": "freshFileExplorer.branchCompare.groupBy.commitHash", "group": "1_modes@4" },
+        { "command": "freshFileExplorer.branchCompare.groupBy.moonPhase", "group": "1_modes@5" }
       ],
       "freshFileExplorer.blameHeatmap.gutter": [
         {
@@ -1602,6 +1638,11 @@
           "group": "1_baseline@5"
         },
         {
+          "submenu": "freshFileExplorer.branchCompare.groupBy",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(repoSection|autoRepoSection)$/",
+          "group": "1_baseline@6"
+        },
+        {
           "command": "freshFileExplorer.branchCompare.openAll",
           "when": "view == freshFileExplorer.branchCompare && viewItem == freshFileExplorer.branchCompare.folder",
           "group": "1_open@1"
@@ -1748,6 +1789,26 @@
         },
         {
           "command": "freshFileExplorer.branchCompare.toggleHideReviewed",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.fileStructure",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.flatList",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.author",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.commitHash",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.moonPhase",
           "when": "false"
         },
         {

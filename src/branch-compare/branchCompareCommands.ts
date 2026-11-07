@@ -24,6 +24,8 @@ import { ConfigService } from "../config/configService";
 import { confirmBulkAction } from "../utils/confirmations";
 import { showPathFormatQuickPick } from "../utils/quickPick";
 import { buildFileTree, renderFileTree } from "../commands/copyPathCommands";
+import { Commands } from "../commands/commandConstants";
+import { GroupingMode } from "../fresh-files/groupingMode";
 import { plural } from "../utils/plural";
 
 /**
@@ -302,6 +304,24 @@ export async function handleBranchCompareToggleHideReviewed(
   const cmp = savedComparisons.getById(arg.comparisonId);
   if (!cmp) { return; }
   savedComparisons.update(cmp.id, { hideReviewed: !cmp.hideReviewed });
+}
+
+/** Group By submenu: menu entries can't carry arguments, so each mode has its own command. */
+export const BRANCH_COMPARE_GROUP_BY_COMMANDS: Record<GroupingMode, string> = {
+  "File Structure": Commands.BRANCH_COMPARE_GROUP_BY_FILE_STRUCTURE,
+  "Flat List": Commands.BRANCH_COMPARE_GROUP_BY_FLAT_LIST,
+  "Author": Commands.BRANCH_COMPARE_GROUP_BY_AUTHOR,
+  "Commit Hash": Commands.BRANCH_COMPARE_GROUP_BY_COMMIT_HASH,
+  "Moon Phase": Commands.BRANCH_COMPARE_GROUP_BY_MOON_PHASE,
+};
+
+export function handleBranchCompareSetGroupingMode(
+  arg: RepoSectionItem | undefined,
+  mode: GroupingMode,
+  savedComparisons: SavedComparisonsService,
+): void {
+  if (!(arg instanceof RepoSectionItem) || !arg.comparisonId) { return; }
+  savedComparisons.update(arg.comparisonId, { groupingMode: mode });
 }
 
 /** Re-fetch the diff for a single section (cheaper than full-tree refresh). */
