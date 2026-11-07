@@ -6,12 +6,11 @@ import { showWarning } from "../extension/logger";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 
 /**
- * Pin file(s) to the pinned items folder.
+ * Pin files and folders.
  *
- * Accepts items from any tree view that exposes `{resourceUri, isDirectory}`,
- * including the Fresh Files tree, the Branch Compare tree, and Uri-based
- * callers (regular file Explorer context menu). Folders and the special
- * "pinned folder" header are skipped.
+ * Accepts items from any tree view that exposes a `resourceUri`, including the
+ * Fresh Files tree, the Branch Compare tree, and Uri-based callers (regular
+ * file Explorer context menu). Group headers, whose URIs aren't `file:`, are skipped.
  */
 export async function handlePinFile(
   item: FreshFileItem | vscode.Uri | TreeItemLike,
@@ -24,26 +23,23 @@ export async function handlePinFile(
 
   for (const i of items) {
     if (i instanceof vscode.Uri) {
-      // Called from regular Explorer — verify it's a file before pinning.
+      // Called from regular Explorer — verify it exists before pinning.
       try {
         const stat = await vscode.workspace.fs.stat(i);
-        if (stat.type === vscode.FileType.File) {
+        if (stat.type & (vscode.FileType.File | vscode.FileType.Directory)) {
           filePaths.push(asAbsolutePath(i.fsPath));
         }
       } catch {
         // Skip if stat fails.
       }
-    } else if (i && typeof i === "object" && "resourceUri" in i && i.resourceUri) {
-      // Tree-item-like — duck-typed so any view's items are accepted as long
-      // as they expose a resourceUri and aren't directories or pin-folder headers.
-      if (!i.isDirectory && i.contextValue !== "pinnedFolder") {
-        filePaths.push(asAbsolutePath(i.resourceUri.fsPath));
-      }
+    } else if (i && typeof i === "object" && "resourceUri" in i && i.resourceUri?.scheme === "file") {
+      // Tree-item-like — duck-typed so any view's file and folder rows are accepted.
+      filePaths.push(asAbsolutePath(i.resourceUri.fsPath));
     }
   }
 
   if (filePaths.length === 0) {
-    showWarning("No files selected to pin");
+    showWarning("Nothing selected to pin");
     return;
   }
 
@@ -53,8 +49,6 @@ export async function handlePinFile(
 /** Minimal shape required for tree-item callers across the extension's views. */
 interface TreeItemLike {
   resourceUri?: vscode.Uri;
-  isDirectory?: boolean;
-  contextValue?: string;
 }
 
 /**
@@ -70,11 +64,12 @@ export function handleUnpinFile(
   // Only handle pinned files — machine-created suggestions unpin (dismiss) the same way.
   const pinnedFiles = items.filter(i =>
     i.contextValue === TreeItemContextValues.PINNED_FILE
+    || i.contextValue === TreeItemContextValues.PINNED_DIRECTORY
     || i.contextValue === TreeItemContextValues.SUGGESTED_FILE,
   );
 
   if (pinnedFiles.length === 0) {
-    showWarning("No pinned files selected");
+    showWarning("No pinned items selected");
     return;
   }
 

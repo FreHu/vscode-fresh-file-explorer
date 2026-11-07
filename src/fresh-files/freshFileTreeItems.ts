@@ -163,36 +163,6 @@ constructor(
   }
 
   /**
-   * Create a FreshFileItem representing the pinned items folder
-   */
-  static forPinnedFolder(
-    uri: vscode.Uri,
-    openChangesMode: boolean,
-    fileCount: number,
-    expanded: boolean = true,
-  ): FreshFileItem {
-    const item = new FreshFileItem(
-      uri,
-      true,
-      fileCount > 0
-        ? expanded
-          ? vscode.TreeItemCollapsibleState.Expanded
-          : vscode.TreeItemCollapsibleState.Collapsed
-        : vscode.TreeItemCollapsibleState.None,
-      openChangesMode,
-      fileCount,
-    );
-
-    item.label = "Pinned Items";
-    item.description = fileCount > 0 ? `(${fileCount})` : undefined;
-    item.contextValue = TreeItemContextValues.PINNED_FOLDER;
-    item.iconPath = new vscode.ThemeIcon("pinned");
-    item.tooltip = `Pinned items (${fileCount})`;
-
-    return item;
-  }
-
-  /**
    * Create a FreshFileItem representing a file with git metadata
    */
   static forFile(

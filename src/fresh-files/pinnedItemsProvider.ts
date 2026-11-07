@@ -144,7 +144,8 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
         const filePath = asAbsolutePath(pinnedItem.id);
         const uri = vscode.Uri.file(filePath);
         const metadata = freshFiles.get(filePath);
-        const listsHeadings = showHeadings && !pinnedItem.suggested && outlineFormatFor(filePath) !== undefined;
+        const isDir = isDirectory(filePath);
+        const listsHeadings = showHeadings && !pinnedItem.suggested && !isDir && outlineFormatFor(filePath) !== undefined;
 
         const item = FreshFileItem.forFile(
           uri,
@@ -165,7 +166,7 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
         // (and suggestion-specific actions for machine-created entries).
         item.contextValue = pinnedItem.suggested
           ? TreeItemContextValues.SUGGESTED_FILE
-          : TreeItemContextValues.PINNED_FILE;
+          : isDir ? TreeItemContextValues.PINNED_DIRECTORY : TreeItemContextValues.PINNED_FILE;
 
         // Stable ID that differs from the regular view so VS Code can track both independently
         item.id = createPinnedFileId(uri.fsPath);
@@ -186,17 +187,21 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
 
         item.tooltip = metadata ? formatFileTooltip(metadata, ConfigService.getDescriptionFormat()) : filePath;
 
+        if (isDir) {
+          // A folder can't open in an editor: reveal it instead. The Explorer
+          // only shows workspace folders, so anything outside goes to the OS file manager.
+          item.iconPath = vscode.ThemeIcon.Folder;
+          item.command = folder
+            ? { command: "revealInExplorer", title: "Reveal in Explorer", arguments: [uri] }
+            : { command: "revealFileInOS", title: "Reveal in File Explorer", arguments: [uri] };
+        }
+
         if (pinnedItem.suggested) {
           // Suggestions carry their evidence instead of the directory — the
           // "why" is what makes a machine pin trustworthy.
           item.iconPath = new vscode.ThemeIcon("lightbulb");
           item.description = pinnedItem.data;
           item.tooltip = `Suggested: ${pinnedItem.data}\n${filePath}`;
-          // Directory targets (e.g. a migrations folder) can't open in an
-          // editor — reveal them in the Explorer instead.
-          if (isDirectory(filePath)) {
-            item.command = { command: "revealInExplorer", title: "Reveal in Explorer", arguments: [uri] };
-          }
         }
 
         if (listsHeadings) { outlineItems.set(normalizePath(filePath), item); }

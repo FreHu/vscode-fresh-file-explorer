@@ -51,10 +51,11 @@ export function createPinnedDragAndDropController(pinnedItemsProvider: PinnedIte
  */
 function createHandleDrag() {
   return (items: readonly FreshFilesTreeItem[], dataTransfer: vscode.DataTransfer) => {
-    // Expose file URIs for cross-view drops (e.g. pinning via drag to Pinned Items)
+    // Expose file and folder URIs for cross-view drops (e.g. pinning via drag
+    // to Pinned Items). Group headers have non-file URIs and stay out.
     const uris = items
       .filter((item): item is FreshFileItem =>
-        item instanceof FreshFileItem && !item.isDirectory && !item.isDeleted
+        item instanceof FreshFileItem && item.resourceUri.scheme === "file" && !item.isDeleted
       )
       .map(item => item.resourceUri);
 
@@ -75,9 +76,10 @@ function createHandleDrag() {
 // Pinned Items view — drag & drop handlers
 // ---------------------------------------------------------------------------
 
-/** File rows in the Pinned Items view: user pins and machine suggestions drag alike. */
+/** Path rows in the Pinned Items view: pinned files, pinned folders and suggestions drag alike. */
 function isPinnedViewFile(item: FreshFileItem): boolean {
   return item.contextValue === TreeItemContextValues.PINNED_FILE
+    || item.contextValue === TreeItemContextValues.PINNED_DIRECTORY
     || item.contextValue === TreeItemContextValues.SUGGESTED_FILE;
 }
 
@@ -202,10 +204,10 @@ async function parseAndFilterUris(uriListData: string): Promise<AbsolutePath[]> 
     if (uri.scheme === "file") {
       try {
         const stat = await vscode.workspace.fs.stat(uri);
-        if (stat.type === vscode.FileType.File) {
+        if (stat.type & (vscode.FileType.File | vscode.FileType.Directory)) {
           filePaths.push(asAbsolutePath(uri.fsPath));
         } else {
-          log(`PinnedDrop: skipping ${uri.toString()} (not a file, type=${stat.type})`);
+          log(`PinnedDrop: skipping ${uri.toString()} (neither file nor folder, type=${stat.type})`);
         }
       } catch (error) {
         log(`PinnedDrop: skipping ${uri.toString()} (stat failed: ${error instanceof Error ? error.message : String(error)})`);

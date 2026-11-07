@@ -560,7 +560,7 @@
       },
       {
         "command": "freshFileExplorer.pinFile",
-        "title": "Pin File",
+        "title": "Pin",
         "category": "Fresh File Explorer",
         "icon": "$(pin)"
       },
@@ -1031,7 +1031,6 @@
         },
         {
           "command": "freshFileExplorer.pinFile",
-          "when": "!explorerResourceIsFolder",
           "group": "2_workspace@100"
         },
         {
@@ -1350,7 +1349,7 @@
         },
         {
           "command": "freshFileExplorer.pinFile",
-          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile)$/",
+          "when": "view == freshFileExplorer && viewItem =~ /^(file|pendingFile|deletedFile|folder|workspaceFolder|repoFolder)$/",
           "group": "2_pin@1"
         },
         {
@@ -1405,7 +1404,7 @@
         },
         {
           "command": "freshFileExplorer.unpinFile",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
           "group": "2_pin@1"
         },
         {
@@ -1465,12 +1464,12 @@
         },
         {
           "command": "freshFileExplorer.revealInExplorer",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
           "group": "3_reveal@1"
         },
         {
           "command": "freshFileExplorer.revealFileInOS",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
           "group": "3_reveal@1.5"
         },
         {
@@ -1485,17 +1484,17 @@
         },
         {
           "command": "freshFileExplorer.copyAbsolutePath",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
           "group": "5_copypath@1"
         },
         {
           "command": "freshFileExplorer.copyRelativePath",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
           "group": "5_copypath@2"
         },
         {
           "command": "freshFileExplorer.copyFilename",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
           "group": "5_copypath@3"
         },
         {
@@ -1585,7 +1584,7 @@
         },
         {
           "command": "freshFileExplorer.pinFile",
-          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile)$/",
+          "when": "view == freshFileExplorer.branchCompare && viewItem =~ /^freshFileExplorer\\.branchCompare\\.(file|deletedFile|folder)$/",
           "group": "4_pin@1"
         },
         {
