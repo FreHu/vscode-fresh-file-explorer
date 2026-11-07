@@ -224,9 +224,10 @@ export class BranchCompareFileItem extends vscode.TreeItem {
     // Skipped for pending entries (VS Code's native git decoration already
     // badges them) and when the change-type icon already says it.
     const badge = file.isPending || iconStyle === "changeType" ? "" : statusBadge(file.status);
-    const pendingMark = file.isPending ? "•" : "";
     // Line deltas exist only for pending entries (tracked working-tree changes).
     const lineChanges = formatLineChanges(file.linesAdded, file.linesDeleted);
+    // Leads the line counts; with none to lead (e.g. a pure rename) it would stand alone.
+    const pendingMark = file.isPending && lineChanges ? "•" : "";
     this.description = `${file.generated ? "generated " : ""}${badge}${pendingMark}${lineChanges ? ` ${lineChanges}` : ""}`;
     this.tooltip = `${file.pathInRepo}\n${statusTooltip(file.status, file.isPending)}`
       + (lineChanges ? `\n${lineChanges}` : "")
