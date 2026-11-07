@@ -134,7 +134,7 @@ Adds a special "pinned items" view. This is for files you want to keep handy ind
 - Pin a non-fresh file you need to pay attention to, like a diagram or readme
 - Pin that critical file you've had on your desktop for the last 6 years. It does not have to be from your workspace.
 - Pin a deleted file
-- Pin a folder. Clicking it reveals it in the Explorer, or in your OS file manager when it's outside the workspace.
+- Pin a folder. Clicking it reveals it in the Explorer, or in your OS file manager when it's outside the workspace; its arrow lists what's inside, minus `files.exclude`.
 - Pin a search editor (must be saved as a file)
 - Create short notes and use it as a todo list. They can be reordered and marked as complete.
 - Pin a Markdown (`.md`, `.markdown`, `.mdx`, Quarto `.qmd`, R Markdown `.Rmd`), Org-mode (`.org`) or AsciiDoc (`.adoc`, `.asciidoc`) file and its headings show up as children, kept in sync as you edit. Org-mode TODO keywords show next to their heading. Click a heading to jump to it. `freshFileExplorer.pinned.headingDepth` sets the deepest heading shown, `freshFileExplorer.pinned.headingExpandDepth` how many levels start expanded.

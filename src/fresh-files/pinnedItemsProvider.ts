@@ -12,6 +12,7 @@ import {
 import { OutlineHeading } from "./outline/headingTree";
 import { outlineFormatFor, parseOutline } from "./outline/documentOutline";
 import { PinnedOutlineSync } from "./outline/pinnedOutlineSync";
+import { PinnedFolderContents } from "./pinnedFolderContents";
 import { ConfigKeys } from "../config/configKeyConstants";
 import { log } from "../extension/logger";
 import { TreeItemContextValues, createPinnedFileId } from "./treeItemConstants";
@@ -49,9 +50,15 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
   /** The last-rendered row of each pinned outline file, keyed by normalized path, for per-file refresh. */
   private outlineItems = new Map<string, FreshFileItem>();
   private readonly subscriptions: vscode.Disposable[] = [];
+  private readonly folderContents: PinnedFolderContents;
 
   constructor(private readonly freshFileProvider: FreshFileProvider) {
+    this.folderContents = new PinnedFolderContents(
+      () => this.freshFileProvider,
+      item => this._onDidChangeTreeData.fire(item),
+    );
     this.subscriptions.push(
+      this.folderContents,
       this.outlineSync,
       // Refresh only the changed file's subtree; the rest of the view stays as is.
       this.outlineSync.onDidChange(key => this._onDidChangeTreeData.fire(this.outlineItems.get(key))),
@@ -95,7 +102,10 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
     if (!element) {
       return this.buildPinnedItems();
     }
-    // Only pinned outline files and their headings have children.
+    // Only pinned folders, pinned outline files and their headings have children.
+    if (element instanceof FreshFileItem && this.folderContents.expands(element)) {
+      return this.folderContents.childrenOf(element);
+    }
     if (element instanceof OutlineHeadingItem) {
       return this.headingItems(element.fileUri, element.heading.children, element.treeDepth + 1);
     }
@@ -132,6 +142,7 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
   // ---------------------------------------------------------------------------
 
   private buildPinnedItems(): FreshFilesTreeItem[] {
+    this.folderContents.reset();
     const items: FreshFilesTreeItem[] = [];
     const { freshFiles, openChangesMode, workspaceFolders } = this.freshFileProvider;
     const showHeadings = ConfigService.getPinnedHeadingDepth() > 0;
@@ -155,7 +166,9 @@ export class PinnedItemsProvider implements vscode.TreeDataProvider<FreshFilesTr
           metadata?.isPending ?? false,
           metadata?.status,
           metadata?.renameSource,
-          !listsHeadings
+          isDir
+            ? vscode.TreeItemCollapsibleState.Collapsed
+            : !listsHeadings
             ? vscode.TreeItemCollapsibleState.None
             : ConfigService.getPinnedHeadingExpandDepth() > 0
               ? vscode.TreeItemCollapsibleState.Expanded

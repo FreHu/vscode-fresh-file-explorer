@@ -12,8 +12,11 @@ export const TreeItemContextValues = {
   PINNED_FILE: "pinnedFile",
   /** Machine-created co-change suggestion in the pinned view. */
   SUGGESTED_FILE: "suggestedFile",
-  /** A folder pinned by the user. Click reveals it in the Explorer. */
+  /** A folder pinned by the user. Click reveals it in the Explorer; the twistie lists its contents. */
   PINNED_DIRECTORY: "pinnedDirectory",
+  /** A file or subfolder shown inside an expanded pinned folder. */
+  PINNED_CHILD_FILE: "pinnedChildFile",
+  PINNED_CHILD_DIRECTORY: "pinnedChildDirectory",
   PINNED_NOTE: "pinnedNote",
   /** Heading of a pinned outline file, rendered as its child. Click navigates. */
   OUTLINE_HEADING: "outlineHeading",

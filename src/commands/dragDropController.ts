@@ -83,6 +83,11 @@ function isPinnedViewFile(item: FreshFileItem): boolean {
     || item.contextValue === TreeItemContextValues.SUGGESTED_FILE;
 }
 
+function isPinnedFolderChild(item: FreshFileItem): boolean {
+  return item.contextValue === TreeItemContextValues.PINNED_CHILD_FILE
+    || item.contextValue === TreeItemContextValues.PINNED_CHILD_DIRECTORY;
+}
+
 /**
  * Drag handler for the Pinned Items view.
  * Exposes pinned item IDs (for reordering) and file URIs (for external drops).
@@ -102,12 +107,13 @@ function createHandlePinnedDrag() {
       dataTransfer.set(MIME_TYPE_TREE_PINNED, new vscode.DataTransferItem(JSON.stringify(ids)));
     }
 
-    // Also expose URIs so pinned files can be dragged to other views
+    // Also expose URIs so pinned rows, and what pinned folders list, can be
+    // dragged to other views. Only pinned rows reorder (the ids above).
     const uris = items
       .filter(
         (item): item is FreshFileItem =>
           item instanceof FreshFileItem &&
-          isPinnedViewFile(item) &&
+          (isPinnedViewFile(item) || isPinnedFolderChild(item)) &&
           !item.isDeleted,
       )
       .map(item => item.resourceUri);

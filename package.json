@@ -911,18 +911,48 @@
         }
       ],
       "freshFileExplorer.groupBy": [
-        { "command": "freshFileExplorer.groupBy.fileStructure", "group": "1_modes@1" },
-        { "command": "freshFileExplorer.groupBy.flatList", "group": "1_modes@2" },
-        { "command": "freshFileExplorer.groupBy.author", "group": "1_modes@3" },
-        { "command": "freshFileExplorer.groupBy.commitHash", "group": "1_modes@4" },
-        { "command": "freshFileExplorer.groupBy.moonPhase", "group": "1_modes@5" }
+        {
+          "command": "freshFileExplorer.groupBy.fileStructure",
+          "group": "1_modes@1"
+        },
+        {
+          "command": "freshFileExplorer.groupBy.flatList",
+          "group": "1_modes@2"
+        },
+        {
+          "command": "freshFileExplorer.groupBy.author",
+          "group": "1_modes@3"
+        },
+        {
+          "command": "freshFileExplorer.groupBy.commitHash",
+          "group": "1_modes@4"
+        },
+        {
+          "command": "freshFileExplorer.groupBy.moonPhase",
+          "group": "1_modes@5"
+        }
       ],
       "freshFileExplorer.branchCompare.groupBy": [
-        { "command": "freshFileExplorer.branchCompare.groupBy.fileStructure", "group": "1_modes@1" },
-        { "command": "freshFileExplorer.branchCompare.groupBy.flatList", "group": "1_modes@2" },
-        { "command": "freshFileExplorer.branchCompare.groupBy.author", "group": "1_modes@3" },
-        { "command": "freshFileExplorer.branchCompare.groupBy.commitHash", "group": "1_modes@4" },
-        { "command": "freshFileExplorer.branchCompare.groupBy.moonPhase", "group": "1_modes@5" }
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.fileStructure",
+          "group": "1_modes@1"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.flatList",
+          "group": "1_modes@2"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.author",
+          "group": "1_modes@3"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.commitHash",
+          "group": "1_modes@4"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.groupBy.moonPhase",
+          "group": "1_modes@5"
+        }
       ],
       "freshFileExplorer.blameHeatmap.gutter": [
         {
@@ -1408,6 +1438,11 @@
           "group": "2_pin@1"
         },
         {
+          "command": "freshFileExplorer.pinFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinnedChild(File|Directory)$/",
+          "group": "2_pin@1"
+        },
+        {
           "command": "freshFileExplorer.keepSuggestion",
           "when": "view == pinnedItems && viewItem == suggestedFile",
           "group": "inline@1"
@@ -1439,7 +1474,7 @@
         },
         {
           "command": "freshFileExplorer.openFile",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|ChildFile)$/",
           "group": "1_open@1"
         },
         {
@@ -1449,7 +1484,7 @@
         },
         {
           "command": "freshFileExplorer.openToSide",
-          "when": "view == pinnedItems && viewItem == pinnedFile",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|ChildFile)$/",
           "group": "1_open@3"
         },
         {
@@ -1464,12 +1499,12 @@
         },
         {
           "command": "freshFileExplorer.revealInExplorer",
-          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory|ChildFile|ChildDirectory)$/",
           "group": "3_reveal@1"
         },
         {
           "command": "freshFileExplorer.revealFileInOS",
-          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory|ChildFile|ChildDirectory)$/",
           "group": "3_reveal@1.5"
         },
         {
@@ -1484,17 +1519,17 @@
         },
         {
           "command": "freshFileExplorer.copyAbsolutePath",
-          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory|ChildFile|ChildDirectory)$/",
           "group": "5_copypath@1"
         },
         {
           "command": "freshFileExplorer.copyRelativePath",
-          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory|ChildFile|ChildDirectory)$/",
           "group": "5_copypath@2"
         },
         {
           "command": "freshFileExplorer.copyFilename",
-          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory)$/",
+          "when": "view == pinnedItems && viewItem =~ /^pinned(File|Directory|ChildFile|ChildDirectory)$/",
           "group": "5_copypath@3"
         },
         {
@@ -1761,17 +1796,50 @@
         }
       ],
       "commandPalette": [
-        { "command": "freshFileExplorer.openInDefaultApp", "when": "resourceScheme == file && !remoteName" },
-        { "command": "freshFileExplorer.openMode.changes", "when": "false" },
-        { "command": "freshFileExplorer.openMode.file", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.openMode.changes", "when": "false" },
-        { "command": "freshFileExplorer.branchCompare.openMode.file", "when": "false" },
-        { "command": "freshFileExplorer.blameApplyAge", "when": "false" },
-        { "command": "freshFileExplorer.blameApplyBranchSaved", "when": "false" },
-        { "command": "freshFileExplorer.blamePickBranch", "when": "false" },
-        { "command": "freshFileExplorer.blameTurnOff", "when": "false" },
-        { "command": "freshFileExplorer.blameClearBaseline", "when": "false" },
-        { "command": "freshFileExplorer.blameToggleAutoApply", "when": "false" },
+        {
+          "command": "freshFileExplorer.openInDefaultApp",
+          "when": "resourceScheme == file && !remoteName"
+        },
+        {
+          "command": "freshFileExplorer.openMode.changes",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.openMode.file",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openMode.changes",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.branchCompare.openMode.file",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.blameApplyAge",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.blameApplyBranchSaved",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.blamePickBranch",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.blameTurnOff",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.blameClearBaseline",
+          "when": "false"
+        },
+        {
+          "command": "freshFileExplorer.blameToggleAutoApply",
+          "when": "false"
+        },
         {
           "command": "freshFileExplorer.blameTurnOffChecked",
           "when": "false"
