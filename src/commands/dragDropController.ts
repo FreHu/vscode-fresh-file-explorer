@@ -148,10 +148,14 @@ function createHandlePinnedDrop(pinnedItemsProvider: PinnedItemsProvider) {
     }
 
     // 2. Pin files from uri-list (drop from Fresh Files view, Explorer, or external)
+    const mimeTypes: string[] = [];
+    dataTransfer.forEach((_item, mime) => mimeTypes.push(mime));
     const uriListData = await dataTransfer.get(MIME_TYPE_URI_LIST)?.asString();
+    log(`PinnedDrop: mime types=${JSON.stringify(mimeTypes)} uri-list=${JSON.stringify(uriListData)}`);
     if (!uriListData) { return; }
 
     const filePaths = await parseAndFilterUris(uriListData);
+    log(`PinnedDrop: pinning ${JSON.stringify(filePaths)}`);
     if (filePaths.length === 0) { return; }
 
     if (target instanceof FreshFileItem && isPinnedViewFile(target) && target.id) {
@@ -200,10 +204,14 @@ async function parseAndFilterUris(uriListData: string): Promise<AbsolutePath[]> 
         const stat = await vscode.workspace.fs.stat(uri);
         if (stat.type === vscode.FileType.File) {
           filePaths.push(asAbsolutePath(uri.fsPath));
+        } else {
+          log(`PinnedDrop: skipping ${uri.toString()} (not a file, type=${stat.type})`);
         }
-      } catch {
-        // Skip if stat fails
+      } catch (error) {
+        log(`PinnedDrop: skipping ${uri.toString()} (stat failed: ${error instanceof Error ? error.message : String(error)})`);
       }
+    } else {
+      log(`PinnedDrop: skipping ${uri.toString()} (scheme ${uri.scheme})`);
     }
   }
   return filePaths;
