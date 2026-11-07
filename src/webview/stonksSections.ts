@@ -59,13 +59,22 @@ export function renderBands(bands: Band[], inputs: SectionInputs, geometry: Plot
   return out;
 }
 
+/** How an axis prints its ticks, and the finest step that still prints them apart. */
+interface AxisFormat {
+  text: (v: number) => string;
+  minStep: number;
+}
+const WHOLE_PERCENT: AxisFormat = { text: v => `${v.toFixed(0)}%`, minStep: 1 };
+const ONE_DECIMAL_PERCENT: AxisFormat = { text: v => `${v.toFixed(1)}%`, minStep: 0.1 };
+const ONE_DECIMAL: AxisFormat = { text: v => v.toFixed(1), minStep: 0.1 };
+
 function renderSection(band: Band, d: SectionInputs, { plotW, n, xStep }: PlotGeometry): string {
   const { top, height: bandH } = band;
   const line = (values: number[], color: string) => renderLinePath(values, top, bandH, plotW, n, xStep, color, PADDING);
-  const axis = (values: number[], count: number, format?: (v: number) => string) =>
-    renderYAxis(values, top, bandH, plotW, count, PADDING, format);
-  const axisRange = (min: number, max: number, count: number, format?: (v: number) => string) =>
-    renderYAxisFromRange(min, max, top, bandH, plotW, count, PADDING, format);
+  const axis = (values: number[], count: number, format?: AxisFormat) =>
+    renderYAxis(values, top, bandH, plotW, count, PADDING, format?.text, format?.minStep);
+  const axisRange = (min: number, max: number, count: number, format?: AxisFormat) =>
+    renderYAxisFromRange(min, max, top, bandH, plotW, count, PADDING, format?.text, format?.minStep);
 
   switch (band.key) {
     case "fileCount": {
@@ -99,14 +108,14 @@ function renderSection(band: Band, d: SectionInputs, { plotW, n, xStep }: PlotGe
       return line(d.authorCounts, "var(--vscode-charts-orange, #ffa94d)") + axis(d.authorCounts, 3);
     case "authorConcentration":
       return line(d.authorConcentration, "var(--vscode-charts-purple, #b197fc)")
-        + axisRange(0, Math.max(...d.authorConcentration, 1), 3, v => `${v.toFixed(0)}%`);
+        + axisRange(0, Math.max(...d.authorConcentration, 1), 3, WHOLE_PERCENT);
     case "velocity":
       return line(d.velocity, "var(--vscode-charts-green, #51cf66)") + axis(d.velocity, 3);
     case "churn":
       return line(d.churn, "var(--vscode-charts-red, #ff6b6b)")
-        + axisRange(0, Math.max(...d.churn, 0.1), 3, v => `${v.toFixed(1)}%`);
+        + axisRange(0, Math.max(...d.churn, 0.1), 3, ONE_DECIMAL_PERCENT);
     case "commitSize":
-      return line(d.commitSize, "var(--vscode-charts-yellow, #ffd43b)") + axis(d.commitSize, 3, v => v.toFixed(1));
+      return line(d.commitSize, "var(--vscode-charts-yellow, #ffd43b)") + axis(d.commitSize, 3, ONE_DECIMAL);
     case "activityHeatmap":
       return renderActivityHeatmap(d.allVisible, top, bandH, plotW, PADDING, d.heatmap);
   }

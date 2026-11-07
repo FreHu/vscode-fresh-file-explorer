@@ -1,7 +1,42 @@
 import * as assert from "assert";
-import { ADDED_FILL, formatTooltipDate, renderBar, renderCommitTooltipHeader, renderDateXAxis, xAxisLabelIndices } from "../../webview/svgChartPrimitives";
+import { ADDED_FILL, buildYLabels, formatTooltipDate, renderBar, renderCommitTooltipHeader, renderDateXAxis, xAxisLabelIndices } from "../../webview/svgChartPrimitives";
 
 const PAD = { top: 10, right: 10, bottom: 10, left: 40 };
+
+suite("buildYLabels", () => {
+  test("a fractional range keeps fractional ticks inside it", () => {
+    // Average commit size 1.0–1.6: rounding to whole numbers put a "2" above the band.
+    assert.deepStrictEqual(buildYLabels(1, 1.6, 3), [1, 1.2, 1.4, 1.6]);
+  });
+
+  test("every tick stays within the range", () => {
+    for (const [min, max] of [[0.3, 2.7], [0, 0.1], [12.5, 13.1], [0, 23.4]]) {
+      for (const v of buildYLabels(min, max, 3)) {
+        assert.ok(v >= min && v <= max, `${v} outside ${min}–${max}`);
+      }
+    }
+  });
+
+  test("a whole-number range gets whole-number ticks only", () => {
+    assert.deepStrictEqual(buildYLabels(1, 3, 3), [1, 2, 3]);
+    assert.deepStrictEqual(buildYLabels(0, 2, 8), [0, 1, 2]);
+  });
+
+  test("percentages step evenly to the top", () => {
+    assert.deepStrictEqual(buildYLabels(0, 20, 3), [0, 5, 10, 15, 20]);
+  });
+
+  test("ticks never get finer than the axis can print apart", () => {
+    // A one-decimal axis over 1.62–1.72 would otherwise print "1.7" several times.
+    const ticks = buildYLabels(1.62, 1.72, 3, 0.1);
+    assert.deepStrictEqual(ticks, [1.7]);
+    assert.strictEqual(new Set(ticks.map(v => v.toFixed(1))).size, ticks.length);
+  });
+
+  test("a flat series gets one tick", () => {
+    assert.deepStrictEqual(buildYLabels(4, 4, 3), [4]);
+  });
+});
 
 suite("xAxisLabelIndices", () => {
   test("every step from the first point", () => {

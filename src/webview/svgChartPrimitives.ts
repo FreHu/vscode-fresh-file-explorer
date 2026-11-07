@@ -15,15 +15,25 @@ export interface ChartPadding {
 
 // ── Y-axis helpers ────────────────────────────────────────────────────────────
 
-export function buildYLabels(min: number, max: number, count: number): number[] {
+/**
+ * Round-numbered tick values within [min, max], about `count` of them. A range
+ * with whole-number ends (counts) gets whole-number ticks; a fractional one
+ * (averages, percentages) gets ticks rounded to the step, never past `max`.
+ * `minStep` is the finest step the axis's formatter can show apart (0.1 for one decimal).
+ */
+export function buildYLabels(min: number, max: number, count: number, minStep = 0): number[] {
   if (min === max) { return [min]; }
-  const step = niceStep((max - min) / count);
-  const start = Math.ceil(min / step) * step;
+  const integral = Number.isInteger(min) && Number.isInteger(max);
+  const step = Math.max(niceStep((max - min) / count), minStep, integral ? 1 : 0);
+  const decimals = Math.max(0, -Math.floor(Math.log10(step)));
+  const start = Math.ceil(min / step - 1e-9) * step;
   const labels: number[] = [];
-  for (let v = start; v <= max; v += step) {
-    labels.push(Math.round(v));
+  for (let i = 0; ; i++) {
+    const v = Number((start + i * step).toFixed(decimals));
+    if (v > max + step * 1e-9) { break; }
+    labels.push(v);
   }
-  return [...new Set(labels)];
+  return labels;
 }
 
 export function niceStep(raw: number): number {
@@ -39,10 +49,10 @@ export function niceStep(raw: number): number {
 
 export function renderYAxisFromRange(
   min: number, max: number, top: number, bandH: number, plotW: number,
-  count: number, pad: ChartPadding, format?: (v: number) => string,
+  count: number, pad: ChartPadding, format?: (v: number) => string, minStep = 0,
 ): string {
   const range = max - min || 1;
-  const labels = buildYLabels(min, max, count);
+  const labels = buildYLabels(min, max, count, minStep);
   const fmt = format ?? ((v: number) => String(v));
   let out = "";
   for (const val of labels) {
@@ -56,11 +66,11 @@ export function renderYAxisFromRange(
 
 export function renderYAxis(
   values: number[], top: number, bandH: number, plotW: number,
-  count: number, pad: ChartPadding, format?: (v: number) => string,
+  count: number, pad: ChartPadding, format?: (v: number) => string, minStep = 0,
 ): string {
   const min = Math.min(...values);
   const max = Math.max(...values);
-  return renderYAxisFromRange(min, max, top, bandH, plotW, count, pad, format);
+  return renderYAxisFromRange(min, max, top, bandH, plotW, count, pad, format, minStep);
 }
 
 // ── Line / area paths ─────────────────────────────────────────────────────────
