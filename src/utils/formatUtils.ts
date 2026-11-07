@@ -59,11 +59,13 @@ export function formatRepoTooltip(
  */
 export function formatDirectoryTooltip(
   fileCount: number,
-  mostRecent: Date,
+  /** Undefined when every file in the folder is a pending deletion. */
+  mostRecent: Date | undefined,
   linesAdded?: number,
   linesDeleted?: number,
 ): string {
-  let tooltip = `${plural(fileCount, "file")} modified, most recent: ${formatRelativeDate(mostRecent)}`;
+  let tooltip = `${plural(fileCount, "file")} modified`;
+  if (mostRecent) { tooltip += `, most recent: ${formatRelativeDate(mostRecent)}`; }
   
   const lineChanges = formatLineChanges(linesAdded, linesDeleted);
   if (lineChanges) {

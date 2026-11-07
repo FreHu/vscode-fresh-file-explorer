@@ -172,6 +172,10 @@ suite("Format Utils", () => {
   });
 
   suite("formatDirectoryTooltip", () => {
+    test("omits the date when the folder has none (only pending deletions)", () => {
+      assert.strictEqual(formatDirectoryTooltip(2, undefined), "2 files modified");
+    });
+
     test("should format directory tooltip with count and date", () => {
       const date = new Date("2026-01-28T12:00:00");
       const result = formatDirectoryTooltip(5, date);

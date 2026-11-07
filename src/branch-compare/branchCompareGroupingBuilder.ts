@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-import { ChangedFile } from "./branchCompareData";
+import { ChangedFile, changeDate } from "./branchCompareData";
 import { DescriptionFormat, SortOrder } from "../types";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase, MOON_PHASE_ORDER, type MoonPhase } from "../fresh-files/moonPhase";
@@ -190,8 +190,8 @@ export function sortFilesForGrouping(files: ChangedFile[], sortOrder: SortOrder)
       }
       case "date":
       default: {
-        const da = a.commit?.date.getTime() ?? 0;
-        const db = b.commit?.date.getTime() ?? 0;
+        const da = changeDate(a)?.getTime() ?? 0;
+        const db = changeDate(b)?.getTime() ?? 0;
         return da !== db ? db - da : basename(a.pathInRepo).localeCompare(basename(b.pathInRepo));
       }
     }

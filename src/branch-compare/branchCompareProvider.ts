@@ -13,7 +13,9 @@ import {
   buildChangedFiles,
   buildFolderTree,
   collectFilesIn,
-  newestCommitDate,
+  newestChangeDate,
+  changeDate,
+  stampPendingMtimes,
   ChangedFile,
   fetchCommittedDiff,
   fetchCommitInfoInRange,
@@ -394,6 +396,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       if (this.loadingTokens.get(id) !== myToken) return;
 
       const rawFiles = buildChangedFiles(cmp.repoFullPath, committed, workingTree, commitInfo, workingTreeNumstat);
+      await stampPendingMtimes(rawFiles);
       void this.freshFileProvider.generatedFiles.classify(
         normalizePath(cmp.repoFullPath), rawFiles.map(f => normalizePath(`${cmp.repoFullPath}/${f.pathInRepo}`)));
       const files = this.filterHiddenFiles(cmp.repoFullPath, rawFiles);
@@ -605,6 +608,14 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       await Promise.all([...map.entries()].map(async ([path, recordedMtime]) => {
         const file = filesByPath.get(path);
         if (!file) { return; }
+        if (file.isPending) {
+          // Already stat'ed this refresh; a deletion has no mtime and drops the mark.
+          if (file.modifiedAt?.getTime() !== recordedMtime) {
+            map.delete(path);
+            changed = true;
+          }
+          return;
+        }
         try {
           const stat = await vscode.workspace.fs.stat(vscode.Uri.file(file.absolutePath));
           if (stat.mtime !== recordedMtime) {
@@ -920,13 +931,13 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       const folder = new BranchCompareFolderItem(
         cmp.repoFullPath, child, visibleInChild.length, cmp.id, reviewed, this.collapseEpochs.get(cmp.id),
       );
-      folderDates.set(folder, newestCommitDate(visibleInChild));
+      folderDates.set(folder, newestChangeDate(visibleInChild));
       items.push(folder);
     }
     sortTreeEntries(items, this.sortOrder, {
       name: item => item instanceof BranchCompareFolderItem ? item.label!.toString() : path.posix.basename(item.file.pathInRepo),
       isDirectory: item => item.isDirectory,
-      date: item => item instanceof BranchCompareFolderItem ? folderDates.get(item) : item.file.commit?.date,
+      date: item => item instanceof BranchCompareFolderItem ? folderDates.get(item) : changeDate(item.file),
       author: item => item instanceof BranchCompareFolderItem ? "" : item.file.commit?.author ?? "",
     });
     return items;

@@ -8,6 +8,7 @@ import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, forma
 import { deferCommitTooltip } from "../utils/lazyCommitTooltip";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, MOON_PHASE_ORDER, type MoonPhase } from "../fresh-files/moonPhase";
+import { sortDateOf } from "../utils/changeDate";
 import { type GroupingMode } from "../fresh-files/groupingMode";
 import { plural } from "../utils/plural";
 
@@ -391,9 +392,13 @@ export class GroupingViewBuilder {
     switch (sortOrder) {
       case "date":
         // Sort by date (most recent first)
-        filesList.sort((a, b) =>
-          b.metadata.date.getTime() - a.metadata.date.getTime()
-          || path.basename(a.filePath).localeCompare(path.basename(b.filePath)));
+        filesList.sort((a, b) => {
+          // Undated (pending deletions) sort last.
+          const da = sortDateOf(a.metadata)?.getTime() ?? -Infinity;
+          const db = sortDateOf(b.metadata)?.getTime() ?? -Infinity;
+          return (da === db ? 0 : db > da ? 1 : -1)
+            || path.basename(a.filePath).localeCompare(path.basename(b.filePath));
+        });
         break;
       case "author":
         // Sort by author alphabetically

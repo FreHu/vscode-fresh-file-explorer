@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { buildGroupedItems } from "../branch-compare/branchCompareGroupingBuilder";
+import { buildGroupedItems, sortFilesForGrouping } from "../branch-compare/branchCompareGroupingBuilder";
 import { ChangedFile } from "../branch-compare/branchCompareData";
 import { getMoonPhase, MOON_PHASE_ORDER } from "../fresh-files/moonPhase";
 import { AbsolutePath } from "../pathTypes";
@@ -38,6 +38,17 @@ suite("Branch Compare group order", () => {
     assert.deepStrictEqual(
       items.map(i => i.groupKey),
       MOON_PHASE_ORDER.filter(p => present.has(p)),
+    );
+  });
+
+  test("date sort: a pending file's mtime places it among commits, a pending deletion goes last", () => {
+    const committed = fileAt(3);
+    const edited = { ...fileAt(10), pathInRepo: "edited.ts", isPending: true, commit: undefined, modifiedAt: new Date(Date.UTC(2026, 10, 2)) };
+    const deleted = { ...fileAt(11), pathInRepo: "deleted.ts", status: "D", isPending: true, commit: undefined } as ChangedFile;
+
+    assert.deepStrictEqual(
+      sortFilesForGrouping([deleted, committed, edited], "date").map(f => f.pathInRepo),
+      ["edited.ts", committed.pathInRepo, "deleted.ts"],
     );
   });
 

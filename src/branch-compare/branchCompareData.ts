@@ -1,4 +1,5 @@
 import * as path from "path";
+import * as fs from "fs";
 
 import { execGitWithArgs } from "../git/gitOperations";
 import { parseStatusZ, STATUS_Z_ARGS } from "../git/statusPorcelainZ";
@@ -40,6 +41,8 @@ export interface ChangedFile {
    * entries fetched without commit info (when grouping mode doesn't need it).
    */
   commit?: CommitData;
+  /** Pending entries only: the file's mtime, for date sorting. Unset for deletions. */
+  modifiedAt?: Date;
   /**
    * Working-tree line deltas, set ONLY for pending entries (from the cheap
    * `git diff --numstat HEAD`). Historical entries never carry these — counting
@@ -411,11 +414,28 @@ export function countFilesIn(node: FolderNode): number {
   return total;
 }
 
-/** Latest commit date among `files`; undefined when none has commit info. */
-export function newestCommitDate(files: ChangedFile[]): Date | undefined {
+/** Date a file sorts by: its last commit, or for a pending change its mtime. */
+export function changeDate(file: ChangedFile): Date | undefined {
+  return file.commit?.date ?? file.modifiedAt;
+}
+
+/** Sets `modifiedAt` on pending entries that still exist on disk. */
+export async function stampPendingMtimes(files: ChangedFile[]): Promise<void> {
+  await Promise.all(files.map(async f => {
+    if (!f.isPending || f.status === "D") { return; }
+    try {
+      f.modifiedAt = (await fs.promises.stat(f.absolutePath)).mtime;
+    } catch {
+      // Gone since git status ran: leave it undated.
+    }
+  }));
+}
+
+/** Latest change date among `files`; undefined when none has one. */
+export function newestChangeDate(files: ChangedFile[]): Date | undefined {
   let newest: Date | undefined;
   for (const f of files) {
-    const date = f.commit?.date;
+    const date = changeDate(f);
     if (date && (!newest || date > newest)) { newest = date; }
   }
   return newest;
