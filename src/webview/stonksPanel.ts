@@ -15,8 +15,10 @@ import {
 import { PanController } from "./panController";
 import { html } from "../utils/templateHelpers";
 import { hideCrosshair, positionTooltip, showCrosshair } from "./webviewUtils";
-import { aggregateStonksData as aggregateData, bucketKey } from "./stonksBucketing";
+import { aggregateStonksData as aggregateData } from "./stonksBucketing";
+import { alignCompareSeries, computeBands, CompareLine, PADDING, SECTION_GAP, SECTION_LABEL_OFFSET, SectionKey } from "./stonksLayout";
 import { plural } from "../utils/plural";
+import { computeDerivedSeries, DerivedSeries } from "./stonksDerivedSeries";
 
 const vscode = acquireVsCodeApi();
 
@@ -56,7 +58,7 @@ let renderCommitSize: number[] = [];
 let compareRepos = false;
 let compareSelectedPaths = new Set<string>();
 let compareData: StonksRepoSeries[] = [];
-let renderCompareSeries: { repoName: string; repoPath: string; values: number[] }[] = [];
+let renderCompareSeries: CompareLine[] = [];
 
 function getVisibleData(): StonksDataPoint[] {
   if (zoomStack.length > 0) {
@@ -340,7 +342,7 @@ function handleSetLoading(loading: boolean): void {
 
 function handleSetConfig(c: StonksConfig): void {
   // Apply section toggles
-  const sectionDefaults: Record<keyof typeof sections, boolean> = {
+  const sectionDefaults: Record<SectionKey, boolean> = {
     fileCount: true, filesChanged: true, authors: true, authorConcentration: true,
     velocity: true, churn: true, commitSize: true, activityHeatmap: false,
   };
@@ -445,12 +447,9 @@ document.getElementById("exportBtn")?.addEventListener("click", () => {
 
 // ── SVG Chart Rendering ───────────────────────────────────────────────────────
 
-const PADDING = { top: 36, right: 48, bottom: 32, left: 48 };
-const SECTION_GAP = 28; // gap between sections (includes label space)
-const SECTION_LABEL_OFFSET = -6; // y offset for section label above its band
 
 // Section visibility state (all default checked)
-const sections = {
+const sections: Record<SectionKey, boolean> = {
   fileCount: true,
   filesChanged: true,
   authors: true,
@@ -474,7 +473,7 @@ let heatmapSelectedAuthors: string[] | undefined = undefined;
 let heatmapHoverAuthor: string | undefined = undefined;
 
 // Section toggle definitions — single source of truth for key ↔ DOM id mapping
-const SECTION_TOGGLE_DEFS: { key: keyof typeof sections; toggleId: string; sectionId?: string }[] = [
+const SECTION_TOGGLE_DEFS: { key: SectionKey; toggleId: string; sectionId?: string }[] = [
   { key: "fileCount", toggleId: "toggleFileCount" },
   { key: "filesChanged", toggleId: "toggleFilesChanged" },
   { key: "authors", toggleId: "toggleAuthors", sectionId: "sectionAuthors" },
@@ -486,7 +485,7 @@ const SECTION_TOGGLE_DEFS: { key: keyof typeof sections; toggleId: string; secti
 ];
 
 // Sections that only apply in commit mode
-const COMMIT_ONLY_KEYS = new Set<keyof typeof sections>(["authors", "authorConcentration", "activityHeatmap"]);
+const COMMIT_ONLY_KEYS = new Set<SectionKey>(["authors", "authorConcentration", "activityHeatmap"]);
 
 function updateCommitOnlyToggles(): void {
   const isCommit = xAxisMode === "commit";
@@ -647,56 +646,6 @@ if (compareReposCheckbox) {
 updateCommitOnlyToggles();
 
 // Section weight config (relative proportions, not fixed pixels)
-const SECTION_WEIGHTS: Record<string, number> = {
-  fileCount: 3,
-  filesChanged: 1.5,
-  authors: 1.5,
-  authorConcentration: 1.5,
-  velocity: 1.5,
-  churn: 1.5,
-  commitSize: 1.5,
-  activityHeatmap: 3,
-};
-
-const MIN_BAND_HEIGHT = 60;
-
-interface Band {
-  key: string;
-  label: string;
-  top: number;
-  height: number;
-}
-
-function computeBands(availableHeight: number): Band[] {
-  const modeLabel: Record<XAxisMode, string> = { commit: "day", day: "day", week: "week", month: "month" };
-  const defs: { key: keyof typeof sections; label: string }[] = [
-    { key: "fileCount", label: "Files in repo" },
-    { key: "filesChanged", label: "Files changed" },
-    ...(xAxisMode === "commit" ? [{ key: "authors" as const, label: `Unique authors (rolling ${authorWindowSize} commits)` }] : []),
-    ...(xAxisMode === "commit" ? [{ key: "authorConcentration" as const, label: `Author concentration (top ${authorTopX})` }] : []),
-    { key: "velocity", label: `Commits per ${modeLabel[xAxisMode]}` },
-    { key: "churn", label: "Churn rate (changed / repo size)" },
-    { key: "commitSize", label: xAxisMode === "commit" ? `Avg commit size (rolling ${commitSizeWindowSize})` : `Avg commit size (files/${modeLabel[xAxisMode]})` },
-    ...(xAxisMode === "commit" ? [{ key: "activityHeatmap" as const, label: "Activity heatmap (day × hour, committer-local time)" }] : []),
-  ];
-
-  const visible = defs.filter(d => sections[d.key]);
-  if (visible.length === 0) { return []; }
-
-  const totalWeight = visible.reduce((s, d) => s + SECTION_WEIGHTS[d.key], 0);
-  const gapSpace = (visible.length - 1) * SECTION_GAP;
-  const usable = Math.max(visible.length * MIN_BAND_HEIGHT, availableHeight - PADDING.top - PADDING.bottom - gapSpace);
-
-  const bands: Band[] = [];
-  let y = PADDING.top;
-  for (const def of visible) {
-    const h = Math.max(MIN_BAND_HEIGHT, Math.round((SECTION_WEIGHTS[def.key] / totalWeight) * usable));
-    bands.push({ key: def.key, label: def.label, top: y, height: h });
-    y += h + SECTION_GAP;
-  }
-  return bands;
-}
-
 // ── Shared interaction helpers ─────────────────────────────────────────────────
 
 const COMPARE_COLORS = [
@@ -714,28 +663,6 @@ function compareColorForRepo(repoPath: string): string {
   return COMPARE_COLORS[(idx === -1 ? 0 : idx) % COMPARE_COLORS.length];
 }
 
-/**
- * Align each compare repo's cumulativeFileCount to the visible date buckets.
- * For dates where a repo has no data, carry the last known value forward.
- */
-function buildCompareSeries(visibleData: StonksDataPoint[], mode: XAxisMode): { repoName: string; repoPath: string; values: number[] }[] {
-  const visibleKeys = visibleData.map(d => bucketKey(d.date, mode));
-  const filtered = compareData.filter(s => compareSelectedPaths.has(s.repoPath));
-  return filtered.map(series => {
-    const agg = aggregateData(series.data, mode);
-    const lookup = new Map<string, number>();
-    for (const d of agg) { lookup.set(bucketKey(d.date, mode), d.cumulativeFileCount); }
-
-    const values: number[] = [];
-    let lastVal = 0;
-    for (const key of visibleKeys) {
-      if (lookup.has(key)) { lastVal = lookup.get(key)!; }
-      values.push(lastVal);
-    }
-    return { repoName: series.repoName, repoPath: series.repoPath, values };
-  });
-}
-
 function xToIdx(clientX: number): number {
   const svgRect = svg.getBoundingClientRect();
   const mx = clientX - svgRect.left;
@@ -749,11 +676,7 @@ let derivedCache: {
   topX: number;
   windowSize: number;
   commitSizeWindow: number;
-  allAuthorCounts: number[];
-  allAuthorConcentration: number[];
-  allVelocity: number[];
-  allChurn: number[];
-  allCommitSize: number[];
+  series: DerivedSeries;
 } | null = null;
 
 function zoomCacheKey(): string {
@@ -779,90 +702,27 @@ function render() {
 
   // ── Derived series (cached across pan-only re-renders) ────────────────────
   const zoomKey = zoomCacheKey();
-  let allAuthorCounts: number[];
-  let allAuthorConcentration: number[];
-  let allVelocity: number[];
-  let allChurn: number[];
-  let allCommitSize: number[];
-
-  if (derivedCache && derivedCache.data === currentData && derivedCache.zoomKey === zoomKey && derivedCache.topX === authorTopX && derivedCache.windowSize === authorWindowSize && derivedCache.commitSizeWindow === commitSizeWindowSize) {
-    allAuthorCounts = derivedCache.allAuthorCounts;
-    allAuthorConcentration = derivedCache.allAuthorConcentration;
-    allVelocity = derivedCache.allVelocity;
-    allChurn = derivedCache.allChurn;
-    allCommitSize = derivedCache.allCommitSize;
-  } else {
-    const allN = allVisible.length;
-
-    // Authors + concentration: both use same rolling window, compute in single pass
-    if (xAxisMode === "commit") {
-      allAuthorCounts = [];
-      allAuthorConcentration = [];
-      for (let i = 0; i < allN; i++) {
-        const start = Math.max(0, i - authorWindowSize + 1);
-        const authorCommits = new Map<string, number>();
-        for (let j = start; j <= i; j++) {
-          const a = allVisible[j].author!;
-          authorCommits.set(a, (authorCommits.get(a) ?? 0) + 1);
-        }
-        allAuthorCounts.push(authorCommits.size);
-        const windowSize = i - start + 1;
-        const sorted = [...authorCommits.values()].sort((a, b) => b - a);
-        const topXSum = sorted.slice(0, authorTopX).reduce((s, v) => s + v, 0);
-        allAuthorConcentration.push((topXSum / windowSize) * 100);
-      }
-    } else {
-      allAuthorCounts = [];
-      allAuthorConcentration = [];
-    }
-
-    // Velocity: in commit mode = commits sharing same calendar day; in aggregated modes = commitCount
-    if (xAxisMode === "commit") {
-      const dayMap = new Map<string, number>();
-      for (const d of allVisible) {
-        const dayKey = d.date.substring(0, 10);
-        dayMap.set(dayKey, (dayMap.get(dayKey) ?? 0) + 1);
-      }
-      allVelocity = allVisible.map(d => dayMap.get(d.date.substring(0, 10)) ?? 0);
-    } else {
-      allVelocity = allVisible.map(d => d.commitCount);
-    }
-
-    allChurn = allVisible.map(d =>
-      d.cumulativeFileCount > 0 ? (d.filesChanged / d.cumulativeFileCount) * 100 : 0,
-    );
-
-    // Commit size: rolling average of filesChanged in commit mode, per-bucket average in aggregated
-    if (xAxisMode === "commit") {
-      allCommitSize = [];
-      for (let i = 0; i < allN; i++) {
-        const start = Math.max(0, i - commitSizeWindowSize + 1);
-        let sum = 0;
-        for (let j = start; j <= i; j++) { sum += allVisible[j].filesChanged; }
-        allCommitSize.push(sum / (i - start + 1));
-      }
-    } else {
-      allCommitSize = allVisible.map(d => d.commitCount > 0 ? d.filesChanged / d.commitCount : 0);
-    }
-
-    derivedCache = { data: currentData, zoomKey, topX: authorTopX, windowSize: authorWindowSize, commitSizeWindow: commitSizeWindowSize, allAuthorCounts, allAuthorConcentration, allVelocity, allChurn, allCommitSize };
+  if (!(derivedCache && derivedCache.data === currentData && derivedCache.zoomKey === zoomKey && derivedCache.topX === authorTopX && derivedCache.windowSize === authorWindowSize && derivedCache.commitSizeWindow === commitSizeWindowSize)) {
+    const series = computeDerivedSeries(allVisible, xAxisMode, { authorWindow: authorWindowSize, topX: authorTopX, commitSizeWindow: commitSizeWindowSize });
+    derivedCache = { data: currentData, zoomKey, topX: authorTopX, windowSize: authorWindowSize, commitSizeWindow: commitSizeWindowSize, series };
   }
+  const derived = derivedCache.series;
 
   // ── Slice to page window ──────────────────────────────────────────────────
   const visibleData = allVisible.slice(pageStart, pageEnd);
   const counts = visibleData.map(d => d.cumulativeFileCount);
   const volumes = visibleData.map(d => d.filesChanged);
-  const authorCounts = allAuthorCounts.slice(pageStart, pageEnd);
-  const authorConcentration = allAuthorConcentration.slice(pageStart, pageEnd);
-  const velocity = allVelocity.slice(pageStart, pageEnd);
-  const churn = allChurn.slice(pageStart, pageEnd);
-  const commitSize = allCommitSize.slice(pageStart, pageEnd);
+  const authorCounts = derived.authorCounts.slice(pageStart, pageEnd);
+  const authorConcentration = derived.authorConcentration.slice(pageStart, pageEnd);
+  const velocity = derived.velocity.slice(pageStart, pageEnd);
+  const churn = derived.churn.slice(pageStart, pageEnd);
+  const commitSize = derived.commitSize.slice(pageStart, pageEnd);
 
   // ── Compare repos: align other repos' fileCount to visible date buckets ───
   const isCompareActive = compareRepos && xAxisMode !== "commit" && compareData.length > 0;
-  let compareSeries: { repoName: string; repoPath: string; values: number[] }[] = [];
+  let compareSeries: CompareLine[] = [];
   if (isCompareActive) {
-    compareSeries = buildCompareSeries(visibleData, xAxisMode);
+    compareSeries = alignCompareSeries(visibleData, compareData.filter(c => compareSelectedPaths.has(c.repoPath)), xAxisMode);
   }
 
   // Available height: viewport minus header/toggles/padding above the chart container
@@ -872,7 +732,7 @@ function render() {
   const bodyPaddingBottom = 20;
   const availableH = window.innerHeight - containerTop - scrollbarReserve - bodyPaddingBottom;
 
-  const bands = computeBands(availableH);
+  const bands = computeBands(availableH, sections, xAxisMode, { authorWindow: authorWindowSize, topX: authorTopX, commitSizeWindow: commitSizeWindowSize });
   if (bands.length === 0) { return; }
 
   const containerRect = chartContainer.getBoundingClientRect();
