@@ -1,9 +1,8 @@
 import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksConfig, XAxisMode, StonksRepoSeries, StonksRepoTicker } from "./messages";
-import { renderCommitTooltipHeader, formatTooltipDate } from "./svgChartPrimitives";
+import { EMPTY_FRAME, RenderedFrame, renderStonksTooltip } from "./stonksTooltip";
 import { renderBands, renderXAxis } from "./stonksSections";
 import { committerLocalDayHour, DAY_LABELS, heatmapAuthorFilter, HeatmapOptions } from "./stonksHeatmap";
 import { PanController } from "./panController";
-import { html } from "../utils/templateHelpers";
 import { hideCrosshair, positionTooltip, showCrosshair } from "./webviewUtils";
 import { aggregateStonksData as aggregateData } from "./stonksBucketing";
 import { alignCompareSeries, computeBands, CompareLine, PADDING, SectionKey } from "./stonksLayout";
@@ -35,20 +34,13 @@ let chartXStep = 0;
 let dragStartIdx: number | null = null;
 let isDragging = false;
 
-// Per-render data used by mouse handlers (set in render, read by module-level listeners)
-let renderVisibleData: StonksDataPoint[] = [];
-let renderAllVisible: StonksDataPoint[] = [];
-let renderAuthorCounts: number[] = [];
-let renderAuthorConcentration: number[] = [];
-let renderVelocity: number[] = [];
-let renderChurn: number[] = [];
-let renderCommitSize: number[] = [];
+// What the last render drew (set in render, read by the module-level mouse handlers)
+let frame: RenderedFrame = EMPTY_FRAME;
 
 // Compare repos state
 let compareRepos = false;
 let compareSelectedPaths = new Set<string>();
 let compareData: StonksRepoSeries[] = [];
-let renderCompareSeries: CompareLine[] = [];
 
 function getVisibleData(): StonksDataPoint[] {
   if (zoomStack.length > 0) {
@@ -789,14 +781,7 @@ function render() {
   svg.innerHTML = svgContent;
 
   // Update module-level data for mouse handlers (registered once, outside render)
-  renderVisibleData = visibleData;
-  renderAllVisible = allVisible;
-  renderAuthorCounts = authorCounts;
-  renderAuthorConcentration = authorConcentration;
-  renderVelocity = velocity;
-  renderChurn = churn;
-  renderCommitSize = commitSize;
-  renderCompareSeries = compareSeries;
+  frame = { visibleData, allVisible, authorCounts, authorConcentration, velocity, churn, commitSize, compareLines: compareSeries };
 
   // ── Update pan scrollbar ────────────────────────────────────────────────────
 }
@@ -861,7 +846,7 @@ svg.addEventListener("click", (e: Event) => {
   const hour = parseInt(target.getAttribute("data-hour") ?? "", 10);
   if (isNaN(day) || isNaN(hour)) { return; }
   const { matches } = heatmapOptions();
-  const hashes = renderAllVisible
+  const hashes = frame.allVisible
     .filter(d => {
       if (!d.hash) { return false; }
       if (!matches(d)) { return false; }
@@ -919,41 +904,13 @@ svg.addEventListener("mousemove", (e: Event) => {
   }
 
   const idx = xToIdx(me.clientX);
-  if (idx < 0 || idx >= renderVisibleData.length) { return; }
+  if (idx < 0 || idx >= frame.visibleData.length) { return; }
   const x = PADDING.left + idx * chartXStep;
-  const d = renderVisibleData[idx];
 
   showCrosshair("crosshair", x);
-
-  const dateStr = formatTooltipDate(d.date);
-
-  let tooltipHtml = "";
-  if (xAxisMode === "commit") {
-    tooltipHtml += renderCommitTooltipHeader(d.hash!, d.message!, d.author!, dateStr);
-  } else {
-    tooltipHtml += `<div class="author">${dateStr} · ${plural(d.commitCount, "commit")}</div>`;
-  }
-  tooltipHtml += `<div class="stat">`;
-  if (sections.fileCount) {
-    tooltipHtml += `Files in repo: ${d.cumulativeFileCount}<br>`;
-    if (renderCompareSeries.length > 0) {
-      for (let si = 0; si < renderCompareSeries.length; si++) {
-        const s = renderCompareSeries[si];
-        const color = compareColorForRepo(s.repoPath);
-        tooltipHtml += html`<span style="color:${color}">● ${s.repoName}: ${s.values[idx]}</span><br>`;
-      }
-    }
-  }
-  if (sections.filesChanged) {
-    tooltipHtml += `Changed: ${d.filesChanged} (<span class="added">+${d.filesAdded}</span> <span class="deleted">-${d.filesDeleted}</span>)<br>`;
-  }
-  if (sections.authors && xAxisMode === "commit") { tooltipHtml += `Authors (${authorWindowSize}): ${renderAuthorCounts[idx]}<br>`; }
-  if (sections.authorConcentration && xAxisMode === "commit") { tooltipHtml += `Top-${authorTopX}: ${renderAuthorConcentration[idx].toFixed(0)}%<br>`; }
-  if (sections.velocity) { tooltipHtml += `Commits/${xAxisMode === "commit" ? "day" : xAxisMode}: ${renderVelocity[idx]}<br>`; }
-  if (sections.churn) { tooltipHtml += `Churn: ${renderChurn[idx].toFixed(1)}%<br>`; }
-  if (sections.commitSize) { tooltipHtml += `Avg size: ${renderCommitSize[idx].toFixed(1)} files<br>`; }
-  tooltipHtml += `</div>`;
-  tooltip.innerHTML = tooltipHtml;
+  tooltip.innerHTML = renderStonksTooltip(frame, idx, {
+    mode: xAxisMode, sections, authorWindow: authorWindowSize, topX: authorTopX, colorForRepo: compareColorForRepo,
+  });
   positionTooltip(tooltip, chartContainer, me.clientX, me.clientY);
 });
 
