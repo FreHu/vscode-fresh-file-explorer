@@ -1,22 +1,12 @@
 import type { StonksToWebview, StonksFromWebview, StonksDataPoint, StonksConfig, XAxisMode, StonksRepoSeries, StonksRepoTicker } from "./messages";
-import {
-  renderLinePath as _renderLinePath,
-  renderLinePathScaled as _renderLinePathScaled,
-  renderLineArea as _renderLineArea,
-  renderYAxis as _renderYAxis,
-  renderYAxisFromRange as _renderYAxisFromRange,
-  renderDateXAxis,
-  renderBar,
-  renderCommitTooltipHeader,
-  formatTooltipDate,
-  ADDED_FILL,
-  DELETED_FILL,
-} from "./svgChartPrimitives";
+import { renderCommitTooltipHeader, formatTooltipDate } from "./svgChartPrimitives";
+import { renderBands, renderXAxis } from "./stonksSections";
+import { committerLocalDayHour, DAY_LABELS, heatmapAuthorFilter, HeatmapOptions } from "./stonksHeatmap";
 import { PanController } from "./panController";
 import { html } from "../utils/templateHelpers";
 import { hideCrosshair, positionTooltip, showCrosshair } from "./webviewUtils";
 import { aggregateStonksData as aggregateData } from "./stonksBucketing";
-import { alignCompareSeries, computeBands, CompareLine, PADDING, SECTION_GAP, SECTION_LABEL_OFFSET, SectionKey } from "./stonksLayout";
+import { alignCompareSeries, computeBands, CompareLine, PADDING, SectionKey } from "./stonksLayout";
 import { plural } from "../utils/plural";
 import { computeDerivedSeries, DerivedSeries } from "./stonksDerivedSeries";
 
@@ -760,63 +750,12 @@ function render() {
     </defs>
   `;
 
-  // X-axis date labels (top of chart)
-  svgContent += renderXAxis(visibleData, n, xStep);
-
-  for (const band of bands) {
-    const { key, label, top, height: bandH } = band;
-
-    // Section label
-    svgContent += `<text x="${PADDING.left}" y="${top + SECTION_LABEL_OFFSET}" fill="var(--vscode-descriptionForeground)" font-size="11" font-weight="600">${label}</text>`;
-
-    // Splitter line above each band (except the first)
-    if (band !== bands[0]) {
-      const splitterY = top - SECTION_GAP / 2 - 2;
-      svgContent += `<line x1="${PADDING.left}" y1="${splitterY}" x2="${PADDING.left + plotW}" y2="${splitterY}" stroke="var(--vscode-editorWidget-border, var(--vscode-widget-border))" stroke-width="1" opacity="0.4"/>`;
-    }
-
-    if (key === "fileCount") {
-      if (isCompareActive && compareSeries.length > 0) {
-        // Multi-repo overlay: find global min/max across all series for shared Y scale
-        let globalMin = Math.min(...counts);
-        let globalMax = Math.max(...counts);
-        for (const s of compareSeries) {
-          globalMin = Math.min(globalMin, ...s.values);
-          globalMax = Math.max(globalMax, ...s.values);
-        }
-        // Render each compare repo as a line
-        for (let si = 0; si < compareSeries.length; si++) {
-          const color = compareColorForRepo(compareSeries[si].repoPath);
-          svgContent += renderLinePathScaled(compareSeries[si].values, top, bandH, plotW, n, xStep, color, globalMin, globalMax);
-        }
-        svgContent += renderYAxisFromRange(globalMin, globalMax, top, bandH, plotW, 8);
-      } else {
-        svgContent += renderLineArea(counts, top, bandH, plotW, n, xStep, "var(--vscode-charts-blue, #339af0)", true);
-        svgContent += renderYAxis(counts, top, bandH, plotW, 8);
-      }
-    } else if (key === "filesChanged") {
-      svgContent += renderVolumeBars(visibleData, volumes, top, bandH, plotW, n, xStep);
-      const maxVol = Math.max(...volumes, 1);
-      svgContent += renderYAxisFromRange(0, maxVol, top, bandH, plotW, 3);
-    } else if (key === "authors") {
-      svgContent += renderLinePath(authorCounts, top, bandH, plotW, n, xStep, "var(--vscode-charts-orange, #ffa94d)");
-      svgContent += renderYAxis(authorCounts, top, bandH, plotW, 3);
-    } else if (key === "authorConcentration") {
-      svgContent += renderLinePath(authorConcentration, top, bandH, plotW, n, xStep, "var(--vscode-charts-purple, #b197fc)");
-      svgContent += renderYAxisFromRange(0, Math.max(...authorConcentration, 1), top, bandH, plotW, 3, v => `${v.toFixed(0)}%`);
-    } else if (key === "velocity") {
-      svgContent += renderLinePath(velocity, top, bandH, plotW, n, xStep, "var(--vscode-charts-green, #51cf66)");
-      svgContent += renderYAxis(velocity, top, bandH, plotW, 3);
-    } else if (key === "churn") {
-      svgContent += renderLinePath(churn, top, bandH, plotW, n, xStep, "var(--vscode-charts-red, #ff6b6b)");
-      svgContent += renderYAxisFromRange(0, Math.max(...churn, 0.1), top, bandH, plotW, 3, v => `${v.toFixed(1)}%`);
-    } else if (key === "commitSize") {
-      svgContent += renderLinePath(commitSize, top, bandH, plotW, n, xStep, "var(--vscode-charts-yellow, #ffd43b)");
-      svgContent += renderYAxis(commitSize, top, bandH, plotW, 3, v => v.toFixed(1));
-    } else if (key === "activityHeatmap") {
-      svgContent += renderActivityHeatmap(allVisible, top, bandH, plotW, PADDING);
-    }
-  }
+  const geometry = { plotW, n, xStep };
+  svgContent += renderXAxis(visibleData, geometry);
+  svgContent += renderBands(bands, {
+    visibleData, allVisible, counts, volumes, authorCounts, authorConcentration, velocity, churn, commitSize,
+    compareLines: compareSeries, colorForRepo: compareColorForRepo, heatmap: heatmapOptions(),
+  }, geometry);
 
   // Commit link icons (below last time-series band, excluding heatmap)
   const seriesBands = bands.filter(b => b.key !== "activityHeatmap");
@@ -874,67 +813,6 @@ const panCtrl = new PanController(
   () => maxVisibleTicks,
 );
 
-// ── Section rendering helpers ─────────────────────────────────────────────────
-
-/** Up to 10 date labels along the top of the chart. */
-function renderXAxis(data: StonksDataPoint[], n: number, xStep: number): string {
-  if (n < 2) { return ""; }
-  const MAX_LABELS = 10;
-  const step = Math.max(1, Math.floor((n - 1) / (MAX_LABELS - 1)));
-  return renderDateXAxis(data.map(d => d.date), n, xStep, 14, PADDING, step);
-}
-
-// ── Section rendering helpers (delegate to shared primitives with local PADDING) ─
-
-function renderLinePath(
-  values: number[], top: number, bandH: number, plotW: number,
-  n: number, xStep: number, color: string,
-): string {
-  return _renderLinePath(values, top, bandH, plotW, n, xStep, color, PADDING);
-}
-
-function renderLinePathScaled(
-  values: number[], top: number, bandH: number, plotW: number,
-  n: number, xStep: number, color: string, min: number, max: number,
-): string {
-  return _renderLinePathScaled(values, top, bandH, plotW, n, xStep, color, min, max, PADDING);
-}
-
-function renderLineArea(
-  values: number[], top: number, bandH: number, plotW: number,
-  n: number, xStep: number, color: string, useGradient: boolean,
-): string {
-  return _renderLineArea(values, top, bandH, plotW, n, xStep, color, useGradient, PADDING);
-}
-
-function renderVolumeBars(
-  data: StonksDataPoint[], volumes: number[], top: number, bandH: number,
-  _plotW: number, n: number, xStep: number,
-): string {
-  const maxVol = Math.max(...volumes, 1);
-  let bars = "";
-  for (let i = 0; i < n; i++) {
-    const netAdd = data[i].filesAdded - data[i].filesDeleted;
-    bars += renderBar(i, xStep, PADDING, top + bandH, (volumes[i] / maxVol) * bandH, netAdd >= 0 ? ADDED_FILL : DELETED_FILL);
-  }
-  return bars;
-}
-
-const HEATMAP_DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-/**
- * Resolve a commit's day-of-week and hour-of-day in the *committer's* local time
- * (not the viewer's). `d.date` is a UTC instant; `d.tzOffsetMinutes` carries the
- * original `%aI` offset. Shifting then reading via `getUTCxxx` yields the
- * committer's wall clock without the viewer's TZ leaking back in.
- *
- * Falls back to UTC when the offset is missing (older cached data).
- */
-function committerLocalDayHour(d: StonksDataPoint): { day: number; hour: number } {
-  const shifted = new Date(new Date(d.date).getTime() + (d.tzOffsetMinutes ?? 0) * 60_000);
-  return { day: shifted.getUTCDay(), hour: shifted.getUTCHours() };
-}
-
 // ── Toast notification ────────────────────────────────────────────────────────
 
 const toastEl = document.getElementById("stonksToast") as HTMLElement | null;
@@ -951,71 +829,9 @@ function showToast(message: string): void {
   }, 2500);
 }
 
-function heatmapMatchesAuthorFilter(d: StonksDataPoint): boolean {
-  // Hover preview wins over the persisted filter — releasing the mouse restores it.
-  if (heatmapHoverAuthor !== undefined) {
-    return d.author === heatmapHoverAuthor;
-  }
-  if (heatmapSelectedAuthors === undefined) { return true; }
-  return d.author !== undefined && heatmapSelectedAuthors.includes(d.author);
-}
-
-function renderActivityHeatmap(
-  data: StonksDataPoint[], top: number, bandH: number, plotW: number,
-  pad: typeof PADDING,
-): string {
-  // Build 7x24 grid: [day 0..6][hour 0..23], in committer-local time
-  const grid: number[][] = Array.from({ length: 7 }, () => new Array(24).fill(0));
-  for (const d of data) {
-    if (!heatmapMatchesAuthorFilter(d)) { continue; }
-    const { day, hour } = committerLocalDayHour(d);
-    grid[day][hour]++;
-  }
-  const maxCount = Math.max(...grid.flat(), 1);
-  const cellW = plotW / 24;
-  const cellH = bandH / 7;
-  let out = "";
-  for (let day = 0; day < 7; day++) {
-    const cellY = top + day * cellH;
-    out += `<text x="${pad.left - 10}" y="${cellY + cellH / 2 + 4}" text-anchor="end" fill="var(--vscode-descriptionForeground)" font-size="10">${HEATMAP_DAY_LABELS[day]}</text>`;
-    for (let hour = 0; hour < 24; hour++) {
-      const count = grid[day][hour];
-      const cellX = pad.left + hour * cellW;
-      const opacity = count === 0 ? 0.06 : 0.1 + (count / maxCount) * 0.8;
-      const fill = count === 0 ? "var(--vscode-editorWidget-border, #444)" : "var(--vscode-charts-orange, #ffa94d)";
-      const clickable = count > 0 ? ` class="heatmap-cell" data-day="${day}" data-hour="${hour}" style="cursor:pointer"` : "";
-      out += `<rect${clickable} x="${(cellX + 1).toFixed(1)}" y="${(cellY + 1).toFixed(1)}" width="${(cellW - 2).toFixed(1)}" height="${(cellH - 2).toFixed(1)}" fill="${fill}" opacity="${opacity.toFixed(2)}" rx="1"><title>${HEATMAP_DAY_LABELS[day]} ${hour}:00 \u2014 ${plural(count, "commit")} (click to copy hashes)</title></rect>`;
-    }
-  }
-  // Working-hours overlay: outline Mon\u2013Fri \u00d7 workdayStart..workdayEnd. Cells outside it visually pop as off-hours.
-  // getDay() values: 0=Sun, 1=Mon \u2026 5=Fri, 6=Sat \u2014 so Mon\u2013Fri is rows 1..5.
-  if (heatmapWorkdayEnd > heatmapWorkdayStart) {
-    const ox = pad.left + heatmapWorkdayStart * cellW;
-    const oy = top + 1 * cellH;
-    const ow = (heatmapWorkdayEnd - heatmapWorkdayStart) * cellW;
-    const oh = 5 * cellH;
-    out += `<rect x="${ox.toFixed(1)}" y="${oy.toFixed(1)}" width="${ow.toFixed(1)}" height="${oh.toFixed(1)}" fill="none" stroke="var(--vscode-foreground)" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.55" pointer-events="none"><title>Workday: Mon\u2013Fri ${heatmapWorkdayStart}:00\u2013${heatmapWorkdayEnd}:00</title></rect>`;
-  }
-  // Hour labels: 0, 6, 12, 18
-  for (const h of [0, 6, 12, 18]) {
-    const x = pad.left + h * cellW + cellW / 2;
-    out += `<text x="${x.toFixed(1)}" y="${(top + bandH + 12).toFixed(1)}" text-anchor="middle" fill="var(--vscode-descriptionForeground)" font-size="9">${h}:00</text>`;
-  }
-  return out;
-}
-
-function renderYAxis(
-  values: number[], top: number, bandH: number, plotW: number,
-  count: number, format?: (v: number) => string,
-): string {
-  return _renderYAxis(values, top, bandH, plotW, count, PADDING, format);
-}
-
-function renderYAxisFromRange(
-  min: number, max: number, top: number, bandH: number, plotW: number,
-  count: number, format?: (v: number) => string,
-): string {
-  return _renderYAxisFromRange(min, max, top, bandH, plotW, count, PADDING, format);
+/** The heatmap's author filter and workday outline from the current settings. */
+function heatmapOptions(): HeatmapOptions {
+  return { matches: heatmapAuthorFilter(heatmapSelectedAuthors, heatmapHoverAuthor), workdayStart: heatmapWorkdayStart, workdayEnd: heatmapWorkdayEnd };
 }
 
 // ── Resize handling ───────────────────────────────────────────────────────────
@@ -1044,17 +860,18 @@ svg.addEventListener("click", (e: Event) => {
   const day = parseInt(target.getAttribute("data-day") ?? "", 10);
   const hour = parseInt(target.getAttribute("data-hour") ?? "", 10);
   if (isNaN(day) || isNaN(hour)) { return; }
+  const { matches } = heatmapOptions();
   const hashes = renderAllVisible
     .filter(d => {
       if (!d.hash) { return false; }
-      if (!heatmapMatchesAuthorFilter(d)) { return false; }
+      if (!matches(d)) { return false; }
       const local = committerLocalDayHour(d);
       return local.day === day && local.hour === hour;
     })
     .map(d => d.hash!);
   if (hashes.length === 0) { return; }
   navigator.clipboard.writeText(hashes.join("\n")).then(() => {
-    showToast(`Copied ${plural(hashes.length, "hash", "hashes")} (${HEATMAP_DAY_LABELS[day]} ${hour}:00)`);
+    showToast(`Copied ${plural(hashes.length, "hash", "hashes")} (${DAY_LABELS[day]} ${hour}:00)`);
   }).catch(() => { /* clipboard unavailable */ });
 });
 svg.addEventListener("mouseenter", (e: Event) => {
