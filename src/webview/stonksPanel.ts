@@ -324,18 +324,10 @@ function handleSetLoading(loading: boolean): void {
 
 function handleSetConfig(c: StonksConfig): void {
   // Apply section toggles
-  const sectionDefaults: Record<SectionKey, boolean> = {
-    fileCount: true, filesChanged: true, authors: true, authorConcentration: true,
-    velocity: true, churn: true, commitSize: true, activityHeatmap: false,
-  };
-  for (const { key, toggleId } of SECTION_TOGGLE_DEFS) {
-    sections[key] = c.sections[key] ?? sectionDefaults[key];
-    const cb = document.getElementById(toggleId) as HTMLInputElement | null;
-    if (cb) { cb.checked = sections[key]; }
-    // Show/hide per-section options
-    const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
-    if (optionsEl) { optionsEl.classList.toggle("visible", sections[key]); }
+  for (const { key } of SECTION_TOGGLE_DEFS) {
+    sections[key] = c.sections[key] ?? SECTION_DEFAULTS[key];
   }
+  syncSectionToggles();
   // Apply compare repos
   compareRepos = c.compareRepos ?? false;
   if (compareReposCheckbox) { compareReposCheckbox.checked = compareRepos; }
@@ -431,16 +423,28 @@ document.getElementById("exportBtn")?.addEventListener("click", () => {
 
 
 // Section visibility state (all default checked)
-const sections: Record<SectionKey, boolean> = {
+/** Sections shown until the user picks their own; the rest are opt-in. Also drives the checkboxes on load. */
+const SECTION_DEFAULTS: Record<SectionKey, boolean> = {
   fileCount: true,
   filesChanged: true,
-  authors: true,
-  authorConcentration: true,
-  velocity: true,
-  churn: true,
-  commitSize: true,
+  authors: false,
+  authorConcentration: false,
+  velocity: false,
+  churn: false,
+  commitSize: false,
   activityHeatmap: false,
 };
+const sections: Record<SectionKey, boolean> = { ...SECTION_DEFAULTS };
+
+/** Sets each section checkbox, and the options under it, from `sections`. */
+function syncSectionToggles(): void {
+  for (const { key, toggleId } of SECTION_TOGGLE_DEFS) {
+    const cb = document.getElementById(toggleId) as HTMLInputElement | null;
+    if (cb) { cb.checked = sections[key]; }
+    const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
+    if (optionsEl) { optionsEl.classList.toggle("visible", sections[key]); }
+  }
+}
 
 let authorTopX = 1;
 let authorWindowSize = 10;
@@ -502,11 +506,10 @@ for (const { key, toggleId } of SECTION_TOGGLE_DEFS) {
       sendConfig();
       render();
     });
-    // Initialize options visibility
-    const optionsEl = document.getElementById(`options${key.charAt(0).toUpperCase() + key.slice(1)}`);
-    if (optionsEl) { optionsEl.classList.toggle("visible", cb.checked); }
   }
 }
+// The HTML's own `checked` attributes don't count: with no saved config, nothing else syncs them.
+syncSectionToggles();
 
 /** Wires a numeric input: a value in [min, max] goes to `apply`, then the config is saved and the chart re-rendered. */
 function bindNumberInput(id: string, min: number, max: number, apply: (value: number) => void): HTMLInputElement | null {
