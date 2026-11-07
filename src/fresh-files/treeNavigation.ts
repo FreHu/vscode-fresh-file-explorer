@@ -3,7 +3,7 @@ import * as path from "path";
 
 import { FreshFileItem, FreshFilesTreeItem } from "./freshFileTreeItems";
 import { WorkspaceFolderInfo, FileMetadata } from "../types";
-import { AbsolutePath, asAbsolutePath } from "../pathTypes";
+import { AbsolutePath, asAbsolutePath, asNormalizedRepoPath, NormalizedRepoPath } from "../pathTypes";
 import { GroupingMode } from "./groupingMode";
 import { findWorkspaceFolderForPath, findRepoForFile } from "../utils/pathUtils";
 import { normalizePath } from "../utils";
@@ -11,7 +11,7 @@ import { log } from "../extension/logger";
 
 export interface ParentLookupContext {
   workspaceFolders: WorkspaceFolderInfo[];
-  groupingMode: GroupingMode;
+  groupingModeFor(repo: NormalizedRepoPath): GroupingMode;
   openChangesMode: boolean;
   /** Cached repo root items from the last render — reveal/getParent must hand VS Code the registered instances. */
   repoItemCache: ReadonlyMap<string, FreshFileItem>;
@@ -48,7 +48,7 @@ export function findParentItem(element: FreshFilesTreeItem, ctx: ParentLookupCon
   const lastSlash = filePathInRepo.lastIndexOf("/");
 
   // In flat list mode all files are direct children of the repo root — no directory nodes exist.
-  if (ctx.groupingMode === "Flat List" || lastSlash === -1) {
+  if (ctx.groupingModeFor(asNormalizedRepoPath(repoLocation.repoFullPath)) === "Flat List" || lastSlash === -1) {
     const repoFsPath = vscode.Uri.file(repoLocation.repoFullPath).fsPath;
     return ctx.repoItemCache.get(`repo:${repoFsPath}`);
   }

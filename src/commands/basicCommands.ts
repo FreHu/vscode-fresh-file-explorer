@@ -16,6 +16,8 @@ import { execGitWithArgs } from "../git/gitOperations";
 import { ConfigService } from "../config/configService";
 import { normalizePath } from "../utils";
 import { nearestExistingPath } from "../utils/nearestExistingPath";
+import { Commands } from "./commandConstants";
+import { asNormalizedRepoPath } from "../pathTypes";
 
 export function handleRefresh(freshFileProvider: FreshFileProvider): void {
   log("Refresh command triggered");
@@ -67,6 +69,24 @@ export async function handleSetGroupingMode(freshFileProvider: FreshFileProvider
     getCurrent: () => freshFileProvider.groupingMode,
     onSelect: (mode) => freshFileProvider.setGroupingMode(mode),
   });
+}
+
+/** Group By submenu: menu entries can't carry arguments, so each mode has its own command. */
+export const GROUP_BY_COMMANDS: Record<GroupingMode, string> = {
+  "File Structure": Commands.GROUP_BY_FILE_STRUCTURE,
+  "Flat List": Commands.GROUP_BY_FLAT_LIST,
+  "Author": Commands.GROUP_BY_AUTHOR,
+  "Commit Hash": Commands.GROUP_BY_COMMIT_HASH,
+  "Moon Phase": Commands.GROUP_BY_MOON_PHASE,
+};
+
+/** From a repo row: that repo's override. From the view title (no item): the whole view. */
+export function handleGroupBy(item: FreshFileItem | undefined, mode: GroupingMode, freshFileProvider: FreshFileProvider): void {
+  if (item instanceof FreshFileItem) {
+    freshFileProvider.setRepoGroupingMode(asNormalizedRepoPath(item.resourceUri.fsPath), mode);
+  } else {
+    freshFileProvider.setGroupingMode(mode);
+  }
 }
 
 export async function handleSetSortOrder(freshFileProvider: FreshFileProvider, branchCompareProvider?: BranchCompareProvider): Promise<boolean> {

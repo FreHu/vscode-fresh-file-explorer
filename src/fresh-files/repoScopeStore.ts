@@ -1,13 +1,16 @@
 import { NormalizedRepoPath } from "../pathTypes";
 import { RepoInfo } from "./dataCollector";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
+import { GroupingMode } from "./groupingMode";
 
 /**
  * Per-repo scoping state for the fresh-files tree: the git `pathspec` that
  * restricts which files a repo's `git log` reports, and the `folderScope` that
  * narrows the displayed tree to a subdirectory without re-running git.
  *
- * Owns the two maps and their persistence (via {@link WorkspaceStateManager}),
+ * Also holds per-repo grouping overrides of the view-wide grouping mode.
+ *
+ * Owns the maps and their persistence (via {@link WorkspaceStateManager}),
  * plus the scope predicate. Deliberately does NOT trigger refreshes — callers
  * decide whether a change needs a git reload (pathspec) or a tree-only
  * re-render (folder scope). That keeps this a pure, host-free state holder,
@@ -16,11 +19,35 @@ import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 export class RepoScopeStore {
   private _pathspecs: Map<NormalizedRepoPath, string> = new Map();
   private folderScopes: Map<NormalizedRepoPath, string> = new Map();
+  private groupingModes: Map<NormalizedRepoPath, GroupingMode> = new Map();
 
-  /** Load both maps from persisted workspace state. Call after `WorkspaceStateManager.initialize`. */
+  /** Load the maps from persisted workspace state. Call after `WorkspaceStateManager.initialize`. */
   load(): void {
     this._pathspecs = WorkspaceStateManager.getRepoPathspecs();
     this.folderScopes = WorkspaceStateManager.getRepoFolderScopes();
+    this.groupingModes = WorkspaceStateManager.getRepoGroupingModes();
+  }
+
+  // ── Grouping overrides ─────────────────────────────────────────────────────
+
+  /** The repo's own grouping mode, or `viewMode` when it has none. */
+  groupingModeFor(repo: NormalizedRepoPath, viewMode: GroupingMode): GroupingMode {
+    return this.groupingModes.get(repo) ?? viewMode;
+  }
+
+  /** A mode equal to the view-wide one clears the override, so later view-wide changes still apply. */
+  setGroupingMode(repo: NormalizedRepoPath, mode: GroupingMode, viewMode: GroupingMode): void {
+    if (mode === viewMode) {
+      this.groupingModes.delete(repo);
+    } else {
+      this.groupingModes.set(repo, mode);
+    }
+    WorkspaceStateManager.setRepoGroupingModes(this.groupingModes);
+  }
+
+  clearGroupingModes(): void {
+    this.groupingModes.clear();
+    WorkspaceStateManager.setRepoGroupingModes(this.groupingModes);
   }
 
   // ── Pathspecs ──────────────────────────────────────────────────────────────

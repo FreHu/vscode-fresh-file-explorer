@@ -25,7 +25,7 @@ import { log, showWarning } from "../extension/logger";
 import { resolveCommitTooltip } from "../utils/lazyCommitTooltip";
 import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, commitHashOfGroup, isPendingGroup, isMoonPhaseGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
-import { GroupingMode, DEFAULT_GROUPING_MODE, groupingModeMessage } from "./groupingMode";
+import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
 import { FilterManager } from "./freshFileFilterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
@@ -235,6 +235,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // value so the new default takes effect immediately.
     if (e.affectsConfiguration(ConfigKeys.DEFAULT_GROUPING_MODE)) {
       WorkspaceStateManager.clearGroupingMode();
+      this.repoScope.clearGroupingModes();
       this.groupingMode = ConfigService.getDefaultGroupingMode();
     }
     if (e.affectsConfiguration(ConfigKeys.DEFAULT_SORT_ORDER)) {
@@ -419,17 +420,25 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   setTreeView(treeView: vscode.TreeView<FreshFilesTreeItem>): void {
     this.treeView = treeView;
-    this.updateGroupingModeMessage();
   }
 
+  /** View-wide mode; clears every repo's override. */
   setGroupingMode(mode: GroupingMode): void {
     log(`Grouping mode changed from ${this.groupingMode} to ${mode}`);
     this.groupingMode = mode;
-
     WorkspaceStateManager.setGroupingMode(mode);
-    this.updateGroupingModeMessage();
-
+    this.repoScope.clearGroupingModes();
     this.refreshTreeOnly();
+  }
+
+  setRepoGroupingMode(repo: NormalizedRepoPath, mode: GroupingMode): void {
+    log(`Grouping mode for ${repo} set to ${mode}`);
+    this.repoScope.setGroupingMode(repo, mode, this.groupingMode);
+    this.refreshTreeOnly();
+  }
+
+  private groupingModeFor(repo: NormalizedRepoPath): GroupingMode {
+    return this.repoScope.groupingModeFor(repo, this.groupingMode);
   }
 
   setSortOrder(order: SortOrder): void {
@@ -482,10 +491,6 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   private passesRepoScope(normalizedFilePath: string): boolean {
     if (ConfigService.getHideGeneratedFiles() && this.generatedFiles.isGenerated(normalizedFilePath)) { return false; }
     return this.repoScope.passesScope(normalizedFilePath, this.resolvedRepos);
-  }
-
-  private updateGroupingModeMessage(): void {
-    if (this.treeView) { this.treeView.message = groupingModeMessage(this.groupingMode); }
   }
 
   /** Get list of unique authors from current files */
@@ -623,7 +628,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   getParent(element: FreshFilesTreeItem): FreshFilesTreeItem | undefined {
     return findParentItem(element, {
       workspaceFolders: this.workspaceFolders,
-      groupingMode: this.groupingMode,
+      groupingModeFor: (repo) => this.groupingModeFor(repo),
       openChangesMode: this.openChangesMode,
       repoItemCache: this._repoItemCache,
       countFilesInDirectory: (p) => this.countFilesInDirectory(p),
@@ -761,11 +766,11 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
         return [new MessageTreeItem("Loading…", "loading~spin")];
       }
       const isRepoNode = element.id?.startsWith("repo:") ?? false;
-      const isGroupingMode = this.groupingMode !== "File Structure" && this.groupingMode !== "Flat List";
+      const mode = this.groupingModeFor(normalizedPath);
       const children: FreshFilesTreeItem[] =
-        isRepoNode && isGroupingMode
-          ? this.buildGroupedChildrenForRepo(element.resourceUri.fsPath)
-          : (this.groupingMode === "Flat List" && isRepoNode)
+        isRepoNode && mode !== "File Structure" && mode !== "Flat List"
+          ? this.buildGroupedChildrenForRepo(element.resourceUri.fsPath, mode)
+          : (mode === "Flat List" && isRepoNode)
             ? buildFlatList(element.resourceUri.fsPath, this.treeBuildContext)
             : buildTree(element.resourceUri.fsPath, this.treeBuildContext);
       if (showsHistoryLoading(
@@ -794,10 +799,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   /** Build a repo node's children in a grouping mode: author/commit/pending groups scoped to that repo. */
-  private buildGroupedChildrenForRepo(repoFsPath: string): FreshFilesTreeItem[] {
+  private buildGroupedChildrenForRepo(repoFsPath: string, mode: Exclude<GroupingMode, "File Structure" | "Flat List">): FreshFilesTreeItem[] {
     const repoScope = normalizePath(repoFsPath);
     return GroupingViewBuilder.buildForGroupingMode(
-      this.groupingMode as Exclude<GroupingMode, "File Structure" | "Flat List">,
+      mode,
       this.freshFilesForRepoScope(repoScope),
       (metadata) => this.filterManager.passesFilters(metadata),
       this.sortOrder,

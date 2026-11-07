@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { PinnedItem, SortOrder } from "../types";
-import { GroupingMode, DEFAULT_GROUPING_MODE, coerceGroupingMode } from "../fresh-files/groupingMode";
+import { GroupingMode, DEFAULT_GROUPING_MODE, coerceGroupingMode, parseGroupingMode } from "../fresh-files/groupingMode";
 import { DiffMode } from "../branch-compare/branchCompareConstants";
 import { DiffSearchParams, DiffSearchHistoryEntry, StonksConfig } from "../webview/messages";
 import { NormalizedRepoPath } from "../pathTypes";
@@ -164,6 +164,23 @@ export class WorkspaceStateManager {
       delete map[normalizedRepoPath];
     }
     WorkspaceStateManager.ctx().workspaceState.update("repoFolderScopes", map);
+  }
+
+  // ── Repo grouping modes ────────────────────────────────────────────────────
+
+  /** Per-repo grouping overrides; entries that no longer parse are dropped. */
+  static getRepoGroupingModes(): Map<NormalizedRepoPath, GroupingMode> {
+    const record = WorkspaceStateManager.ctx().workspaceState.get<Record<string, unknown>>("repoGroupingModes", {});
+    const map = new Map<NormalizedRepoPath, GroupingMode>();
+    for (const [repo, raw] of Object.entries(record)) {
+      const mode = parseGroupingMode(raw);
+      if (mode) { map.set(repo as NormalizedRepoPath, mode); }
+    }
+    return map;
+  }
+
+  static setRepoGroupingModes(modes: Map<NormalizedRepoPath, GroupingMode>): void {
+    WorkspaceStateManager.ctx().workspaceState.update("repoGroupingModes", modes.size > 0 ? Object.fromEntries(modes) : undefined);
   }
 
   // ── Diff search ──────────────────────────────────────────────────────────────

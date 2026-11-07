@@ -15,6 +15,51 @@ function repo(normalizedRepoPath: ReturnType<typeof asNormalizedRepoPath>): Repo
 }
 
 suite("RepoScopeStore", () => {
+  suite("grouping overrides", () => {
+    test("a repo without an override follows the view-wide mode", () => {
+      WorkspaceStateManager.initialize(makeFakeContext());
+      const store = new RepoScopeStore();
+      store.load();
+      store.setGroupingMode(REPO_A, "Author", "File Structure");
+
+      assert.strictEqual(store.groupingModeFor(REPO_A, "File Structure"), "Author");
+      assert.strictEqual(store.groupingModeFor(REPO_B, "Flat List"), "Flat List");
+    });
+
+    test("setting the view-wide mode on a repo drops its override", () => {
+      WorkspaceStateManager.initialize(makeFakeContext());
+      const store = new RepoScopeStore();
+      store.load();
+      store.setGroupingMode(REPO_A, "Author", "File Structure");
+      store.setGroupingMode(REPO_A, "File Structure", "File Structure");
+
+      assert.strictEqual(store.groupingModeFor(REPO_A, "Commit Hash"), "Commit Hash");
+    });
+
+    test("overrides persist, and clearGroupingModes removes them all", () => {
+      WorkspaceStateManager.initialize(makeFakeContext());
+      const store = new RepoScopeStore();
+      store.load();
+      store.setGroupingMode(REPO_A, "Moon Phase", "File Structure");
+
+      const reloaded = new RepoScopeStore();
+      reloaded.load();
+      assert.strictEqual(reloaded.groupingModeFor(REPO_A, "File Structure"), "Moon Phase");
+
+      reloaded.clearGroupingModes();
+      const cleared = new RepoScopeStore();
+      cleared.load();
+      assert.strictEqual(cleared.groupingModeFor(REPO_A, "File Structure"), "File Structure");
+    });
+
+    test("an unrecognized persisted mode is ignored", () => {
+      WorkspaceStateManager.initialize(makeFakeContext({ repoGroupingModes: { [REPO_A]: "Retrograde" } }));
+      const store = new RepoScopeStore();
+      store.load();
+      assert.strictEqual(store.groupingModeFor(REPO_A, "Flat List"), "Flat List");
+    });
+  });
+
   suite("load + persistence", () => {
     test("load() round-trips seeded pathspecs and folder scopes", () => {
       WorkspaceStateManager.initialize(makeFakeContext({

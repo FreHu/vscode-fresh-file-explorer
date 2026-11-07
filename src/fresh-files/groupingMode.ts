@@ -58,28 +58,18 @@ const LEGACY_GROUPING_MODE_MAP: Record<string, GroupingMode> = {
   moonPhase: "Moon Phase",
 };
 
-/** Fresh Files view banner: the grouped modes show only each file's latest change. */
-export function groupingModeMessage(mode: GroupingMode): string | undefined {
-  if (mode === "File Structure" || mode === "Flat List") { return undefined; }
-  return "This view checks the most recent commit per file. " +
-    "If a file was modified multiple times, " +
-    "only the latest change is shown.";
-}
-
 /**
  * Coerce a raw persisted value to a valid GroupingMode.
  * Handles the old camelCase enum values, the retired "Retrograde" mode
  * (falls back to the default), and any unrecognized strings.
  */
 export function coerceGroupingMode(raw: unknown, fallback: GroupingMode = DEFAULT_GROUPING_MODE): GroupingMode {
-  if (typeof raw === "string") {
-    if (VALID_GROUPING_MODES.has(raw)) {
-      return raw as GroupingMode;
-    }
-    const mapped = LEGACY_GROUPING_MODE_MAP[raw];
-    if (mapped) {
-      return mapped;
-    }
-  }
-  return fallback;
+  return parseGroupingMode(raw) ?? fallback;
+}
+
+/** Like {@link coerceGroupingMode}, but undefined for values it can't map. */
+export function parseGroupingMode(raw: unknown): GroupingMode | undefined {
+  if (typeof raw !== "string") { return undefined; }
+  if (VALID_GROUPING_MODES.has(raw)) { return raw as GroupingMode; }
+  return Object.prototype.hasOwnProperty.call(LEGACY_GROUPING_MODE_MAP, raw) ? LEGACY_GROUPING_MODE_MAP[raw] : undefined;
 }

@@ -17,6 +17,8 @@ import {
   handleRevealInSourceControl,
   handleSetTimeWindow,
   handleSetGroupingMode,
+  handleGroupBy,
+  GROUP_BY_COMMANDS,
   handleSetSortOrder,
   handleOpenSettings,
   handleShowOutput,
@@ -403,6 +405,9 @@ function registerCommands(
   register(Commands.VIEW_OPTIONS, () => handleViewOptions(freshFileProvider));
 
   register(Commands.SET_GROUPING_MODE, () => handleSetGroupingMode(freshFileProvider));
+  for (const { mode } of GROUPING_MODE_OPTIONS) {
+    register(GROUP_BY_COMMANDS[mode], (item: FreshFileItem | undefined) => handleGroupBy(item, mode, freshFileProvider));
+  }
 
   register(Commands.SET_SORT_ORDER, () => handleSetSortOrder(freshFileProvider, branchCompareProvider));
 
