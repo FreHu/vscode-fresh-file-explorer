@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The release workflow runs this as its gate before a publish.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Cancel superseded runs on branches, never a release gate (those run on tags).
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Gate the release toolchain on new critical advisories. All current
+      # vulns are devDependencies (build host / CI only, no runtime egress);
+      # the residual highs are non-applicable transitive dev tooling with no
+      # clean forward fix (serialize-javascript via mocha; esbuild's dev-server
+      # advisory, and we only use esbuild as a CLI bundler). Gating at
+      # `critical` blocks a genuinely new critical from shipping unflagged
+      # without going perpetually red on the accepted dev-only set.
+      - name: Audit dependencies
+        run: npm audit --audit-level=critical
+
+      - name: Run unit and extension-host tests
+        run: xvfb-run -a npm test
+
+  # Drives a real VS Code window, so what it renders is checked. The pinned
+  # version matches the README screenshots; the other is the VS Code base of
+  # current Cursor (`vscodeVersion` in Cursor's resources/app/product.json),
+  # which Open VSX users run.
+  ui:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: pinned
+            vscode: ''
+          - name: cursor
+            vscode: '1.128.0'
+    name: UI tests (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fixture repos set their own identity, but a test committing inside a
+      # submodule falls back to the global one.
+      - name: Git identity
+        run: |
+          git config --global user.name "UI Tests"
+          git config --global user.email "ui-tests@example.com"
+
+      - name: Cache VS Code download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .vscode-test
+          key: vscode-${{ matrix.name }}-${{ matrix.vscode }}-${{ hashFiles('scripts/demo/launchVSCode.mjs') }}
+
+      - name: Run UI tests
+        run: xvfb-run -a npm run test:ui
+        env:
+          UI_VSCODE_VERSION: ${{ matrix.vscode }}
+
+      # Each failing test leaves its window screenshot and extension log here.
+      - name: Upload failure screenshots and logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-test-failures-${{ matrix.name }}
+          path: .scratch/claude/ui-tests
+          retention-days: 14
