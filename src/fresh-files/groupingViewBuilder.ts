@@ -7,7 +7,7 @@ import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeI
 import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitGroupHeader } from "../utils/formatUtils";
 import { deferCommitTooltip } from "../utils/lazyCommitTooltip";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
-import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
+import { getMoonPhase, MOON_PHASE_ORDER, type MoonPhase } from "../fresh-files/moonPhase";
 import { type GroupingMode } from "../fresh-files/groupingMode";
 import { plural } from "../utils/plural";
 
@@ -313,20 +313,7 @@ export class GroupingViewBuilder {
       (metadata) => getMoonPhase(metadata.date).name,
     );
 
-    // Define phase order (new moon to waning crescent)
-    const phaseOrder: MoonPhase[] = [
-      "New Moon",
-      "Waxing Crescent",
-      "First Quarter",
-      "Waxing Gibbous",
-      "Full Moon",
-      "Waning Gibbous",
-      "Last Quarter",
-      "Waning Crescent",
-    ];
-
-    // Create tree items for each phase that has files
-    for (const phaseName of phaseOrder) {
+    for (const phaseName of MOON_PHASE_ORDER) {
       const group = phaseGroups.get(phaseName);
       if (!group || group.length === 0) {
         continue;
@@ -404,7 +391,9 @@ export class GroupingViewBuilder {
     switch (sortOrder) {
       case "date":
         // Sort by date (most recent first)
-        filesList.sort((a, b) => b.metadata.date.getTime() - a.metadata.date.getTime());
+        filesList.sort((a, b) =>
+          b.metadata.date.getTime() - a.metadata.date.getTime()
+          || path.basename(a.filePath).localeCompare(path.basename(b.filePath)));
         break;
       case "author":
         // Sort by author alphabetically

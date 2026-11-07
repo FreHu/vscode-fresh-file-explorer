@@ -411,6 +411,16 @@ export function countFilesIn(node: FolderNode): number {
   return total;
 }
 
+/** Latest commit date among `files`; undefined when none has commit info. */
+export function newestCommitDate(files: ChangedFile[]): Date | undefined {
+  let newest: Date | undefined;
+  for (const f of files) {
+    const date = f.commit?.date;
+    if (date && (!newest || date > newest)) { newest = date; }
+  }
+  return newest;
+}
+
 /** Flat list of every file in a folder subtree (depth-first, sorted by path). */
 export function collectFilesIn(node: FolderNode): ChangedFile[] {
   const out: ChangedFile[] = [];

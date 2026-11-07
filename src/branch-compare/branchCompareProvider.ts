@@ -13,6 +13,7 @@ import {
   buildChangedFiles,
   buildFolderTree,
   collectFilesIn,
+  newestCommitDate,
   ChangedFile,
   fetchCommittedDiff,
   fetchCommitInfoInRange,
@@ -43,6 +44,8 @@ import { defaultComparisonLabel, displayRef, emptyComparisonMessage } from "./co
 import { clampHeadOffsetRef } from "../git/gitCommitQueries";
 import { FilesExcludeFilter } from "../fresh-files/filesExcludeFilter";
 import { plural } from "../utils/plural";
+import { sortTreeEntries } from "../utils/treeEntrySort";
+import * as path from "path";
 
 /**
  * In-memory state for one rendered comparison. Mirrors the persisted shape
@@ -185,15 +188,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
             // Grouping-mode-only change. Re-render from cached files; only
             // re-fetch the rare comparison whose new mode needs commit info the
             // cached load didn't include.
-            for (const id of event.ids) {
-              const cmp = this.comparisons.get(id);
-              if (
-                cmp && cmp.files && cmp.files.length > 0 &&
-                this.groupingNeedsCommitInfo(cmp.groupingMode) && !cmp.hasCommitInfo
-              ) {
-                void this.refreshComparison(id, true);
-              }
-            }
+            this.refetchMissingCommitInfo(event.ids);
           } else if (!event.reorderOnly) {
             // Skip the diff re-fetch for pure reorders — nothing about the
             // ref pair or filter state changed.
@@ -374,7 +369,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       // Working-tree overlay only applies when source === HEAD. Other source
       // refs aren't necessarily checked out — their working tree isn't ours.
       const includeWorkingTree = sourceRef === HEAD_SOURCE;
-      const wantsCommitInfo = this.groupingNeedsCommitInfo(cmp.groupingMode);
+      const wantsCommitInfo = this.needsCommitInfo(cmp.groupingMode);
 
       const [committed, workingTree, workingTreeNumstat, commitInfo, mergeCone] = await Promise.all([
         fetchCommittedDiff(cmp.repoFullPath, base, sourceRef),
@@ -645,8 +640,20 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
 
   // ── Grouping ────────────────────────────────────────────────────────────
 
-  private groupingNeedsCommitInfo(mode: GroupingMode): boolean {
-    return mode === "Author" || mode === "Commit Hash" || mode === "Moon Phase";
+  /** Grouping by author / commit / phase, or sorting by date / author, reads each file's last commit. */
+  private needsCommitInfo(mode: GroupingMode): boolean {
+    return mode === "Author" || mode === "Commit Hash" || mode === "Moon Phase"
+      || this.sortOrder === "date" || this.sortOrder === "author";
+  }
+
+  /** Re-fetches the comparisons whose cached load lacks commit info they now need. */
+  private refetchMissingCommitInfo(ids: Iterable<string>): void {
+    for (const id of ids) {
+      const cmp = this.comparisons.get(id);
+      if (cmp?.files && cmp.files.length > 0 && this.needsCommitInfo(cmp.groupingMode) && !cmp.hasCommitInfo) {
+        void this.refreshComparison(id, true);
+      }
+    }
   }
 
   // ── Open mode ─────────────────────────────────────────────────────────────
@@ -884,7 +891,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
       case "Commit Hash":
       case "Moon Phase":
         return buildGroupedItems(
-          cmp.id, cmp.repoFullPath, this.visibleFiles(cmp, cmp.files), cmp.groupingMode,
+          cmp.id, cmp.repoFullPath, this.visibleFiles(cmp, cmp.files), cmp.groupingMode, this.sortOrder,
           ConfigService.getDescriptionFormat(), this.collapseEpochs.get(cmp.id),
         );
       case "File Structure":
@@ -903,19 +910,26 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
   }
 
   private renderFolderChildren(cmp: ResolvedComparison, node: FolderNode): BranchCompareTreeItem[] {
-    const folders: BranchCompareFolderItem[] = [];
+    const items: (BranchCompareFolderItem | BranchCompareFileItem)[] = this.fileItems(cmp, node.files);
+    const folderDates = new Map<BranchCompareFolderItem, Date | undefined>();
     for (const child of node.children.values()) {
       const allFilesInChild = collectFilesIn(child);
       const visibleInChild = this.visibleFiles(cmp, allFilesInChild);
       if (cmp.hideReviewed && visibleInChild.length === 0) { continue; }
       const reviewed = this.allReviewed(cmp.id, allFilesInChild);
-      folders.push(new BranchCompareFolderItem(
+      const folder = new BranchCompareFolderItem(
         cmp.repoFullPath, child, visibleInChild.length, cmp.id, reviewed, this.collapseEpochs.get(cmp.id),
-      ));
+      );
+      folderDates.set(folder, newestCommitDate(visibleInChild));
+      items.push(folder);
     }
-    folders.sort((a, b) => a.label!.toString().localeCompare(b.label!.toString()));
-
-    return [...folders, ...this.fileItems(cmp, node.files)];
+    sortTreeEntries(items, this.sortOrder, {
+      name: item => item instanceof BranchCompareFolderItem ? item.label!.toString() : path.posix.basename(item.file.pathInRepo),
+      isDirectory: item => item.isDirectory,
+      date: item => item instanceof BranchCompareFolderItem ? folderDates.get(item) : item.file.commit?.date,
+      author: item => item instanceof BranchCompareFolderItem ? "" : item.file.commit?.author ?? "",
+    });
+    return items;
   }
 
   private renderFlatChildren(cmp: ResolvedComparison): BranchCompareTreeItem[] {
@@ -945,6 +959,7 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
 
   /** Re-render after a display setting change (sort order, description format). No data refetch. */
   rerender(): void {
+    this.refetchMissingCommitInfo(this.comparisons.keys());
     this.fireChange();
   }
 

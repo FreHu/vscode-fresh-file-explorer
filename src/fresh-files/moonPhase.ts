@@ -12,6 +12,18 @@ export type MoonPhase =
   | "Last Quarter"
   | "Waning Crescent";
 
+/** Order of Moon Phase groups in both trees: one lunar cycle, new moon first. */
+export const MOON_PHASE_ORDER: readonly MoonPhase[] = [
+  "New Moon",
+  "Waxing Crescent",
+  "First Quarter",
+  "Waxing Gibbous",
+  "Full Moon",
+  "Waning Gibbous",
+  "Last Quarter",
+  "Waning Crescent",
+];
+
 export interface MoonPhaseInfo {
   name: MoonPhase;
   emoji: string;

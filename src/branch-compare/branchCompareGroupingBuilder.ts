@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { ChangedFile } from "./branchCompareData";
 import { DescriptionFormat, SortOrder } from "../types";
 import { GroupingMode } from "../fresh-files/groupingMode";
-import { getMoonPhase } from "../fresh-files/moonPhase";
+import { getMoonPhase, MOON_PHASE_ORDER, type MoonPhase } from "../fresh-files/moonPhase";
 import { formatRelativeDate, formatCommitTooltip, formatCommitGroupHeader } from "../utils/formatUtils";
 import { deferCommitTooltip } from "../utils/lazyCommitTooltip";
 import { BranchCompareContextValues, PENDING_GROUP_KEY } from "./branchCompareConstants";
@@ -90,6 +90,7 @@ export function buildGroupedItems(
   repoFullPath: string,
   files: ChangedFile[],
   mode: GroupingMode,
+  sortOrder: SortOrder,
   descriptionFormat: Pick<DescriptionFormat, "showAuthor" | "showDate" | "showCommitMessage">,
   collapseEpoch = 0,
 ): BranchCompareGroupItem[] {
@@ -110,10 +111,14 @@ export function buildGroupedItems(
     }
   }
 
-  // Pending pins to the top (matches Fresh Files); the rest sort most-recent first.
+  // Same group order as Fresh Files: Pending on top, Moon Phase by the lunar
+  // cycle, Author alphabetical unless sorting by date, commits newest first.
+  const phaseIndex = (key: string) => MOON_PHASE_ORDER.indexOf(key as MoonPhase);
   const sorted = [...groups.entries()].sort((a, b) => {
     if (a[0] === PENDING_GROUP_KEY) { return -1; }
     if (b[0] === PENDING_GROUP_KEY) { return 1; }
+    if (mode === "Moon Phase") { return phaseIndex(a[0]) - phaseIndex(b[0]); }
+    if (mode === "Author" && sortOrder !== "date") { return a[0].localeCompare(b[0]); }
     return b[1].mostRecent.getTime() - a[1].mostRecent.getTime();
   });
 
