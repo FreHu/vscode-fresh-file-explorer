@@ -277,15 +277,7 @@ timeWindowSelect.addEventListener("change", () => {
 
 // ── Max ticks input ───────────────────────────────────────────────────────────
 
-const maxTicksInput = document.getElementById("maxTicks") as HTMLInputElement;
-maxTicksInput.addEventListener("change", () => {
-  const val = parseInt(maxTicksInput.value, 10);
-  if (val >= 100 && val <= 10000) {
-    maxVisibleTicks = val;
-    sendConfig();
-    render();
-  }
-});
+const maxTicksInput = bindNumberInput("maxTicks", 100, 10000, v => { maxVisibleTicks = v; });
 
 // ── Message handling ──────────────────────────────────────────────────────────
 
@@ -387,7 +379,7 @@ function handleSetConfig(c: StonksConfig): void {
   }
   // Apply max ticks
   maxVisibleTicks = c.maxVisibleTicks;
-  maxTicksInput.value = String(c.maxVisibleTicks);
+  if (maxTicksInput) { maxTicksInput.value = String(c.maxVisibleTicks); }
   // Apply x-axis mode
   if (c.xAxisMode) {
     applyXAxisMode(c.xAxisMode);
@@ -535,73 +527,26 @@ for (const { key, toggleId } of SECTION_TOGGLE_DEFS) {
   }
 }
 
-// Wire up author window size input
-const authorWindowSizeInput = document.getElementById("authorWindowSize") as HTMLInputElement | null;
-if (authorWindowSizeInput) {
-  authorWindowSizeInput.addEventListener("change", () => {
-    const val = parseInt(authorWindowSizeInput.value, 10);
-    if (val >= 2 && val <= 100) {
-      authorWindowSize = val;
-      derivedCache = null;
+/** Wires a numeric input: a value in [min, max] goes to `apply`, then the config is saved and the chart re-rendered. */
+function bindNumberInput(id: string, min: number, max: number, apply: (value: number) => void): HTMLInputElement | null {
+  const input = document.getElementById(id) as HTMLInputElement | null;
+  input?.addEventListener("change", () => {
+    const value = parseInt(input.value, 10);
+    if (value >= min && value <= max) {
+      apply(value);
       sendConfig();
       render();
     }
   });
+  return input;
 }
 
-// Wire up author concentration topX input
-const authorTopXInput = document.getElementById("authorTopX") as HTMLInputElement | null;
-if (authorTopXInput) {
-  authorTopXInput.addEventListener("change", () => {
-    const val = parseInt(authorTopXInput.value, 10);
-    if (val >= 1 && val <= 10) {
-      authorTopX = val;
-      derivedCache = null;
-      sendConfig();
-      render();
-    }
-  });
-}
-
-// Wire up commit size window input
-const commitSizeWindowInput = document.getElementById("commitSizeWindowSize") as HTMLInputElement | null;
-if (commitSizeWindowInput) {
-  commitSizeWindowInput.addEventListener("change", () => {
-    const val = parseInt(commitSizeWindowInput.value, 10);
-    if (val >= 2 && val <= 100) {
-      commitSizeWindowSize = val;
-      derivedCache = null;
-      sendConfig();
-      render();
-    }
-  });
-}
-
-// Wire up activity heatmap workday inputs and author checkbox container
-const heatmapWorkdayStartInput = document.getElementById("heatmapWorkdayStart") as HTMLInputElement | null;
-const heatmapWorkdayEndInput = document.getElementById("heatmapWorkdayEnd") as HTMLInputElement | null;
+const authorWindowSizeInput = bindNumberInput("authorWindowSize", 2, 100, v => { authorWindowSize = v; derivedCache = null; });
+const authorTopXInput = bindNumberInput("authorTopX", 1, 10, v => { authorTopX = v; derivedCache = null; });
+const commitSizeWindowInput = bindNumberInput("commitSizeWindowSize", 2, 100, v => { commitSizeWindowSize = v; derivedCache = null; });
+const heatmapWorkdayStartInput = bindNumberInput("heatmapWorkdayStart", 0, 23, v => { heatmapWorkdayStart = v; });
+const heatmapWorkdayEndInput = bindNumberInput("heatmapWorkdayEnd", 1, 24, v => { heatmapWorkdayEnd = v; });
 const heatmapAuthorsContainer = document.getElementById("heatmapAuthors") as HTMLElement | null;
-
-if (heatmapWorkdayStartInput) {
-  heatmapWorkdayStartInput.addEventListener("change", () => {
-    const v = parseInt(heatmapWorkdayStartInput.value, 10);
-    if (!isNaN(v) && v >= 0 && v <= 23) {
-      heatmapWorkdayStart = v;
-      sendConfig();
-      render();
-    }
-  });
-}
-if (heatmapWorkdayEndInput) {
-  heatmapWorkdayEndInput.addEventListener("change", () => {
-    const v = parseInt(heatmapWorkdayEndInput.value, 10);
-    if (!isNaN(v) && v >= 1 && v <= 24) {
-      heatmapWorkdayEnd = v;
-      sendConfig();
-      render();
-    }
-  });
-}
 
 /**
  * Rebuild author checkbox list from current `rawData`.
