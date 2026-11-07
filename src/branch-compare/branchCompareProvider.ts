@@ -4,6 +4,7 @@ import { BaselineService } from "../baseline/baselineService";
 import { SavedComparisonsService, HEAD_SOURCE } from "./savedComparisonsService";
 import { FreshFileProvider } from "../fresh-files/freshFileProvider";
 import { log } from "../extension/logger";
+import { resolveCommitTooltip } from "../utils/lazyCommitTooltip";
 import { ContextManager } from "../extension/contextManager";
 import { WorkspaceStateManager } from "../extension/workspaceStateManager";
 import { ConfigService } from "../config/configService";
@@ -281,6 +282,10 @@ export class BranchCompareProvider implements vscode.TreeDataProvider<BranchComp
 
   getTreeItem(element: BranchCompareTreeItem): vscode.TreeItem {
     return element;
+  }
+
+  resolveTreeItem(item: vscode.TreeItem, element: BranchCompareTreeItem): Promise<vscode.TreeItem> {
+    return resolveCommitTooltip(item, element instanceof BranchCompareGroupItem ? element.repoFullPath : undefined);
   }
 
   async getChildren(element?: BranchCompareTreeItem): Promise<BranchCompareTreeItem[]> {

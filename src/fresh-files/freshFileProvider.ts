@@ -22,9 +22,10 @@ import {
 import { buildTimeWindows, isPendingChangesMode, showsHistoryLoading, TimeWindow } from "./timeWindowUtils";
 import { AbsolutePath, asAbsolutePath } from "../pathTypes";
 import { log, showWarning } from "../extension/logger";
+import { resolveCommitTooltip } from "../utils/lazyCommitTooltip";
 import { FreshFileItem, MessageTreeItem as MessageTreeItem, FreshFilesTreeItem, UninitializedSubmodulesGroupItem, UninitializedSubmoduleItem, isAuthorGroup, isCommitHashGroup, commitHashOfGroup, isPendingGroup, isMoonPhaseGroup } from "./freshFileTreeItems";
 import { normalizePath } from "../utils";
-import { GroupingMode, DEFAULT_GROUPING_MODE } from "./groupingMode";
+import { GroupingMode, DEFAULT_GROUPING_MODE, groupingModeMessage } from "./groupingMode";
 import { type MoonPhase } from "./moonPhase";
 import { FilterManager } from "./freshFileFilterManager";
 import { GroupingViewBuilder } from "./groupingViewBuilder";
@@ -484,17 +485,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
   }
 
   private updateGroupingModeMessage(): void {
-    if (!this.treeView) {
-      return;
-    }
-    if (this.groupingMode === "File Structure" || this.groupingMode === "Flat List") {
-      this.treeView.message = undefined;
-    } else {
-      this.treeView.message =
-        "This view checks the most recent commit per file. " +
-        "If a file was modified multiple times, " +
-        "only the latest change is shown.";
-    }
+    if (this.treeView) { this.treeView.message = groupingModeMessage(this.groupingMode); }
   }
 
   /** Get list of unique authors from current files */
@@ -623,6 +614,10 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
 
   getTreeItem(element: FreshFilesTreeItem): vscode.TreeItem {
     return element;
+  }
+
+  resolveTreeItem(item: vscode.TreeItem, element: FreshFilesTreeItem): Promise<vscode.TreeItem> {
+    return resolveCommitTooltip(item, element instanceof FreshFileItem ? element.groupRepoScope : undefined);
   }
 
   getParent(element: FreshFilesTreeItem): FreshFilesTreeItem | undefined {

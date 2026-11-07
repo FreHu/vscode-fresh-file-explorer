@@ -58,6 +58,14 @@ const LEGACY_GROUPING_MODE_MAP: Record<string, GroupingMode> = {
   moonPhase: "Moon Phase",
 };
 
+/** Fresh Files view banner: the grouped modes show only each file's latest change. */
+export function groupingModeMessage(mode: GroupingMode): string | undefined {
+  if (mode === "File Structure" || mode === "Flat List") { return undefined; }
+  return "This view checks the most recent commit per file. " +
+    "If a file was modified multiple times, " +
+    "only the latest change is shown.";
+}
+
 /**
  * Coerce a raw persisted value to a valid GroupingMode.
  * Handles the old camelCase enum values, the retired "Retrograde" mode

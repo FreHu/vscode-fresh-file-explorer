@@ -139,6 +139,13 @@ export async function getCommitSubject(repoFullPath: string, commitHash: string)
   return output.trim();
 }
 
+/** Full commit message: subject, body and trailers. */
+export async function getCommitMessage(repoFullPath: string, commitHash: string): Promise<string> {
+  const args = ["log", "-1", "--format=%B", commitHash];
+  const output = await execGitWithArgs(args, repoFullPath, { timeout: ConfigService.getGitTimeoutMs() });
+  return output.trim();
+}
+
 /** The empty tree's object id, per repository object format. */
 const EMPTY_TREE: Record<string, string> = {
   sha1: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",

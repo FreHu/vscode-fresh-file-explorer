@@ -4,7 +4,8 @@ import { AbsolutePath } from "../pathTypes";
 import { DescriptionFormat, FileMetadata, SortOrder } from "../types";
 import { ConfigService } from "../config/configService";
 import { FreshFileItem, FreshFilesTreeItem } from "../fresh-files/freshFileTreeItems";
-import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitTooltip, formatCommitGroupHeader } from "../utils/formatUtils";
+import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, formatRelativeDate, formatGroupDescription, formatTooltipLineChanges, formatCommitGroupHeader } from "../utils/formatUtils";
+import { deferCommitTooltip } from "../utils/lazyCommitTooltip";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, type MoonPhase } from "../fresh-files/moonPhase";
 import { type GroupingMode } from "../fresh-files/groupingMode";
@@ -255,7 +256,7 @@ export class GroupingViewBuilder {
       // Calculate total line changes for this commit
       const totals = calculateTotalLineChanges(group);
 
-      commitItem.tooltip = formatCommitTooltip({
+      deferCommitTooltip(commitItem, {
         hash: commitHash,
         author: firstFile.metadata.author,
         date: firstFile.metadata.date,

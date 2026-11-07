@@ -5,6 +5,7 @@ import { DescriptionFormat, SortOrder } from "../types";
 import { GroupingMode } from "../fresh-files/groupingMode";
 import { getMoonPhase } from "../fresh-files/moonPhase";
 import { formatRelativeDate, formatCommitTooltip, formatCommitGroupHeader } from "../utils/formatUtils";
+import { deferCommitTooltip } from "../utils/lazyCommitTooltip";
 import { BranchCompareContextValues, PENDING_GROUP_KEY } from "./branchCompareConstants";
 import { collapseEpochSuffix } from "./branchCompareTreeItems";
 import { plural } from "../utils/plural";
@@ -121,7 +122,8 @@ export function buildGroupedItems(
     const fileCount = group.files.length;
     let label = group.label;
     let description: string;
-    let tooltip: string;
+    let tooltip = "";
+    let commitTooltip: Parameters<typeof formatCommitTooltip>[0] | undefined;
 
     if (mode === "Commit Hash") {
       // Commit hash groups carry rich metadata when the first file's commit
@@ -130,7 +132,7 @@ export function buildGroupedItems(
       if (firstCommit) {
         // The file rows carry only name + status; the header carries the rest.
         ({ label, description } = formatCommitGroupHeader({ fileCount, ...firstCommit }, descriptionFormat));
-        tooltip = formatCommitTooltip({
+        commitTooltip = {
           hash: firstCommit.hash,
           author: firstCommit.author,
           date: firstCommit.date,
@@ -138,7 +140,7 @@ export function buildGroupedItems(
           aiCoAuthored: firstCommit.aiCoAuthored,
           aiTools: firstCommit.aiTools,
           message: firstCommit.message,
-        });
+        };
       } else {
         description = plural(fileCount, "file");
         tooltip = `Pending changes\n${plural(fileCount, "file")}`;
@@ -159,9 +161,9 @@ export function buildGroupedItems(
         ? BranchCompareContextValues.GROUP_COMMIT
         : BranchCompareContextValues.GROUP;
 
-    items.push(
-      new BranchCompareGroupItem(key, repoFullPath, comparisonId, group.files, label, description, tooltip, group.icon, contextValue, collapseEpoch),
-    );
+    const item = new BranchCompareGroupItem(key, repoFullPath, comparisonId, group.files, label, description, tooltip, group.icon, contextValue, collapseEpoch);
+    if (commitTooltip) { deferCommitTooltip(item, commitTooltip); }
+    items.push(item);
   }
 
   return items;
