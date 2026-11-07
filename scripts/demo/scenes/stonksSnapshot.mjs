@@ -1,7 +1,7 @@
 // Characterization snapshot for the CodeStonks webview: saves the chart's SVG
 // and a hover tooltip for every x-axis mode, so a refactor can be checked by
 // diffing two runs (scripts/demo/stonksSnapshotDiff.mjs). The fixture's commit
-// dates are relative to now, so compare runs from the same day.
+// dates are relative to noon today, so compare runs from the same day.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,10 @@ export default {
   output: "stonks-snapshot.png",
   window: { width: 1400, height: 1100 },
   settings: { "workbench.activityBar.location": "hidden" },
+  // Commit times are `now - daysAgo`, so the heatmap's hours follow the clock:
+  // pin the fixture to noon today and runs from the same day compare equal.
+  workspace: ({ stateDir, buildFixtureRepo }) =>
+    buildFixtureRepo(join(stateDir, "orbit-shop"), new Date().setHours(12, 0, 0, 0)),
   async capture(page) {
     mkdirSync(outDir, { recursive: true });
     await runCommand(page, "View: Close Primary Side Bar");
@@ -21,9 +25,12 @@ export default {
     const frame = page.frameLocator("iframe.webview.ready").frameLocator("#active-frame");
     await frame.locator("#chart #hitArea").waitFor({ timeout: 30000 });
 
-    // Every section on, so each renderer contributes to the snapshot.
-    const heatmap = frame.locator("#toggleActivityHeatmap");
-    if (!(await heatmap.isChecked())) { await heatmap.check({ force: true }); }
+    // Every section on, so each renderer contributes to the snapshot. Most are opt-in.
+    const toggles = ["FileCount", "FilesChanged", "Authors", "AuthorConcentration", "Velocity", "Churn", "CommitSize", "ActivityHeatmap"];
+    for (const name of toggles) {
+      const toggle = frame.locator(`#toggle${name}`);
+      if (!(await toggle.isChecked())) { await toggle.check({ force: true }); }
+    }
 
     let shot;
     for (const mode of MODES) {
