@@ -77,7 +77,8 @@ export interface PinnedItem {
  * Metadata about a file's last modification
  */
 export interface FileMetadata {
-  date: Date;
+  /** Commit date, or a pending file's mtime. Unset for pending deletions, which have neither. */
+  date?: Date;
   author?: CommitAuthor;
   commitHash?: CommitHash;
   commitMessage?: CommitMessage;
@@ -91,6 +92,9 @@ export interface FileMetadata {
   aiTools?: readonly string[]; // Display names of detected AI agents (for badge/tooltip)
   generated?: boolean; // Marked linguist-generated / gitlab-generated in .gitattributes
 }
+
+/** Metadata from git history: always dated. */
+export type DatedFileMetadata = FileMetadata & { date: Date };
 
 /**
  * Configuration for what to show in the file description

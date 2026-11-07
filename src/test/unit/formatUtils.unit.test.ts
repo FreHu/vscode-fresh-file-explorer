@@ -11,11 +11,12 @@ import {
   formatAiCoAuthorTooltip,
   formatCommitTooltip,
   formatFileDescription,
+  formatFileTooltip,
   formatCommitGroupHeader,
   getStatusLetter,
   AI_COAUTHOR_BADGE,
 } from "../../utils/formatUtils";
-import { DescriptionFormat, FileMetadata } from "../../types";
+import { DEFAULT_DESCRIPTION_FORMAT, DescriptionFormat, FileMetadata } from "../../types";
 
 const STATUS_ONLY_FORMAT: DescriptionFormat = {
   showDate: false, showAuthor: false, showCommitHash: false,
@@ -168,6 +169,21 @@ suite("Format Utils", () => {
     test("should handle singular file count", () => {
       const result = formatRepoTooltip("my-project", "main", 1);
       assert.strictEqual(result, "my-project (main)\n1 file modified");
+    });
+  });
+
+  suite("undated metadata (pending deletion)", () => {
+    const deleted = { isPending: true, isDeleted: true, status: "D" };
+
+    test("the description shows no date", () => {
+      assert.strictEqual(
+        formatFileDescription(deleted, { ...DEFAULT_DESCRIPTION_FORMAT, showDate: true }),
+        formatFileDescription(deleted, { ...DEFAULT_DESCRIPTION_FORMAT, showDate: false }),
+      );
+    });
+
+    test("the tombstone says the date is unknown", () => {
+      assert.ok(formatFileTooltip(deleted, DEFAULT_DESCRIPTION_FORMAT).includes("† date unknown †"));
     });
   });
 

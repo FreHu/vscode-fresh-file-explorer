@@ -9,7 +9,8 @@ export interface FreshFileExportItem {
   status: string | undefined;
   isPending: boolean;
   author: string | undefined;
-  date: string;
+  /** ISO date; absent for pending deletions. */
+  date?: string;
   commitMessage: string | undefined;
   commitHash: string | undefined;
 }
@@ -48,7 +49,7 @@ export async function handleGetFilesForCodeTelescope(
       status: metadata.status,
       isPending: metadata.isPending ?? false,
       author: metadata.author,
-      date: metadata.date.toISOString(),
+      date: metadata.date?.toISOString(),
       commitMessage: metadata.commitMessage,
       commitHash: metadata.commitHash,
     };

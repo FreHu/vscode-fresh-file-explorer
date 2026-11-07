@@ -1,6 +1,5 @@
 import { AbsolutePath, parentDir } from "../pathTypes";
 import { FileMetadata } from "../types";
-import { sortDateOf } from "../utils/changeDate";
 
 export interface DirStats {
   count: number;
@@ -102,7 +101,7 @@ export class FileIndex {
           cache.set(dir, stats);
         }
         stats.count++;
-        const date = sortDateOf(metadata);
+        const date = metadata.date;
         if (date && (!stats.mostRecent || date > stats.mostRecent)) { stats.mostRecent = date; }
         if (showLineChanges) {
           stats.linesAdded += metadata.linesAdded ?? 0;

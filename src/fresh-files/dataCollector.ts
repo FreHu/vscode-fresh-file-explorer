@@ -1,6 +1,6 @@
 import * as path from "path";
 import { AbsolutePath, asAbsolutePath, NormalizedRepoPath, asNormalizedRepoPath } from "../pathTypes";
-import { CommitStats, FileMetadata, WorkspaceFolderInfo } from "../types";
+import { CommitStats, DatedFileMetadata, FileMetadata, WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 import { log } from "../extension/logger";
 import { collectHistoricalChanges } from "../git/gitLogStream";
@@ -148,19 +148,19 @@ export class DataCollector {
     repoRelativePath: string,
     maxDays: number,
     targetMap: Map<AbsolutePath, FileMetadata>,
-    historicalTargetMap: Map<AbsolutePath, FileMetadata>,
+    historicalTargetMap: Map<AbsolutePath, DatedFileMetadata>,
     histDays: number,
     pathspec?: string,
     thresholds?: number[],
-    onThresholdCrossed?: (days: number, partial: Map<AbsolutePath, FileMetadata>) => void,
+    onThresholdCrossed?: (days: number, partial: Map<AbsolutePath, DatedFileMetadata>) => void,
     commitStatsMap?: Map<string, CommitStats>,
-  ): Promise<{ error: { message: string; isPathspecError: boolean } | undefined; fullData: Map<AbsolutePath, FileMetadata> }> {
+  ): Promise<{ error: { message: string; isPathspecError: boolean } | undefined; fullData: Map<AbsolutePath, DatedFileMetadata> }> {
     const repoFullPath = repoRelativePath ? path.join(folder.path, repoRelativePath) : folder.path;
 
     // Wrap the caller's onThresholdCrossed to convert workspace-relative paths to AbsolutePaths.
     const wrappedOnThreshold = onThresholdCrossed
-      ? (days: number, partial: Map<string, FileMetadata>) => {
-          const absoluteMap = new Map<AbsolutePath, FileMetadata>();
+      ? (days: number, partial: Map<string, DatedFileMetadata>) => {
+          const absoluteMap = new Map<AbsolutePath, DatedFileMetadata>();
           for (const [filePath, metadata] of partial) {
             absoluteMap.set(asAbsolutePath(normalizePath(path.join(folder.path, filePath))), metadata);
           }
@@ -187,7 +187,7 @@ export class DataCollector {
       DataCollector.addFilesToMap(folder, historicalFiles, targetMap, displayCutoff);
 
       // Build the per-repo AbsolutePath-keyed map for caching.
-      const fullData = new Map<AbsolutePath, FileMetadata>();
+      const fullData = new Map<AbsolutePath, DatedFileMetadata>();
       for (const [filePath, metadata] of historicalFiles) {
         fullData.set(asAbsolutePath(normalizePath(path.join(folder.path, filePath))), metadata);
       }
@@ -247,10 +247,10 @@ export class DataCollector {
   /**
    * Add files from a collection to target map, avoiding duplicates
    */
-  private static addFilesToMap(
+  private static addFilesToMap<M extends FileMetadata>(
     folder: WorkspaceFolderInfo,
-    files: Map<string, FileMetadata>,
-    targetMap: Map<AbsolutePath, FileMetadata>,
+    files: Map<string, M>,
+    targetMap: Map<AbsolutePath, M>,
     minDate?: Date,
   ): void {
     for (const [filePath, metadata] of files) {

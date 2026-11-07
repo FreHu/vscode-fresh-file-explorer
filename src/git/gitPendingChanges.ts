@@ -111,9 +111,8 @@ export async function collectPendingChanges(
       const isUntracked = status === "??";
 
       if (isDeleted) {
-        // For deleted files, we don't check if file exists (it won't!) and skip line counts
+        // No file to stat, so no date; no line counts either.
         files.set(relativePath, {
-          date: now,
           author: currentUserName ? asCommitAuthor(currentUserName) : undefined,
           status: status,
           isDeleted: true,

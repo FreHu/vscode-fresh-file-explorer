@@ -42,7 +42,7 @@ export class HeatmapDecorationProvider implements vscode.FileDecorationProvider 
     // Skip pending files - let Git extension's decorations show through
     // In pending-only mode, no heatmap (all files would be pending which we skip)
     const currentTimeWindow = this.freshFileProvider.currentTimeWindow;
-    if (metadata.isPending || currentTimeWindow.type === "pending") {
+    if (metadata.isPending || !metadata.date || currentTimeWindow.type === "pending") {
       return undefined;
     }
 

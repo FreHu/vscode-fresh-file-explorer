@@ -1,7 +1,7 @@
 import * as path from "path";
 
 import { log } from "../extension/logger";
-import { CommitData, CommitStats, FileMetadata, asCommitAuthor, asCommitHash, asCommitMessage } from "../types";
+import { CommitData, CommitStats, DatedFileMetadata, asCommitAuthor, asCommitHash, asCommitMessage } from "../types";
 import { ConfigService } from "../config/configService";
 import { parseCommitDate } from "./gitDateUtils";
 import { detectAiCoAuthors } from "../fresh-files/aiCoAuthor";
@@ -274,12 +274,12 @@ export function streamGitDiffNumstat(
 async function buildPartialMetadataMap(
   snapshot: Map<string, { status: string; commit: CommitData }>,
   workspaceRoot: string,
-): Promise<Map<string, FileMetadata>> {
+): Promise<Map<string, DatedFileMetadata>> {
   const entries = Array.from(snapshot.entries());
   const existsResults = await Promise.all(
     entries.map(([fileRelativePath]) => fileExists(path.join(workspaceRoot, fileRelativePath))),
   );
-  const result = new Map<string, FileMetadata>();
+  const result = new Map<string, DatedFileMetadata>();
   for (let i = 0; i < entries.length; i++) {
     const [fileRelativePath, statusInfo] = entries[i];
     const existsOnDisk = existsResults[i];
@@ -322,9 +322,9 @@ export async function collectHistoricalChanges(
   days: number,
   pathspec?: string,
   thresholds?: number[],
-  onThresholdCrossed?: (days: number, partial: Map<string, FileMetadata>) => void,
+  onThresholdCrossed?: (days: number, partial: Map<string, DatedFileMetadata>) => void,
   commitStatsMap?: Map<string, CommitStats>,
-): Promise<Map<string, FileMetadata>> {
+): Promise<Map<string, DatedFileMetadata>> {
   // Compute an exact cutoff timestamp instead of git's approxidate ("N.days.ago").
   // Approxidate silently mishandles fractional days (e.g. "0.25.days.ago" drops the
   // "0."), which breaks sub-day windows. An absolute ISO instant is exact and stays

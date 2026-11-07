@@ -2,16 +2,16 @@ import * as path from "path";
 import * as v8 from "v8";
 
 import { AbsolutePath, NormalizedRepoPath } from "../pathTypes";
-import { CommitStats, FileMetadata, WorkspaceFolderInfo } from "../types";
+import { CommitStats, DatedFileMetadata, FileMetadata, WorkspaceFolderInfo } from "../types";
 import { normalizePath } from "../utils";
 import type { CacheRepoStats } from "../webview/messages";
 
 export type { CacheRepoStats };
 
 interface CacheEntry {
-  data: Map<AbsolutePath, FileMetadata>;
+  data: Map<AbsolutePath, DatedFileMetadata>;
   /** Sorted ascending by date — used for O(log n) window filtering. */
-  sortedByDate: ReadonlyArray<readonly [AbsolutePath, FileMetadata]>;
+  sortedByDate: ReadonlyArray<readonly [AbsolutePath, DatedFileMetadata]>;
   maxDays: number;
   pathspec: string | undefined;
   commitStats?: Map<string, CommitStats>;
@@ -31,7 +31,7 @@ export class HistoricalFileCache {
   // Historical (committed) file entries from the last full refresh.
   // Kept separate so pending-only refreshes can restore them when a file's
   // uncommitted changes are reverted.
-  historicalFiles: Map<AbsolutePath, FileMetadata> = new Map();
+  historicalFiles: Map<AbsolutePath, DatedFileMetadata> = new Map();
 
   /** Clear the cache and reset the historical file baseline. */
   clear(): void {
@@ -70,7 +70,7 @@ export class HistoricalFileCache {
    */
   setEntry(
     normalizedRepoPath: NormalizedRepoPath,
-    data: Map<AbsolutePath, FileMetadata>,
+    data: Map<AbsolutePath, DatedFileMetadata>,
     maxDays: number,
     pathspec: string | undefined,
     commitStats?: Map<string, CommitStats>,
@@ -89,7 +89,7 @@ export class HistoricalFileCache {
   upgradeEntry(
     normalizedRepoPath: NormalizedRepoPath,
     days: number,
-    data: Map<AbsolutePath, FileMetadata>,
+    data: Map<AbsolutePath, DatedFileMetadata>,
     pathspec: string | undefined,
     commitStats?: Map<string, CommitStats>,
   ): void {
@@ -129,16 +129,16 @@ export class HistoricalFileCache {
    * Binary searches for the cutoff then copies the tail — O(log n + k).
    */
   filterToWindow(
-    sortedByDate: ReadonlyArray<readonly [AbsolutePath, FileMetadata]>,
+    sortedByDate: ReadonlyArray<readonly [AbsolutePath, DatedFileMetadata]>,
     days: number,
-  ): Map<AbsolutePath, FileMetadata> {
+  ): Map<AbsolutePath, DatedFileMetadata> {
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     let lo = 0, hi = sortedByDate.length;
     while (lo < hi) {
       const mid = (lo + hi) >>> 1;
       if (sortedByDate[mid][1].date < cutoff) { lo = mid + 1; } else { hi = mid; }
     }
-    const result = new Map<AbsolutePath, FileMetadata>();
+    const result = new Map<AbsolutePath, DatedFileMetadata>();
     for (let i = lo; i < sortedByDate.length; i++) {
       result.set(sortedByDate[i][0], sortedByDate[i][1]);
     }
@@ -155,7 +155,7 @@ export class HistoricalFileCache {
     workspaceFolders: WorkspaceFolderInfo[],
     currentFreshFiles: Map<AbsolutePath, FileMetadata>,
   ): Map<AbsolutePath, FileMetadata> {
-    const newHistorical = new Map<AbsolutePath, FileMetadata>();
+    const newHistorical = new Map<AbsolutePath, DatedFileMetadata>();
     for (const folder of workspaceFolders) {
       for (const repoRelPath of folder.gitRepos) {
         const repoFullPath = repoRelPath ? path.join(folder.path, repoRelPath) : folder.path;

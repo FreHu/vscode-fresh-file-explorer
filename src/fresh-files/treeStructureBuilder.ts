@@ -33,9 +33,6 @@ import {
 } from "../utils/formatUtils";
 import { repoKindOf } from "../git/repoKind";
 import { fileBelongsToRepo } from "./freshFileMapUtils";
-import { sortDateOf } from "../utils/changeDate";
-
-const dateOf = (metadata: FileMetadata | undefined) => metadata ? sortDateOf(metadata) : undefined;
 
 /**
  * Everything the structural tree builders need from the provider, passed
@@ -247,11 +244,11 @@ export function buildTree(
     ctx.sortOrder,
     (item) => {
       if (item instanceof SubmoduleEntryItem) {
-        return dateOf(ctx.freshFiles.get(asAbsolutePath(item.submoduleFsPath)));
+        return ctx.freshFiles.get(asAbsolutePath(item.submoduleFsPath))?.date;
       }
       return item.isDirectory
         ? dirStats.get(asAbsolutePath(item.resourceUri.fsPath))?.mostRecent
-        : dateOf(ctx.freshFiles.get(asAbsolutePath(item.resourceUri.fsPath)));
+        : ctx.freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.date;
     },
     (item) => {
       if (item instanceof SubmoduleEntryItem) {
@@ -313,7 +310,7 @@ export function buildFlatList(repoFsPath: string, ctx: TreeBuildContext): FreshF
   FreshFileItemSorter.sort(
     items,
     ctx.sortOrder,
-    (item) => item.resourceUri ? dateOf(ctx.freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))) : undefined,
+    (item) => item.resourceUri ? ctx.freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.date : undefined,
     (item) => item.resourceUri ? (ctx.freshFiles.get(asAbsolutePath(item.resourceUri.fsPath))?.author || "") : "",
   );
 

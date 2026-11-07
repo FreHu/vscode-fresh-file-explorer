@@ -8,7 +8,6 @@ import { formatFileDescription, formatFileTooltip, formatDirectoryTooltip, forma
 import { deferCommitTooltip } from "../utils/lazyCommitTooltip";
 import { TreeItemContextValues } from "../fresh-files/treeItemConstants";
 import { getMoonPhase, MOON_PHASE_ORDER, type MoonPhase } from "../fresh-files/moonPhase";
-import { sortDateOf } from "../utils/changeDate";
 import { type GroupingMode } from "../fresh-files/groupingMode";
 import { plural } from "../utils/plural";
 
@@ -31,9 +30,9 @@ function calculateTotalLineChanges<T extends { metadata: FileMetadata }>(
   );
 }
 
-/** The newest commit date among a group's files (epoch 0 for an empty group). */
+/** The newest date among a group's files (epoch 0 when none has one). */
 function mostRecentDateInGroup<T extends { metadata: FileMetadata }>(group: T[]): Date {
-  return group.reduce((max, item) => (item.metadata.date > max ? item.metadata.date : max), new Date(0));
+  return group.reduce((max, item) => (item.metadata.date && item.metadata.date > max ? item.metadata.date : max), new Date(0));
 }
 
 /**
@@ -225,6 +224,8 @@ export class GroupingViewBuilder {
     for (const [commitHash, group] of sortedCommits) {
       const fileCount = group.length;
       const firstFile = group[0];
+      // Every file in the group shares this commit, so its newest date is the commit's.
+      const commitDate = mostRecentDateInGroup(group);
 
       // Synthetic URI so file decorations / icons don't attach
       // to the header. The owning repo comes from the group's groupRepoScope.
@@ -245,7 +246,7 @@ export class GroupingViewBuilder {
           hash: commitHash,
           fileCount,
           author: firstFile.metadata.author,
-          date: firstFile.metadata.date,
+          date: commitDate,
           aiCoAuthored: firstFile.metadata.aiCoAuthored,
           message: firstFile.metadata.commitMessage,
         },
@@ -260,7 +261,7 @@ export class GroupingViewBuilder {
       deferCommitTooltip(commitItem, {
         hash: commitHash,
         author: firstFile.metadata.author,
-        date: firstFile.metadata.date,
+        date: commitDate,
         fileCount,
         lineChanges: formatTooltipLineChanges(totals?.added, totals?.deleted) || undefined,
         aiCoAuthored: firstFile.metadata.aiCoAuthored,
@@ -311,7 +312,7 @@ export class GroupingViewBuilder {
     const phaseGroups = GroupingViewBuilder.groupFilesBy(
       freshFiles,
       filterPredicate,
-      (metadata) => getMoonPhase(metadata.date).name,
+      (metadata) => metadata.date ? getMoonPhase(metadata.date).name : undefined,
     );
 
     for (const phaseName of MOON_PHASE_ORDER) {
@@ -321,11 +322,11 @@ export class GroupingViewBuilder {
       }
 
       const fileCount = group.length;
-      const moonPhaseInfo = getMoonPhase(group[0].metadata.date);
+      // Only dated files land in a phase group, so this is one of its dates.
+      const mostRecentDate = mostRecentDateInGroup(group);
+      const moonPhaseInfo = getMoonPhase(mostRecentDate);
 
       const phaseUri = vscode.Uri.parse(`freshfiles://moonphase/${encodeURIComponent(phaseName)}`);
-      
-      const mostRecentDate = mostRecentDateInGroup(group);
 
       const phaseItem = FreshFileItem.forDirectory(
         phaseUri,
@@ -375,7 +376,7 @@ export class GroupingViewBuilder {
     return GroupingViewBuilder.buildGroupFiles(
       freshFiles,
       filterPredicate,
-      (metadata) => getMoonPhase(metadata.date).name === moonPhaseName,
+      (metadata) => metadata.date !== undefined && getMoonPhase(metadata.date).name === moonPhaseName,
       sortOrder,
       openChangesMode,
     );
@@ -394,8 +395,8 @@ export class GroupingViewBuilder {
         // Sort by date (most recent first)
         filesList.sort((a, b) => {
           // Undated (pending deletions) sort last.
-          const da = sortDateOf(a.metadata)?.getTime() ?? -Infinity;
-          const db = sortDateOf(b.metadata)?.getTime() ?? -Infinity;
+          const da = a.metadata.date?.getTime() ?? -Infinity;
+          const db = b.metadata.date?.getTime() ?? -Infinity;
           return (da === db ? 0 : db > da ? 1 : -1)
             || path.basename(a.filePath).localeCompare(path.basename(b.filePath));
         });

@@ -347,7 +347,7 @@ export function formatFileDescription(metadata: FileMetadata, format: Descriptio
   }
 
   // Show date
-  if (format.showDate) {
+  if (format.showDate && metadata.date) {
     parts.push(formatRelativeDate(metadata.date));
   }
 
@@ -418,7 +418,7 @@ export function formatFileTooltip(metadata: FileMetadata, format: DescriptionFor
   if (metadata.isDeleted) {
     // Tombstone format for deleted files
     lines.push("        R.I.P");
-    lines.push(`† ${metadata.date.toLocaleDateString()} †`);
+    lines.push(`† ${metadata.date?.toLocaleDateString() ?? "date unknown"} †`);
     lines.push("");
     lines.push("Cause of death:");
     if (metadata.author) {
@@ -448,7 +448,9 @@ export function formatFileTooltip(metadata: FileMetadata, format: DescriptionFor
     lines.push(statusLine);
   }
 
-  lines.push(`Modified: ${formatRelativeDate(metadata.date)} (${metadata.date.toLocaleDateString()})`);
+  if (metadata.date) {
+    lines.push(`Modified: ${formatRelativeDate(metadata.date)} (${metadata.date.toLocaleDateString()})`);
+  }
 
   if (metadata.author) {
     lines.push(`Author: ${metadata.author}`);

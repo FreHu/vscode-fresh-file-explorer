@@ -13,6 +13,7 @@ export type { CacheRepoStats };
 import {
   WorkspaceFolderInfo,
   FileMetadata,
+  DatedFileMetadata,
   AuthorData,
   BranchName,
   CommitStats,
@@ -952,7 +953,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     // data from non-target repos so their entries are preserved in the final result.
     const targetRepoPaths = this.load.targetRepoPaths;
     const newFiles = new Map<AbsolutePath, FileMetadata>(targetRepoPaths ? this._freshFiles : []);
-    const newHistoricalFiles = new Map<AbsolutePath, FileMetadata>(targetRepoPaths ? this.historicalCache.historicalFiles : []);
+    const newHistoricalFiles = new Map<AbsolutePath, DatedFileMetadata>(targetRepoPaths ? this.historicalCache.historicalFiles : []);
     const pendingOnly = isPendingChangesMode(this.currentTimeWindow);
     const histDays = this.currentTimeWindow.type === "historical" ? this.currentTimeWindow.days : 0;
 
@@ -1041,13 +1042,13 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
     maxDays: number,
     histDays: number,
     newFiles: Map<AbsolutePath, FileMetadata>,
-    newHistoricalFiles: Map<AbsolutePath, FileMetadata>,
+    newHistoricalFiles: Map<AbsolutePath, DatedFileMetadata>,
     thresholds: number[],
   ): Promise<{ message: string; isPathspecError: boolean } | undefined> {
     // --- Phase 3: Historical changes (potentially slow) ---
     // Capture epoch so incremental callbacks from stale loads are silently dropped.
     const token = this.load.captureEpoch();
-    const onThresholdCrossed = (days: number, partial: Map<AbsolutePath, FileMetadata>) => {
+    const onThresholdCrossed = (days: number, partial: Map<AbsolutePath, DatedFileMetadata>) => {
       if (!token.isLive()) { return; }
 
       // Update the historical cache incrementally so that a time-window switch
@@ -1112,7 +1113,7 @@ export class FreshFileProvider implements vscode.TreeDataProvider<FreshFilesTree
       // so we don't over-expose data from the wider load.
       if (histDays < maxDays) {
         const cutoff = new Date(Date.now() - histDays * 24 * 60 * 60 * 1000);
-        this._setFreshFiles(new Map([...newFiles].filter(([, m]) => m.isPending || m.date >= cutoff)));
+        this._setFreshFiles(new Map([...newFiles].filter(([, m]) => m.isPending || (m.date !== undefined && m.date >= cutoff))));
         this.historicalCache.historicalFiles = new Map([...newHistoricalFiles].filter(([, m]) => m.date >= cutoff));
       } else {
         this._setFreshFiles(new Map(newFiles));

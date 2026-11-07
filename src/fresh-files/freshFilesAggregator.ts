@@ -40,7 +40,8 @@ export function aggregateCommits(
   const commitInfo = new Map<CommitHash, CommitDataWithFileCount>();
   for (const [filePath, metadata] of freshFiles.entries()) {
     const hash = metadata.commitHash;
-    if (!hash) {
+    const date = metadata.date;
+    if (!hash || !date) {
       continue;
     }
 
@@ -70,7 +71,7 @@ export function aggregateCommits(
       commitInfo.set(hash, {
         message: asCommitMessage(metadata.commitMessage || "(no message)"),
         author: asCommitAuthor(metadata.author || "(unknown)"),
-        date: metadata.date,
+        date,
         fileCount: 1,
         hash: hash,
         repoName,
