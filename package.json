@@ -2732,7 +2732,7 @@
     "demo": "npm run compile && npm run compile:webview && node scripts/demo/run.mjs",
     "tag": "npm test && node scripts/createReleaseTag.mjs",
     "test": "npm run test:unit && npm run test:host",
-    "test:unit": "mocha --ui tdd \"out/test/**/*.unit.test.js\"",
+    "test:unit": "mocha --ui tdd --require out/test/isolateGitEnv.js \"out/test/**/*.unit.test.js\"",
     "test:host": "vscode-test --ignore \"out/test/**/*.unit.test.js\"",
     "test:coverage": "vscode-test --coverage --ignore \"out/test/**/*.unit.test.js\"",
     "test:ui": "npm run compile && npm run compile:webview && node --test --test-concurrency=1 \"scripts/uiTests/*.uitest.mjs\"",

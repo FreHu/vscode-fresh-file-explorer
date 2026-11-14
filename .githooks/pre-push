@@ -8,6 +8,10 @@
 # Bypass for a genuine emergency with:  git push --no-verify
 set -e
 
+# In a linked worktree git exports GIT_DIR to hooks; the unit tests' temp repos
+# would inherit it and rewrite this repository's config and index.
+unset $(git rev-parse --local-env-vars)
+
 echo "pre-push: compile…"
 npm run compile
 
