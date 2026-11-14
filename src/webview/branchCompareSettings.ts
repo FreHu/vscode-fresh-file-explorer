@@ -346,11 +346,15 @@ const drafts: DraftRow[] = [];
 
 function render(): void {
   tableBody.innerHTML = "";
+  // One repo and nothing pointing elsewhere: the Repo column would repeat one name.
+  const singleRepo = repos.length <= 1
+    && [...comparisons, ...drafts].every(c => c.repoFullPath === repos[0]?.fullPath);
+  tableBody.closest("table")?.classList.toggle("single-repo", singleRepo);
   if (comparisons.length === 0 && drafts.length === 0) {
     const tr = document.createElement("tr");
     tr.className = "empty-row";
     const td = document.createElement("td");
-    td.colSpan = 10;
+    td.colSpan = 11;
     td.className = "empty-state";
     td.innerHTML = "<p>No comparisons yet.</p><p>Click <strong>+ Add comparison</strong> below to define one.</p>";
     tr.appendChild(td);

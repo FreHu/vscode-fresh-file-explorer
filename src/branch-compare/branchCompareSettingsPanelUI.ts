@@ -1,5 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
-import { PRIMARY_BUTTON, INPUT_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
+import { PRIMARY_BUTTON, INPUT_CONTROL, SELECT_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
 import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 /**
@@ -113,10 +113,13 @@ export function getBranchCompareSettingsHtml(
     }
 
     /* ── inputs / buttons ──────────────────────────── */
-    input[type="text"], select {
-      width: 100%;
-      padding: 4px 6px;
+    input[type="text"] {
       ${INPUT_CONTROL}
+      width: 100%;
+    }
+    select {
+      ${SELECT_CONTROL}
+      width: 100%;
     }
     input[type="text"]:focus, select:focus {
       ${FOCUS_OUTLINE}
@@ -294,6 +297,7 @@ export function getBranchCompareSettingsHtml(
       border-left: 2px solid var(--vscode-panel-border);
     }
     .legend strong { color: var(--vscode-foreground); }
+    table.single-repo .col-repo { display: none; }
     .legend ul {
       margin: 0;
       padding-left: 18px;
@@ -395,7 +399,7 @@ ${raw(webviewHead({ cspSource, nonce, styles, title: "Branch Compare", codiconCs
       </tr>
     </thead>
     <tbody id="comparisonsBody">
-      <tr class="empty-row"><td colspan="10" class="empty-state"><p>Loading…</p></td></tr>
+      <tr class="empty-row"><td colspan="11" class="empty-state"><p>Loading…</p></td></tr>
     </tbody>
   </table>
 
@@ -410,17 +414,6 @@ ${raw(webviewHead({ cspSource, nonce, styles, title: "Branch Compare", codiconCs
       <input type="checkbox" id="autoFollow">
       <label for="autoFollow">Auto-follow diverged branches &amp; worktrees</label>
     </div>
-  </div>
-
-  <div class="legend">
-    <ul>
-      <li><strong>Auto-follow</strong> — adds a live comparison for any repo or worktree whose branch has diverged from its default. Rows are marked <i class="codicon codicon-eye"></i>; click the eye (or edit the row) to keep it as your own, delete it to stop following.</li>
-      <li><strong>Source</strong> — the branch with the work you want to inspect.</li>
-      <li><strong>Target</strong> — the baseline you compare against (the older / reference side).</li>
-      <li>The autocomplete lists branches and tags, but the input accepts any ref git understands — commit SHAs, <code>HEAD~N</code>, <code>origin/main^</code>, etc. Type freely; the green check confirms it resolves.</li>
-      <li>Use <code>HEAD</code> as source to track your current branch dynamically. Only HEAD-source comparisons can drive the blame heatmap or include working-tree changes.</li>
-      <li>Use <code>HEAD~N</code> as target to compare against your last <em>N</em> commits on this branch — e.g. <code>HEAD~5</code> shows what changed in your five most recent first-parent commits.</li>
-    </ul>
   </div>
 
   <section class="section" id="heatmapSection">
@@ -453,6 +446,17 @@ ${raw(webviewHead({ cspSource, nonce, styles, title: "Branch Compare", codiconCs
       <div class="field-help" id="hmBranchHint">Baseline mode needs a comparison marked as heatmap baseline (<i class="codicon codicon-color-mode"></i> column above).</div>
     </div>
   </section>
+
+  <div class="legend">
+    <ul>
+      <li><strong>Auto-follow</strong> — adds a live comparison for any repo or worktree whose branch has diverged from its default. Rows are marked <i class="codicon codicon-eye"></i>; click the eye (or edit the row) to keep it as your own, delete it to stop following.</li>
+      <li><strong>Source</strong> — the branch with the work you want to inspect.</li>
+      <li><strong>Target</strong> — the baseline you compare against (the older / reference side).</li>
+      <li>The autocomplete lists branches and tags, but the input accepts any ref git understands — commit SHAs, <code>HEAD~N</code>, <code>origin/main^</code>, etc. Type freely; the green check confirms it resolves.</li>
+      <li>Use <code>HEAD</code> as source to track your current branch dynamically. Only HEAD-source comparisons can drive the blame heatmap or include working-tree changes.</li>
+      <li>Use <code>HEAD~N</code> as target to compare against your last <em>N</em> commits on this branch — e.g. <code>HEAD~5</code> shows what changed in your five most recent first-parent commits.</li>
+    </ul>
+  </div>
 
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
