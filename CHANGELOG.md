@@ -1,5 +1,50 @@
 # Change Log
 
+## [1.18.0]
+
+### New
+
+- **Pin folders.** *Pin* (was *Pin File*) takes folders from the Explorer, Fresh Files folder and repo rows, Branch Compare folders and drag & drop. A pinned folder expands into its contents from disk (folders first, `files.exclude` respected) and updates as files are added or deleted. Its children open, reveal, copy, pin on their own and drag out like pinned files.
+- **Group By submenu** in Fresh Files, in the view's title menu and on each repo row. From a repo row it sets that repo's own grouping (saved per workspace), so one repo can be grouped independently from another. The title menu sets the mode for every repo.
+- **Group By submenu** on Branch Compare comparisons, with the same modes as the settings panel.
+- Commit rows in Fresh Files and Branch Compare show the full commit message in their tooltip.
+- **Open Commit shows the full commit message** as the first entry of the multi-diff editor, highlighted (subject, trailers, links, issue references, inline code), with the hash, author, date and branches below it. ([docs](docs/fresh-files.md#open-commit))
+- **File History shows commit message bodies.** A row shows the subject (`⋯` when there's more); expanding it shows the body above the diff, highlighted the same way. Search hits in the body are marked there.
+- Dropdowns and text inputs in the panels (File History, Branch Compare, CodeStonks, Diff Search) look like the ones in VS Code's Settings editor. File History's buttons and row chevrons use VS Code's icons instead of text arrows.
+- Branch Compare panel: the help list moved below the heatmap settings, and the Repo column is hidden in a single-repo workspace.
+
+### Fixes
+
+#### Fresh Files
+
+- When git log fails in one repo, only that repo shows the error (icon, tooltip and first child); the other repos still load. Before, one error replaced the whole tree.
+- Renames whose paths contain spaces or non-ASCII characters show up in pending changes and Branch Compare.
+- A pending deletion sorts last by date instead of jumping to the top on every refresh.
+
+#### Branch Compare
+
+- Date and Author sorts work in Folder Structure and Flat List (they fell back to Name), and folders follow the sort order like in Fresh Files.
+- A Date sort orders pending changes by their last edit instead of putting them at the bottom.
+- A pure rename no longer shows a stray pending dot after its name.
+
+#### Git config
+
+- Personal git settings can no longer break parsing. With `log.abbrevCommit`, `format.pretty`, `log.date=relative`, `log.decorate`, `diff.noprefix`, `color.ui=always` or `log.follow` set, Git Log -L could find no commits and other views could misread git's output. Every git call now pins those to git's defaults.
+
+#### CodeStonks
+
+- A first open shows only the two sections ticked by default (file count, files changed); ticking another one adds it.
+- Y-axis labels of fractional ranges (e.g. average commit size 1.0–1.6) stay inside their band instead of being drawn over the band above.
+
+#### Other
+
+- The View Options menu no longer leaves a hidden menu alive each time it's opened.
+- The log says when a drop onto Pinned Items pinned nothing.
+
+### Tests
+
+- UI tests stabilized and properly integrated into CI.
+
 ## [1.17.0]
 
 ### New
