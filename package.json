@@ -50,6 +50,20 @@
     }
   },
   "contributes": {
+    "languages": [
+      {
+        "id": "fresh-commit-message",
+        "aliases": ["Commit Message (read-only)"],
+        "filenames": ["Commit message"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "fresh-commit-message",
+        "scopeName": "text.fresh-commit-message",
+        "path": "./syntaxes/commit-message.tmLanguage.json"
+      }
+    ],
     "viewsContainers": {
       "panel": [
         {

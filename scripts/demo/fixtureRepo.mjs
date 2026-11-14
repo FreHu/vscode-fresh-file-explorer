@@ -64,7 +64,7 @@ const HISTORY = [
     "docs/search.md": "# Search\n",
     "README.md": "# Orbit Shop\n\nA small storefront with product search.\n",
   } },
-  { daysAgo: 0.2, author: "ada", message: "Discount codes", files: {
+  { daysAgo: 0.2, author: "ada", message: "Discount codes\n\nCodes apply to the subtotal before tax, so a 10% code on a taxed\ncart takes 10% off the net price, not the gross. Stacking is refused:\na second code replaces the first. `applyDiscount()` is the only entry\npoint; see https://example.com/pricing for the rules.\n\nFixes #42\nCo-Authored-By: bo <bo@example.com>", files: {
     "src/cart/discounts.ts": "export function applyDiscount() {}\n",
     "src/cart/cart.ts": "export class Cart {\n  total() { return 0; }\n  discount() {}\n}\n",
   } },

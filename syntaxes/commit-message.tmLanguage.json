@@ -1,0 +1,91 @@
+{
+  "name": "Fresh Commit Message",
+  "scopeName": "text.fresh-commit-message",
+  "patterns": [
+    { "include": "#subject" },
+    { "include": "#metadata" },
+    { "include": "#trailer" },
+    { "include": "#inline" }
+  ],
+  "repository": {
+    "subject": {
+      "match": "\\A.+$",
+      "name": "markup.heading.subject.fresh-commit-message markup.bold"
+    },
+    "metadata": {
+      "begin": "^(#)\\s",
+      "beginCaptures": { "1": { "name": "punctuation.definition.comment.fresh-commit-message" } },
+      "end": "$",
+      "name": "comment.line.metadata.fresh-commit-message",
+      "patterns": [
+        {
+          "match": "\\G(commit)\\s+([0-9a-f]{7,64})",
+          "captures": {
+            "1": { "name": "comment.keyword.fresh-commit-message" },
+            "2": { "name": "constant.numeric.hash.fresh-commit-message" }
+          }
+        },
+        {
+          "match": "\\G([A-Za-z]+:)",
+          "name": "comment.keyword.fresh-commit-message"
+        },
+        { "include": "#email" },
+        {
+          "match": "(HEAD)(\\s->\\s)?",
+          "captures": { "1": { "name": "constant.language.head.fresh-commit-message" } }
+        },
+        {
+          "match": "(tag:\\s)([^,\\s]+)",
+          "captures": {
+            "1": { "name": "comment.keyword.fresh-commit-message" },
+            "2": { "name": "entity.name.tag.fresh-commit-message" }
+          }
+        },
+        {
+          "match": "(?<=->\\s|,\\s)[^,\\s]+",
+          "name": "entity.name.type.ref.fresh-commit-message"
+        }
+      ]
+    },
+    "trailer": {
+      "begin": "^(?:([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+|Refs?|See|Issue|Bug)(:)|((?i:fix(?:e[sd])?|close[sd]?|resolve[sd]?))(:)?)(?=\\s)",
+      "beginCaptures": {
+        "1": { "name": "entity.name.type.trailer.fresh-commit-message" },
+        "2": { "name": "punctuation.separator.key-value.fresh-commit-message" },
+        "3": { "name": "entity.name.type.trailer.fresh-commit-message" },
+        "4": { "name": "punctuation.separator.key-value.fresh-commit-message" }
+      },
+      "end": "$",
+      "name": "meta.trailer.fresh-commit-message",
+      "patterns": [{ "include": "#email" }, { "include": "#inline" }]
+    },
+    "email": {
+      "match": "<[^<>\\s]+@[^<>\\s]+>",
+      "name": "string.other.email.fresh-commit-message"
+    },
+    "inline": {
+      "patterns": [
+        {
+          "match": "(`)([^`]+)(`)",
+          "name": "markup.inline.raw.fresh-commit-message",
+          "captures": {
+            "1": { "name": "punctuation.definition.raw.fresh-commit-message" },
+            "3": { "name": "punctuation.definition.raw.fresh-commit-message" }
+          }
+        },
+        {
+          "match": "\\bhttps?://[^\\s<>()]+[^\\s<>().,;:!?'\"]",
+          "name": "markup.underline.link.fresh-commit-message"
+        },
+        {
+          "match": "(?<![\\w/])(?:[\\w.-]+/[\\w.-]+)?#\\d+\\b",
+          "name": "constant.numeric.issue.fresh-commit-message"
+        },
+        {
+          "match": "\\b[0-9a-f]{7,40}\\b(?=[^0-9a-z]|$)",
+          "name": "constant.numeric.hash.fresh-commit-message"
+        }
+      ]
+    }
+  }
+}

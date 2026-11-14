@@ -36,6 +36,13 @@ Uneven distribution of commits during the full moon can indicate werewolves amon
 
 Relevant settings: `freshFileExplorer.defaultGroupingMode`, `freshFileExplorer.defaultSortOrder`.
 
+## Open Commit
+
+**Open Commit** (right-click a file or a commit row) opens every file the commit changed in one multi-diff editor. The first entry is the full commit message, with trailers, links, issue references and inline code highlighted, followed by the hash, author, date and branches.
+
+![commit preview](img/commit-preview.png)
+
+The message entry shows the text once with `diffEditor.renderSideBySide` off (inline diffs), and on both sides with it on.
 
 ## Quick Open
 

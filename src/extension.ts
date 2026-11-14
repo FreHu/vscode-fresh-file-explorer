@@ -45,6 +45,7 @@ import { handleCopyAbsolutePath, handleCopyRelativePath, handleCopyFilename, han
 import { handleCopyFile, handleCutFile, handlePasteFile } from "./commands/copyPasteCommands";
 import { handleCopyRemoteUrl } from "./commands/copyRemoteUrlCommand";
 import { handleCompareSelected, CompareContentProvider } from "./commands/compareFilesCommand";
+import { CommitMessageContentProvider } from "./commands/commitMessageDocument";
 import { registerCodeTelescopeFinder, openFreshFilesTelescope } from "./code-telescope/codeTelescopeIntegration";
 import { handleSetRepoPathspec, handleScopeToFolder, handleClearFolderScope } from "./commands/pathspecCommand";
 import { findRepoForAbsolutePath } from "./utils/pathUtils";
@@ -239,6 +240,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerTextDocumentContentProvider(
       CompareContentProvider.scheme,
       new CompareContentProvider(),
+    ),
+    vscode.workspace.registerTextDocumentContentProvider(
+      CommitMessageContentProvider.scheme,
+      new CommitMessageContentProvider(),
     ),
   );
 

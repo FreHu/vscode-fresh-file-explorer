@@ -12,6 +12,7 @@ import { normalizePath } from "../utils";
 import { findWorkspaceFolderForPath } from "../utils/pathUtils";
 import { shortSha } from "../utils/formatUtils";
 import { plural } from "../utils/plural";
+import { CommitMessageContentProvider } from "./commitMessageDocument";
 
 /**
  * Open a commit's changes (parent ↔ commit) in VS Code's multi-diff editor.
@@ -46,6 +47,9 @@ async function openCommitMultiDiff(repoRoot: string, commitHash: string, revealT
       }
       return { originalUri, modifiedUri };
     });
+    const messageUri = CommitMessageContentProvider.uriFor(repoRoot, commitHash);
+    // Identical sides: VS Code renders the text without diff colouring.
+    resources.unshift({ originalUri: messageUri.with({ fragment: `base:${commitHash}` }), modifiedUri: messageUri });
 
     const multiDiffSourceUri = vscode.Uri.from({
       scheme: "scm-history-item",
