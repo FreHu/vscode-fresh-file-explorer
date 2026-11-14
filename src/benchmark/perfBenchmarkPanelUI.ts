@@ -1,5 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
-import { PRIMARY_BUTTON, DROPDOWN_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
+import { PRIMARY_BUTTON, INPUT_CONTROL, SELECT_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
 import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getWebviewHtml(cspSource: string, scriptUri: string): string {
@@ -35,17 +35,14 @@ export function getWebviewHtml(cspSource: string, scriptUri: string): string {
       color: var(--vscode-foreground);
     }
     input[type="text"] {
-      padding: 6px 8px;
-      ${DROPDOWN_CONTROL}
+      ${INPUT_CONTROL}
       width: 220px;
-      box-sizing: border-box;
     }
     input[type="text"]:focus {
       ${FOCUS_OUTLINE}
     }
     select {
-      padding: 6px 8px;
-      ${DROPDOWN_CONTROL}
+      ${SELECT_CONTROL}
     }
     select:focus {
       ${FOCUS_OUTLINE}

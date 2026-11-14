@@ -1,5 +1,5 @@
 import { html, css, raw } from "../utils/templateHelpers";
-import { PRIMARY_BUTTON, INPUT_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
+import { PRIMARY_BUTTON, INPUT_CONTROL, SELECT_CONTROL, FOCUS_OUTLINE } from "../utils/webviewBaseStyles";
 import { getNonce, webviewHead } from "../utils/webviewUtils";
 
 export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codiconCssUri: string): string {
@@ -74,10 +74,9 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codico
     }
     .search-bar input[type="text"] {
       flex: 1;
+      ${INPUT_CONTROL}
       min-width: 160px;
       max-width: 420px;
-      padding: 4px 8px;
-      ${INPUT_CONTROL}
     }
     .search-bar input[type="text"]:focus {
       ${FOCUS_OUTLINE}
@@ -100,12 +99,9 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codico
       color: var(--vscode-inputOption-activeForeground, var(--vscode-foreground));
     }
     .search-bar select {
-      background: var(--vscode-dropdown-background);
-      color: var(--vscode-dropdown-foreground);
-      border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
-      padding: 3px 4px;
-      font-size: 0.9em;
+      ${SELECT_CONTROL}
     }
+    .search-bar select:focus { ${FOCUS_OUTLINE} }
     .search-bar label {
       display: flex;
       align-items: center;
