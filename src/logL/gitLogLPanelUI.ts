@@ -61,6 +61,9 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codico
     button {
       padding: 5px 12px;
       ${PRIMARY_BUTTON}
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
     button:hover { background: var(--vscode-button-hoverBackground); }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -153,10 +156,9 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codico
     .commit-header:hover { background: var(--vscode-list-hoverBackground); }
     .chevron {
       flex-shrink: 0;
-      width: 14px;
+      width: 16px;
       text-align: center;
-      font-size: 0.7em;
-      opacity: 0.5;
+      opacity: 0.7;
       pointer-events: none;
     }
     .ab-btn {
@@ -409,11 +411,11 @@ ${raw(webviewHead({ cspSource, nonce, styles, title: "Git Log -L", codiconCssUri
       <button id="clearBtn" class="secondary">Clear</button>
       <span id="selectionInfo" class="hint"></span>
       <div class="toolbar-sep"></div>
-      <button id="prevBtn" class="secondary" disabled title="Previous commit (Ctrl+Left)">◀ Prev</button>
-      <button id="nextBtn" class="secondary" disabled title="Next commit (Ctrl+Right)">Next ▶</button>
+      <button id="prevBtn" class="secondary" disabled title="Previous commit (Ctrl+Left)"><i class="codicon codicon-arrow-left"></i>Prev</button>
+      <button id="nextBtn" class="secondary" disabled title="Next commit (Ctrl+Right)">Next<i class="codicon codicon-arrow-right"></i></button>
       <div class="toolbar-sep"></div>
-      <button id="expandAllBtn" class="secondary" title="Expand all (Ctrl+*)">Expand All</button>
-      <button id="collapseAllBtn" class="secondary" title="Collapse all (Ctrl+/)">Collapse All</button>
+      <button id="expandAllBtn" class="secondary" title="Expand all (Ctrl+*)"><i class="codicon codicon-expand-all"></i>Expand All</button>
+      <button id="collapseAllBtn" class="secondary" title="Collapse all (Ctrl+/)"><i class="codicon codicon-collapse-all"></i>Collapse All</button>
     </div>
     <div class="toolbar search-bar">
       <input id="searchInput" type="text" placeholder="Search messages and diffs (Ctrl+F)" spellcheck="false">
@@ -424,8 +426,8 @@ ${raw(webviewHead({ cspSource, nonce, styles, title: "Git Log -L", codiconCssUri
         <option value="message">Message only</option>
         <option value="diff">Diff only</option>
       </select>
-      <button id="prevMatchBtn" class="secondary" disabled title="Previous match (Shift+Enter)">↑</button>
-      <button id="nextMatchBtn" class="secondary" disabled title="Next match (Enter)">↓</button>
+      <button id="prevMatchBtn" class="secondary" disabled title="Previous match (Shift+Enter)" aria-label="Previous match"><i class="codicon codicon-arrow-up"></i></button>
+      <button id="nextMatchBtn" class="secondary" disabled title="Next match (Enter)" aria-label="Next match"><i class="codicon codicon-arrow-down"></i></button>
       <label><input type="checkbox" id="onlyMatchesChk"> Only matches</label>
       <span id="searchInfo" class="hint"></span>
     </div>

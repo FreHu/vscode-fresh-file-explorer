@@ -165,7 +165,7 @@ function renderTimeline(): void {
       : "";
     header.innerHTML = html`
       <button class="ab-btn" data-action="ab" title="Mark as A or B for comparison">·</button>
-      <span class="chevron">▶</span>
+      <i class="chevron codicon codicon-chevron-right"></i>
       <button class="diff-btn" data-action="openFileDiff" title="Open this file's change as a diff to the side"><i class="codicon codicon-diff-single"></i></button>
       ${raw(statHtml)}
       <span class="hash" data-action="openCommit" title="Open commit in multi-diff editor">${commit.shortHash}</span>
@@ -270,7 +270,10 @@ function navigateTo(idx: number, expand: boolean): void {
 
 function updateChevron(row: Element): void {
   const ch = row.querySelector(".chevron");
-  if (ch) { ch.textContent = row.classList.contains("expanded") ? "▼" : "▶"; }
+  if (!ch) { return; }
+  const expanded = row.classList.contains("expanded");
+  ch.classList.toggle("codicon-chevron-down", expanded);
+  ch.classList.toggle("codicon-chevron-right", !expanded);
 }
 
 function updateSelectionInfo(): void {
