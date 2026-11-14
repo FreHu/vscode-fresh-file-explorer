@@ -55,8 +55,11 @@ export class WorktreeWatcher implements vscode.Disposable {
       if (this.watchers.has(dir)) { continue; }
       // `worktrees/*` contains a `/`, so VS Code watches recursively and applies
       // files.watcherExclude, which keeps `.git/objects` out by default.
+      // `worktrees` itself is included because the first `git worktree add` creates it and
+      // its entry together: on Linux, the entry can land before the new folder is watched.
+      // `check` reads the folder from disk, so the folder's own create event is enough.
       const watcher = vscode.workspace.createFileSystemWatcher(
-        new vscode.RelativePattern(vscode.Uri.file(dir), "worktrees/*"), false, true, false);
+        new vscode.RelativePattern(vscode.Uri.file(dir), "{worktrees,worktrees/*}"), false, true, false);
       watcher.onDidCreate(() => this.schedule(dir));
       watcher.onDidDelete(() => this.schedule(dir));
       this.watchers.set(dir, watcher);
