@@ -8,6 +8,7 @@ import {
   type LogLSearchQuery, type LogLSearchResult, type LogLSearchScope, type MatchRange, type HunkLineMatch,
 } from "./logLSearch";
 import { plural } from "../utils/plural";
+import { renderMessageSlice, splitCommitMessage } from "./commitMessageMarkup";
 
 const vscode = acquireVsCodeApi();
 
@@ -162,20 +163,19 @@ function renderTimeline(): void {
     const renameHtml = commit.filePathAtCommit
       ? html`<span class="rename" title="File was at ${commit.filePathAtCommit} in this commit">↪ ${commit.filePathAtCommit}</span>`
       : "";
-    const msgTitle = commit.message.length > 60 ? html` title="${commit.message}"` : "";
     header.innerHTML = html`
       <button class="ab-btn" data-action="ab" title="Mark as A or B for comparison">·</button>
       <span class="chevron">▶</span>
       <button class="diff-btn" data-action="openFileDiff" title="Open this file's change as a diff to the side"><i class="codicon codicon-diff-single"></i></button>
       ${raw(statHtml)}
       <span class="hash" data-action="openCommit" title="Open commit in multi-diff editor">${commit.shortHash}</span>
-      <span class="message"${raw(msgTitle)}>${commit.message || "(no message)"}</span>
+      <span class="message">${raw(subjectHtml(commit.message))}</span>
       ${raw(renameHtml)}
       <span class="meta">${commit.author} · ${dateStr}</span>`;
 
     const hunkEl = document.createElement("div");
     hunkEl.className = "hunk";
-    hunkEl.innerHTML = `<pre class="diff">${renderHunk(commit.hunk)}</pre>`;
+    hunkEl.innerHTML = `<div class="commit-body">${bodyHtml(commit.message)}</div><pre class="diff">${renderHunk(commit.hunk)}</pre>`;
 
     row.appendChild(header);
     row.appendChild(hunkEl);
@@ -358,19 +358,31 @@ interface RowHighlight {
   hunkLines: HunkLineMatch[];
 }
 
+/** The row's one-line label: the subject, plus a marker when there's more to expand. */
+function subjectHtml(message: string, ranges: readonly MatchRange[] = []): string {
+  if (!message) { return "(no message)"; }
+  const { subject, bodyStart } = splitCommitMessage(message);
+  const marker = bodyStart >= 0 ? '<span class="body-marker" aria-hidden="true">⋯</span>' : "";
+  return renderMessageSlice(message, 0, subject.length, ranges) + marker;
+}
+
+/** The message body shown above the diff of an expanded row; empty without one. */
+function bodyHtml(message: string, ranges: readonly MatchRange[] = []): string {
+  const { bodyStart } = splitCommitMessage(message);
+  return bodyStart < 0 ? "" : renderMessageSlice(message, bodyStart, message.length, ranges);
+}
+
 /** Re-renders one row's message + hunk, with marks when `highlight` is given. */
 function renderRowContent(idx: number, highlight: RowHighlight | null): void {
   const row = rowEls[idx];
   const commit = commits[idx];
   if (!row || !commit) { return; }
   const msgEl = row.querySelector<HTMLElement>(".message");
+  const bodyEl = row.querySelector<HTMLElement>(".commit-body");
   const preEl = row.querySelector<HTMLElement>("pre.diff");
-  if (msgEl) {
-    const text = commit.message || "(no message)";
-    msgEl.innerHTML = highlight && highlight.messageRanges.length > 0
-      ? highlightSegments(text, highlight.messageRanges)
-      : html`${text}`;
-  }
+  const ranges = highlight ? highlight.messageRanges : [];
+  if (msgEl) { msgEl.innerHTML = subjectHtml(commit.message, ranges); }
+  if (bodyEl) { bodyEl.innerHTML = bodyHtml(commit.message, ranges); }
   if (preEl) {
     preEl.innerHTML = renderHunk(commit.hunk, highlight ? highlight.hunkLines : []);
   }

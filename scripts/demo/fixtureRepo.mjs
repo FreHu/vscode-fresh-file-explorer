@@ -52,7 +52,7 @@ const HISTORY = [
     "src/cart/cart.ts": "export class Cart {\n  total() { return 0; }\n}\n",
     "src/cart/tax.ts": "export const TAX_RATE = 0.21;\n",
   } },
-  { daysAgo: 5, author: "bo", message: "Retry failed payments", files: {
+  { daysAgo: 5, author: "bo", message: "Retry failed payments\n\nA declined card is retried up to three times with backoff before the\norder fails. `retry()` wraps the gateway call; see #17 for why the\ngateway's own retries stay off.\n\nReviewed-by: carmen <carmen@example.com>", files: {
     "src/checkout/payment.ts": PAYMENT_V4,
     "src/checkout/retry.ts": "export function retry() {}\n",
   } },

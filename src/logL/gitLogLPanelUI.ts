@@ -267,6 +267,33 @@ export function getGitLogLPanelHtml(cspSource: string, scriptUri: string, codico
       overflow-x: auto;
     }
     .commit-row.expanded .hunk { display: block; }
+    .commit-body:empty { display: none; }
+    .commit-body {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      margin: 0 0 8px;
+      padding: 6px 10px;
+      border-left: 2px solid var(--vscode-textBlockQuote-border, var(--vscode-panel-border));
+      background: var(--vscode-textBlockQuote-background, transparent);
+      line-height: 1.45;
+    }
+    .body-marker {
+      margin-left: 6px;
+      color: var(--vscode-descriptionForeground);
+    }
+    .cm-trailer { color: var(--vscode-symbolIcon-classForeground, var(--vscode-textPreformat-foreground)); }
+    .cm-email { color: var(--vscode-descriptionForeground); }
+    .cm-code {
+      font-family: var(--vscode-editor-font-family, monospace);
+      color: var(--vscode-textPreformat-foreground);
+      background: var(--vscode-textPreformat-background, transparent);
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+    .cm-link { color: var(--vscode-textLink-foreground); }
+    .cm-link:hover { color: var(--vscode-textLink-activeForeground); }
+    .cm-issue, .cm-hash { color: var(--vscode-textLink-foreground); }
+    .cm-hash { font-family: var(--vscode-editor-font-family, monospace); font-size: 0.95em; }
     pre.diff {
       margin: 0;
       font-family: var(--vscode-editor-font-family, monospace);
